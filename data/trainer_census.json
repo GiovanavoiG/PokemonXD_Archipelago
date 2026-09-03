@@ -1,0 +1,4769 @@
+{
+  "species": [
+    {
+      "species_id": 1,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 2,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 3,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 4,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 5,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 6,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 7,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 8,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 9,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 10,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 11,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 12,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 13,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 14,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 15,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 16,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 17,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 18,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 19,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 20,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 21,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 22,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 23,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 24,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 25,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 26,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 27,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 28,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 29,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 30,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 31,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 32,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 33,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 34,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 35,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 36,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 37,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 38,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 39,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 40,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 41,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 42,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 43,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 44,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 45,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 46,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 47,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 48,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 49,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 50,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 51,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 52,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 53,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 54,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 55,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 56,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 57,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 58,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 59,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 60,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 61,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 62,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 63,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 64,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 65,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 66,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 67,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 68,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 69,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 70,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 71,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 72,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 73,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 74,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 75,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 76,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 77,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 78,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 79,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 80,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 81,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 82,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 83,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 84,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 85,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 86,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 87,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 88,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 89,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 90,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 91,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 92,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 93,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 94,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 95,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 96,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 97,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 98,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 99,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 100,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 101,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 102,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 103,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 104,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 105,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 106,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 107,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 108,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 109,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 110,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 111,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 112,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 113,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 114,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 115,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 116,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 117,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 118,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 119,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 120,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 121,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 122,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 123,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 124,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 125,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 126,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 127,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 128,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 129,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 130,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 131,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 132,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 133,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 134,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 135,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 136,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 137,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 138,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 139,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 140,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 141,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 142,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 143,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 144,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 145,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 146,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 147,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 148,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 149,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 150,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 151,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 152,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 153,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 154,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 155,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 156,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 157,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 158,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 159,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 160,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 161,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 162,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 163,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 164,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 165,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 166,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 167,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 168,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 169,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 170,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 171,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 172,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 173,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 174,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 175,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 176,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 177,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 178,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 179,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 180,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 181,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 182,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 183,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 184,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 185,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 186,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 187,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 188,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 189,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 190,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 191,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 192,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 193,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 194,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 195,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 196,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 197,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 198,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 199,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 200,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 201,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 202,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 203,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 204,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 205,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 206,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 207,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 208,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 209,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 210,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 211,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 212,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 213,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 214,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 215,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 216,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 217,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 218,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 219,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 220,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 221,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 222,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 223,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 224,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 225,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 226,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 227,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 228,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 229,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 230,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 231,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 232,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 233,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 234,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 235,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 236,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 237,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 238,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 239,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 240,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 241,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 242,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 243,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 244,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 245,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 246,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 247,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 248,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 249,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 250,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 251,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 252,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 253,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 254,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 255,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 256,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 257,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 258,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 259,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 260,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 261,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 262,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 263,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 264,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 265,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 266,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 267,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 268,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 269,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 270,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 271,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 272,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 273,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 274,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 275,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 276,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 277,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 278,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 279,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 280,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 281,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 282,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 283,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 284,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 285,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 286,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 287,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 288,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 289,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 290,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 291,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 292,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 293,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 294,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 295,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 296,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 297,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 298,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 299,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 300,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 301,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 302,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 303,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 304,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 305,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 306,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 307,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 308,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 309,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 310,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 311,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 312,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 313,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 314,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 315,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 316,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 317,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 318,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 319,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 320,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 321,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 322,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 323,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 324,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 325,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 326,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 327,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 328,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 329,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 330,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 331,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 332,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 333,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 334,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 335,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 336,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 337,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 338,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 339,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 340,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 341,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 342,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 343,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 344,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 345,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 346,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 347,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 348,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 349,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 350,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 351,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 352,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 353,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 354,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 355,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 356,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 357,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 358,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 359,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 360,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 361,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 362,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 363,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 364,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 365,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 366,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 367,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 368,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 369,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 370,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 371,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 372,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 373,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 374,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 375,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 376,
+      "is_legendary": false,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 377,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 378,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 379,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 380,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 381,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 382,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 383,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 384,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 385,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    },
+    {
+      "species_id": 386,
+      "is_legendary": true,
+      "evolves_into": null,
+      "evolves_at_level": null
+    }
+  ],
+  "trainer_pools": [
+    {
+      "name": "Relic Cave - Eagun (intro battle)",
+      "trainers": [
+        {
+          "name": "Myth Trainer Eagun",
+          "team": [
+            {
+              "index": 0,
+              "species_id": 25,
+              "level": 12,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cipher Lab - Lovrina (1st)",
+      "trainers": [
+        {
+          "name": "Cipher Admin Lovrina",
+          "team": [
+            {
+              "index": 1,
+              "species_id": 370,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 2,
+              "species_id": 267,
+              "level": 19,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 3,
+              "species_id": 315,
+              "level": 19,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 4,
+              "species_id": 301,
+              "level": 18,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cave Poke Spot - Miror B. (1st)",
+      "trainers": [
+        {
+          "name": "Wanderer Miror B.",
+          "team": [
+            {
+              "index": 5,
+              "species_id": 271,
+              "level": 17,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 6,
+              "species_id": 271,
+              "level": 17,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 7,
+              "species_id": 271,
+              "level": 17,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 8,
+              "species_id": 100,
+              "level": 19,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ONBS Building - Exol",
+      "trainers": [
+        {
+          "name": "Cipher Commander Exol",
+          "team": [
+            {
+              "index": 9,
+              "species_id": 294,
+              "level": 23,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 10,
+              "species_id": 203,
+              "level": 23,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 11,
+              "species_id": 303,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 12,
+              "species_id": 26,
+              "level": 23,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Snagem Hideout - Gonzap",
+      "trainers": [
+        {
+          "name": "Snagem Head Gonzap",
+          "team": [
+            {
+              "index": 13,
+              "species_id": 101,
+              "level": 30,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 14,
+              "species_id": 274,
+              "level": 32,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 15,
+              "species_id": 45,
+              "level": 30,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 16,
+              "species_id": 340,
+              "level": 31,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 17,
+              "species_id": 227,
+              "level": 32,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Phenac Area Cipher Peons",
+      "trainers": [
+        {
+          "name": "Cipher Peon Exinn",
+          "team": [
+            {
+              "index": 18,
+              "species_id": 361,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 19,
+              "species_id": 336,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 20,
+              "species_id": 42,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 21,
+              "species_id": 262,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Gonrag",
+          "team": [
+            {
+              "index": 22,
+              "species_id": 204,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 23,
+              "species_id": 198,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 24,
+              "species_id": 168,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Jirel",
+          "team": [
+            {
+              "index": 25,
+              "species_id": 116,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 26,
+              "species_id": 118,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 27,
+              "species_id": 374,
+              "level": 19,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Resix",
+          "team": [
+            {
+              "index": 28,
+              "species_id": 218,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 29,
+              "species_id": 322,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Purpsix",
+          "team": [
+            {
+              "index": 30,
+              "species_id": 88,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 31,
+              "species_id": 109,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 32,
+              "species_id": 72,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 33,
+              "species_id": 41,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Greesix",
+          "team": [
+            {
+              "index": 34,
+              "species_id": 331,
+              "level": 18,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 35,
+              "species_id": 43,
+              "level": 18,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 36,
+              "species_id": 285,
+              "level": 19,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 37,
+              "species_id": 270,
+              "level": 19,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 38,
+              "species_id": 204,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Yellosix",
+          "team": [
+            {
+              "index": 39,
+              "species_id": 170,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 40,
+              "species_id": 309,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 41,
+              "species_id": 81,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Browsix",
+          "team": [
+            {
+              "index": 42,
+              "species_id": 164,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 43,
+              "species_id": 288,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Trita",
+          "team": [
+            {
+              "index": 44,
+              "species_id": 353,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 45,
+              "species_id": 216,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 46,
+              "species_id": 222,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Kubara",
+          "team": [
+            {
+              "index": 47,
+              "species_id": 81,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 48,
+              "species_id": 261,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 49,
+              "species_id": 120,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 50,
+              "species_id": 359,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Kuroru",
+          "team": [
+            {
+              "index": 51,
+              "species_id": 325,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 52,
+              "species_id": 313,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 53,
+              "species_id": 314,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 54,
+              "species_id": 336,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 55,
+              "species_id": 320,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Zanyu",
+          "team": [
+            {
+              "index": 56,
+              "species_id": 118,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 57,
+              "species_id": 318,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 58,
+              "species_id": 109,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 59,
+              "species_id": 262,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Yaida",
+          "team": [
+            {
+              "index": 60,
+              "species_id": 355,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 61,
+              "species_id": 341,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 62,
+              "species_id": 211,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Rikoza",
+          "team": [
+            {
+              "index": 63,
+              "species_id": 185,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 64,
+              "species_id": 366,
+              "level": 21,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Eloin",
+          "team": [
+            {
+              "index": 65,
+              "species_id": 264,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 66,
+              "species_id": 281,
+              "level": 20,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 67,
+              "species_id": 177,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Fasin",
+          "team": [
+            {
+              "index": 68,
+              "species_id": 42,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 69,
+              "species_id": 223,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 70,
+              "species_id": 315,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Fostin",
+          "team": [
+            {
+              "index": 71,
+              "species_id": 215,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 72,
+              "species_id": 65,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 73,
+              "species_id": 200,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 74,
+              "species_id": 52,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Greck",
+          "team": [
+            {
+              "index": 75,
+              "species_id": 324,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 76,
+              "species_id": 274,
+              "level": 23,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 77,
+              "species_id": 220,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Ezin",
+          "team": [
+            {
+              "index": 78,
+              "species_id": 279,
+              "level": 23,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 79,
+              "species_id": 309,
+              "level": 23,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 80,
+              "species_id": 21,
+              "level": 22,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Faltly",
+          "team": [
+            {
+              "index": 81,
+              "species_id": 234,
+              "level": 23,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 82,
+              "species_id": 358,
+              "level": 23,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 83,
+              "species_id": 88,
+              "level": 23,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Egrog",
+          "team": [
+            {
+              "index": 84,
+              "species_id": 75,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 85,
+              "species_id": 163,
+              "level": 25,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 86,
+              "species_id": 316,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 87,
+              "species_id": 86,
+              "level": 23,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Phenac Stadium - Snattle (1st)",
+      "trainers": [
+        {
+          "name": "Cipher Admin Snattle",
+          "team": [
+            {
+              "index": 88,
+              "species_id": 171,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 89,
+              "species_id": 195,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 90,
+              "species_id": 337,
+              "level": 25,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 91,
+              "species_id": 351,
+              "level": 27,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 92,
+              "species_id": 375,
+              "level": 28,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Agate Village - Chobin",
+      "trainers": [
+        {
+          "name": "Researcher Chobin",
+          "team": [
+            {
+              "index": 93,
+              "species_id": 191,
+              "level": 25,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 94,
+              "species_id": 130,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Robo Groudon (Chobin's mecha)",
+          "team": [
+            {
+              "index": 95,
+              "species_id": 192,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 96,
+              "species_id": 130,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 97,
+              "species_id": 187,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 98,
+              "species_id": 357,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Deserted Cruiser - Smarton (1st)",
+      "trainers": [
+        {
+          "name": "Cipher Peon Smarton",
+          "team": [
+            {
+              "index": 99,
+              "species_id": 331,
+              "level": 27,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 100,
+              "species_id": 367,
+              "level": 27,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 101,
+              "species_id": 216,
+              "level": 27,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 102,
+              "species_id": 109,
+              "level": 27,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Outskirt Stand - Miror B. (rematch)",
+      "trainers": [
+        {
+          "name": "Wanderer Miror B.",
+          "team": [
+            {
+              "index": 103,
+              "species_id": 271,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 104,
+              "species_id": 271,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 105,
+              "species_id": 271,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 106,
+              "species_id": 299,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 107,
+              "species_id": 272,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Rider Willie",
+          "team": [
+            {
+              "index": 108,
+              "species_id": 263,
+              "level": 24,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 109,
+              "species_id": 263,
+              "level": 24,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 110,
+              "species_id": 264,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 111,
+              "species_id": 264,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Shadow Pokemon Factory - Gorigan",
+      "trainers": [
+        {
+          "name": "Cipher Admin Gorigan",
+          "team": [
+            {
+              "index": 112,
+              "species_id": 305,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 113,
+              "species_id": 364,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 114,
+              "species_id": 199,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 115,
+              "species_id": 217,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 116,
+              "species_id": 57,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 117,
+              "species_id": 97,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Thug Zook",
+          "team": [
+            {
+              "index": 118,
+              "species_id": 335,
+              "level": 28,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 119,
+              "species_id": 84,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 120,
+              "species_id": 318,
+              "level": 26,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 121,
+              "species_id": 336,
+              "level": 28,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 122,
+              "species_id": 369,
+              "level": 28,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Smarton (Factory Control Room)",
+          "team": [
+            {
+              "index": 123,
+              "species_id": 367,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 124,
+              "species_id": 332,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 125,
+              "species_id": 110,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 126,
+              "species_id": 217,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 127,
+              "species_id": 24,
+              "level": 33,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Citadark Isle - Port Entry",
+      "trainers": [
+        {
+          "name": "Navigator Abson",
+          "team": [
+            {
+              "index": 128,
+              "species_id": 342,
+              "level": 33,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 129,
+              "species_id": 279,
+              "level": 33,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 130,
+              "species_id": 226,
+              "level": 33,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 131,
+              "species_id": 55,
+              "level": 33,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 132,
+              "species_id": 302,
+              "level": 33,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Citadark Isle - First Floor",
+      "trainers": [
+        {
+          "name": "Cipher Peon Dimon",
+          "team": [
+            {
+              "index": 133,
+              "species_id": 284,
+              "level": 33,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 134,
+              "species_id": 206,
+              "level": 33,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 135,
+              "species_id": 315,
+              "level": 33,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 136,
+              "species_id": 327,
+              "level": 33,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Chaser Furgy",
+          "team": [
+            {
+              "index": 137,
+              "species_id": 178,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 138,
+              "species_id": 85,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 139,
+              "species_id": 340,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 140,
+              "species_id": 20,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Sailor Toronba",
+          "team": [
+            {
+              "index": 141,
+              "species_id": 304,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 142,
+              "species_id": 222,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 143,
+              "species_id": 247,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Hunter Ransa",
+          "team": [
+            {
+              "index": 144,
+              "species_id": 215,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 145,
+              "species_id": 203,
+              "level": 33,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 146,
+              "species_id": 42,
+              "level": 33,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 147,
+              "species_id": 119,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Admin Lovrina (Citadark)",
+          "team": [
+            {
+              "index": 148,
+              "species_id": 368,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 149,
+              "species_id": 282,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 150,
+              "species_id": 315,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 151,
+              "species_id": 83,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 152,
+              "species_id": 334,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Citadark Isle - Second Floor",
+      "trainers": [
+        {
+          "name": "Cipher Peon Berd",
+          "team": [
+            {
+              "index": 153,
+              "species_id": 336,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 154,
+              "species_id": 169,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 155,
+              "species_id": 358,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 156,
+              "species_id": 284,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Litnar",
+          "team": [
+            {
+              "index": 157,
+              "species_id": 101,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 158,
+              "species_id": 200,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 159,
+              "species_id": 344,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 160,
+              "species_id": 115,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 161,
+              "species_id": 354,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Citadark Isle - Lava Ground",
+      "trainers": [
+        {
+          "name": "Cipher Peon Grupel",
+          "team": [
+            {
+              "index": 162,
+              "species_id": 229,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 163,
+              "species_id": 38,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 164,
+              "species_id": 45,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 165,
+              "species_id": 126,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 166,
+              "species_id": 127,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Citadark Isle - Upper Floors",
+      "trainers": [
+        {
+          "name": "Cipher Peon Fajo",
+          "team": [
+            {
+              "index": 167,
+              "species_id": 234,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 168,
+              "species_id": 262,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 169,
+              "species_id": 335,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 170,
+              "species_id": 192,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 171,
+              "species_id": 319,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Hunter Ogera",
+          "team": [
+            {
+              "index": 172,
+              "species_id": 110,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 173,
+              "species_id": 205,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 174,
+              "species_id": 85,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 175,
+              "species_id": 202,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 176,
+              "species_id": 227,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Kolest",
+          "team": [
+            {
+              "index": 177,
+              "species_id": 323,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 178,
+              "species_id": 110,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 179,
+              "species_id": 89,
+              "level": 38,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 180,
+              "species_id": 78,
+              "level": 40,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 181,
+              "species_id": 219,
+              "level": 38,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Uumo",
+          "team": [
+            {
+              "index": 182,
+              "species_id": 332,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 183,
+              "species_id": 38,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 184,
+              "species_id": 324,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 185,
+              "species_id": 226,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 186,
+              "species_id": 357,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Chaser Carol",
+          "team": [
+            {
+              "index": 187,
+              "species_id": 269,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 188,
+              "species_id": 267,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 189,
+              "species_id": 192,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 190,
+              "species_id": 314,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 191,
+              "species_id": 313,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Rider Fego",
+          "team": [
+            {
+              "index": 192,
+              "species_id": 184,
+              "level": 34,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 193,
+              "species_id": 279,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 194,
+              "species_id": 168,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 195,
+              "species_id": 224,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 196,
+              "species_id": 211,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Antol",
+          "team": [
+            {
+              "index": 197,
+              "species_id": 225,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 198,
+              "species_id": 326,
+              "level": 36,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 199,
+              "species_id": 317,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 200,
+              "species_id": 369,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 201,
+              "species_id": 55,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 202,
+              "species_id": 195,
+              "level": 35,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Karbon",
+          "team": [
+            {
+              "index": 203,
+              "species_id": 308,
+              "level": 38,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 204,
+              "species_id": 76,
+              "level": 38,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 205,
+              "species_id": 178,
+              "level": 38,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 206,
+              "species_id": 107,
+              "level": 38,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Petro",
+          "team": [
+            {
+              "index": 207,
+              "species_id": 227,
+              "level": 39,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 208,
+              "species_id": 326,
+              "level": 39,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 209,
+              "species_id": 375,
+              "level": 39,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 210,
+              "species_id": 297,
+              "level": 39,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 211,
+              "species_id": 106,
+              "level": 38,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Koral",
+          "team": [
+            {
+              "index": 212,
+              "species_id": 315,
+              "level": 39,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 213,
+              "species_id": 193,
+              "level": 39,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 214,
+              "species_id": 235,
+              "level": 39,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 215,
+              "species_id": 45,
+              "level": 37,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 216,
+              "species_id": 334,
+              "level": 40,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Akante",
+          "team": [
+            {
+              "index": 217,
+              "species_id": 354,
+              "level": 40,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 218,
+              "species_id": 302,
+              "level": 40,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 219,
+              "species_id": 356,
+              "level": 40,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 220,
+              "species_id": 169,
+              "level": 44,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 221,
+              "species_id": 321,
+              "level": 44,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Gefta",
+          "team": [
+            {
+              "index": 222,
+              "species_id": 82,
+              "level": 41,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 223,
+              "species_id": 171,
+              "level": 41,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 224,
+              "species_id": 108,
+              "level": 38,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Leden",
+          "team": [
+            {
+              "index": 225,
+              "species_id": 234,
+              "level": 41,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 226,
+              "species_id": 295,
+              "level": 41,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 227,
+              "species_id": 123,
+              "level": 40,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 228,
+              "species_id": 113,
+              "level": 39,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Citadark Isle - Admin Gauntlet",
+      "trainers": [
+        {
+          "name": "Cipher Admin Snattle (Citadark)",
+          "team": [
+            {
+              "index": 229,
+              "species_id": 375,
+              "level": 42,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 230,
+              "species_id": 195,
+              "level": 42,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 231,
+              "species_id": 212,
+              "level": 42,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 232,
+              "species_id": 338,
+              "level": 41,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 233,
+              "species_id": 351,
+              "level": 42,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 234,
+              "species_id": 121,
+              "level": 41,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Metring",
+          "team": [
+            {
+              "index": 235,
+              "species_id": 213,
+              "level": 44,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 236,
+              "species_id": 242,
+              "level": 42,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 237,
+              "species_id": 110,
+              "level": 41,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        },
+        {
+          "name": "Cipher Admin Ardos",
+          "team": [
+            {
+              "index": 238,
+              "species_id": 277,
+              "level": 43,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 239,
+              "species_id": 65,
+              "level": 44,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 240,
+              "species_id": 230,
+              "level": 44,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 241,
+              "species_id": 214,
+              "level": 44,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 242,
+              "species_id": 125,
+              "level": 43,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 243,
+              "species_id": 143,
+              "level": 43,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Peon Stron",
+          "team": [
+            {
+              "index": 244,
+              "species_id": 362,
+              "level": 41,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 245,
+              "species_id": 181,
+              "level": 44,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 246,
+              "species_id": 286,
+              "level": 42,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 247,
+              "species_id": 232,
+              "level": 44,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 248,
+              "species_id": 51,
+              "level": 40,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Admin Gorigan (Citadark, final)",
+          "team": [
+            {
+              "index": 249,
+              "species_id": 199,
+              "level": 42,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 250,
+              "species_id": 217,
+              "level": 43,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 251,
+              "species_id": 306,
+              "level": 43,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 252,
+              "species_id": 365,
+              "level": 44,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 253,
+              "species_id": 62,
+              "level": 42,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 254,
+              "species_id": 122,
+              "level": 42,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Admin Eldes",
+          "team": [
+            {
+              "index": 255,
+              "species_id": 291,
+              "level": 45,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 256,
+              "species_id": 310,
+              "level": 44,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 257,
+              "species_id": 373,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 258,
+              "species_id": 330,
+              "level": 45,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 259,
+              "species_id": 105,
+              "level": 44,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 260,
+              "species_id": 131,
+              "level": 44,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Citadark Isle - Final Battles",
+      "trainers": [
+        {
+          "name": "Shadow Lugia",
+          "team": [
+            {
+              "index": 261,
+              "species_id": 249,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        },
+        {
+          "name": "Cipher Boss Greevil",
+          "team": [
+            {
+              "index": 262,
+              "species_id": 146,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 263,
+              "species_id": 112,
+              "level": 46,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 264,
+              "species_id": 144,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 265,
+              "species_id": 103,
+              "level": 46,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 266,
+              "species_id": 145,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": true
+            },
+            {
+              "index": 267,
+              "species_id": 128,
+              "level": 46,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Post-Game - Eagun (final)",
+      "trainers": [
+        {
+          "name": "Legendary Trainer Eagun",
+          "team": [
+            {
+              "index": 268,
+              "species_id": 172,
+              "level": 45,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 269,
+              "species_id": 172,
+              "level": 45,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 270,
+              "species_id": 25,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 271,
+              "species_id": 25,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 272,
+              "species_id": 26,
+              "level": 55,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 273,
+              "species_id": 26,
+              "level": 55,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Post-Game - Miror B. (final)",
+      "trainers": [
+        {
+          "name": "Wanderer Miror B.",
+          "team": [
+            {
+              "index": 274,
+              "species_id": 272,
+              "level": 57,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 275,
+              "species_id": 272,
+              "level": 57,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 276,
+              "species_id": 272,
+              "level": 57,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 277,
+              "species_id": 272,
+              "level": 57,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 278,
+              "species_id": 272,
+              "level": 57,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 279,
+              "species_id": 149,
+              "level": 55,
+              "item_id": null,
+              "is_shadow": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Post-Game - Cipher Boss Greevil (rematch)",
+      "trainers": [
+        {
+          "name": "Cipher Boss Greevil",
+          "team": [
+            {
+              "index": 280,
+              "species_id": 310,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 281,
+              "species_id": 277,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 282,
+              "species_id": 121,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 283,
+              "species_id": 210,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 284,
+              "species_id": 334,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": false
+            },
+            {
+              "index": 285,
+              "species_id": 142,
+              "level": 50,
+              "item_id": null,
+              "is_shadow": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
