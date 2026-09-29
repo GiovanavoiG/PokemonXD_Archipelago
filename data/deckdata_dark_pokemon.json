@@ -1,0 +1,500 @@
+[
+  {
+    "ddpk_index": 1,
+    "dpkm_index": 28,
+    "species": 216,
+    "shadow_level": 11
+  },
+  {
+    "ddpk_index": 2,
+    "dpkm_index": 200,
+    "species": 37,
+    "shadow_level": 18
+  },
+  {
+    "ddpk_index": 3,
+    "dpkm_index": 721,
+    "species": 341,
+    "shadow_level": 17
+  },
+  {
+    "ddpk_index": 4,
+    "dpkm_index": 722,
+    "species": 318,
+    "shadow_level": 17
+  },
+  {
+    "ddpk_index": 5,
+    "dpkm_index": 725,
+    "species": 179,
+    "shadow_level": 17
+  },
+  {
+    "ddpk_index": 6,
+    "dpkm_index": 731,
+    "species": 367,
+    "shadow_level": 17
+  },
+  {
+    "ddpk_index": 7,
+    "dpkm_index": 739,
+    "species": 298,
+    "shadow_level": 17
+  },
+  {
+    "ddpk_index": 8,
+    "dpkm_index": 114,
+    "species": 167,
+    "shadow_level": 14
+  },
+  {
+    "ddpk_index": 9,
+    "dpkm_index": 118,
+    "species": 339,
+    "shadow_level": 14
+  },
+  {
+    "ddpk_index": 10,
+    "dpkm_index": 138,
+    "species": 330,
+    "shadow_level": 15
+  },
+  {
+    "ddpk_index": 11,
+    "dpkm_index": 281,
+    "species": 363,
+    "shadow_level": 22
+  },
+  {
+    "ddpk_index": 12,
+    "dpkm_index": 155,
+    "species": 316,
+    "shadow_level": 18
+  },
+  {
+    "ddpk_index": 13,
+    "dpkm_index": 405,
+    "species": 320,
+    "shadow_level": 26
+  },
+  {
+    "ddpk_index": 14,
+    "dpkm_index": 715,
+    "species": 228,
+    "shadow_level": 17
+  },
+  {
+    "ddpk_index": 15,
+    "dpkm_index": 210,
+    "species": 335,
+    "shadow_level": 18
+  },
+  {
+    "ddpk_index": 16,
+    "dpkm_index": 228,
+    "species": 361,
+    "shadow_level": 19
+  },
+  {
+    "ddpk_index": 17,
+    "dpkm_index": 236,
+    "species": 392,
+    "shadow_level": 20
+  },
+  {
+    "ddpk_index": 18,
+    "dpkm_index": 239,
+    "species": 355,
+    "shadow_level": 22
+  },
+  {
+    "ddpk_index": 19,
+    "dpkm_index": 242,
+    "species": 346,
+    "shadow_level": 20
+  },
+  {
+    "ddpk_index": 20,
+    "dpkm_index": 246,
+    "species": 204,
+    "shadow_level": 20
+  },
+  {
+    "ddpk_index": 21,
+    "dpkm_index": 275,
+    "species": 220,
+    "shadow_level": 22
+  },
+  {
+    "ddpk_index": 22,
+    "dpkm_index": 278,
+    "species": 177,
+    "shadow_level": 22
+  },
+  {
+    "ddpk_index": 23,
+    "dpkm_index": 147,
+    "species": 306,
+    "shadow_level": 15
+  },
+  {
+    "ddpk_index": 24,
+    "dpkm_index": 285,
+    "species": 52,
+    "shadow_level": 22
+  },
+  {
+    "ddpk_index": 25,
+    "dpkm_index": 288,
+    "species": 21,
+    "shadow_level": 22
+  },
+  {
+    "ddpk_index": 26,
+    "dpkm_index": 291,
+    "species": 88,
+    "shadow_level": 23
+  },
+  {
+    "ddpk_index": 27,
+    "dpkm_index": 295,
+    "species": 86,
+    "shadow_level": 23
+  },
+  {
+    "ddpk_index": 28,
+    "dpkm_index": 298,
+    "species": 348,
+    "shadow_level": 25
+  },
+  {
+    "ddpk_index": 29,
+    "dpkm_index": 191,
+    "species": 100,
+    "shadow_level": 19
+  },
+  {
+    "ddpk_index": 30,
+    "dpkm_index": 460,
+    "species": 380,
+    "shadow_level": 28
+  },
+  {
+    "ddpk_index": 31,
+    "dpkm_index": 473,
+    "species": 58,
+    "shadow_level": 28
+  },
+  {
+    "ddpk_index": 32,
+    "dpkm_index": 472,
+    "species": 46,
+    "shadow_level": 28
+  },
+  {
+    "ddpk_index": 33,
+    "dpkm_index": 482,
+    "species": 90,
+    "shadow_level": 29
+  },
+  {
+    "ddpk_index": 34,
+    "dpkm_index": 491,
+    "species": 15,
+    "shadow_level": 30
+  },
+  {
+    "ddpk_index": 35,
+    "dpkm_index": 494,
+    "species": 17,
+    "shadow_level": 30
+  },
+  {
+    "ddpk_index": 36,
+    "dpkm_index": 508,
+    "species": 12,
+    "shadow_level": 30
+  },
+  {
+    "ddpk_index": 37,
+    "dpkm_index": 507,
+    "species": 114,
+    "shadow_level": 30
+  },
+  {
+    "ddpk_index": 38,
+    "dpkm_index": 564,
+    "species": 20,
+    "shadow_level": 34
+  },
+  {
+    "ddpk_index": 39,
+    "dpkm_index": 526,
+    "species": 49,
+    "shadow_level": 32
+  },
+  {
+    "ddpk_index": 40,
+    "dpkm_index": 527,
+    "species": 70,
+    "shadow_level": 32
+  },
+  {
+    "ddpk_index": 41,
+    "dpkm_index": 537,
+    "species": 24,
+    "shadow_level": 33
+  },
+  {
+    "ddpk_index": 42,
+    "dpkm_index": 542,
+    "species": 57,
+    "shadow_level": 34
+  },
+  {
+    "ddpk_index": 43,
+    "dpkm_index": 543,
+    "species": 97,
+    "shadow_level": 34
+  },
+  {
+    "ddpk_index": 44,
+    "dpkm_index": 555,
+    "species": 55,
+    "shadow_level": 33
+  },
+  {
+    "ddpk_index": 45,
+    "dpkm_index": 556,
+    "species": 322,
+    "shadow_level": 33
+  },
+  {
+    "ddpk_index": 46,
+    "dpkm_index": 517,
+    "species": 82,
+    "shadow_level": 30
+  },
+  {
+    "ddpk_index": 47,
+    "dpkm_index": 562,
+    "species": 85,
+    "shadow_level": 34
+  },
+  {
+    "ddpk_index": 48,
+    "dpkm_index": 575,
+    "species": 83,
+    "shadow_level": 36
+  },
+  {
+    "ddpk_index": 49,
+    "dpkm_index": 576,
+    "species": 359,
+    "shadow_level": 36
+  },
+  {
+    "ddpk_index": 50,
+    "dpkm_index": 584,
+    "species": 115,
+    "shadow_level": 35
+  },
+  {
+    "ddpk_index": 51,
+    "dpkm_index": 585,
+    "species": 378,
+    "shadow_level": 37
+  },
+  {
+    "ddpk_index": 52,
+    "dpkm_index": 593,
+    "species": 126,
+    "shadow_level": 36
+  },
+  {
+    "ddpk_index": 53,
+    "dpkm_index": 594,
+    "species": 127,
+    "shadow_level": 35
+  },
+  {
+    "ddpk_index": 54,
+    "dpkm_index": 625,
+    "species": 219,
+    "shadow_level": 38
+  },
+  {
+    "ddpk_index": 55,
+    "dpkm_index": 624,
+    "species": 78,
+    "shadow_level": 40
+  },
+  {
+    "ddpk_index": 56,
+    "dpkm_index": 634,
+    "species": 107,
+    "shadow_level": 38
+  },
+  {
+    "ddpk_index": 57,
+    "dpkm_index": 639,
+    "species": 106,
+    "shadow_level": 38
+  },
+  {
+    "ddpk_index": 58,
+    "dpkm_index": 652,
+    "species": 108,
+    "shadow_level": 38
+  },
+  {
+    "ddpk_index": 59,
+    "dpkm_index": 655,
+    "species": 123,
+    "shadow_level": 40
+  },
+  {
+    "ddpk_index": 60,
+    "dpkm_index": 656,
+    "species": 113,
+    "shadow_level": 39
+  },
+  {
+    "ddpk_index": 61,
+    "dpkm_index": 660,
+    "species": 349,
+    "shadow_level": 41
+  },
+  {
+    "ddpk_index": 62,
+    "dpkm_index": 662,
+    "species": 121,
+    "shadow_level": 41
+  },
+  {
+    "ddpk_index": 63,
+    "dpkm_index": 670,
+    "species": 125,
+    "shadow_level": 43
+  },
+  {
+    "ddpk_index": 64,
+    "dpkm_index": 666,
+    "species": 305,
+    "shadow_level": 43
+  },
+  {
+    "ddpk_index": 65,
+    "dpkm_index": 671,
+    "species": 143,
+    "shadow_level": 43
+  },
+  {
+    "ddpk_index": 66,
+    "dpkm_index": 676,
+    "species": 62,
+    "shadow_level": 42
+  },
+  {
+    "ddpk_index": 67,
+    "dpkm_index": 677,
+    "species": 122,
+    "shadow_level": 42
+  },
+  {
+    "ddpk_index": 68,
+    "dpkm_index": 682,
+    "species": 51,
+    "shadow_level": 40
+  },
+  {
+    "ddpk_index": 69,
+    "dpkm_index": 684,
+    "species": 338,
+    "shadow_level": 44
+  },
+  {
+    "ddpk_index": 70,
+    "dpkm_index": 685,
+    "species": 397,
+    "shadow_level": 50
+  },
+  {
+    "ddpk_index": 71,
+    "dpkm_index": 687,
+    "species": 105,
+    "shadow_level": 44
+  },
+  {
+    "ddpk_index": 72,
+    "dpkm_index": 688,
+    "species": 131,
+    "shadow_level": 44
+  },
+  {
+    "ddpk_index": 73,
+    "dpkm_index": 699,
+    "species": 249,
+    "shadow_level": 50
+  },
+  {
+    "ddpk_index": 74,
+    "dpkm_index": 705,
+    "species": 145,
+    "shadow_level": 50
+  },
+  {
+    "ddpk_index": 75,
+    "dpkm_index": 701,
+    "species": 146,
+    "shadow_level": 50
+  },
+  {
+    "ddpk_index": 76,
+    "dpkm_index": 704,
+    "species": 144,
+    "shadow_level": 50
+  },
+  {
+    "ddpk_index": 77,
+    "dpkm_index": 703,
+    "species": 128,
+    "shadow_level": 46
+  },
+  {
+    "ddpk_index": 78,
+    "dpkm_index": 700,
+    "species": 112,
+    "shadow_level": 46
+  },
+  {
+    "ddpk_index": 79,
+    "dpkm_index": 702,
+    "species": 103,
+    "shadow_level": 46
+  },
+  {
+    "ddpk_index": 80,
+    "dpkm_index": 785,
+    "species": 149,
+    "shadow_level": 55
+  },
+  {
+    "ddpk_index": 81,
+    "dpkm_index": 1,
+    "species": 175,
+    "shadow_level": 30
+  },
+  {
+    "ddpk_index": 82,
+    "dpkm_index": 24,
+    "species": 286,
+    "shadow_level": 10
+  },
+  {
+    "ddpk_index": 83,
+    "dpkm_index": 20,
+    "species": 165,
+    "shadow_level": 10
+  }
+]

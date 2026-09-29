@@ -15,7 +15,7 @@ class PokemonXDWebWorld(WebWorld):
         "English",
         "setup_en.md",
         "setup/en",
-        "Gioig",
+        ["Your Name Here"],
     )
 
     tutorials = [setup_en]

@@ -1,33 +1,15 @@
 """
-Binary layouts for Pokemon XD's trainer-team data, ported from rotobash/pokemon-ngc-rando's
-XDTrainerPokemon.cs and XDTrainer.cs (fetched 2026-09-02 from raw.githubusercontent.com).
+Binary layouts for Pokemon XD's trainer-team data.
 
-SCOPE / HONESTY NOTE (read before using this against a real ISO): this module only knows how to read and
-write the CONFIRMED byte ranges within an already-extracted block of trainer data. It deliberately does NOT:
-  - Parse a raw GameCube ISO's file system table (FST) or locate files within it.
-  - Extract or decompress FSYS archives (Pokemon XD's data files are packed inside these; whether the DPKM/
-    DDPK/DTNR tables specifically sit compressed inside an FSYS archive, or as plain loose files, was not
-    confirmed by the source research this session -- see pokemon-xd-feasibility.md).
-  - Know the DTNR data block's real file offset within a US-release Pokemon XD ISO.
+The offsets agree with rotobash/pokemon-ngc-rando's `XDTrainerPokemon.cs`/`XDTrainer.cs` (see NOTICE.md)
+and were re-confirmed against real extracted DPKM/DDPK/DTNR blocks.
 
-Those three gaps are exactly the part of pokemon-ngc-rando's own ISO.cs that is NOT implemented in what was
-fetched this session (`Encode()` throws `NotSupportedException()` there -- the real rebuild path lives
-somewhere else, possibly the separate GoD Tool repo, not yet located). Reimplementing GameCube FST/FSYS
-handling from scratch, blind, risks silently corrupting a real ISO -- so this module stops at the boundary of
-what's been empirically confirmed (the DPKM/DDPK/XDTrainer struct layouts) and leaves locating + extracting +
-reinjecting those blocks in a real ISO as an explicit, flagged next step. See apply_patch.py at the repo root
-for how this is meant to be driven once that gap is closed (most likely by using pokemon-ngc-rando itself, or
-GoD Tool, as an extraction/reinjection library rather than reimplementing it here).
+Scope: confirmed byte ranges inside an already-extracted block. This does not parse a GameCube FST, touch
+FSYS archives, or know where the DTNR block sits in a real ISO -- see apply_patch.py. Every accessor mutates
+only the range it documents and leaves any byte outside a named field untouched, even where its meaning is
+unknown; writing to a guessed field is how live-RAM corruption happened here before.
 
-Every accessor below mutates ONLY the specific byte range it documents, in place on a full-entry bytearray the
-caller owns -- any byte outside a named field is left completely untouched on write, even if its meaning is
-unknown. This is deliberate: guessing at an unconfirmed field's meaning and writing to it is exactly the kind
-of mistake that produced this session's live-RAM corruption investigation in the first place (see
-pokemon-xd-ram-map.md's "shadow Taillow / trainer-battle-failure investigation" thread) -- don't repeat it
-against a real ISO.
-
-Confirmed field offsets (byte, big-endian for all multi-byte fields, matching every other confirmed structure
-in this project):
+Confirmed field offsets (big-endian for all multi-byte fields):
 
 DPKM (regular Pokemon team entry, 0x20 = 32 bytes):
   species        u16 @ 0x00
@@ -36,17 +18,16 @@ DPKM (regular Pokemon team entry, 0x20 = 32 bytes):
   held_item      u16 @ 0x04
   moves[4]       u16 @ 0x14, 0x16, 0x18, 0x1A
   shiny_flag     u8  @ 0x1C
-  Everything else (0x06-0x13 IVs/EVs region, 0x1D-0x1F nature/gender/ability/gen-flag region) is confirmed to
-  EXIST at those approximate offsets but not confirmed byte-exact -- left untouched by this module.
+  0x06-0x13 (IVs/EVs) and 0x1D-0x1F (nature/gender/ability/gen flags) exist but are not confirmed
+  byte-exact -- left untouched.
 
 DDPK (shadow Pokemon team entry, 0x18 = 24 bytes):
   flee_after_battle    u8  @ 0x00
   catch_rate_override  u8  @ 0x01
   shadow_level         u8  @ 0x02
   in_use_flag          u8  @ 0x03  (0x80 = active slot)
-  story_index          u16 @ 0x06  -- indexes back into DPKM data; the indirection mechanism itself is NOT
-                                      confirmed (see module docstring in team_shuffle.py). Exposed read/write
-                                      but treat writes to this field as unverified.
+  story_index          u16 @ 0x06  -- indexes back into DPKM data; the indirection itself is unconfirmed,
+                                      so treat writes to it as unverified.
   aggression           u8  @ 0x14
   always_flee          u8  @ 0x15
 
@@ -58,10 +39,9 @@ XDTrainer (fixed trainer entry, 0x38 = 56 bytes):
   victory_text      u16 @ 0x16
   defeat_text       u16 @ 0x18
   ai_value          u16 @ 0x28
-  Roster data lives at 0x1C as a variable-length array of indices into the DPKM/DDPK tables, and a "shadow
-  mask" (bit flags selecting DPKM vs DDPK per slot) exists at an offset that was NOT pinned down by the source
-  research -- both are exposed only as a raw byte-range accessor (`roster_raw`) rather than a structured
-  field, so nothing here silently misinterprets them.
+  Roster data is at 0x1C: a variable-length array of DPKM/DDPK indices plus a shadow mask (bit flags picking
+  DPKM vs DDPK per slot) at an offset that was never pinned down. Both are exposed only through `roster_raw`
+  so nothing here misinterprets them.
 """
 
 from __future__ import annotations
@@ -82,8 +62,8 @@ def _set_u16(buf: bytearray, offset: int, value: int) -> None:
 
 
 class DpkmEntry:
-    """Wraps a 0x20-byte DPKM record. `raw` is the caller's own bytearray slice -- all writes go straight
-    through to it, and every byte this class doesn't name is left exactly as given."""
+    """Wraps a 0x20-byte DPKM record. `raw` is the caller's own bytearray -- writes go straight through, and
+    every byte this class does not name is left as given."""
 
     def __init__(self, raw: bytearray) -> None:
         if len(raw) != DPKM_ENTRY_SIZE:
@@ -186,8 +166,7 @@ class DdpkEntry:
 
     @property
     def story_index(self) -> int:
-        # UNVERIFIED indirection mechanism -- see module docstring. Exposed for completeness, not yet used by
-        # team_shuffle.py's write-back path.
+        # Unverified indirection; not used by team_shuffle.py's write-back path.
         return _u16(self.raw, 0x06)
 
     @story_index.setter
@@ -212,8 +191,7 @@ class DdpkEntry:
 
 
 class XdTrainerEntry:
-    """Wraps a 0x38-byte XDTrainer record. Roster/shadow-mask bytes are exposed raw only -- see module
-    docstring for why they aren't parsed into structured fields yet."""
+    """Wraps a 0x38-byte XDTrainer record. Roster and shadow-mask bytes are exposed raw only."""
 
     def __init__(self, raw: bytearray) -> None:
         if len(raw) != XD_TRAINER_ENTRY_SIZE:
@@ -250,16 +228,15 @@ class XdTrainerEntry:
 
     @property
     def roster_raw(self) -> bytearray:
-        """Raw bytes from 0x1C to the end of the entry (0x38). Contains the roster index array and,
-        somewhere in it, the shadow-mask bit flags -- neither is parsed here. Read-modify-write this whole
-        slice if you need to touch it, and validate byte-for-byte against a real save before trusting it."""
+        """Raw bytes 0x1C..0x38: the roster index array and, somewhere in it, the shadow-mask bit flags,
+        neither parsed. Read-modify-write the whole slice, and check it against a real save before trusting
+        it."""
         return self.raw[0x1C:XD_TRAINER_ENTRY_SIZE]
 
 
 def read_dpkm_table(data: bytes, base_offset: int, count: int) -> list[DpkmEntry]:
-    """`data` is an already-extracted block containing a contiguous DPKM table (see module docstring for why
-    locating that block within a real ISO is not this module's job). Returns entries backed by fresh
-    bytearrays -- mutate them and use write_dpkm_table to fold changes back into a buffer."""
+    """`data` is an already-extracted block holding a contiguous DPKM table. Entries are backed by fresh
+    bytearrays -- mutate them, then use write_dpkm_table to fold the changes back into a buffer."""
     entries = []
     for i in range(count):
         start = base_offset + i * DPKM_ENTRY_SIZE

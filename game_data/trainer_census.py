@@ -1,22 +1,11 @@
-"""
-Trainer/species census loader for Pokemon XD: Gale of Darkness.
+"""Trainer/species census loader.
 
-WHAT'S MISSING AND WHY: `randomizer.team_shuffle` needs a real list of "which trainers exist, which Pokemon
-species/levels/items they start with, which slots are shadow encounters" to have anything meaningful to
-shuffle. That census has to come from the real game -- either extracted from a real ISO (once the
-FST/FSYS-extraction gap documented in `game_data.iso_format` is closed) or transcribed by hand from a
-verified source (a wiki, a disassembly, the standalone randomizer's own data files). Neither exists in this
-session: no ISO was available to extract from, and hand-transcribing ~50+ trainers' full rosters from memory
-risks silently wrong species/level data baked into a patch file the player would trust -- worse than not
-having the feature yet.
+`load_trainer_census()` looks for `pokemon_xd/data/trainer_census.json` and parses it into
+`team_shuffle.Species` / `TrainerPool`. Absent, it returns None and `generate_output` skips trainer-team
+randomization for that seed, leaving item placement alone. The file is not shipped: a hand-transcribed roster
+would bake wrong species/level data into a patch the player trusts.
 
-This module is the seam where that data plugs in once it exists: `load_trainer_census()` looks for
-`pokemon_xd/data/trainer_census.json` (not shipped -- see below) and, if present, parses it into the
-`team_shuffle.Species` / `TrainerPool` dataclasses. If absent, it returns `None` and `generate_output` skips
-trainer-team randomization for this seed, leaving item placement (which IS fully real and confirmed data)
-unaffected.
-
-Expected `trainer_census.json` shape, once one exists:
+Expected shape:
 {
   "species": [{"species_id": 1, "is_legendary": false, "evolves_into": 2, "evolves_at_level": 16}, ...],
   "trainer_pools": [
@@ -31,23 +20,17 @@ Expected `trainer_census.json` shape, once one exists:
 
 from __future__ import annotations
 
-import json
-import os
-
+from . import load_json_data_file
 from ..randomizer.team_shuffle import PokemonInstance, Species, Trainer, TrainerPool
-
-_CENSUS_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "trainer_census.json")
 
 
 def load_trainer_census() -> tuple[dict[int, Species], list[TrainerPool]] | None:
-    """Returns (species_pool, trainer_pools) if a real census file is present, else None. Never raises on a
-    missing file -- that's the expected, current state, not an error."""
-    path = os.path.normpath(_CENSUS_PATH)
-    if not os.path.isfile(path):
+    """(species_pool, trainer_pools) when a census file is present, else None -- a missing file is the
+    expected state, not an error. Goes through `load_json_data_file` so it works the same from a loose
+    checkout or a zipped .apworld."""
+    raw = load_json_data_file("trainer_census.json")
+    if raw is None:
         return None
-
-    with open(path, encoding="utf-8") as f:
-        raw = json.load(f)
 
     species_pool = {
         s["species_id"]: Species(

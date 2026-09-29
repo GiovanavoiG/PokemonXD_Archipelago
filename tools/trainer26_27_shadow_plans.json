@@ -1,0 +1,98 @@
+[
+  {
+    "trainer_index": 26,
+    "new_pokemon": [
+      {
+        "species": 1,
+        "level": 8,
+        "moves": [
+          33,
+          45,
+          73
+        ],
+        "shadow_moves": [
+          356,
+          363
+        ]
+      },
+      {
+        "species": 7,
+        "level": 8,
+        "moves": [
+          33,
+          39,
+          145
+        ],
+        "shadow_moves": [
+          358,
+          365
+        ]
+      },
+      {
+        "species": 16,
+        "level": 8,
+        "moves": [
+          28,
+          33
+        ],
+        "shadow_moves": [
+          360,
+          367
+        ]
+      },
+      {
+        "species": 27,
+        "level": 8,
+        "moves": [
+          10,
+          111
+        ],
+        "shadow_moves": [
+          362,
+          369
+        ]
+      }
+    ]
+  },
+  {
+    "trainer_index": 27,
+    "new_pokemon": [
+      {
+        "species": 10,
+        "level": 9,
+        "moves": [
+          33,
+          81
+        ],
+        "shadow_moves": [
+          366,
+          359
+        ]
+      },
+      {
+        "species": 43,
+        "level": 9,
+        "moves": [
+          71,
+          230
+        ],
+        "shadow_moves": [
+          368,
+          361
+        ]
+      },
+      {
+        "species": 60,
+        "level": 9,
+        "moves": [
+          95,
+          145
+        ],
+        "shadow_moves": [
+          370,
+          363
+        ]
+      }
+    ]
+  }
+]

@@ -1,19 +1,22 @@
 """
-National Dex species table (1-386) for the Pokemon XD: Gale of Darkness apworld.
+National Dex species table (1-386): dex number -> display name.
 
-STATUS: species *names* are the standard, well-documented Gen III-era National Dex ordering (1 Bulbasaur
-through 386 Deoxys) -- not independently re-verified against this specific game's own internal species-ID
-table, but this project's own live RAM findings (`pokemon-xd-ram-map.md`) have twice confirmed the live overworld
-party struct's numeric species field is an exact, 1-indexed National Dex number (Jolteon=135, Teddiursa=216,
-Eevee=133, Sunkern=191 all matched their real Dex numbers exactly against two different save files) -- so this
-table's indexing convention is the one this project's own evidence supports.
+Keys are National Dex numbers, confirmed for 1-251 against live RAM on two save files (Jolteon=135,
+Teddiursa=216, Eevee=133, Sunkern=191) and by decoding the game's own Pokemon-stats table.
 
-Used to generate one "Catch - {species}" location per species (see locations.py). These locations are
-deliberately NOT required for logic -- see locations.py's `SPECIES_LOCATION_PROGRESS_TYPE` for why -- because
-Pokemon XD has very limited normal wild-encounter access (most of the roster is only obtainable via trade or
-save-editing/cheats in an ordinary playthrough), so treating all 386 as always-in-logic-reachable-but-optional
-bonus checks is the only choice that can't produce an unwinnable seed, regardless of how many of them a given
-player can actually reach.
+CAVEAT for 252 and up: XD's internal species index is NOT the National Dex. Internal 332 is Trapinch (dex
+328), 311 is Surskit (283), 382 is Aron (304) -- decoded from the PokeSpot wild-encounter tables in
+`common_rel.rel` and cross-checked against Serebii and a GameFAQs FAQ via each stats entry's stored
+National-Index field. 162 of ~415 internal indices point somewhere else than their number suggests. So for any
+species value out of DTNR/DPKM/PokeSpot data or live RAM that could be >= 252, use
+`tools/xd_species_index.py` (`national_dex_for()` / `name_for()`), not this dict. Live RAM uses a third
+indexing again -- the internal index compacted with the 25 reserved 252+ slots removed --
+`xd_species_index.national_dex_for_live_species()`, which is what ram_client.py's `read_party_species()`,
+`PartyMember.national_dex` and `get_owned_species_snapshot()` already route through.
+
+Generates one "Catch - {species}" location per species. They are deliberately out of logic
+(locations.py's `SPECIES_LOCATION_PROGRESS_TYPE`): XD has very limited wild-encounter access, so optional
+bonus checks are the only choice that cannot produce an unwinnable seed.
 """
 
 NATIONAL_DEX: dict[int, str] = {
@@ -89,6 +92,12 @@ def location_name_for_species(dex_number: int) -> str:
     return f"Catch - {NATIONAL_DEX[dex_number]}"
 
 
-# name -> dex number, for the client side (it reads a numeric species id off live RAM and needs the AP
-# location name to check).
+# name -> dex number: the client reads a numeric species id off live RAM and needs the location name.
 SPECIES_LOCATION_TO_DEX: dict[str, int] = {location_name_for_species(n): n for n in NATIONAL_DEX}
+
+# Every Eeveelution this game's era has (no Leafeon/Glaceon/Sylveon). The only guaranteed Eevee is the story
+# gift, and evolving it produces exactly one of these five -- but a seed may have trimmed the other four's
+# "Catch - {X}" locations entirely (they go away when a species has no obtainable path this seed), so which
+# one the player picks would decide whether evolving nets a check at all. `EEVEELUTION_LOCATION_NAME` is
+# always present and fires on any of the five instead.
+EEVEELUTION_DEX_NUMBERS: frozenset[int] = frozenset({134, 135, 136, 196, 197})  # Vaporeon/Jolteon/Flareon/Espeon/Umbreon
