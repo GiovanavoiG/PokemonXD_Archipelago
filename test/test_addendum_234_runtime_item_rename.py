@@ -106,9 +106,19 @@ class TestRenameWrites(unittest.TestCase):
         self.renamer = ram_client.ItemNameRenamer()
         self.renamer.verified = True
         self.written: "dict[int, bytes]" = {}
+        # ADDENDUM 395: the renamer reads ONE entry back each poll to see whether its own write is still
+        # there, so this fake has to be readable as well as writable. A write-only fake reads as zeros, which
+        # the canary correctly calls a revert -- and every "a steady poll writes nothing" assertion below
+        # would fail for a reason that has nothing to do with what it is testing.
+        self._read_patch = mock.patch.object(ram_client, "read_bytes", self._read)
+        self._read_patch.start()
+        self.addCleanup(self._read_patch.stop)
 
     def _write(self, address, data):
         self.written[address] = data
+
+    def _read(self, address, length):
+        return self.written.get(address, b"\x00" * length)[:length].ljust(length, b"\x00")
 
     def test_a_room_change_writes_once_and_a_steady_poll_writes_nothing(self) -> None:
         with mock.patch.object(ram_client, "write_bytes", self._write):

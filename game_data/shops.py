@@ -30,6 +30,10 @@ class Shop:
                               # entry. See item_name_strings.py.
     source: str = ""          # why it is trusted -- "live" (a `!room` reading) or "player" (they vouched)
     note: str = ""
+    # ADDENDUM 395: other room ids that ARE this shop. `room_id` stays the canonical one -- every per-room
+    # piece of state keys off it -- and an alias only has to make the live writers and the purchase credit
+    # recognise the place.
+    aliases: "tuple[int, ...]" = ()
 
 
 # PER-SHOP SLOT COUNTS (ADDENDUM 178), replacing a flat cap of 12 applied to both an 18-line shop and a
@@ -96,7 +100,12 @@ SHOPS: "tuple[Shop, ...]" = (
     # which is why this looked intermittent rather than simply absent.
     #
     # `source="live"` now: this is a measured reading, like rooms 21 and 156, not a vouched one.
+    # ADDENDUM 395: BOTH ids. 394 moved this to 163 on a live reading, and the player then saw 164 from the
+    # same spot: "Wait, now outskirt stand is showing as room 164. I think Outskirt stand might be a weird
+    # case - just make both count as shop room for writes." A read that flips between two ids is exactly the
+    # "sometimes working, sometimes not" that survived 394, and the stand is one place either way.
     Shop(163, "Outskirt Stand Shop", "Outskirt Stand", slot_count=8, short_label="OUTSKRT", confirmed=True, source="live",
+         aliases=(164,),
          note="the only shop in a LATE region -- Outskirt Stand sits behind the whole key-item chain, so these "
               "eight are the deepest shop checks in the seed. Room 163 is the INSIDE; 164 is the exterior and "
               "stays in chest_regions' room map as Outskirt Stand"),
@@ -112,12 +121,33 @@ CONFIRMED_SHOPS: "tuple[Shop, ...]" = tuple(
 EXCLUDED_SHOPS: "tuple[Shop, ...]" = tuple(shop for shop in SHOPS if shop.excluded)
 UNCONFIRMED_SHOPS: "tuple[Shop, ...]" = tuple(shop for shop in SHOPS if not shop.confirmed)
 
+# Aliases resolve to the SAME Shop object, so `shop_for_room` answers for either id while `shop.room_id`
+# stays the one canonical key every per-room tracker uses.
 SHOPS_BY_ROOM: "dict[int, Shop]" = {shop.room_id: shop for shop in CONFIRMED_SHOPS}
+for _shop in CONFIRMED_SHOPS:
+    for _alias in _shop.aliases:
+        assert _alias not in SHOPS_BY_ROOM, f"room {_alias} is already a shop; it cannot alias {_shop.name}"
+        SHOPS_BY_ROOM[_alias] = _shop
+del _shop, _alias
+
+
+def canonical_shop_room(room_id: "int | None") -> "int | None":
+    """The id every per-room tracker should key on: an alias collapses onto its shop's own room.
+
+    Without this, a room read that flips between a shop's two ids splits `purchased_by_room` and
+    `slots_credited` across both, so a line bought under one id would not count as bought under the other and
+    the shelf's NO CHECK greying would flicker with the read."""
+    shop = SHOPS_BY_ROOM.get(room_id) if room_id is not None else None
+    return shop.room_id if shop is not None else room_id
 SHOP_ROOM_IDS: "frozenset[int]" = frozenset(SHOPS_BY_ROOM)
 
 # Every room in the table, confirmed or not -- diagnostics and the promotion workflow only. Never used to
 # create a location or credit a check.
-ALL_SHOP_ROOM_IDS: "frozenset[int]" = frozenset(shop.room_id for shop in SHOPS)
+# ADDENDUM 395: aliases count as rooms in the table. `SHOP_ROOM_IDS` includes them, and this set is the
+# superset that one is checked against.
+ALL_SHOP_ROOM_IDS: "frozenset[int]" = frozenset(
+    room for shop in SHOPS for room in (shop.room_id, *shop.aliases)
+)
 
 
 # ADDENDUM 311 -- Agate Village Pit Stop. The client learns the disabled room from slot_data and calls
@@ -175,7 +205,10 @@ def location_name_to_shop_and_slot() -> "dict[str, tuple[Shop, int]]":
     return out
 
 
-assert len(ALL_SHOP_ROOM_IDS) == len(SHOPS), "two shops share a room id"
+assert len(ALL_SHOP_ROOM_IDS) == sum(1 + len(shop.aliases) for shop in SHOPS), (
+    "two shops share a room id, or an alias repeats one"
+)
+assert canonical_shop_room(164) == 163, "the Outskirt Stand's exterior must collapse onto its interior"
 assert len(set(shop.name for shop in SHOPS)) == len(SHOPS), "two shops share a display name"
 assert len(all_shop_location_names()) == sum(shop.slot_count for shop in CONFIRMED_SHOPS)
 assert all(shop.slot_count > 0 for shop in SHOPS), (
@@ -208,9 +241,13 @@ SHOP_SHORT_LABELS: "dict[int, str]" = {s.room_id: s.short_label for s in CONFIRM
 
 
 def short_label_for_room(room_id: "int | None") -> "str | None":
+    """ADDENDUM 395: resolved through `shop_for_room`, so an ALIAS answers too. Keying the dict directly
+    returned None for the Outskirt Stand's second room id, and a None label is what sends `desired_names`
+    down its generic `AP ITEM NN` fallback -- the exact symptom this was meant to fix."""
     if room_id is None or room_id in _disabled_rooms:
         return None
-    return SHOP_SHORT_LABELS.get(room_id)
+    shop = shop_for_room(room_id)
+    return (shop.short_label or None) if shop is not None else None
 
 
 def live_name_for_slot(room_id: int, slot: int) -> "str | None":

@@ -72,6 +72,14 @@ class TestAnUnreadableRoomHolds(unittest.TestCase):
                                   lambda address, payload: self.written.__setitem__(address, payload))
         patch.start()
         self.addCleanup(patch.stop)
+        # ADDENDUM 395: the writers read one of their own entries back each poll now, so the fake has to
+        # answer reads too. Write-only, it reads as zeros and the canary correctly calls that a revert --
+        # which would make "an unreadable room writes nothing" fail for an unrelated reason.
+        read = mock.patch.object(
+            rc, "read_bytes",
+            lambda address, length: self.written.get(address, b"\x00" * length)[:length].ljust(length, b"\x00"))
+        read.start()
+        self.addCleanup(read.stop)
 
     def _renamer(self):
         renamer = rc.ItemNameRenamer()

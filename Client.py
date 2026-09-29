@@ -642,6 +642,11 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
         # ADDENDUM 394: WHERE, not just how many. "Credited nothing, by design" is only true when the room
         # really is not a shop; when it is a shop whose id this project has wrong, that line was reporting a
         # silent loss of every check in that shop as intended behaviour. The Outskirt Stand was 164, and is 163.
+        # ADDENDUM 395: if the shelf keeps reverting, this is the line that says so.
+        if ctx.item_name_renamer.reverts_detected or ctx.item_price_writer.reverts_detected:
+            logger.info("     shelf put back by the game %d time(s) (names) / %d (prices) -- rewritten each "
+                        "time", ctx.item_name_renamer.reverts_detected,
+                        ctx.item_price_writer.reverts_detected)
         if ctx.shop_tracker.unknown_shop_rooms:
             logger.info("     rooms involved: %s", ", ".join(
                 f"room {room} ({count})"

@@ -2367,6 +2367,13 @@ def shop_slot_count_for_room(room_id: int) -> int:
     return shops.slot_count_for_room(room_id)
 
 
+def shops_canonical_room(room_id: "int | None") -> "int | None":
+    """`shops.canonical_shop_room`, as a module-level name so the writers can call it without importing."""
+    from .game_data import shops
+
+    return shops.canonical_shop_room(room_id)
+
+
 def is_shop_room(room_id: "int | None") -> bool:
     from .game_data import shops
 
@@ -2408,7 +2415,12 @@ class ItemNameRenamer:
     verified: bool = False
     verify_failures: "list[str]" = field(default_factory=list)
     writes: int = 0
+    # ADDENDUM 395: how many times our own writes were found undone. A steady climb here is the shelf being
+    # reverted by the game rather than anything this client did.
+    reverts_detected: int = 0
     _written: "dict[int, str]" = field(default_factory=dict)
+    #: (item_id, the exact bytes written there). See `_canary_still_ours`.
+    _canary: "tuple[int, bytes] | None" = None
     _last_room: "int | None" = field(default=None)
     _last_room_set: bool = False
     # Mirrored from ShopPurchaseTracker each poll, as plain fields rather than a reference, so this class never
@@ -2492,11 +2504,41 @@ class ItemNameRenamer:
             return 0
         if room_id is None:
             return 0
+        # ADDENDUM 395: the room-change early-out below is a CACHE, and a cache that never checks its own
+        # entry is a bet that nothing else writes here. The Outskirt Stand shelf kept reverting to the
+        # patch-time `AP ITEM NN` names with the room unchanged, so the bet is wrong. `ItemDescriptionWriter`
+        # has reasoned this way since ADDENDUM 239 for the table it owns; this one never did.
+        if not self._canary_still_ours():
+            self.reverts_detected += 1
+            self._written.clear()
+            self._last_room_set = False
+        # ADDENDUM 395: one shop can answer to two room ids (the Outskirt Stand reads as 163 or 164 from the
+        # same spot). Collapse before comparing, or a flipping read rewrites the whole shelf every tick.
+        room_id = shops_canonical_room(room_id)
         if self._last_room_set and room_id == self._last_room:
             return 0
         self._last_room = room_id
         self._last_room_set = True
         return self._write(self.desired_names(room_id, berry_ids))
+
+    def _canary_still_ours(self) -> bool:
+        """Is the ONE entry we last wrote still holding what we wrote?
+
+        One read, not twenty: whatever puts these names back does it to the whole table at once. A failed read
+        answers True -- it is not evidence of a revert, and treating it as one would rewrite every entry on
+        every dropped read."""
+        from .game_data import item_name_strings as ins
+
+        if self._canary is None:
+            return True
+        item_id, expected = self._canary
+        address = ins.ram_address(item_id)
+        if address is None:
+            return True
+        try:
+            return read_bytes(address, len(expected)) == expected
+        except Exception:  # pragma: no cover - live-Dolphin failure path
+            return True
 
     def refresh(self, room_id: "int | None", berry_ids: "list[int]" = USELESS_BERRY_IDS) -> int:
         """Rewrite without waiting for a room change -- used right after a purchase is credited, so the shelf
@@ -2527,6 +2569,10 @@ class ItemNameRenamer:
                 self.enabled = False
                 return written
             self._written[item_id] = text
+            # ADDENDUM 395: remember one entry's exact bytes, so the next poll can tell "still ours" from
+            # "put back". Deliberately the LAST one written rather than the first -- the whole batch goes in
+            # one pass, so any of them proves it, and the last costs nothing to keep.
+            self._canary = (item_id, payload)
             written += 1
         self.writes += written
         return written
@@ -2666,7 +2712,9 @@ class ShopPurchaseTracker:
             # increase pending and do not clear the berry, since clearing would silently eat the check.
             if room_id is None:
                 continue
-            shop_room = room_id if is_shop_room(room_id) else None
+            # ADDENDUM 395: the CANONICAL id, so a shop with two room ids keeps one set of credited slots
+            # and one set of bought berries rather than two halves that never see each other.
+            shop_room = shops_canonical_room(room_id) if is_shop_room(room_id) else None
             if shop_room is None:
                 # A real room that is not a shop. A dummy berry can go up outside any shop (a gift, a field
                 # pickup) and crediting a guess would send a check for a purchase that never happened. The berry
@@ -2803,7 +2851,12 @@ class ItemPriceWriter:
     table_base: "int | None" = None
     verify_failures: "list[str]" = field(default_factory=list)
     writes: int = 0
+    # ADDENDUM 395: same counter, same reason, as ItemNameRenamer -- the shelf's prices reverted to the
+    # patch-time 20 alongside its names.
+    reverts_detected: int = 0
     _written: "dict[int, int]" = field(default_factory=dict)
+    #: (item_id, the price written there). See `_canary_still_ours`.
+    _canary: "tuple[int, int] | None" = None
     _last_room: "int | None" = None
     _last_room_set: bool = False
     _last_fingerprint: "tuple[int, int] | None" = None
@@ -2932,6 +2985,13 @@ class ItemPriceWriter:
         # transitions like opening a shop menu.
         if room_id is None:
             return 0
+        # ADDENDUM 395: see ItemNameRenamer.poll. The room-and-scout early-out is a cache, and it was never
+        # checking whether the prices it cached are still in RAM.
+        if not self._canary_still_ours():
+            self.reverts_detected += 1
+            self._written.clear()
+            self._last_room_set = False
+        room_id = shops_canonical_room(room_id)   # ADDENDUM 395, see ItemNameRenamer.poll
         fingerprint = self._fingerprint(classifications)
         if (self._last_room_set and room_id == self._last_room
                 and fingerprint == self._last_fingerprint):
@@ -2974,9 +3034,24 @@ class ItemPriceWriter:
                 self.enabled = False
                 return written
             self._written[item_id] = price
+            self._canary = (item_id, price)
             written += 1
         self.writes += written
         return written
+
+    def _canary_still_ours(self) -> bool:
+        """Is the ONE price we last wrote still there? A failed read answers True, for the reason
+        `ItemNameRenamer._canary_still_ours` gives."""
+        from .game_data import item_name_strings as ins
+
+        if self._canary is None or self.table_base is None:
+            return True
+        item_id, expected = self._canary
+        try:
+            raw = read_bytes(self.table_base + item_id * ins.ITEM_ENTRY_SIZE + ins.ITEM_PRICE_OFFSET, 2)
+        except Exception:  # pragma: no cover - live-Dolphin failure path
+            return True
+        return struct.unpack(">H", raw)[0] == expected
 
 
 @dataclass

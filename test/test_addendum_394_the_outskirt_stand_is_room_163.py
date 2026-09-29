@@ -42,10 +42,14 @@ class TestTheRoomIdIsTheMeasuredOne(unittest.TestCase):
         self.assertIsNotNone(shop)
         self.assertEqual("Outskirt Stand Shop", shop.name)
 
-    def test_164_is_no_longer_a_shop(self) -> None:
-        """The exterior. Leaving it in was what made the shelf rename and then un-rename."""
-        self.assertIsNone(shops.shop_for_room(164))
-        self.assertFalse(rc.is_shop_room(164))
+    def test_164_is_the_exterior_and_is_not_the_canonical_id(self) -> None:
+        """RETARGETED by ADDENDUM 395. 394 removed 164 outright; the player then read 164 from INSIDE the
+        stand, so both ids are the shop now. What still has to hold is that 163 is the canonical one -- every
+        per-room tracker keys on it, and two keys for one shop would split its state."""
+        self.assertEqual("Outskirt Stand Shop", shops.shop_for_room(164).name)
+        self.assertTrue(rc.is_shop_room(164))
+        self.assertEqual(163, shops.canonical_shop_room(164))
+        self.assertEqual(163, shops.shop_for_room(164).room_id)
 
     def test_it_is_recorded_as_a_live_reading(self) -> None:
         """`source` is what tells a measured id from a vouched one, and this one was measured."""
