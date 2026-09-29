@@ -38,9 +38,9 @@ of your ISO. You supply your own legally-owned disc image; nothing here ships ga
 ## Installing
 
 1. **Double-click `pokemon_xd.apworld`**, right click -> Open With -> find your archipelago launcher exe, or use the Launcher's "Install APWorld" button and pick it.
-   Archipelago copies the file where it actually looks and gives it the name it needs. Then **restart the Launcher**.
+   Then **restart the Launcher**.
 
-   Do not drag the file into a folder yourself unless you have read the next paragraph, because two things
+   Do not drag the file into a folder yourself unless you have read the next section, because two things
    about a dropped-in file have to be exactly right and neither one reports what went wrong. If the world does
    not load you get no "Pokemon XD Client" button in the Launcher and no Pokemon XD entry from "Generate
    Template Options".
