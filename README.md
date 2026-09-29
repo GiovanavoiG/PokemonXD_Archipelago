@@ -11,7 +11,7 @@ of your ISO. You supply your own legally-owned disc image; nothing here ships ga
 
 | | |
 |---|---|
-| Locations | 1,191 |
+| Locations | Up to 1,191 |
 | Items | 225 (134 of them filler) |
 | YAML options | 49 |
 
