@@ -200,8 +200,10 @@ class TestOnlyConfirmedShops(unittest.TestCase):
         by_source: "dict[str, list[int]]" = {}
         for shop in shops.SHOPS:
             by_source.setdefault(shop.source, []).append(shop.room_id)
-        self.assertEqual(sorted(by_source["live"]), [21, 156])
-        self.assertEqual(sorted(by_source["player"]), [50, 61, 103, 104, 119, 121, 134, 164])
+        # ADDENDUM 394 added 163: the Outskirt Stand's room was `player`-sourced and WRONG (164 is the
+        # exterior), which is precisely the risk this distinction exists to record. It is measured now.
+        self.assertEqual(sorted(by_source["live"]), [21, 156, 163])
+        self.assertEqual(sorted(by_source["player"]), [50, 61, 103, 104, 119, 121, 134])
         for room_id in by_source["live"]:
             self.assertIn("shop", rc.KNOWN_ROOM_IDS[room_id].lower(), room_id)
 
@@ -211,7 +213,7 @@ class TestOnlyConfirmedShops(unittest.TestCase):
         machine, so every shop was wrong in one of two directions at once."""
         # ADDENDUM 238c: Agate 8 -> 9 (its Great Ball line arrives with the ONBS crisis and is invisible to a
         # one-shelf count). Every other row already equalled the union across that shop's tiers.
-        expected = {21: 18, 50: 12, 61: 9, 103: 12, 104: 6, 119: 4, 121: 12, 134: 9, 156: 15, 164: 8}
+        expected = {21: 18, 50: 12, 61: 9, 103: 12, 104: 6, 119: 4, 121: 12, 134: 9, 156: 15, 163: 8}
         self.assertEqual({shop.room_id: shop.slot_count for shop in shops.SHOPS}, expected)
         for shop in shops.CONFIRMED_SHOPS:
             names = shops.shop_location_names(shop)

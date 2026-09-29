@@ -118,7 +118,10 @@ SHOP_MART_TIERS: "dict[str, dict]" = {
     },
     # ---- closed by the player's own stock tables for these three rooms ----
     "Outskirt Stand Shop": {
-        "room": 164, "marts": (8,), "confidence": "player",
+        # ADDENDUM 394: was 164 -- the EXTERIOR. Measured live: the counter is inside, room 163. This is a
+        # SECOND copy of a room id that shops.py also holds, which is how it went stale unnoticed; the test
+        # that cross-checks the two is what caught it.
+        "room": 163, "marts": (8,), "confidence": "confirmed",
         "why": "the player's table lists Full Heal, Hyper Potion, Nest Ball, Net Ball, Revive, Super Potion, "
                "Timer Ball, Ultra Ball and a Poke Snack -- mart 8's nine lines exactly, and nothing on it is "
                "annotated except the Snack, so it is a single shelf that never restocks",

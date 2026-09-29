@@ -2556,6 +2556,11 @@ class ShopPurchaseTracker:
     # nothing about which check fires reads this.
     purchased_by_room: "dict[int, set[int]]" = field(default_factory=dict)
     purchases_outside_a_shop: int = 0
+    # ADDENDUM 394: {room id: berry increases seen there} for rooms this client does not list as a shop. The
+    # COUNT alone said "credited nothing, by design", which is only true when the room really is not a shop.
+    # When it is a shop whose id this project has wrong, the same counter was reporting a silent loss of every
+    # check in that shop as intended behaviour. The room id is the one datum that tells the two apart.
+    unknown_shop_rooms: "dict[int, int]" = field(default_factory=dict)
     _initialized: "set[int]" = field(default_factory=set)
     _pending_quantity: dict[int, int] = field(default_factory=dict)
     _pending_streak: dict[int, int] = field(default_factory=dict)
@@ -2666,7 +2671,13 @@ class ShopPurchaseTracker:
                 # A real room that is not a shop. A dummy berry can go up outside any shop (a gift, a field
                 # pickup) and crediting a guess would send a check for a purchase that never happened. The berry
                 # is still cleared below, because "counted stock vs fresh purchase" needs the slot to empty.
+                #
+                # ADDENDUM 394: remember WHERE. Eight of the ten shop rooms are `source="player"` rather than a
+                # live `!room` reading, and shops.py says in as many words that a shop going silent is where to
+                # look. A wrong id makes every live writer fall back AND every purchase there credit nothing,
+                # which is what the Outskirt Stand report looked like.
                 self.purchases_outside_a_shop += delta
+                self.unknown_shop_rooms[room_id] = self.unknown_shop_rooms.get(room_id, 0) + delta
             else:
                 # THE BERRY IS THE LINE NUMBER. `apply_mart_randomization` assigns `dummy_item_ids[k]` to the
                 # (k+1)th distinct line a shop ever offers and holds it across every tier, so berry index k+1 IS
@@ -7846,6 +7857,9 @@ KNOWN_ROOM_IDS: "dict[int, str]" = {
     156: "Gateon Port shop",
     158: "Gateon Tower 1F -- chests 6, 7",
     160: "Gateon Tower 3F -- chest 8",
+    # ADDENDUM 394: measured live by the player. 164 is the EXTERIOR and was in shops.py as the shop for
+    # months, which renamed the shelf on the way past and un-renamed it on the way in.
+    163: "Outskirt Stand (inside) -- shop",
     169: "Kaminko's house (inside, first visit)",
     173: "Kaminko's house (outside, first visit)",
     910: "map screen",

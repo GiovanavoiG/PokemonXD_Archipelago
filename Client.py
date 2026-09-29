@@ -637,8 +637,17 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
                               for room, count in sorted(ctx.shop_tracker.slots_credited.items()))
                     or "none credited yet")
         if ctx.shop_tracker.purchases_outside_a_shop:
-            logger.info("     %d berry increase(s) seen outside any shop -- credited nothing, by design",
+            logger.info("     %d berry increase(s) seen outside any shop -- credited nothing",
                         ctx.shop_tracker.purchases_outside_a_shop)
+        # ADDENDUM 394: WHERE, not just how many. "Credited nothing, by design" is only true when the room
+        # really is not a shop; when it is a shop whose id this project has wrong, that line was reporting a
+        # silent loss of every check in that shop as intended behaviour. The Outskirt Stand was 164, and is 163.
+        if ctx.shop_tracker.unknown_shop_rooms:
+            logger.info("     rooms involved: %s", ", ".join(
+                f"room {room} ({count})"
+                for room, count in sorted(ctx.shop_tracker.unknown_shop_rooms.items())))
+            logger.info("     If you bought those at a shop counter, that room is a SHOP THIS CLIENT DOES NOT "
+                        "KNOW and its checks are not being credited -- please report the room number.")
 
     def _cmd_progress(self) -> None:
         """DEBUG: Shows chest information."""
@@ -1048,6 +1057,8 @@ class PokemonXDContext(CommonContext):
         self.chest_tracker = ram_client.ChestFlagTracker()
         # Same role as chest_tracker, over a separate set of dummy berry ids (26, since Enigma Berry came out).
         self.shop_tracker = ram_client.ShopPurchaseTracker()
+        # ADDENDUM 394: one warning per unknown shop room, not one per purchase.
+        self._warned_unknown_shop_rooms: "set[int]" = set()
         # Renames the dummy shop berries IN RAM so the shelf names the check the next purchase sends. Cosmetic:
         # verified once, disables itself on any doubt, can never block a check.
         self.item_name_renamer = ram_client.ItemNameRenamer()
@@ -2972,6 +2983,21 @@ async def check_shops(ctx: PokemonXDContext) -> None:
     newly_crossed = ctx.shop_tracker.poll(ctx.block_base, room_id)
     if newly_crossed:
         await _send_checks(ctx, newly_crossed)
+
+    # ADDENDUM 394: a shop berry bought in a room this client does not list as a shop credits NOTHING, and used
+    # to do so in silence. One warning per room, because the room number is the whole report.
+    try:
+        for _unknown_room, _unknown_count in sorted(ctx.shop_tracker.unknown_shop_rooms.items()):
+            if _unknown_room in ctx._warned_unknown_shop_rooms:
+                continue
+            ctx._warned_unknown_shop_rooms.add(_unknown_room)
+            _note_warn(ctx, (
+                f"an AP shop item was bought in room {_unknown_room}, which this client does not list as a "
+                f"shop, so that purchase credited NO check ({_unknown_count} so far). If that room is a shop "
+                "counter, please report the number -- eight checks were lost this way at the Outskirt Stand."
+            ))
+    except Exception:
+        logger.debug("Pokemon XD: unknown-shop-room notice failed", exc_info=True)
 
     # AFTER the credit above, so a purchase made this poll is reflected and the shelf advances from "GATEON #3"
     # to "GATEON #4" while the player is still at it. Wrapped: a cosmetic rename must not come between a

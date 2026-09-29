@@ -40,6 +40,10 @@ ROOM_TO_REGION: "dict[int, str]" = {
     172: "Kaminko's House (Robo Groudon)",   # Crane Room -- chests 110-113
     64: "Cipher Key Lair", 65: "Cipher Key Lair", 66: "Cipher Key Lair", 67: "Cipher Key Lair",
     68: "Cipher Key Lair", 70: "Cipher Key Lair",
+    # ADDENDUM 394: 163 is the INSIDE of the stand (live `!room`), 164 the exterior. Both are the same place,
+    # so `region_for_room` has to answer the same for either -- the story-byte guard reads this map, and a
+    # player standing at the counter was resolving to no region at all.
+    163: "Outskirt Stand",
     164: "Outskirt Stand",
     165: "Snagem Hideout", 166: "Snagem Hideout", 167: "Snagem Hideout",
     # Citadark Isle -- the contiguous chests 57-75 block.

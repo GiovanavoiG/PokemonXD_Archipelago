@@ -86,9 +86,20 @@ SHOPS: "tuple[Shop, ...]" = (
               "513/514/515, which the player confirmed correct in ADDENDUM 177"),
     Shop(156, "Gateon Port Shop", "Gateon Port", slot_count=15, short_label="GATEON", confirmed=True, source="live",
          note="ram_client.KNOWN_ROOM_IDS: 'Gateon Port shop'"),
-    Shop(164, "Outskirt Stand Shop", "Outskirt Stand", slot_count=8, short_label="OUTSKRT", confirmed=True, source="player",
+    # ADDENDUM 394. WAS 164, and 164 is the EXTERIOR. Player, with a live `!room` reading: "Inside outskirt
+    # stand is showing as room 163." The counter is inside, so 163 is the shop.
+    #
+    # The symptom was the one the section comment above predicted for a `source="player"` id, plus one nobody
+    # had thought of: "It worked temporarily and then broke. It likely worked because i stepped through 164
+    # (outside) and then went inside and it broke." The renamer writes on a room CHANGE, so walking through the
+    # exterior renamed the shelf correctly, and stepping inside fired it again with the not-a-shop fallback --
+    # which is why this looked intermittent rather than simply absent.
+    #
+    # `source="live"` now: this is a measured reading, like rooms 21 and 156, not a vouched one.
+    Shop(163, "Outskirt Stand Shop", "Outskirt Stand", slot_count=8, short_label="OUTSKRT", confirmed=True, source="live",
          note="the only shop in a LATE region -- Outskirt Stand sits behind the whole key-item chain, so these "
-              "eight are the deepest shop checks in the seed"),
+              "eight are the deepest shop checks in the seed. Room 163 is the INSIDE; 164 is the exterior and "
+              "stays in chest_regions' room map as Outskirt Stand"),
 )
 
 # Only confirmed shops get locations and get credited. ADDENDUM 238: `excluded` drops out here, the single
