@@ -45,7 +45,7 @@ of your ISO. You supply your own legally-owned disc image; nothing here ships ga
    not load you get no "Pokemon XD Client" button in the Launcher and no Pokemon XD entry from "Generate
    Template Options".
 
-   <details>
+   <details open>
    <summary><b>If you install it by hand anyway -- the two things that have to be right</b></summary>
 
    **The filename must be exactly `pokemon_xd.apworld`.**
