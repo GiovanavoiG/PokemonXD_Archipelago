@@ -77,7 +77,8 @@ class TestNoExistingLocationIdMoved(unittest.TestCase):
         # that DO still exist never moved -- a retired name's frozen entry is inert by design, and asserting a
         # dead name's id would just be asserting the tombstone.
         retired_by_177 = {"Unlock - Cave Poke Spot", "Unlock - Oasis Poke Spot",
-                          "Unlock - Rockground Poke Spot"}
+                          "Unlock - Rockground Poke Spot",
+                          "Unlock - Orre Colosseum"}   # ADDENDUM 446, retired the same way
         for name, offset in expected.items():
             if name in retired_by_177:
                 self.assertNotIn(name, locations.LOCATION_TABLE, name)
@@ -339,13 +340,24 @@ class TestTheRoboKyogreChest(PokemonXDTestBase):
         self.assertTrue(all("assert" in line or "required" in line for line in naming), naming)
 
 
-class TestChestsOffEntirely(PokemonXDTestBase):
-    options = {"randomize_chests": False}
+class TestChestsCannotBeTurnedOff(PokemonXDTestBase):
+    """RETARGETED 2026-10-03 (ADDENDUM 404). This asserted that `randomize_chests: false` created no chests. The
+    option is gone; every chest is always a check. An old YAML that still sets it must generate anyway -- the
+    key is unknown and Archipelago ignores it -- and still get its chests."""
 
-    def test_no_chest_locations_are_created(self) -> None:
+    options = {"randomize_chests": False}   # ignored: not an option any more
+
+    def test_the_option_no_longer_exists(self) -> None:
+        from ..options import PokemonXDOptions
+
+        self.assertNotIn("randomize_chests", PokemonXDOptions.type_hints)
+
+    def test_chest_locations_are_created_regardless(self) -> None:
         created = {loc.name for loc in self.multiworld.get_locations(1)}
-        for name in locations.CHEST_LOCATION_NAMES:
-            self.assertNotIn(name, created)
+        live = [name for name in locations.CHEST_LOCATION_NAMES if name in locations.LOCATION_TABLE]
+        missing = [name for name in live if name not in created]
+        # Key-item chests are dropped when Key Item Shuffle is off (ADDENDUM 177); it is on by default.
+        self.assertEqual([], missing)
 
 
 if __name__ == "__main__":

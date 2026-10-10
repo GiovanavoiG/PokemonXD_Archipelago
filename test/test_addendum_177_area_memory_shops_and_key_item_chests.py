@@ -60,13 +60,10 @@ class TestThePokeSpotItemOpensTheRegion(PokemonXDTestBase):
         suppressing that edge moved the requirement onto the gateway rather than discarding it -- travelling
         to a Poke Spot does not hand you the ID Card. So the unlock is still ONE item for all three spots,
         which is what this test is about, and it is now ANDed with the ROM like the chain edge always was."""
-        from ..items import requirement_to_pool_item
-
+        # ADDENDUM 406: and nothing else -- the chain edge carries no ROM now, so the gateway carries none.
+        # Player (ADDENDUM 406): "Poke spots do NOT need the data rom."
         self.assertFalse(self.multiworld.state.can_reach("Poke Spots", player=self.player))
         self.collect_by_name(tl.travel_unlock_item_name("Poke Spots"))
-        self.assertFalse(self.multiworld.state.can_reach("Poke Spots", player=self.player),
-                         "the suppressed chain edge's Data ROM requirement must survive on the gateway")
-        self.collect_by_name(requirement_to_pool_item("Data ROM"))
         self.assertTrue(self.multiworld.state.can_reach("Poke Spots", player=self.player))
 
 
@@ -310,7 +307,7 @@ class TestPurificationWeightsAreACensus(unittest.TestCase):
 
     def test_the_weights_sum_to_the_ladder_length(self) -> None:
         weights = rules._PURIFICATION_WEIGHT_BY_REGION
-        self.assertEqual(sum(weights.values()), locations.PURIFICATION_LOCATION_COUNT)
+        self.assertEqual(sum(weights.values()), locations.VANILLA_SHADOW_COUNT)
 
     def test_the_tombstone_is_gone(self) -> None:
         """The old table carried `"_retired Relic Forest": 0` for a region that stopped existing in ADDENDUM

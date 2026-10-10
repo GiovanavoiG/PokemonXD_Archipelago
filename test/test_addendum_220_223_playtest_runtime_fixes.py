@@ -247,9 +247,11 @@ class TestGeneratedShadowsKeepTheirRealMoves(unittest.TestCase):
 
     def test_every_ordinary_move_is_one_that_species_could_really_know(self):
         """The player's "getting their actual moves properly". Every ordinary move is either from the species'
-        own level-up learnset at or below its level, or ADDENDUM 100's level-30+ strong-TM bonus move."""
-        from ..game_data.move_data import TM_ATTACKING_MOVES
+        own level-up learnset at or below its level, or the one extra move ADDENDUM 426 allows: a TM/HM this
+        species can learn (level 30+), or one of its tutor or egg moves."""
+        from ..randomizer.team_shuffle import species_move_compat
 
+        compat_by_species = species_move_compat()
         for mon in self.mons:
             learnset = self.learnsets.get(mon["species"], [])
             by_level = {move for level, move in learnset if level <= mon["level"]}
@@ -259,11 +261,10 @@ class TestGeneratedShadowsKeepTheirRealMoves(unittest.TestCase):
                     continue
                 if move in by_level or move in (whole if not by_level else set()):
                     continue
-                self.assertIn(move, TM_ATTACKING_MOVES,
-                              f"species {mon['species']} got move {move}, which is neither in its learnset "
-                              f"nor a TM bonus move")
-                self.assertGreaterEqual(mon["level"], 30,
-                                        "the TM bonus is a level-30+ rule (ADDENDUM 100)")
+                compat = compat_by_species.get(mon["species"], {})
+                allowed = compat.get("tutor", []) + compat.get("egg", []) + (
+                    compat.get("tm", []) if mon["level"] >= 30 else [])
+                self.assertIn(move, allowed, f"species {mon['species']} got move {move}, which it cannot learn")
 
     def test_every_generated_shadow_gets_exactly_two_shadow_moves(self):
         for mon in self.mons:

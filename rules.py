@@ -2,9 +2,10 @@
 Access rules for individual locations. Region-level gating lives in regions.py's entrance rules; a location
 gets a rule here only when its parent region's reachability is not the whole requirement.
 
-The cumulative "Defeat N Trainers" and "Purify N Shadow Pokemon" ladders have no per-check location, so each
-threshold is gated behind the earliest region whose cumulative census weight can supply the Nth one, through
-`state.can_reach()` on the real region graph. No sphere number is hardcoded anywhere.
+The cumulative "Defeat N Trainers" and "Purify N Shadow Pokemon" checks are TALLIES (ADDENDUM 432): threshold N
+is in logic once at least N trainers / Shadows can really be reached in this state, each counted behind its own
+fight's region, extra regions and items. They used to be ladders -- N gated on the one region holding the Nth
+entry of a story-order list -- which Location Shuffle made unsound. No sphere number is hardcoded anywhere.
 
 THE ONE RULE EVERYTHING HERE OBEYS (ADDENDUM 168): an access rule may only name an item that actually ENTERS
 THE POOL. `all_state` never holds an uncreated item, so naming one makes the location unreachable forever --
@@ -82,7 +83,9 @@ def _set_sphere_rules(world) -> None:
     excluding_mt_battle = bool(getattr(world.options, "exclude_mt_battle_trainers", False))
     trainer_weights = (_UNIQUE_TRAINER_WEIGHT_BY_REGION if excluding_mt_battle
                        else _TRAINER_WEIGHT_BY_REGION)
-    trainer_thresholds = _cumulative_region_thresholds(trainer_weights)
+    del trainer_weights  # ADDENDUM 432: the ladder is retired; the tally below counts real fights
+    groups = _trainer_count_groups(world)
+    player = world.player
     for count in range(1, locations.TRAINER_DEFEAT_COUNT_LOCATION_COUNT + 1):
         try:
             location = world.multiworld.get_location(
@@ -90,8 +93,44 @@ def _set_sphere_rules(world) -> None:
             )
         except KeyError:
             continue
-        region_name = _region_for_sphere_count(trainer_thresholds, count)
-        set_rule(location, lambda state, r=region_name: state.can_reach(r, player=world.player))
+        set_rule(location, lambda state, need=count, g=groups: _count_reachable(state, player, g, need))
+
+
+def _count_reachable(state, player: int, groups, need: int) -> bool:
+    """True once the satisfied groups add up to `need`. A group is `(ways, how many)`; a way is
+    `(regions, items)` and any one way satisfies the group."""
+    total = 0
+    for ways, many in groups:
+        for regions_needed, items_needed in ways:
+            if all(state.can_reach(r, player=player) for r in regions_needed) and all(
+                    state.has(name, player) for name in items_needed):
+                total += many
+                break
+        if total >= need:
+            return True
+    return False
+
+
+def _trainer_count_groups(world) -> "list[tuple[tuple[tuple[tuple[str, ...], tuple[str, ...]], ...], int]]":
+    """ADDENDUM 432: the cumulative "Defeat N Trainers" tally, counted fight by fight. Each census row supplies one
+    defeat behind its own region, extra regions and items; a row with no census region is counted at Citadark
+    Isle, as the retired ladder did. The ladder gated threshold N on the ONE region where the Nth trainer of a
+    story-order list stood, which with Location Shuffle said nothing about the regions listed before it."""
+    from . import items
+
+    counts: "dict[tuple, int]" = {}
+    last = _SPHERE_REGION_ORDER[-1]
+    for index in sorted(trainer_placements.PLACEMENTS):
+        placement = trainer_placements.PLACEMENTS[index]
+        if placement.region is None:
+            way = ((last,), ())
+        else:
+            regions_needed = tuple(dict.fromkeys([placement.region, *placement.required_regions]))
+            names = [items.requirement_to_pool_item(name) for name in placement.required_items]
+            way = (regions_needed, tuple(n for n in dict.fromkeys(names) if _requirement_is_in_the_pool(world, n)))
+        key = (way,)
+        counts[key] = counts.get(key, 0) + 1
+    return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
 
 
 # CATCH-POKEMON AREA GATING (ADDENDUM 104). A "Catch - {species}" location requires `can_reach` on a region
@@ -192,10 +231,22 @@ def _catch_gates_for_species(world) -> "tuple[dict[int, list], set[int]]":
             return
         gates.setdefault(dex, []).append(gate)
 
-    for dex, labels in (getattr(world, "_shadow_catch_labels", None) or {}).items():
-        for location_name in labels:
-            label = shadow_regions.trainer_label_from_location(location_name)
-            record(dex, shadow_regions.gate_for_label(label))
+    # ADDENDUM 432: by the carrying trainer ROW, never the trainer's name. A label resolves to a surname, and a
+    # surname's earliest region was the gate even when that fight did not carry the Shadow.
+    by_ddpk = getattr(world, "_shadow_catch_ddpks", None)
+    if by_ddpk is not None:
+        for dex, ddpks in by_ddpk.items():
+            for ddpk in ddpks:
+                found = shadow_regions.gates_for_ddpk(ddpk)
+                if not found:
+                    record(dex, None)
+                for gate in found:
+                    record(dex, gate)
+    else:
+        for dex, labels in (getattr(world, "_shadow_catch_labels", None) or {}).items():
+            for location_name in labels:
+                label = shadow_regions.trainer_label_from_location(location_name)
+                record(dex, shadow_regions.gate_for_label(label))
 
     for dex, hosts in (getattr(world, "_shadow_catch_expansion_hosts", None) or {}).items():
         for index in hosts:
@@ -211,6 +262,11 @@ def _catch_gates_for_species(world) -> "tuple[dict[int, list], set[int]]":
     # A species with at least one real source is placeable, whatever else also carries it.
     unplaceable -= set(gates)
     return gates, unplaceable
+
+
+# ADDENDUM 457, player: "make wild pokemon (the catches that are not shadows) gated behind either Pyrite Town OR
+# Outskirt Stand". A Poke Spot catch keeps its Poke Spots requirement and ALSO needs ONE of these.
+WILD_CATCH_ANY_REGIONS: "tuple[str, ...]" = ("Pyrite Town", "Outskirt Stand")
 
 
 def _set_catch_rules(world) -> None:
@@ -238,8 +294,8 @@ def _set_catch_rules(world) -> None:
         set_rule(eeveelution, lambda state: state.can_reach(_EEVEELUTION_REGION, player=player))
 
     for dex in sorted(set(gates) | unplaceable):
-        if dex == _GUARANTEED_EEVEE_DEX:
-            continue
+        if dex == int(getattr(world, "starter_dex", _GUARANTEED_EEVEE_DEX)):
+            continue   # ADDENDUM 443: the starter, whatever it is this seed
         location_name = species.location_name_for_species(dex)
         location = location_or_none(location_name)
         if location is None:
@@ -252,24 +308,27 @@ def _set_catch_rules(world) -> None:
 
         # Each source becomes a closed-over tuple of plain requirements, so the rule does no lookups at
         # evaluation time; item names are dropped when this seed's pool does not hold them.
-        compiled: "list[tuple[tuple[str, ...], tuple[str, ...], bool]]" = []
+        compiled: "list[tuple[tuple[str, ...], tuple[str, ...], bool, tuple[str, ...]]]" = []
         for gate in gates[dex]:
             if gate == "pokespot":
-                compiled.append((("Poke Spots",), (), False))
+                # ADDENDUM 457: a wild catch also needs one of WILD_CATCH_ANY_REGIONS.
+                compiled.append((("Poke Spots",), (), False, WILD_CATCH_ANY_REGIONS))
                 continue
             regions_needed = [gate.region, *gate.required_regions]
             items_needed = [items.requirement_to_pool_item(name) for name in gate.required_items]
             items_needed = [name for name in dict.fromkeys(items_needed)
                             if _requirement_is_in_the_pool(world, name)]
-            compiled.append((tuple(dict.fromkeys(regions_needed)), tuple(items_needed), True))
+            compiled.append((tuple(dict.fromkeys(regions_needed)), tuple(items_needed), True, ()))
 
         def rule(state, compiled=tuple(compiled), player=player):
-            for regions_needed, items_needed, needs_snag_floor in compiled:
+            for regions_needed, items_needed, needs_snag_floor, any_regions in compiled:
                 if needs_snag_floor and not all(
                     state.can_reach(name, player=player) for name in _SNAG_FLOOR_REGIONS
                 ):
                     continue
                 if not all(state.can_reach(name, player=player) for name in regions_needed):
+                    continue
+                if any_regions and not any(state.can_reach(name, player=player) for name in any_regions):
                     continue
                 if not all(state.has(name, player) for name in items_needed):
                     continue
@@ -296,7 +355,7 @@ def _requirement_is_in_the_pool(world, item_name: str) -> bool:
 # SPHERE LOGIC FOR THE REMAINING COUNT CATEGORIES (ADDENDUM 150). An EXCLUDED location holds only filler,
 # and most of this world's roster was excluded. Un-excluding is safe only where the reachability model is
 # honest, and these categories hung straight off Menu -- AP believed "Purify 32 Shadow Pokemon" was reachable
-# on turn one. Rules first; `options.ProgressionLocations` then only opens categories that have one.
+# on turn one. Rules first; the options (ADDENDUM 449: Shadow Catch Progression and the purification cap) then open categories.
 
 # Purification weights, a census: `data/shadow_pokemon_list.json` names the trainer holding each of the 83
 # vanilla shadows and the trainer census says where that trainer is. 83 shadows, 32 thresholds -- threshold N
@@ -307,7 +366,9 @@ def _requirement_is_in_the_pool(world, item_name: str) -> bool:
 def _purification_weights_from_census() -> "dict[str, int]":
     from .game_data import shadow_regions
 
-    return shadow_regions.purification_weights(locations.PURIFICATION_LOCATION_COUNT)
+    # ADDENDUM 415: the vanilla ladder only -- 83 thresholds, one per vanilla Shadow. The expansion's thresholds
+    # (84..127) are gated per seed in `_set_remaining_sphere_rules`, on where that seed's Shadows really are.
+    return shadow_regions.purification_weights(locations.VANILLA_SHADOW_COUNT)
 
 
 _PURIFICATION_WEIGHT_BY_REGION: dict[str, int] = _purification_weights_from_census()
@@ -316,7 +377,7 @@ _PURIFICATION_WEIGHT_BY_REGION: dict[str, int] = _purification_weights_from_cens
 # between them on ExcludeMtBattleTrainers.
 _UNIQUE_TRAINER_WEIGHT_BY_REGION: dict[str, int] = _trainer_weights_from_census()
 
-assert sum(_PURIFICATION_WEIGHT_BY_REGION.values()) == locations.PURIFICATION_LOCATION_COUNT
+assert sum(_PURIFICATION_WEIGHT_BY_REGION.values()) == locations.VANILLA_SHADOW_COUNT
 assert sum(_UNIQUE_TRAINER_WEIGHT_BY_REGION.values()) == locations.TRAINER_DEFEAT_COUNT_LOCATION_COUNT
 
 # _SHOP_OCCURRENCE_REGIONS is retired (ADDENDUM 176): shop locations are named after shops and filed in their
@@ -336,24 +397,110 @@ def _has_snag_machine(state, world) -> bool:
     return state.has(part, world.player)
 
 
+def _purification_weights_for(world) -> "dict[str, int]":
+    """This world's vanilla ladder. ADDENDUM 423/424: Nightmare Citadark moves Citadark's Shadows (all but Lugia)
+    onto hosts elsewhere, so its ladder is the census minus them; their thresholds follow it, gated like the
+    expansion's on every region holding a Shadow."""
+    removed = frozenset(getattr(world, "_nightmare_removed_dex", None) or ())
+    if not removed:
+        return _PURIFICATION_WEIGHT_BY_REGION
+    from .game_data import shadow_regions
+
+    return shadow_regions.purification_weights(_vanilla_shadow_count_for(world), removed)
+
+
+def _vanilla_shadow_count_for(world) -> int:
+    return int(getattr(world, "_vanilla_shadow_count", None) or locations.VANILLA_SHADOW_COUNT)
+
+
+def _purification_tail_regions(world) -> "tuple[str, ...]":
+    """Every region that holds a Shadow in this seed: the vanilla census's, plus each expansion host's own region.
+    Hosts with no region cannot occur -- `shadow_expansion_excluded_trainer_indices` fences region-less rows."""
+    from .game_data import trainer_placements
+
+    regions = set(_purification_weights_for(world))
+    # ADDENDUM 424: Nightmare Citadark's relocated Shadows sit on hosts the same way.
+    for plan in list(getattr(world, "_shadow_expansion_plans", None) or ()) + list(
+            getattr(world, "_nightmare_relocations", None) or ()):
+        placement = trainer_placements.PLACEMENTS.get(int(plan["trainer_index"]))
+        if placement is not None and placement.region:
+            regions.add(placement.region)
+    return tuple(sorted(regions))
+
+
+def _purification_shadow_groups(world) -> "list[tuple[tuple[tuple[tuple[str, ...], tuple[str, ...]], ...], int]]":
+    """ADDENDUM 432: every Shadow this seed really holds, as `[(ways to snag it, how many Shadows share exactly
+    those ways), ...]`. A way is `(regions to reach, items to hold)`; any one way will do.
+
+    - a vanilla Shadow still at its own trainers: one way per row carrying it (`shadow_regions.gates_for_ddpk`)
+    - a Shadow moved by Nightmare Citadark / Remove Citadark or Greevil Shadows: its new host's row
+    - a Shadow the expansion added: its host's row
+
+    Grouped so a rule walks ~40 distinct gates rather than 127 Shadows."""
+    from . import items
+    from .game_data import load_json_data_file, shadow_regions
+
+    def compile_gate(gate) -> "tuple[tuple[str, ...], tuple[str, ...]]":
+        regions_needed = tuple(dict.fromkeys([gate.region, *gate.required_regions]))
+        names = [items.requirement_to_pool_item(name) for name in gate.required_items]
+        names = tuple(name for name in dict.fromkeys(names) if _requirement_is_in_the_pool(world, name))
+        return regions_needed, names
+
+    shadows: "list[tuple[tuple[tuple[str, ...], tuple[str, ...]], ...]]" = []
+    removed = frozenset(getattr(world, "_nightmare_removed_dpkm", None) or ())
+    for entry in load_json_data_file("deckdata_dark_pokemon.json") or []:
+        if int(entry["dpkm_index"]) in removed:
+            continue
+        gates = shadow_regions.gates_for_ddpk(int(entry["ddpk_index"]))
+        if gates:
+            shadows.append(tuple(sorted({compile_gate(g) for g in gates})))
+    hosted = [int(plan["trainer_index"]) for plan in getattr(world, "_nightmare_relocations", None) or ()
+              for _shadow in plan["shadows"]]
+    hosted += [int(plan["trainer_index"]) for plan in getattr(world, "_shadow_expansion_plans", None) or ()
+               for _mon in plan["new_pokemon"]]
+    for index in hosted:
+        gate = shadow_regions.gate_for_trainer_index(index)
+        if gate is not None:
+            shadows.append((compile_gate(gate),))
+    counts: "dict[tuple, int]" = {}
+    for ways in shadows:
+        counts[ways] = counts.get(ways, 0) + 1
+    return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+
+
 def _set_remaining_sphere_rules(world) -> None:
-    """The purification ladder. Same silent-skip convention as `_set_sphere_rules`, and attached whatever
-    `ProgressionLocations` says -- an honest reachability model is not something to turn off."""
-    purification_thresholds = _cumulative_region_thresholds(_PURIFICATION_WEIGHT_BY_REGION)
+    """The purification checks. ADDENDUM 432: `Purify N` is in logic when Agate Village (the Purify Chamber) is
+    reachable, the Snag Machine is held, and AT LEAST N of this seed's Shadows can be snagged with what is held --
+    counted Shadow by Shadow from the fights that really carry them.
+
+    It used to be a ladder: threshold N gated on the ONE region where the Nth Shadow of a fixed story-order list
+    sat. That is only honest when the regions open in story order. With Location Shuffle they do not -- reaching
+    Phenac said nothing about the Pyrite and Poke Spot Shadows below it on the list -- and the list itself filed
+    every multi-appearance trainer's Shadows at their FIRST appearance. Player: "if agate, gateon and the lab only
+    give us 13 shadow pokemon, any purifications past 13 should be logically gated behind other areas. Otherwise
+    we can get softlocked." """
+    groups = _purification_shadow_groups(world)
+    player = world.player
+    floor = shadow_regions_floor()
     for count in range(1, locations.PURIFICATION_LOCATION_COUNT + 1):
         try:
-            location = world.multiworld.get_location(
-                locations.purification_location_name(count), world.player
-            )
+            location = world.multiworld.get_location(locations.purification_location_name(count), player)
         except KeyError:
             continue
-        region_name = _region_for_sphere_count(purification_thresholds, count)
-        # ANDed with the Machine Part: reaching the region is where a shadow can be PURIFIED, holding the
-        # Part is what makes there be a shadow to purify. Without it the ladder read as sphere zero in travel
-        # mode and fill put the Part on a `Purify N` check.
-        set_rule(location, lambda state, r=region_name: (
-            state.can_reach(r, player=world.player) and _has_snag_machine(state, world)
-        ))
+
+        def rule(state, need=count, groups=tuple(groups)):
+            if not state.can_reach(floor, player=player) or not _has_snag_machine(state, world):
+                return False
+            return _count_reachable(state, player, groups, need)
+
+        set_rule(location, rule)
+
+
+def shadow_regions_floor() -> str:
+    from .game_data import shadow_regions
+
+    return shadow_regions.PURIFICATION_FLOOR_REGION
+
 
     # The per-trainer locations used to be gated by a model, because the roster carried no region data. It
     # does now, so they live in their real regions and get real gates (`_set_trainer_census_rules`).
@@ -394,7 +541,7 @@ def _set_chest_rules(world) -> None:
         try:
             location = world.multiworld.get_location(location_name, world.player)
         except KeyError:
-            return  # randomize_chests off this seed -- same convention as _set_sphere_rules
+            return  # not created this seed -- same convention as _set_sphere_rules
         if not names and not regions_needed:
             return
 
@@ -542,6 +689,12 @@ def _set_repeatable_trainer_rules(world) -> None:
 NAMED_DEFEAT_ITEM_GATES: "dict[str, tuple[str, ...]]" = {
     "Defeat - Cipher Peon Smarton": ("Music Disc", "Mayor's Note"),
     "Defeat - Cipher Admin Snattle": ("Music Disc", "Mayor's Note"),
+    # ADDENDUM 449. Player: "make Laken gated behind the machine part." Every Laken check -- his two Gateon
+    # rematches and his (Any) -- needs the Machine Part. Always-open Gateon gave them no gate at all. They stay
+    # filler-only (ADDENDUM 362), so this only moves when they count as in logic.
+    "Defeat - Laken #2": ("Machine Part",),
+    "Defeat - Laken #3": ("Machine Part",),
+    "Defeat Laken (Any)": ("Machine Part",),
 }
 
 

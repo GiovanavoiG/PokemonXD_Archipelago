@@ -88,7 +88,7 @@ class TestTheExclusionLands(PokemonXDTestBase):
     options = {"randomize_shops": 1, "agate_village_pit_stop": 0}
 
     def test_every_restock_line_is_excluded(self) -> None:
-        for name in L.FILLER_ONLY_SHOP_LOCATIONS:
+        for name in L.FILLER_ONLY_SHOP_LOCATIONS - {L.ability_patch_shop_location_name()}:   # ADDENDUM 453
             location = self.multiworld.get_location(name, self.player)
             self.assertIs(LocationProgressType.EXCLUDED, location.progress_type, name)
 
@@ -104,7 +104,7 @@ class TestTheExclusionLands(PokemonXDTestBase):
         from Fill import distribute_items_restrictive
 
         distribute_items_restrictive(self.multiworld)
-        for name in L.FILLER_ONLY_SHOP_LOCATIONS:
+        for name in L.FILLER_ONLY_SHOP_LOCATIONS - {L.ability_patch_shop_location_name()}:   # ADDENDUM 453
             item = self.multiworld.get_location(name, self.player).item
             self.assertIsNotNone(item, name)
             self.assertFalse(item.advancement, f"{name} received {item.name}, which the seed may need")

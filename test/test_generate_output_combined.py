@@ -26,7 +26,6 @@ from . import PokemonXDTestBase
 class TestGenerateOutputCombinedShadowAndEnhancedDifficulty(PokemonXDTestBase):
     options = {
         "randomize_shadow_species": True,
-        "shuffle_trainer_movesets": True,
         "randomize_chests": True,
         "shuffle_trainer_defeats": True,
         "shadow_pokemon_expansion": 44,

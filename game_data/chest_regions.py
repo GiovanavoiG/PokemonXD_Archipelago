@@ -63,13 +63,18 @@ CHEST_ITEM_GATES: "dict[int, tuple[str, ...]]" = {
     # through `items.requirement_to_pool_item` to one pool item. Not self-gating -- the ROM lives in chest 17,
     # and fill_restrictive will not place an item on a location whose own rule demands it.
     23: ("Data ROM", "ID Card"),
-    # The three ONBS chests: 98 and 99 in room 110 (3F), 100 in room 109 (2F). Belt and braces -- the region
-    # is reachable only through `Poke Spots`, whose edge already requires the Data ROM -- but the explicit
-    # entry survives any future re-parenting of the ONBS region. Not self-gating: the ROM lives in chest 17.
-    98: ("Data ROM", "ID Card"),
-    99: ("Data ROM", "ID Card"),
-    100: ("Data ROM", "ID Card"),
+    # ADDENDUM 406: Lovrina's defeat item (chest 17, the ROM's own vanilla home) is gated with her. Player:
+    # "Cipher Lab is not gated by Data Rom - just Lovrina, her defeat item, and chest 23." Only a location with
+    # Key Item Shuffle on; the fill never puts the item that opens a location on that location.
+    17: ("Data ROM", "ID Card"),
+    # ADDENDUM 405: the three ONBS chests (98, 99 in room 110; 100 in room 109) no longer name the Data ROM &
+    # ID Card. Player: "Pyrite Town 2nd visit (ONBS raid) in fact is not gated behind Data Rom at all - this means
+    # it's only gated behind pyrite town and the pokespots." Their region says exactly that.
 }
+
+#: ADDENDUM 405 -- chests that used to carry an item gate and must not get it back by accident.
+UNGATED_BY_PLAYER: "frozenset[int]" = frozenset({98, 99, 100})
+assert not UNGATED_BY_PLAYER & set(CHEST_ITEM_GATES), "ADDENDUM 405: an ONBS chest is item-gated again"
 
 # Gated on a region, not an item: chest 2 opens on story transition 0x6C->0x6E, the same one that opens
 # Citadark Isle, so the Robo Kyogre Part count has one home (the Citadark edge in regions.py) and

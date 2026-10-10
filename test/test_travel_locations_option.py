@@ -102,12 +102,12 @@ class TestTravelLocationsOptionOff(PokemonXDTestBase):
                          "the Machine Part must gate Agate Village again with the option off")
         self.assertFalse(self.multiworld.state.can_reach("Mt. Battle", player=self.player))
         self.assertFalse(self.can_reach_location("Agate Bridge Chest"))
-        self.assertFalse(self.can_reach_location("Defeat - Researcher Chobin"))
+        # ADDENDUM 414: "Defeat - Researcher Chobin" is not a location any more (cumulative mode is only a tally);
+        # Agate's own chest above and below is the probe.
 
         self.collect_key_item_chain(1)  # the Machine Part -- Gateon Port -> Agate Village
         self.assertTrue(self.multiworld.state.can_reach("Agate Village", player=self.player))
         self.assertTrue(self.can_reach_location("Agate Bridge Chest"))
-        self.assertTrue(self.can_reach_location("Defeat - Researcher Chobin"))
         self.assertTrue(self.multiworld.state.can_reach("Mt. Battle", player=self.player),
                         "Mt. Battle inherits the Machine Part through Agate Village")
 
@@ -179,16 +179,33 @@ class TestTravelLocationsOptionOn(PokemonXDTestBase):
         self.collect_by_name("Travel Unlock - Mt. Battle")
         self.assertTrue(self.multiworld.state.can_reach("Mt. Battle", player=self.player))
 
-        probe = trainer_defeat_count_location_name(_first_count_in_bucket("Pyrite Town"))
+        # RETARGETED BY ADDENDUM 432: "Defeat N Trainers" counts the fights this state really reaches, so the
+        # Pyrite unlock opens exactly the counts its trainers add -- not the whole story-order block below them.
+        from .. import rules
+
+        def available() -> int:
+            total = 0
+            for ways, count in rules._trainer_count_groups(self.multiworld.worlds[self.player]):
+                if any(all(self.multiworld.state.can_reach(r, player=self.player) for r in regions)
+                       and all(self.multiworld.state.has(i, self.player) for i in held) for regions, held in ways):
+                    total += count
+            return total
+
         self.assertFalse(self.multiworld.state.can_reach("Pyrite Town", player=self.player),
                          "the probe must be CLOSED with nothing collected or the unlock proves nothing")
+        before = available()
+        probe = trainer_defeat_count_location_name(before + 1)
         self.assertFalse(self.can_reach_location(probe))
 
         # Pyrite needs its unlock AND the Data ROM -- the requirement its suppressed chain edge carried.
         self.collect_by_name("Travel Unlock - Pyrite Town")
         self.collect_by_name(_pool_item("Data ROM"))
         self.assertTrue(self.multiworld.state.can_reach("Pyrite Town", player=self.player))
+        after = available()
+        self.assertGreater(after, before)
         self.assertTrue(self.can_reach_location(probe))
+        self.assertTrue(self.can_reach_location(trainer_defeat_count_location_name(after)))
+        self.assertFalse(self.can_reach_location(trainer_defeat_count_location_name(after + 1)))
     def test_receiving_realgam_tower_unlock_does_not_grant_citadark_isle(self) -> None:
         # The extra travel-item path only ever reaches the ONE target region it's wired to (travel_locations.
         # TRAVEL_LOCATION_TARGET_REGION) -- it must never leak into unlocking the rest of the memo-gated chain
@@ -252,7 +269,7 @@ class TestTravelLocationsOptionOn(PokemonXDTestBase):
         """
         for region_name in ("Pokemon HQ Lab", "Kaminko's House", "Gateon Port", "Agate Village"):
             self.assertTrue(self.multiworld.state.can_reach(region_name, player=self.player), region_name)
-        self.assertTrue(self.can_reach_location("Defeat - Researcher Chobin"))  # Kaminko Mansion / Agate Village
+        # ADDENDUM 414: the Chobin probe went with the named checks; the Agate chest below still proves it.
         self.assertTrue(self.can_reach_location("Agate Bridge Chest"))  # Agate Village's own content
 
         from ..locations import LOCATION_TABLE
@@ -263,9 +280,9 @@ class TestTravelLocationsOptionOn(PokemonXDTestBase):
             # the one that is actually detectable.
             ("Krabby Klub Basement Chest", "Gateon Port"),
             # ADDENDUM 237: "Outskirt Stand - HQ Lab Potions" was retired -- the census matched it to chest
-            # 3, which holds the same three Potions. The Eevee gift survives (a hand-over, not a box) and
-            # still carries the re-bucket this test exists to prove.
-            ("Outskirt Stand - Eevee Gift", "Pokemon HQ Lab"),
+            # 3, which holds the same three Potions. ADDENDUM 413 retired "Outskirt Stand - Eevee Gift" from
+            # the table too (never created in any seed), so the HQ Lab re-bucket is proven by its chest instead.
+            ("Player's Room Chest", "Pokemon HQ Lab"),
         ):
             self.assertEqual(LOCATION_TABLE[name].region, expected_region, name)
         # The point of the re-bucket: these are checkable with nothing collected, not just filed correctly.
@@ -345,9 +362,11 @@ class TestTravelLocationAdjacency(PokemonXDTestBase):
         # still gated on the Data ROM their suppressed chain edge carries -- so the OR-branch under test is
         # demonstrated the way it was meant to be: the item is held, the place is NOT reachable, and
         # Outskirt Stand opens anyway.
+        # ADDENDUM 406 took the ROM off the Poke Spots, so they are a reachable place the moment their item is
+        # held and no longer witness "held but not reachable". What is left to show is that this one sibling
+        # item, with nothing else that opens Outskirt Stand's own chain, is enough.
+        self.assertFalse(self.multiworld.state.can_reach("Outskirt Stand", player=self.player))
         self.collect_by_name(["Travel Unlock - Outskirt Stand", "Travel Unlock - Poke Spots"])
-        self.assertFalse(self.multiworld.state.can_reach("Poke Spots", player=self.player),
-                         "the sibling is a held ITEM, not a reachable place -- otherwise this proves nothing")
         self.assertTrue(self.multiworld.state.can_reach("Outskirt Stand", player=self.player))
 
     def test_ss_libra_needs_the_item(self) -> None:

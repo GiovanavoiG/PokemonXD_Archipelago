@@ -88,7 +88,9 @@ class TestTheAnchor(unittest.TestCase):
     def test_the_rulings_that_must_be_present(self) -> None:
         """Each of these is a decision with a reason recorded beside it; losing one silently re-opens a
         location that was ruled shut. New rulings may be added -- these may not be removed."""
-        for name in ("Defeat Biden (Any)", "Defeat Equin (Any)", "Defeat Eroll (Any)",
+        # ADDENDUM 436 lifted Biden's: his Snagem Hideout fight is not missable (player ruling), and it is his check.
+        self.assertNotIn("Defeat Biden (Any)", RT.ALWAYS_FILLER_LOCATIONS)
+        for name in ("Defeat Equin (Any)", "Defeat Eroll (Any)",
                      "Defeat Willie (Any)", "Defeat Greevil (Any)", "Defeat Aferd (Any)",
                      "Defeat Ardos (Any)", "Defeat Zook (Any)"):
             self.assertIn(name, RT.ALWAYS_FILLER_LOCATIONS, name)
@@ -110,9 +112,16 @@ class TestTheOldChecksAreUntouched(unittest.TestCase):
                 covered += 1
         self.assertEqual(24, covered)
 
-    def test_the_named_locations_still_exist(self) -> None:
+    def test_the_named_locations_left_the_table(self) -> None:
+        # ADDENDUM 409 removed two named rows; ADDENDUM 414 the rest -- "Cumulative mode should not have the 64
+        # names and any checks - it should just be a tally." The roster rows stay as data.
+        self.assertEqual(
+            frozenset({"Defeat - Legendary Trainer Eagun", "Defeat - Wanderer Miror B. (final)"}),
+            TD.RULED_OUT_NAMED_LOCATIONS,
+        )
+        self.assertEqual(66, len(TD.RETIRED_CUMULATIVE_NAMED_LOCATIONS))
         for _region, name, _surname in TD.TRAINER_DEFEAT_ROSTER:
-            self.assertIn(name, L.LOCATION_TABLE, name)
+            self.assertNotIn(name, L.LOCATION_TABLE, name)
 
     def test_the_cumulative_count_locations_are_untouched(self) -> None:
         self.assertEqual(232, L.TRAINER_DEFEAT_COUNT_LOCATION_COUNT)
@@ -211,7 +220,10 @@ class TestAgainstARealWorld(PokemonXDTestBase):
 
         expected = {row["location"] for row in RT.REPEATABLE_TRAINERS
                     if row["region"] in story_bytes.ALWAYS_OPEN_REGIONS}
-        self.assertEqual(5, len(expected))
+        # ADDENDUM 436: four -- Ardos's check moved to his Citadark Isle fight.
+        self.assertEqual(4, len(expected))
+        # ADDENDUM 449: Laken's (Any) needs the Machine Part, so three are open with nothing held.
+        expected.discard("Defeat Laken (Any)")
 
         empty = CollectionState(self.multiworld)
         early = {n for n, l in self._live().items() if l.can_reach(empty)}

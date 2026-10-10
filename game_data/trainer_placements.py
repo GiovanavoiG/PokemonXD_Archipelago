@@ -293,6 +293,43 @@ for _index, _region in PLACEMENT_REGION_OVERRIDES.items():
 del _index, _region
 
 
+# ADDENDUM 405. Player, 2026-10-03: "Pyrite Town 2nd visit (ONBS raid) in fact is not gated behind Data Rom at all
+# - this means it's only gated behind pyrite town and the pokespots." The workbook (and ADDENDUM 211, on the
+# player's word at the time) put ('Data ROM',) on every ONBS fight. Dropped here rather than edited in place,
+# because PLACEMENTS is generated. The region still carries "Pyrite Town and the Poke Spots": ONBS hangs off
+# `Poke Spots` in regions.REGION_EDGES, and the Poke Spots need Pyrite Town in both travel modes.
+PLACEMENT_ITEM_REMOVALS: "dict[str, frozenset[int]]" = {
+    "Data ROM": frozenset(
+        index for index, placement in PLACEMENTS.items()
+        if placement.region == "Pyrite Town (ONBS)" and "Data ROM" in placement.required_items
+    ),
+}
+assert len(PLACEMENT_ITEM_REMOVALS["Data ROM"]) == 11, (
+    "ADDENDUM 405 expected the 11 ONBS fights (ten Cipher Peons and Exol) to carry the Data ROM -- the workbook "
+    "changed, so re-read the player's instruction before trusting this table"
+)
+for _item, _indices in PLACEMENT_ITEM_REMOVALS.items():
+    for _index in _indices:
+        _old = PLACEMENTS[_index]
+        PLACEMENTS[_index] = TrainerPlacement(
+            _old.region, tuple(i for i in _old.required_items if i != _item), _old.required_regions,
+        )
+del _item, _indices, _index, _old
+
+# ADDENDUM 409 -- the player's placements, applied over the generated census.
+#   * Sixes #2 (39-44): "make their #2 at Phenac (missable, behind disc and note)". Filed in the Post-Sixes tier,
+#     whose edge already requires the Music Disc AND the Mayor's Note -- the fight is the one that walks the
+#     player out of the Mayor's House -- so the region carries both items and adds no new level tier.
+#   * Miror B. #2 (3): "His 1 and 2 can be in either outskirt stand or cave spot interchangeably, or the colosseum
+#     if his radar fires." A label fires on the Nth DISTINCT team, so #1 is whichever comes first and #2 needs a
+#     second meeting: logic asks for BOTH places, the one assumption that is never early. #1 stays at the spots.
+_SIXES_SECOND = (39, 40, 41, 42, 43, 44)
+_MIROR_B_SECOND = 3
+for _index in _SIXES_SECOND:
+    PLACEMENTS[_index] = TrainerPlacement("Phenac City (Post-Sixes)", (), ())
+PLACEMENTS[_MIROR_B_SECOND] = TrainerPlacement("Outskirt Stand", (), ("Poke Spots",))
+del _index
+
 FILLER_ONLY_INDICES: "frozenset[int]" = frozenset(
     index for index, placement in PLACEMENTS.items() if placement.region is None
 )

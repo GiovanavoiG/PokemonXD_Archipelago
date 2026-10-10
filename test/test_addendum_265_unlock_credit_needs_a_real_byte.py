@@ -153,6 +153,15 @@ class TestTheClientWiring(unittest.TestCase):
         cls.source = (pathlib.Path(__file__).resolve().parent.parent / "Client.py").read_text(encoding="utf-8")
         start = cls.source.index("async def enforce_travel_locks")
         cls.body = cls.source[start:][:cls.source[start:].index("\nasync def ", 1)]
+        # ADDENDUM 402: the witness call moved into `_witness_story_progress`, because the missable auto-send is
+        # a second reader and the two must not drift on what counts as credible. The credit's inputs are now
+        # that helper's inputs, so both bodies are read together -- and the credit is pinned to call it.
+        # ADDENDUM 434: `Unlock -` checks are credited from the game's travel bits now, but enforce_travel_locks is
+        # still the witness's one poll per tick with travel shuffle on -- the missable auto-send reads its mark.
+        assert "_witness_story_progress(ctx)" in cls.body, \
+            "enforce_travel_locks no longer polls the shared witness helper"
+        h = cls.source.index("def _witness_story_progress(")
+        cls.body += cls.source[h:][:cls.source[h:].index("\nasync def ", 1)]
 
     def test_the_credit_no_longer_reads_the_live_byte_directly(self) -> None:
         """The literal shape of the bug. `read_story_byte` still appears -- as the witness's INPUT -- but its

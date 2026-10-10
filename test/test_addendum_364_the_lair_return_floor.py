@@ -41,6 +41,11 @@ from ..game_data import story_bytes as sb
 from . import PokemonXDTestBase
 
 LAIR = "Cipher Key Lair"
+# ADDENDUM 410: "reduce key lair's default floor by one step, remembering that it's more than just a byte" --
+# storyvar 830 -> 820, which presents as 0x66. ADDENDUM 411: "Drop that 820 another step so that it's at Zook" --
+# 810, 0x65. ADDENDUM 438: "Raise the floor for Cipher Key Lair by ONE step" -- 820, 0x66 again. ADDENDUM 439: "I
+# lied. put it to 64" -- 800, 0x64, ADDENDUM 324's value. The tests below were 0x67; what they assert holds.
+FLOOR = 0x64
 TIERS = ("Cipher Key Lair (exterior)", "Cipher Key Lair", "Cipher Key Lair (deep)")
 
 
@@ -48,8 +53,8 @@ class TestTheFloorItself(unittest.TestCase):
     def test_0x67_is_the_floor_and_carries_no_condition(self) -> None:
         """ADDENDUM 371. The value the player asked for twice, now stated as a value: no rule, and 0x67 is what
         the destination is entered at whatever any area's mark says."""
-        self.assertEqual(0x67, sb.AREA_ENTRY_FLOOR_OVERRIDES[LAIR])
-        self.assertEqual(0x67, sb.area_entry_floor(LAIR))
+        self.assertEqual(FLOOR, sb.AREA_ENTRY_FLOOR_OVERRIDES[LAIR])
+        self.assertEqual(FLOOR, sb.area_entry_floor(LAIR))
         self.assertEqual([], [r for r in sb.AREA_FLOOR_RULES if r.target == LAIR],
                          "the Lair's floor is a value now -- a rule here could only sit at or below it, which "
                          "ADDENDUM 247's fence forbids because it can never bind")
@@ -59,7 +64,9 @@ class TestTheFloorItself(unittest.TestCase):
         364's rule floor and the new entry floor are the SAME number, so `target_for`'s max makes the rule
         unreachable. This is the third time this has happened to a Key Lair/Phenac rule and it is the fence
         working, not three mistakes."""
-        self.assertEqual(0x67, sb.area_entry_floor(LAIR), "364's rule floor is now the entry floor")
+        # ADDENDUM 410 lowered the floor one story step BELOW 364's 0x67, so a 364-style rule at 0x67 would now
+        # sit above the floor and could bind again -- it is still not revived: the player asked for a value.
+        self.assertGreaterEqual(0x67, sb.area_entry_floor(LAIR))
 
     def test_0x67_is_a_byte_the_game_rests_on(self) -> None:
         """0x68 is a passthrough of `0x67 -> 0x69` -- a value the ladder moves through and never holds. Using
@@ -69,8 +76,8 @@ class TestTheFloorItself(unittest.TestCase):
 
     def test_it_lands_inside_the_regions_own_window(self) -> None:
         window = sb.REGION_STORY_WINDOW[LAIR]
-        self.assertLessEqual(window.floor, 0x67)
-        self.assertLessEqual(0x67, window.ceiling)
+        self.assertLessEqual(window.floor, FLOOR)
+        self.assertLessEqual(FLOOR, window.ceiling)
 
 
 class TestWhatAVisitNowWrites(unittest.TestCase):
@@ -86,14 +93,21 @@ class TestWhatAVisitNowWrites(unittest.TestCase):
         """RETARGETED BY ADDENDUM 371, and this is the whole behavioural change. Two tests used to live here --
         a first visit at 0x64 and a return trip at 0x67 -- and they are one test now, because the player asked
         for 0x67 "by default"."""
-        self.assertEqual(rc.AreaStoryByteMemory().target_for(LAIR), 0x67)
+        self.assertEqual(rc.AreaStoryByteMemory().target_for(LAIR), FLOOR)
 
     def test_a_mark_below_the_floor_cannot_pull_the_arrival_down(self) -> None:
         """The direction that has to hold whatever the floor is. A player who arrived, left without beating
         Zook and came back still lands on the doorway."""
-        for byte in (0x64, 0x65):
+        # ADDENDUM 439: the floor is 0x64 itself now, so the marks below it are the exterior's.
+        for byte in (0x5D, FLOOR):
             memory = self._memory(**{"Cipher Key Lair": byte})
-            self.assertEqual(memory.target_for(LAIR), 0x67, hex(byte))
+            self.assertEqual(memory.target_for(LAIR), FLOOR, hex(byte))
+
+    def test_zook_beaten_there_is_kept_on_a_return_trip(self) -> None:
+        """ADDENDUM 439. With the floor below Zook's rung, a return after the game moved the Lair to 0x65 must
+        come back at the mark (or past it), never at 0x64 -- which would stage his fight again."""
+        memory = self._memory(**{"Cipher Key Lair": 0x65})
+        self.assertGreaterEqual(memory.target_for(LAIR), 0x65)
 
     def test_the_floor_covers_every_tier_of_the_place(self) -> None:
         """An entry floor is recorded against an `AREA_GROUPS` place, not a region, and the Lair is three
@@ -101,7 +115,7 @@ class TestWhatAVisitNowWrites(unittest.TestCase):
         ADDENDUM 368's level merge and this floor describe the same place."""
         self.assertEqual(TIERS, sb.AREA_GROUPS[LAIR])
         for tier in TIERS:
-            self.assertEqual(0x67, sb.area_entry_floor(tier), tier)
+            self.assertEqual(FLOOR, sb.area_entry_floor(tier), tier)
 
     def test_a_later_mark_is_not_dragged_back_down_to_0x67(self) -> None:
         """`target_for` takes the max, so a player deeper in the Lair keeps their own progress."""
@@ -114,17 +128,17 @@ class TestWhatAVisitNowWrites(unittest.TestCase):
         of anything. It mattered when 0x67 was conditional; it is asserted still because the guard protects
         every other conditional rule in the table the same way."""
         memory = rc.AreaStoryByteMemory()
-        memory.last_written_target = 0x67
-        memory.observe(LAIR, 0x67)
+        memory.last_written_target = FLOOR
+        memory.observe(LAIR, FLOOR)
         self.assertNotIn(LAIR, memory.highest_by_region)
-        self.assertEqual(memory.target_for(LAIR), 0x67)
+        self.assertEqual(memory.target_for(LAIR), FLOOR)
 
     def test_and_a_real_game_advance_in_the_lair_is(self) -> None:
         """The other side of the same guard: once the game moves the byte off our write, it is a real mark, and
         the arrival rises with it rather than dragging the player back to the doorway."""
         memory = rc.AreaStoryByteMemory()
-        memory.last_written_target = 0x67
-        memory.observe(LAIR, 0x67)          # our own arrival write -- refused
+        memory.last_written_target = FLOOR
+        memory.observe(LAIR, FLOOR)         # our own arrival write -- refused
         memory.observe(LAIR, 0x69)          # the game, on entering the Lair -- recorded
         self.assertEqual(memory.highest_by_region.get(LAIR), 0x69)
         self.assertGreaterEqual(memory.target_for(LAIR), 0x69)

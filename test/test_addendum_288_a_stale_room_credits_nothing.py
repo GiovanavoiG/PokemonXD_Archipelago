@@ -201,7 +201,13 @@ class TestEveryStoryByteWriterRegistersOwnership(unittest.TestCase):
         # and sets `last_written_target`, which is this writer's own ownership channel because it IS the area
         # memory -- see the `test_it_claims_the_write_so_the_mark_is_not_banked_back` test in
         # test_addendum_365.
-        self.assertEqual(16, self.ram.count("poke_story_byte(block_base, "))
+        # 18 since ADDENDUM 419: MusicDiscStoryHold's hold and grant, both of which set `last_written_value`;
+        # the client claims them (test_addendum_419).
+        # 19 since ADDENDUM 435: `StoryByteOverride._return_story`, the byte given back after an early Citadark
+        # ride in vanilla travel; it records and sets `last_written_value`.
+        # 20 since ADDENDUM 441: `MusicDiscStoryHold._write` (records and sets `last_written_value`).
+        # 22 since ADDENDUM 452: `LabMemoStoryHold`'s hold and grant (both record and set `last_written_value`).
+        self.assertEqual(22, self.ram.count("poke_story_byte(block_base, "))
         self.assertEqual(0, self.ram.count("write_bytes(block_base + STORY_RECORD_OFFSET + STORY_BYTE_OFFSET"))
 
     def test_the_scooter_hold_and_grant_both_record_what_they_wrote(self) -> None:

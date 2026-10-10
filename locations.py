@@ -32,8 +32,12 @@ class LocationData:
     region: str
 
 
-# The player's cap, not a game limit -- the real obtainable total is unconfirmed by this project.
-PURIFICATION_LOCATION_COUNT = 32
+# ADDENDUM 415: the most Shadows a seed can hold -- 83 vanilla + Shadow Pokemon Expansion's maximum of 44 = 127.
+# Was 32, "the player's cap", while `PurificationProgressionCap` already ran to 127 and said "There are 83 + your
+# shadow expansion setting purifications available". Player: "The purification checks should be raised, yes."
+# A seed creates `Purify 1..(83 + the Shadows its expansion really added)`; see `create_regions_and_locations`.
+VANILLA_SHADOW_COUNT = 83
+PURIFICATION_LOCATION_COUNT = VANILLA_SHADOW_COUNT + 44
 
 
 def purification_location_name(count: int) -> str:
@@ -461,6 +465,7 @@ _UNIQUE_TRAINER_DEFEAT_NAME_SET: frozenset = frozenset(UNIQUE_TRAINER_DEFEAT_LOC
 ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES: list[str] = [
     _n for _n in UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES
     if _n not in trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS
+    and _n not in trainer_roster.REMOVED_DEFEAT_LOCATIONS   # ADDENDA 401/409
 ]
 
 # ADDENDUM 175: regions for the per-trainer locations; the item half is rules.py's
@@ -496,11 +501,21 @@ _MISSABLE_TRAINER_LOCATION_NAMES: frozenset = frozenset(
 # only applied under `if is_unique_trainer_defeat`. A named location fires on the first win for its surname and
 # cannot say which encounter that was, so if ANY row with that surname is missable it is filler-only -- which
 # fences seven: the Phenac Sixes, Willie and Zook.
+# ADDENDUM 460, player: "Make sure Bost, Dosk, Cida, Labet, Doby, Raling, and all the Snagem trainers can hold
+# progressives in their (Any) or one time defeat checks." Their first fight is now ruled unmissable, and a named
+# location fires on the FIRST win for its surname, so these surnames come off the fence. (Willie was ruled
+# unmissable too, but not into progression.)
+PROGRESSION_RULED_SURNAMES: frozenset = frozenset({
+    "BOST", "CIDA", "DOSK", "RALING", "LABET", "DOBY",
+    "FUDLO", "GAPLY", "JINOK", "GOLIT", "HOBBLE", "BIDEN",   # Snagem Hideout
+})
+
 _MISSABLE_SURNAMES: frozenset = frozenset(
     trainer_roster.TRAINERS_BY_INDEX[_index]["name"].upper()
-    for _index in missable_trainers.filler_only_trainer_indices()
+    # ADDENDUM 407: the full un-redoable set, not the progression fence -- unchanged by unfencing rematches.
+    for _index in missable_trainers.UNREDOABLE_TRAINER_INDICES
     if _index in trainer_roster.TRAINERS_BY_INDEX
-)
+) - PROGRESSION_RULED_SURNAMES
 
 _MISSABLE_NAMED_TRAINER_LOCATIONS: frozenset = frozenset(
     _name for _region, _name, _surname in trainer_defeat.TRAINER_DEFEAT_ROSTER
@@ -508,9 +523,13 @@ _MISSABLE_NAMED_TRAINER_LOCATIONS: frozenset = frozenset(
 )
 
 
+# ADDENDUM 413: only the counts the option can ask for -- the names past 114 are not locations.
+from .options import TrainerDefeatCheckCount as _CountRange  # noqa: E402
+
 TRAINER_DEFEAT_COUNT_LOCATION_TO_COUNT: dict[str, int] = {
-    trainer_defeat_count_location_name(n): n for n in range(1, TRAINER_DEFEAT_COUNT_LOCATION_COUNT + 1)
+    trainer_defeat_count_location_name(n): n for n in range(1, _CountRange.range_end + 1)
 }
+TRAINER_DEFEAT_COUNT_LOCATION_NAME_SET: frozenset = frozenset(TRAINER_DEFEAT_COUNT_LOCATION_TO_COUNT)
 
 
 # Shop-purchase locations (ADDENDUM 110/111, named after SHOPS rather than berries since ADDENDUM 176). Every
@@ -587,6 +606,70 @@ assert FILLER_ONLY_SHOP_LOCATIONS, (
 # up would quietly strip the progression surface of every shop rather than of its restocks.
 assert shops.shop_location_name("Gateon Port Shop", 1) not in FILLER_ONLY_SHOP_LOCATIONS
 assert shops.shop_location_name("Mt. Battle Shop", 1) not in FILLER_ONLY_SHOP_LOCATIONS
+
+def grind_shop_location_names() -> "frozenset[str]":
+    """ADDENDUM 427: the Gateon lines Reduce Citadark Grind turns into a Rare Candy and a Candy Box."""
+    from .game_data import candy_box
+
+    return frozenset(shops.shop_location_name(candy_box.GATEON_SHOP, line) for line in candy_box.GATEON_GRIND_LINES)
+
+
+assert grind_shop_location_names() <= FILLER_ONLY_SHOP_LOCATIONS, (
+    "a Reduce Citadark Grind line is not a restock line -- taking it would cost the seed a real check"
+)
+
+
+# ADDENDUM 457: Miror B. leaves if you lose to him, so nothing of his may hold progression.
+MIROR_B_TRAINER_NAME = "MIROR B."
+
+
+def miror_b_trainer_indices() -> "frozenset[int]":
+    """Every Story-deck row named Miror B. (his nine fights)."""
+    return frozenset(t["index"] for t in trainer_roster.TRAINERS if t["name"] == MIROR_B_TRAINER_NAME)
+
+
+def miror_b_shadow_dex(world) -> "frozenset[int]":
+    """National dex numbers whose Shadow this seed puts on a Miror B. team: a vanilla Shadow any of whose carrying
+    rows is his (the species there after Shadow randomization), or a generated / relocated Shadow hosted by him. A
+    species that ALSO has another source is included anyway -- filler is always the safe side."""
+    from .game_data import shadow_regions
+
+    rows = miror_b_trainer_indices()
+    carriers = shadow_regions.shadow_carriers()
+    out = set()
+    by_ddpk = getattr(world, "_shadow_catch_ddpks", None)
+    for dex, ddpks in (by_ddpk or {}).items():
+        if any(set(carriers.get(int(ddpk), ())) & rows for ddpk in ddpks):
+            out.add(int(dex))
+    for dex, hosts in (getattr(world, "_shadow_catch_expansion_hosts", None) or {}).items():
+        if any(int(host) in rows for host in hosts):
+            out.add(int(dex))
+    if by_ddpk is None:
+        for dex, labels in (getattr(world, "_shadow_catch_labels", None) or {}).items():
+            if any(MIROR_B_TRAINER_NAME.lower() in str(label).lower() for label in labels):
+                out.add(int(dex))
+    return frozenset(out)
+
+
+def miror_b_filler_location_names(world) -> "frozenset[str]":
+    """Every location that is Miror B.'s: any name mentioning him (his nine defeats, `Defeat Miror B. (Any)`) and
+    the `Catch -` check of every Shadow species his teams carry this seed."""
+    names = {name for name in _ALL_LOCATIONS if "Miror B." in name}
+    names |= {species.location_name_for_species(dex) for dex in miror_b_shadow_dex(world)}
+    return frozenset(names)
+
+
+def ability_patch_shop_location_name() -> str:
+    """ADDENDUM 453: the Gateon line that sells the Ability Swap in every seed, so it is never a check."""
+    from .game_data import ability_patch
+
+    return shops.shop_location_name(ability_patch.GATEON_SHOP, ability_patch.ABILITY_PATCH_LINE)
+
+
+assert ability_patch_shop_location_name() in FILLER_ONLY_SHOP_LOCATIONS, (
+    "the Ability Swap's line is not a restock line -- taking it would cost the seed a real check"
+)
+assert ability_patch_shop_location_name() not in grind_shop_location_names()
 
 SHOP_LOCATION_TO_REGION: "dict[str, str]" = {
     name: shop.region for name, (shop, _slot) in SHOP_LOCATION_TO_SHOP_AND_SLOT.items()
@@ -845,8 +928,32 @@ from .game_data.overworld_item_census import RETIRED_LOCATIONS  # noqa: E402
 # ADDENDUM 362: the unique-mode labels with no distinct team left to earn them, now that `Defeat - X #N` fires
 # on the Nth UNIQUE team -- today only `Defeat - Chobin #7`, whose occurrences 4 and 5 field identical teams.
 from .game_data.trainer_roster import RETIRED_UNIQUE_DEFEAT_LOCATIONS  # noqa: E402
+# ADDENDUM 401: the 75 numbered fights of the 20 missable trainers that fight more than once. Retired by the same
+# filter as Chobin #7 -- see trainer_roster's block on it for which ones and why.
+from .game_data.trainer_roster import REMOVED_DEFEAT_LOCATIONS, REMOVED_MISSABLE_DEFEAT_LOCATIONS  # noqa: E402
+# ADDENDUM 409: the named (cumulative-mode) rematches the player removed with them.
+from .trainer_defeat import RULED_OUT_NAMED_LOCATIONS, RETIRED_CUMULATIVE_NAMED_LOCATIONS  # noqa: E402
 
-_RETIRED_LOCATION_NAMES: frozenset = RETIRED_LOCATIONS | RETIRED_UNIQUE_DEFEAT_LOCATIONS
+# ADDENDUM 413: names no seed can contain are not in the table at all. Player, of the catalog's "Never in a seed
+# (119)": "Can we remove these from the location table?" Their frozen ids stay behind inert, like every retirement.
+#   * "Defeat N Trainers" past `TrainerDefeatCheckCount.range_end` (114): the option cannot ask for N > 114, so
+#     115..232 could never be created. The roster still has 232 trainers -- TRAINER_DEFEAT_COUNT_LOCATION_COUNT
+#     keeps meaning that for rules.py's weight tables -- only the location names stop at the option's maximum.
+#   * "Outskirt Stand - Eevee Gift": `create_regions` always skipped it (a story landmark, never a check).
+from .options import TrainerDefeatCheckCount as _CountOption  # noqa: E402
+
+TRAINER_DEFEAT_COUNT_LOCATION_MAX: int = _CountOption.range_end
+NEVER_CREATED_LOCATION_NAMES: frozenset = frozenset(
+    {trainer_defeat_count_location_name(n)
+     for n in range(TRAINER_DEFEAT_COUNT_LOCATION_MAX + 1, TRAINER_DEFEAT_COUNT_LOCATION_COUNT + 1)}
+    | {"Outskirt Stand - Eevee Gift"}
+)
+
+_RETIRED_LOCATION_NAMES: frozenset = (
+    RETIRED_LOCATIONS | RETIRED_UNIQUE_DEFEAT_LOCATIONS | REMOVED_DEFEAT_LOCATIONS | RULED_OUT_NAMED_LOCATIONS
+    | NEVER_CREATED_LOCATION_NAMES | RETIRED_CUMULATIVE_NAMED_LOCATIONS   # ADDENDUM 414
+)
+assert not (RETIRED_LOCATIONS & REMOVED_DEFEAT_LOCATIONS)
 
 assert not (RETIRED_LOCATIONS & RETIRED_UNIQUE_DEFEAT_LOCATIONS), (
     "a name is retired by both the overworld census and the unique-defeat derivation -- one of them is wrong "
@@ -2145,7 +2252,7 @@ _FROZEN_LOCATION_OFFSETS: dict[str, int] = {
     'Unlock - Cipher Lab': 1428,
     'Unlock - Mt. Battle': 1429,
     'Unlock - SS Libra': 1430,
-    'Unlock - Orre Colosseum': 1431,
+    'Unlock - Orre Colosseum': 1431,   # retired by ADDENDUM 446 -- inert, never reused
     # ADDENDUM 177: the three separate Poke Spot unlocks (ids 1421, 1424, 1427) are inert -- one
     # 'Unlock - Poke Spots' replaces them, because the three spots were already ONE region. Never reissued.
     'Unlock - Poke Spots': 1641,
@@ -2432,6 +2539,9 @@ _FROZEN_LOCATION_OFFSETS: dict[str, int] = {
     'Defeat Biden (Any)': 1690,
     'Defeat Zook (Any)': 1691,
 }
+# ADDENDUM 415: Purify 33..127, frozen to 1692..1786 -- a literal base, so a later addition cannot shift them.
+for _n in range(33, PURIFICATION_LOCATION_COUNT + 1):
+    _FROZEN_LOCATION_OFFSETS[purification_location_name(_n)] = 1692 + (_n - 33)
 
 
 def _freeze_offsets(table: "dict[str, LocationData]", frozen: dict[str, int]) -> "dict[str, LocationData]":
@@ -2517,16 +2627,49 @@ def create_regions_and_locations(world) -> dict[str, Region]:
     `world._obtainable_species_dex` trims species catches to what this seed can produce; None means no trim."""
     # shuffle_overworld_items was removed as redundant with randomize_chests; overworld items are always in.
     include_overworld = True
-    include_chests = bool(world.options.randomize_chests)
+    # ADDENDUM 404: chests are always checks. Player: "make randomize chests default and not an option so the
+    # gen failures are resolved." With chests, shops and trainer defeats all off, Location Shuffle left two
+    # progression-eligible locations in sphere zero (Catch - Eevee and the Eeveelution) for ~17 progression
+    # items, and fill failed on 8-10 seeds in 20. Chests sit in every area including the always-open ones, so
+    # sphere zero always has room.
+    include_chests = True
+    # ADDENDUM 443: the starter's own catch is the guaranteed one. With the starter randomized it is EXCLUDED (an
+    # ungated check in the always-open "Pokemon Storage" bucket may hold filler only -- `rules`' fence), "Catch -
+    # Eevee" becomes an ordinary species catch, and the Eeveelution check exists only while the starter is Eevee.
+    starter_dex = int(getattr(world, "starter_dex", 133))
+    starter_randomized = starter_dex != 133
+    guaranteed_location = species.location_name_for_species(starter_dex)
+    exempt_from_trim = (guaranteed_location,) if starter_randomized else (guaranteed_location, EEVEELUTION_LOCATION_NAME)
     include_shops = bool(world.options.randomize_shops)
     # ADDENDUM 311: Agate Village Pit Stop -- Agate sells real supplies, so its shop checks do not exist.
     pit_stop_shop = (shops.AGATE_PIT_STOP_SHOP_NAME
                      if bool(getattr(world.options, "agate_village_pit_stop", 0)) else None)
+    # ADDENDUM 427: Reduce Citadark Grind -- two Gateon restock lines sell candy instead of a check.
+    grind_lines = (grind_shop_location_names()
+                   if bool(getattr(world.options, "reduce_citadark_grind", 0)) else frozenset())
+    # ADDENDUM 453: the Ability Swap's line sells it in every seed, so it is never a check.
+    grind_lines = grind_lines | {ability_patch_shop_location_name()}
     include_trainer_defeats = bool(world.options.shuffle_trainer_defeats)
+    # ADDENDUM 457: everything Miror B. -- his defeats and the Shadows his teams carry -- is filler-only.
+    miror_b_locations = miror_b_filler_location_names(world) - {guaranteed_location, EEVEELUTION_LOCATION_NAME}
+    # ADDENDUM 415: "add an option (above the purification number count) to turn purifications as a whole on or
+    # off as checks." And when on, one `Purify N` per Shadow this seed really holds.
+    include_purifications = bool(getattr(world.options, "purification_checks", 1))
+    purification_location_count = int(getattr(world, "_purification_location_count", None)
+                                       or VANILLA_SHADOW_COUNT + int(getattr(world.options,
+                                                                             "shadow_pokemon_expansion", 0)))
+    purification_location_count = min(purification_location_count, PURIFICATION_LOCATION_COUNT)
     # ADDENDUM 270: `Unlock - X` locations exist only when travel randomization does, because
     # `enforce_travel_locks` returns immediately with the option off -- otherwise eleven checks nothing could
     # fire, stranding eleven filler items and the slot below 100%.
     include_travel_unlocks = bool(world.options.randomize_travel_locations)
+
+    # Read once, not once per location (ADDENDUM 397's hoist; 1,191 reads a seed for a value that cannot change).
+    #
+    # ADDENDUM 397 also fell back to `everything` here when `world_checks` named an empty set -- chests, shops and
+    # trainer defeats all off. ADDENDUM 404 made chests permanent, so `world_checks` can never name nothing and
+    # that fallback could never fire again. Removed rather than left, per ADDENDA 247/298: a condition that
+    # cannot bind reads as a guarantee somebody is relying on.
     trainer_defeat_check_count = int(world.options.trainer_defeat_check_count)
     # ADDENDUM 144: 0 = cumulative (the historical behaviour), 1 = one check per real trainer.
     unique_trainer_defeats = int(getattr(world.options, "trainer_defeat_mode", 0)) == 1
@@ -2545,6 +2688,8 @@ def create_regions_and_locations(world) -> dict[str, Region]:
             if location_name == "Outskirt Stand - Eevee Gift":
                 continue  # story landmark only in this skeleton; not a shuffled check
             is_species_catch = location_name.startswith("Catch - ")
+            if starter_randomized and location_name == EEVEELUTION_LOCATION_NAME:
+                continue   # ADDENDUM 443: no guaranteed Eevee to evolve
             is_purification = location_name.startswith("Purify ")
             # Exact set membership, not the retired ladder's prefix test -- a per-chest name cannot be
             # pattern-matched safely against overworld-item names that also mention chests.
@@ -2561,6 +2706,12 @@ def create_regions_and_locations(world) -> dict[str, Region]:
             is_shop_purchase = is_shop_location(location_name)
             # Species catches and purifications are always included. Chests have their own toggle; both
             # trainer-defeat categories share one, since they run off the same tracker.
+            if is_purification:
+                # ADDENDUM 415: the option first, then this seed's own Shadow count.
+                if not include_purifications:
+                    continue
+                if PURIFICATION_LOCATION_TO_COUNT.get(location_name, 0) > purification_location_count:
+                    continue
             if is_chest_opening:
                 if not include_chests:
                     continue
@@ -2574,7 +2725,12 @@ def create_regions_and_locations(world) -> dict[str, Region]:
                     continue
                 if pit_stop_shop is not None and SHOP_LOCATION_TO_SHOP_AND_SLOT[location_name][0].name == pit_stop_shop:
                     continue
+                if location_name in grind_lines:
+                    continue
             elif is_any_defeat:
+                # ADDENDUM 414: "Cumulative mode ... should just be a tally" -- the (Any) checks are unique mode's.
+                if not unique_trainer_defeats:
+                    continue
                 # ADDENDUM 252: gated on the SAME toggle as every other trainer-defeat category. These used to
                 # fall through to the Overworld Items branch and be gated on `include_overworld`, so with
                 # defeats off they were progression-eligible locations nothing could check. They DO survive
@@ -2603,7 +2759,7 @@ def create_regions_and_locations(world) -> dict[str, Region]:
                 # exempt, matching its non-EXCLUDED case below, and so is the Eeveelution check -- not a species
                 # name, so the lookup below would KeyError. None means no census, hence no trim.
                 if (
-                    location_name not in (GUARANTEED_SPECIES_LOCATION, EEVEELUTION_LOCATION_NAME)
+                    location_name not in exempt_from_trim
                     and obtainable_species_dex is not None
                 ):
                     dex = species.SPECIES_LOCATION_TO_DEX[location_name]
@@ -2619,13 +2775,11 @@ def create_regions_and_locations(world) -> dict[str, Region]:
                     continue
             loc_id = world.location_name_to_id[location_name]
             location = PokemonXDLocation(world.player, location_name, loc_id, region)
-            # ADDENDUM 150: which categories stay EXCLUDED is the `ProgressionLocations` option's
-            # decision rather than a blanket rule. Catch - Eevee is never excluded at any setting.
-            scope = int(getattr(world.options, "progression_locations", 2))
-            # ADDENDUM 237: `overworld_only` (0) is gone, so this can never be true. Kept as a named
-            # constant so the branches below still read as a ladder.
-            world_checks_excluded = scope < 1
-            everything_excluded = scope < 2
+            # ADDENDUM 449: the `ProgressionLocations` option is gone; every seed is its old `everything`. Shadow
+            # catches answer to `shadow_catch_progression` and purifications to `purification_progression_cap`,
+            # which is all `world_checks` ever did. Kept as named constants so the branches below still read.
+            world_checks_excluded = False
+            everything_excluded = False
             # A trainer you can permanently walk past, and a purification threshold past the player's cap,
             # are the two cases where ProgressionLocations must not apply at any setting: progression on a
             # check that cannot be re-obtained is an unwinnable seed, not a modelling risk.
@@ -2669,6 +2823,12 @@ def create_regions_and_locations(world) -> dict[str, Region]:
                 location.progress_type = LocationProgressType.EXCLUDED
                 region.locations.append(location)
                 continue
+            # ADDENDUM 457, player: "If we lose to miror b he leaves. Make it so every Miror B check (including his
+            # team's shadows) are filler." Here, for the ADDENDUM 335 reason above.
+            if location_name in miror_b_locations:
+                location.progress_type = LocationProgressType.EXCLUDED
+                region.locations.append(location)
+                continue
             # ADDENDUM 387: the shop restock lines, for the same reason and in the same place.
             if location_name in FILLER_ONLY_SHOP_LOCATIONS:
                 location.progress_type = LocationProgressType.EXCLUDED
@@ -2682,7 +2842,7 @@ def create_regions_and_locations(world) -> dict[str, Region]:
                 or (is_purification and everything_excluded)
                 or (
                     is_species_catch
-                    and location_name != GUARANTEED_SPECIES_LOCATION
+                    and location_name != guaranteed_location
                     and everything_excluded
                 )
                 # ADDENDUM 185: the narrower switch, and it wins over ProgressionLocations in the
@@ -2690,9 +2850,10 @@ def create_regions_and_locations(world) -> dict[str, Region]:
                 # evolving it, so neither is a Shadow Pokemon.
                 or (
                     is_species_catch
-                    and location_name not in (GUARANTEED_SPECIES_LOCATION, EEVEELUTION_LOCATION_NAME)
+                    and location_name not in (guaranteed_location, EEVEELUTION_LOCATION_NAME)
                     and not bool(getattr(world.options, "shadow_catch_progression", 0))
                 )
+                or (starter_randomized and location_name == guaranteed_location)   # ADDENDUM 443
             ):
                 # Never required for logic. EXCLUDED locations still receive items and can still be checked;
                 # fill just never *requires* one to be reachable, which is what makes shipping every species

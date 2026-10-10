@@ -68,3 +68,11 @@ boss Greevil (both his main-story and post-game rematch teams), Shadow Lugia, an
   in `trainer_census.json`. This underclaims two Shadow Pokemon locations' worth of "is_shadow" flags but never
   overclaims one; it only affects `team_shuffle.py`'s shadow-dedup logic (a design not currently wired to any
   live ISO patch anyway -- see `patch.py`), not anything player-facing in this build.
+
+## species_move_compat.json (ADDENDUM 426)
+
+Read off Pokemon XD (GXXE)'s own tables in a live RAM dump: per species (`pokemonDataBiosGetPtr`, 0x124 bytes),
+the TM/HM compatibility flags at +0x34 (58, in `item_waza_machine_no` order), the tutor flags at +0x6E (12, in the
+order `scriptPokemonTeachWazaIndex` assigns) and the egg moves at +0x7E (8, merged with every pre-evolution's);
+`move_power` is each damaging move's base power from the move table (`wazaDataBiosGetPtr`, +0x18). The level-up
+lists in `species_level_up_moves.json` were checked against the same dump and agree for all 415 species.

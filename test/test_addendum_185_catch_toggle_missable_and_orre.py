@@ -44,11 +44,13 @@ class TestPhenacIsBehindTheDiscAndNote(unittest.TestCase):
 
 
 class TestPhenacInAWorld(PokemonXDTestBase):
-    options = {"shuffle_trainer_defeats": True, "trainer_defeat_mode": 0, "progression_locations": 2,
+    # ADDENDUM 414: the named cumulative check is gone ("it should just be a tally"), so the probe is Egrog's
+    # unique-mode check -- the same fight, the same Phenac (Post-Sixes) tier.
+    options = {"shuffle_trainer_defeats": True, "trainer_defeat_mode": 1, 
                "key_item_shuffle": True}
 
     def test_a_phenac_trainer_is_closed_until_both_items_are_held(self) -> None:
-        name = "Defeat - Cipher Peon Egrog"  # census-confirmed Disc+Note, and not missable
+        name = "Defeat - Egrog"  # census-confirmed Disc+Note, and not missable
         location = self.multiworld.get_location(name, self.player)
         self.assertFalse(location.can_reach(self.multiworld.state))
         self.collect_key_item_chain(4)  # Machine Part, Data ROM & ID Card, Music Disc, Mayor's Note
@@ -64,8 +66,10 @@ class TestTheMissableFenceIsBackAndWider(unittest.TestCase):
         cannot be redone, and this project had only ever read that one. See
         test_workbook_fence_and_sphere_zero.py, which asserts the fence against the workbook directly rather
         than against a remembered total."""
-        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 47)
-        self.assertEqual(len(missable_trainers.FILLER_ONLY_TRAINER_INDICES), 150)   # ADDENDUM 341 lifted 337's +Wakin/+Gonzap
+        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 39)  # ADDENDUM 440: +4; 460: -13 ruled unmissable
+        self.assertEqual(len(missable_trainers.UNREDOABLE_TRAINER_INDICES), 149)   # ADDENDUM 440: +4; 460: -6
+        # ADDENDUM 407: minus Naps #2, the one mandatory rematch the player made progression-eligible.
+        self.assertEqual(len(missable_trainers.FILLER_ONLY_TRAINER_INDICES), 148)   # ADDENDUM 440: +4; 460: -6
         self.assertTrue(missable_trainers.MISSABLE_TRAINER_INDICES
                         <= missable_trainers.FILLER_ONLY_TRAINER_INDICES)
 
@@ -87,6 +91,7 @@ class TestTheMissableFenceIsBackAndWider(unittest.TestCase):
         from .. import species  # noqa: F401  (import kept uniform with the rest of the file)
         from ..game_data import trainer_roster
 
+        # ADDENDUM 407 unfenced Naps #2 only; the player kept the Sixes' #2 fights filler.
         for index in (69, 147, 202, 120, 44):   # Aferd #2, Zook #2, Laken #3, Browsix #4, Greesix #2
             self.assertIn(index, missable_trainers.FILLER_ONLY_TRAINER_INDICES,
                           trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[index]))
@@ -97,19 +102,24 @@ class TestTheMissableFenceIsBackAndWider(unittest.TestCase):
 
 
 class TestNamedFenceInAWorld(PokemonXDTestBase):
-    options = {"shuffle_trainer_defeats": True, "trainer_defeat_mode": 0, "progression_locations": 2}
+    options = {"shuffle_trainer_defeats": True, "trainer_defeat_mode": 0}
 
     def test_browsix_cannot_hold_the_music_disc_any_more(self) -> None:
-        browsix = self.multiworld.get_location("Defeat - Cipher Peon Browsix", self.player)
-        self.assertEqual(browsix.progress_type, LocationProgressType.EXCLUDED)
+        # ADDENDUM 414: in the tally mode Browsix has no check at all; in unique mode his fights are fenced.
+        from ..game_data import missable_trainers as mt
 
-    def test_it_still_exists_and_can_still_be_checked(self) -> None:
+        self.assertNotIn("Defeat - Cipher Peon Browsix",
+                         {loc.name for loc in self.multiworld.get_locations(self.player)})
+        self.assertIn("Defeat - Browsix #1", mt.filler_only_trainer_location_names())
+
+    def test_it_is_not_a_location_in_the_tally_mode(self) -> None:
+        # ADDENDUM 414: cumulative mode is only the tally now; the named check does not exist to hold anything.
         names = {loc.name for loc in self.multiworld.get_locations(self.player)}
-        self.assertIn("Defeat - Cipher Peon Browsix", names)
+        self.assertNotIn("Defeat - Cipher Peon Browsix", names)
 
 
 class TestShadowCatchToggle(PokemonXDTestBase):
-    options = {"progression_locations": 2, "shadow_catch_progression": False}
+    options = {"shadow_catch_progression": False}
 
     def test_catches_are_filler_only_by_default(self) -> None:
         catches = [loc for loc in self.multiworld.get_locations(self.player)
@@ -132,7 +142,7 @@ class TestShadowCatchToggle(PokemonXDTestBase):
 
 
 class TestShadowCatchToggleOn(PokemonXDTestBase):
-    options = {"progression_locations": 2, "shadow_catch_progression": True,
+    options = {"shadow_catch_progression": True,
                "shadow_pokemon_expansion": 44}
 
     def test_catches_become_eligible_again(self) -> None:
@@ -185,10 +195,16 @@ class TestPurificationCapIsValidatedPerSeed(unittest.TestCase):
             options={"purification_progression_cap": cap, "shadow_pokemon_expansion": expansion},
         )
 
-    def test_a_cap_above_the_seeds_own_shadow_count_is_an_error(self) -> None:
-        with self.assertRaises(Exception) as caught:
-            self._build(cap=100, expansion=0)
-        self.assertIn("Shadow Pokemon to purify", str(caught.exception))
+    def test_a_cap_above_the_seeds_own_shadow_count_is_rounded_down(self) -> None:
+        """ADDENDUM 406 replaced the error. Player: "make our refusals instead auto-adjust to valid settings ...
+        round purifications down if it's greater than possible shadows." """
+        with self.assertLogs(level="WARNING") as logged:
+            mw = self._build(cap=100, expansion=0)
+        world = mw.worlds[1]
+        self.assertEqual(83, int(world.options.purification_progression_cap))
+        self.assertEqual([("purification_progression_cap", 100, 83)], world.option_adjustments)
+        self.assertTrue(any("using 83 instead" in line for line in logged.output))
+        self.assertEqual(83, world.fill_slot_data()["universal_tracker"]["options"]["purification_progression_cap"])
 
     def test_the_same_cap_is_fine_once_the_expansion_supplies_the_shadows(self) -> None:
         self._build(cap=100, expansion=44)   # 83 + 44 = 127, so 100 is inside the seed's own bound
@@ -198,27 +214,26 @@ class TestPurificationCapIsValidatedPerSeed(unittest.TestCase):
 
 
 class TestOrreColosseumIsOutOfLogic(unittest.TestCase):
-    def test_its_travel_item_opens_a_region_of_its_own(self) -> None:
-        self.assertEqual(travel_locations.TRAVEL_LOCATION_TARGET_REGION["Orre Colosseum"],
-                         travel_locations.ORRE_COLOSSEUM_REGION)
+    """ADDENDUM 446 superseded this addendum's Orre half. Player: "Remove the travel unlock for Orre Colosseum and
+    ensure no checks are there." No item, no `Unlock -` check, no region."""
 
-    def test_that_region_is_not_on_the_story_chain(self) -> None:
+    def test_no_travel_item_and_no_region(self) -> None:
+        self.assertNotIn("Orre Colosseum", travel_locations.TRAVEL_LOCATION_TARGET_REGION)
+        self.assertNotIn("Orre Colosseum", travel_locations.TRAVEL_LOCATION_NAMES)
         self.assertNotIn(travel_locations.ORRE_COLOSSEUM_REGION, region_module.REGION_NAMES)
         for source, target, _required in region_module.REGION_EDGES:
             self.assertNotEqual(target, travel_locations.ORRE_COLOSSEUM_REGION)
             self.assertNotEqual(source, travel_locations.ORRE_COLOSSEUM_REGION)
 
-    def test_the_check_is_still_gettable(self) -> None:
-        """Player: "Leave Orre Colosseum as a gettable location". Where the CHECK fires and what the ITEM opens
-        are different questions, and this is the one destination where they differ."""
+    def test_no_check_is_there(self) -> None:
         name = travel_locations.travel_unlock_location_name("Orre Colosseum")
-        self.assertIn(name, locations.TRAVEL_UNLOCK_LOCATION_NAMES)
-        self.assertIsNotNone(travel_locations.vanilla_unlock_story_byte("Orre Colosseum"))
-        self.assertEqual(travel_locations.TRAVEL_UNLOCK_STORY_REGION["Orre Colosseum"], "Realgam Tower")
+        self.assertNotIn(name, locations.TRAVEL_UNLOCK_LOCATION_NAMES)
+        self.assertNotIn(name, locations.LOCATION_TABLE)
+        self.assertEqual(1431, locations._FROZEN_LOCATION_OFFSETS[name], "the id stays reserved")
 
     def test_nothing_else_ever_named_it(self) -> None:
         """There were no Orre Colosseum trainers or chests to strip: no chest room maps to it and no census row
-        names it, so the fold into Realgam Tower WAS the whole of its presence in the logic."""
+        names it, so the unlock check WAS the whole of its presence in the logic."""
         from ..game_data import chest_regions, trainer_placements
 
         self.assertNotIn("Orre Colosseum", set(chest_regions.ROOM_TO_REGION.values()))
@@ -229,15 +244,12 @@ class TestOrreColosseumIsOutOfLogic(unittest.TestCase):
 class TestOrreInAWorld(PokemonXDTestBase):
     options = {"randomize_travel_locations": True}
 
-    def test_the_region_exists_and_holds_nothing(self) -> None:
-        region = self.multiworld.get_region(travel_locations.ORRE_COLOSSEUM_REGION, self.player)
-        self.assertEqual(list(region.locations), [])
-
-    def test_its_item_is_not_a_second_key_to_realgam_tower(self) -> None:
-        """The whole point: before ADDENDUM 185, holding the Orre Colosseum unlock opened Realgam Tower, which
-        already had its own key."""
-        self.collect_by_name("Travel Unlock - Orre Colosseum")
-        self.assertFalse(self.multiworld.state.can_reach("Realgam Tower", player=self.player))
+    def test_no_orre_item_or_location_in_a_seed(self) -> None:
+        self.assertNotIn("Travel Unlock - Orre Colosseum", {i.name for i in self.multiworld.itempool})
+        names = {loc.name for loc in self.multiworld.get_locations(self.player)}
+        self.assertFalse({n for n in names if "Orre Colosseum" in n})
+        with self.assertRaises(KeyError):
+            self.multiworld.get_region(travel_locations.ORRE_COLOSSEUM_REGION, self.player)
 
 
 if __name__ == "__main__":

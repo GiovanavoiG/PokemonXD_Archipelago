@@ -74,7 +74,9 @@ class TestTheMergeTable(unittest.TestCase):
         a level, or the table should not exist."""
         known = _known()
         self.assertIn(EXTERIOR, known, "nothing is placed in the exterior, so the merge cannot bite")
-        with mock.patch.object(pls, "PATH_FLOOR_MERGES", {}):
+        # Lift only the Key Lair rows -- ADDENDUM 407 added Pyrite's merge to the same table.
+        with mock.patch.object(pls, "PATH_FLOOR_MERGES",
+                               {k: v for k, v in pls.PATH_FLOOR_MERGES.items() if v != "Cipher Key Lair"}):
             before = pls.level_by_trainer_index()
             before_tiers = pls.path_tiers(known)
         after = pls.level_by_trainer_index()
@@ -90,7 +92,7 @@ class TestZookAndBiden(unittest.TestCase):
         self.levels = pls.level_by_trainer_index()
 
     def _level_of(self, region: str) -> int:
-        return pls.level_for_tier(pls.tier_index(region, self.tiers, self.known), len(self.tiers))
+        return pls.tier_level(pls.tier_index(region, self.tiers, self.known), self.tiers)
 
     def test_zook_two_is_levelled_as_the_lair(self) -> None:
         """"Also, just scale zook to key lair (which is now just one place)." He needs no override of his own:
@@ -132,11 +134,13 @@ class TestZookAndBiden(unittest.TestCase):
         self.assertEqual({148}, moved)
 
     def test_no_trainer_is_at_fifty_outside_citadark(self) -> None:
-        """The player's symptom, stated as the thing they would notice. 50 is the top of the ramp, and after
-        these two addenda the only region holding it is the last one."""
+        """The player's symptom, stated as the thing they would notice. ADDENDUM 455: the 8..50 ramp now ends at
+        the Key Lair and Citadark Isle sits above it at 53, alone."""
         regions = pls.region_by_trainer_index()
-        top = {regions[index] for index, level in self.levels.items() if level >= 50}
+        top = {regions[index] for index, level in self.levels.items() if level > pls.LAST_TIER_LEVEL}
         self.assertEqual({"Citadark Isle"}, top)
+        self.assertEqual({"Cipher Key Lair", "Cipher Key Lair (exterior)"},
+                         {regions[index] for index, level in self.levels.items() if level == pls.LAST_TIER_LEVEL})
 
 
 class TestTheSphereOrderingCannotSplitThePlaceAgain(unittest.TestCase):

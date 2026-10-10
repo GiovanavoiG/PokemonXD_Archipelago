@@ -12,7 +12,14 @@ Willie have no such occurrence and are filler by ruling, as is Greevil, whose la
 """
 from __future__ import annotations
 
-from .census_repeat_column import CENSUS_REPEAT_AND_MISSABLE
+from .census_repeat_column import CENSUS_REPEAT_AND_MISSABLE as _WORKBOOK
+from .missable_indices import WORKBOOK_MISSABLE_OVERRULED
+
+# ADDENDUM 436: the workbook's columns, with the player's "not missable" rulings applied (Biden #1).
+CENSUS_REPEAT_AND_MISSABLE = {
+    index: (repeat, missable and index not in WORKBOOK_MISSABLE_OVERRULED)
+    for index, (repeat, missable) in _WORKBOOK.items()
+}
 from .trainer_placements import PLACEMENTS
 from .trainer_roster import TRAINERS_BY_INDEX
 
@@ -35,10 +42,12 @@ ALWAYS_FILLER_SURNAMES: "dict[str, str]" = {
     # per-occurrence locations were already excluded, leaving these two as the only remaining surface.
     "LAKEN": "player ruling (ADDENDUM 362)",
     "HEBON": "player ruling (ADDENDUM 362)",
-    "BIDEN": "both fights missable -- Zook beats him at 0x5B -> 0x5D, so he can be lost outright",
+    # ADDENDUM 457: "If we lose to miror b he leaves. Make it so every Miror B check ... are filler."
+    "MIROR B.": "player ruling (ADDENDUM 457) -- he leaves if you lose to him",
+    # BIDEN left this list in ADDENDUM 436: his Snagem Hideout fight is not missable, and it is his one check.
     "EQUIN": "only non-missable occurrence is post-game",
     "EROLL": "only non-missable occurrence is post-game",
-    "WILLIE": "only non-missable occurrence is post-game",
+    "WILLIE": "player ruling (ADDENDUM 460): unmissable, but not ruled into progression",
     "GREEVIL": "every occurrence is Citadark Isle and the last one is the goal fight",
 }
 
@@ -46,7 +55,10 @@ ALWAYS_FILLER_SURNAMES: "dict[str, str]" = {
 # surname -> the occurrence its (Any) check anchors to, for fights whose reachable occurrence the census
 # cannot express. Empty since `trainer_placements.PLACEMENT_REGION_OVERRIDES` un-swapped Biden's two rows and
 # the derivation picked the Snagem Hideout fight by itself; the mechanism stays for a fight that needs it.
-ANCHOR_OVERRIDES: "dict[str, int]" = {}
+#
+# ADDENDUM 436: Ardos's derived anchor was his Gateon fight, which the player only watches. His check comes from
+# Citadark Isle (`missable_indices.SINGLE_CHECK_FIGHTS`).
+ANCHOR_OVERRIDES: "dict[str, int]" = {"ARDOS": 193}
 
 
 def display_surname(raw: str) -> str:
@@ -117,6 +129,12 @@ assert len(LOCATION_NAMES) == len(set(LOCATION_NAMES)), "two re-fightable traine
 assert len(REPEATABLE_TRAINERS) == 35, (
     f"the census has {len(REPEATABLE_TRAINERS)} re-fightable trainers, not the 35 this was built against -- "
     "re-read the workbook before changing this number"
+)
+# ADDENDUM 410: a lone `#1` is removed only because `(Any)` covers the same win -- so the (Any) must exist.
+from .trainer_roster import ANY_DUPLICATE_DEFEAT_LOCATIONS as _ANY_DUPES, TRAINERS as _ALL, trainer_label as _lab  # noqa: E402
+
+assert all(_t["name"].upper() in SURNAME_TO_LOCATION for _t in _ALL if _lab(_t) in _ANY_DUPES), (
+    "ADDENDUM 410 removed a #1 whose surname has no (Any) location -- that fight would be no check at all"
 )
 # Every always-filler surname must actually BE re-fightable, or the ruling is attached to nothing.
 assert set(ALWAYS_FILLER_SURNAMES) <= {row["surname"] for row in REPEATABLE_TRAINERS}, (

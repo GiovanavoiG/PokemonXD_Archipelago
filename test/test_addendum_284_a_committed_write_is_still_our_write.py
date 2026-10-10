@@ -79,7 +79,7 @@ class TestTheReportedSequence(unittest.TestCase):
         self.assertEqual(0x10, GATEON_FLOOR)   # ADDENDUM 379 -- was 0x0F
         thresholds = [t for name in travel_locations.TRAVEL_LOCATION_NAMES
                       if (t := travel_locations.vanilla_unlock_story_byte(name)) is not None]
-        self.assertEqual(7, len([t for t in thresholds if t <= REALGAM_FLOOR]))
+        self.assertEqual(6, len([t for t in thresholds if t <= REALGAM_FLOOR]))   # ADDENDUM 446: Orre gone
 
     def test_the_arrival_tick_at_realgam_is_not_credible(self) -> None:
         """THE BUG. No write outstanding (the travel committed it), not the map screen, no override -- every
@@ -118,7 +118,7 @@ class TestTheReportedSequence(unittest.TestCase):
                  if (t := travel_locations.vanilla_unlock_story_byte(name)) is not None
                  and w.high_water >= t
                  and (GATEON_FLOOR is None or GATEON_FLOOR < t)]
-        self.assertEqual(7, len(fired), "the screenshot, reproduced")
+        self.assertEqual(6, len(fired), "the screenshot, reproduced (seven before ADDENDUM 446 removed Orre)")
 
 
 class TestRealProgressIsUntouched(unittest.TestCase):
@@ -141,7 +141,7 @@ class TestRealProgressIsUntouched(unittest.TestCase):
         cleared = [name for name in travel_locations.TRAVEL_LOCATION_NAMES
                    if (t := travel_locations.vanilla_unlock_story_byte(name)) is not None
                    and w.high_water >= t]
-        self.assertEqual(7, len(cleared), "everything held is credited on the next real byte")
+        self.assertEqual(6, len(cleared), "everything held is credited on the next real byte")
 
     def test_a_value_we_never_wrote_is_credible_even_if_it_equals_a_floor(self) -> None:
         """The test is what WE wrote, not whether the number happens to be some area's floor. A player who
@@ -192,6 +192,15 @@ class TestTheClientWiring(unittest.TestCase):
         cls.source = (pathlib.Path(__file__).resolve().parent.parent / "Client.py").read_text(encoding="utf-8")
         start = cls.source.index("async def enforce_travel_locks")
         cls.body = cls.source[start:][:cls.source[start:].index("\nasync def ", 1)]
+        # ADDENDUM 402: the witness call moved into `_witness_story_progress`, because the missable auto-send is
+        # a second reader and the two must not drift on what counts as credible. The credit's inputs are now
+        # that helper's inputs, so both bodies are read together -- and the credit is pinned to call it.
+        # ADDENDUM 434: `Unlock -` checks are credited from the game's travel bits now, but enforce_travel_locks is
+        # still the witness's one poll per tick with travel shuffle on -- the missable auto-send reads its mark.
+        assert "_witness_story_progress(ctx)" in cls.body, \
+            "enforce_travel_locks no longer polls the shared witness helper"
+        h = cls.source.index("def _witness_story_progress(")
+        cls.body += cls.source[h:][:cls.source[h:].index("\nasync def ", 1)]
 
     def test_the_credit_passes_the_area_memorys_own_last_write(self) -> None:
         """Re-deriving it here would give the two readers of this byte independent notions of what we wrote,

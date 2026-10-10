@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import math
 import os
+import logging
+import random
 from collections.abc import Mapping
 from typing import Any
 
@@ -33,6 +35,13 @@ from .items import (
     PokemonXDItem,
 )
 from .locations import LOCATION_NAME_GROUPS, LOCATION_TABLE
+from .game_data import load_json_data_file
+from .game_data.catch_rate_exclusions import catch_rate_excluded_trainer_indices, citadark_trainer_indices
+
+#: ADDENDUM 448: Catch Rate Scaling is a choice, and the world picks the number. Location Scaled raises every Shadow's
+#: catch rate toward 255 along the seed's area order, and the last areas keep this share of that boost (ADDENDUM 442's
+#: formula): a Shadow at the very end with a vanilla rate of 3 lands near 79, one at 45 near 108.
+CATCH_RATE_LOCATION_SCALED_KEEP_PERCENT = 30
 from .options import PokemonXDOptions
 from .web_world import PokemonXDWebWorld
 
@@ -90,6 +99,94 @@ components.append(
 )
 
 
+# ADDENDUM 396: the location-starvation guard's message.
+#
+# Every fill failure in a 500-seed random-option roll -- 20 `Not enough locations for progression items`
+# and 1 `Remaining locations are invalid` -- had one thing in common: more progression items than
+# non-EXCLUDED locations to hold them. Zero false positives and zero false negatives against that roll, so
+# the count IS the diagnosis, and the two error shapes are the same starvation seen from either side of
+# fill's own bookkeeping. Which one Archipelago raises depends only on whether its accessibility sweep
+# happened to hand a placement back (locations left over -> `Remaining locations are invalid`) or not
+# (none left -> `Not enough locations`). Neither is worth telling apart from here.
+#
+# The levers are listed in descending order of the room they actually open, and only the ones this seed
+# has turned off are named -- a refusal that lists a lever already on reads as a bug in the refusal.
+_CAPACITY_LEVERS: "tuple[tuple[str, str, str], ...]" = (
+    # (option attribute, the value that opens it, what to say)
+    ("shuffle_trainer_defeats", "on", "'Shuffle Trainer Defeats' (the largest single source of locations)"),
+    ("randomize_shops", "on", "'Randomize Shops'"),
+)
+
+
+def _capacity_refusal(world, needed: int, capacity: int) -> str:
+    """The message for a seed whose progression items outnumber the locations allowed to hold them."""
+    suggestions: "list[str]" = []
+    for attribute, _state, phrasing in _CAPACITY_LEVERS:
+        if not bool(getattr(world.options, attribute, 0)):
+            suggestions.append(f"turn on {phrasing}")
+
+    # ADDENDUM 449: `progression_locations` is gone, so these two are the levers it used to fold together.
+    catches_on = bool(getattr(world.options, "shadow_catch_progression", 0))
+    if not catches_on:
+        suggestions.append(
+            "turn on 'Shadow Pokemon Catch Checks Can Hold Progression' (hundreds of catch locations are "
+            "filler-only without it)"
+        )
+    elif int(getattr(world.options, "purification_progression_cap", 0)) < 1:
+        suggestions.append("raise 'Purification Checks That Can Hold Progression' above 0")
+
+    if not suggestions:
+        # Nothing this guard knows how to widen is still closed. Say so rather than inventing advice.
+        remedy = (
+            "every location category this world can widen is already enabled, so the item pool itself is "
+            "the problem -- lower 'Robo Kyogre Parts Available', or report this combination"
+        )
+    elif len(suggestions) == 1:
+        remedy = suggestions[0]
+    else:
+        remedy = ", or ".join([", ".join(suggestions[:-1]), suggestions[-1]])
+
+    return (
+        f"Pokemon XD ({world.player_name}): this seed has {needed} progression items but only {capacity} "
+        f"location(s) allowed to hold one, so it cannot be filled. To open up "
+        f"{needed - capacity} more, {remedy}."
+    )
+
+
+# ============================================================================================================
+# ADDENDUM 403 -- Universal Tracker.
+# ============================================================================================================
+# UT never sees the original seed. It REGENERATES this world on the player's machine -- generate_early through
+# generate_basic, no fill -- and asks the result which locations are in logic. Anything this world rolls with its
+# own RNG (the Shadow species shuffle, which species are obtainable and so which `Catch -` checks exist and how
+# each is gated, the expansion, the team shuffle, the Poke Spot pool, the Citadark weighting) would roll
+# differently there, and UT would track a different world than the one being played.
+#
+# Rather than ship each of those results across separately -- and keep a second copy of every decision in sync
+# with the first -- the world's own RNG is re-seeded from one number at the top of `generate_early`, that number
+# goes in slot data, and UT re-seeds from it. Every later `self.random` draw then replays exactly, because the
+# options are restored too and the code is the same code. One number and the options; nothing else to keep in
+# step. Every randomizer here already takes the world's RNG as an argument (none reach for the global `random`
+# or the multiworld's), which is what makes this sound -- `test_addendum_403` keeps it that way.
+#
+# `ut_can_gen_without_yaml`: the player does not need a YAML for UT. Every option that shapes generation travels
+# in slot data, so UT builds the world from that alone.
+UT_SLOT_DATA_KEY = "universal_tracker"
+UT_SLOT_DATA_FORMAT = 1
+#: 53 bits, not 64: slot data is JSON, and a consumer that parses numbers as doubles (any JavaScript tracker)
+#: would silently round a larger integer -- and a rounded seed regenerates a different world with no error.
+UT_SEED_BITS = 53
+
+
+def ut_option_names() -> "tuple[str, ...]":
+    """Every option this world defines itself -- the ones that can shape generation. The per-game common ones
+    (local items, hints, plando, start inventory) are Archipelago's and never reach a rule here."""
+    from Options import PerGameCommonOptions
+
+    common = set(PerGameCommonOptions.type_hints)
+    return tuple(name for name in PokemonXDOptions.type_hints if name not in common)
+
+
 class PokemonXDWorld(World):
     """
     Pokemon XD: Gale of Darkness is a GameCube-exclusive Pokemon spin-off centered on capturing corrupted
@@ -113,7 +210,66 @@ class PokemonXDWorld(World):
 
     origin_region_name = "Menu"
 
+    # ADDENDUM 403: Universal Tracker regenerates from slot data alone -- see the block above the class.
+    ut_can_gen_without_yaml = True
+
+    @staticmethod
+    def interpret_slot_data(slot_data: "dict[str, Any]") -> "dict[str, Any]":
+        """Static, and returns the slot data unchanged: that is UT's signal to skip its own first generation and
+        regenerate once from what the server sent, handing it back as `multiworld.re_gen_passthrough`."""
+        return slot_data
+
+    def _ut_passthrough(self) -> "dict[str, Any] | None":
+        """This world's slot data, when Universal Tracker is regenerating it; None in a real generation."""
+        passthrough = getattr(self.multiworld, "re_gen_passthrough", None) or {}
+        data = passthrough.get(self.game) if isinstance(passthrough, dict) else None
+        return data if isinstance(data, dict) else None
+
+    def _seed_world_rng(self) -> None:
+        """ADDENDUM 403. Re-seed `self.random` from one recorded number -- see the block above the class."""
+        slot_data = self._ut_passthrough()
+        recorded = slot_data.get(UT_SLOT_DATA_KEY) if slot_data else None
+        if isinstance(recorded, dict) and "seed" in recorded:
+            # Universal Tracker. The options first: everything after this reads them, and UT built this world
+            # from an empty YAML, so until now they are all defaults.
+            for name, value in (recorded.get("options") or {}).items():
+                current = getattr(self.options, name, None)
+                if current is not None:
+                    setattr(self.options, name, type(current).from_any(value))
+            seed = int(recorded["seed"])
+        else:
+            # A real generation -- or UT on a seed made before this addendum, which has nothing to restore and so
+            # can only track an approximation of it. Said nowhere louder than here, because there is nothing the
+            # player can do about it but regenerate.
+            seed = self.random.getrandbits(UT_SEED_BITS)
+        self._ut_seed: int = seed
+        self.random = random.Random(seed)
+
+    def _adjust_option(self, name: str, value: int, why: str) -> None:
+        """ADDENDUM 406: move one option to the nearest valid value and say so, instead of refusing the YAML."""
+        option = getattr(self.options, name)
+        before = int(option)
+        option.value = value
+        self.option_adjustments = getattr(self, "option_adjustments", [])
+        self.option_adjustments.append((name, before, value))
+        logging.warning(
+            f"Pokemon XD ({self.player_name}): '{option.display_name}' was {before}; using {value} instead -- {why}."
+        )
+
     def generate_early(self) -> None:
+        # ADDENDUM 403: FIRST, before any option is read or any number drawn. In a real generation this draws one
+        # seed from the RNG Archipelago handed us and re-seeds from it; inside Universal Tracker it restores the
+        # options and that same seed from slot data instead. Either way every draw below is reproducible.
+        self._seed_world_rng()
+        # ADDENDUM 443: the starter, from its own RNG so the option never moves any other draw.
+        from .game_data import starter as starter_data
+
+        self._starter: "dict | None" = starter_data.plan(random.Random(self._ut_seed ^ 0x57A27E5),
+                                                         int(self.options.randomize_starter))
+        self.starter_dex: int = self._starter["dex"] if self._starter else starter_data.VANILLA_STARTER_DEX
+        self.starter_line_dex: "frozenset[int]" = (frozenset(self._starter["line"]) if self._starter
+                                                   else starter_data.evolution_line(starter_data.VANILLA_STARTER_DEX))
+        self._first_chobin: "dict | None" = None   # ADDENDUM 461, set by _secure_first_chobin
         # Cached on self: fill_slot_data() and generate_output() both need it and race each other.
         self._shadow_species_assignment: dict[str, Any] | None = None
         # Always populated (ADDENDUM 43), option or no option.
@@ -125,27 +281,66 @@ class PokemonXDWorld(World):
         self._trainer_team_fingerprints: dict[str, list[str]] | None = None
         # ADDENDUM 299: this seed's tier ordering, from pre_output(). None means "use the intended path".
         self._path_tier_by_region: "dict[str, int] | None" = None
+        # ADDENDUM 423: Nightmare Citadark. Decided before the team shuffle, whose fingerprints describe these
+        # trainers by the teams they will really field.
+        self._nightmare_teams: "dict[int, str] | None" = None
+        self._nightmare_removed_dex: "frozenset[int]" = frozenset()
+        self._nightmare_removed_dpkm: "frozenset[int]" = frozenset()
+        # ADDENDUM 424: where the displaced Shadows went -- `nightmare_citadark.plan_relocations`' shape. Planned in
+        # the Shadow pass below, which owns the free-slot census and the level rules they share with the expansion.
+        self._nightmare_relocations: "list[dict]" = []
+        # ADDENDUM 431: whose Shadows leave them -- Nightmare Citadark's trainers, and/or the two removal options.
+        # A slot a Nightmare team does not replace keeps an ordinary copy of its Pokemon (`_shadow_vacated_slots`).
+        self._shadow_removal_trainers: "frozenset[int]" = frozenset()
+        self._shadow_vacated_slots: "list[dict]" = []
+        from .game_data import nightmare_citadark
+
+        if self.options.nightmare_citadark:
+            self._nightmare_teams = nightmare_citadark.assign_teams(self.random)
+        elif self.options.nightmare_greevil:
+            # ADDENDUM 429: one team, Greevil's final battle. It holds no Shadows, so nothing is relocated.
+            self._nightmare_teams = nightmare_citadark.assign_teams(
+                self.random, {nightmare_citadark.GREEVIL_FINAL_TRAINER})
+        self._shadow_removal_trainers = nightmare_citadark.shadow_removal_trainers(
+            bool(self.options.nightmare_citadark), bool(self.options.remove_citadark_shadows),
+            bool(self.options.remove_greevil_shadows))
+        if self._shadow_removal_trainers:
+            # ADDENDUM 424/431: these Shadows leave their trainers but not the seed.
+            self._nightmare_removed_dex = nightmare_citadark.removed_shadow_national_dex(self._shadow_removal_trainers)
+            self._nightmare_removed_dpkm = nightmare_citadark.removed_shadow_dpkm_indices(
+                self._shadow_removal_trainers)
+            self._shadow_vacated_slots = nightmare_citadark.vacated_slots(
+                self._shadow_removal_trainers, frozenset(self._nightmare_teams or ()))
         self._build_trainer_team_shuffle()
 
         # The real bound is this seed's expansion setting (83 vanilla + the expansion's add), not the option's
         # 127 ceiling, so it is checked here rather than in the Range.
         _vanilla_shadow_count = 83
         try:
-            from .game_data.shadow_regions import total_shadow_count
+            from .game_data.shadow_regions import shadow_regions_in_graph_order
 
-            _counted = total_shadow_count()
+            # ADDENDUM 423/424: the Shadows still at their vanilla holders -- Nightmare Citadark's relocated ones are
+            # counted with the expansion's, on the ladder past this point.
+            _counted = len(shadow_regions_in_graph_order(self._nightmare_removed_dex))
             if _counted:
                 _vanilla_shadow_count = _counted
         except Exception:  # noqa: BLE001 -- a missing census must not take generation down over a bound check
             pass
-        _purifiable = _vanilla_shadow_count + int(self.options.shadow_pokemon_expansion)
+        # Read by rules.py: where the vanilla purification ladder ends and the expansion's begins.
+        self._vanilla_shadow_count = _vanilla_shadow_count
+        # ADDENDUM 424: Nightmare Citadark's relocated Shadows still exist, one each, on new holders.
+        _relocated_count = len(self._nightmare_removed_dpkm)
+        _purifiable = _vanilla_shadow_count + _relocated_count + int(self.options.shadow_pokemon_expansion)
+        # ADDENDUM 406: settings that cannot all be true are ADJUSTED, not refused. Player: "make our refusals
+        # instead auto-adjust to valid settings. Round available kyogre parts up to amount available, round
+        # purifications down if it's greater than possible shadows." Every adjustment is logged and written back
+        # into the options, so slot data -- and Universal Tracker's replay of it -- carries the value actually used.
         if int(self.options.purification_progression_cap) > _purifiable:
-            raise OptionError(
-                f"Pokemon XD ({self.player_name}): 'Purification Checks That Can Hold Progression' is "
-                f"{int(self.options.purification_progression_cap)}, but this seed only contains "
-                f"{_purifiable} Shadow Pokemon to purify ({_vanilla_shadow_count} vanilla + "
-                f"{int(self.options.shadow_pokemon_expansion)} from 'Shadow Pokemon Expansion'). Lower the "
-                f"cap to at most {_purifiable}, or raise 'Shadow Pokemon Expansion'."
+            self._adjust_option(
+                "purification_progression_cap", _purifiable,
+                f"only {_purifiable} Shadow Pokemon exist to purify ({_vanilla_shadow_count} vanilla + "
+                + (f"{_relocated_count} moved off Citadark Isle + " if _relocated_count else "")
+                + f"{int(self.options.shadow_pokemon_expansion)} from 'Shadow Pokemon Expansion')",
             )
 
         # The Machine Part is sphere zero in every mode: it repairs the scooter AND progresses the HQ Lab,
@@ -162,30 +357,19 @@ class PokemonXDWorld(World):
             required = int(self.options.robo_kyogre_parts_required)
             available = int(self.options.robo_kyogre_parts_available)
             if required > available:
-                raise OptionError(
-                    f"Pokemon XD ({self.player_name}): Citadark Isle needs {required} Robo Kyogre Parts, but "
-                    f"only {available} exist in this multiworld, so it could never be reached. Raise "
-                    f"'Robo Kyogre Parts Available' to at least {required}, or lower "
-                    f"'Robo Kyogre Parts Required'."
+                self._adjust_option(
+                    "robo_kyogre_parts_available", required,
+                    f"Citadark Isle needs {required} Robo Kyogre Parts, so at least that many must exist",
                 )
 
-        # `shuffle_overworld_items` is gone: Overworld Items are always checks, so the old "both off" guard
-        # cannot fire. The count check stays -- too few holdable locations surfaces as a FillError deep in
-        # fill.
-        progression_item_count = sum(
-            1 for data in ITEM_TABLE.values() if data.classification == items.ItemClassification.progression
-        )
-        available_location_count = 1 + len(locations.LOCATION_NAME_GROUPS["Overworld Items"])  # Eevee, always
-        if self.options.shuffle_trainer_defeats:
-            # Only NAMED defeat locations count; cumulative buckets are EXCLUDED and never hold progression.
-            available_location_count += len(locations.LOCATION_NAME_GROUPS["Trainer Defeats"])
-        if progression_item_count > available_location_count:
-            raise OptionError(
-                f"{self.player_name}'s Pokemon XD Gale of Darkness world has {progression_item_count} "
-                f"progression items but only {available_location_count} locations able to hold one with "
-                "the current shuffle_trainer_defeats setting -- enable it (the world isn't yet balanced for "
-                "single-category play at this item-pool size)."
-            )
+        # ADDENDUM 396: the old count guard that stood here is retired, not moved. It compared every
+        # progression ROW IN `ITEM_TABLE` (34) against the whole "Overworld Items" name group (51) plus the
+        # trainer defeats, so its floor was 52 against a ceiling of 34 and it could never fire -- the
+        # condition-that-cannot-bind ADDENDA 247 and 298 refuse. Worse, both of its numbers were the wrong
+        # ones: the table's progression rows are not this seed's pool (travel unlocks, key items, the
+        # scooter upgrade and the MacGuffin all come and go with their own options), and a name group is
+        # not a location count (most of those locations are created EXCLUDED). The real check lives in
+        # create_items, where both honest numbers exist. See `_capacity_refusal`.
 
         # Shadow species randomization (ADDENDUM 17) only changes which species stands at a Shadow encounter.
         # The pool loads UNCONDITIONALLY: the obtainable-species set decides which "Catch - {species}"
@@ -195,6 +379,11 @@ class PokemonXDWorld(World):
         from .tools.xd_species_index import INTERNAL_INDEX_TO_NATIONAL_DEX, national_dex_for
 
         shadow_pool = load_real_shadow_pool()
+        # ADDENDUM 424: Nightmare Citadark's displaced Shadows stay in the pool -- they are relocated, not removed,
+        # so they shuffle, level and count like every other. Their hosts are planned here, before the levels
+        # settle, because the level is the host's.
+        if shadow_pool is not None and self._nightmare_removed_dpkm:
+            self._nightmare_relocations = self._plan_nightmare_relocations()
 
         # ADDENDUM 198: the LEVEL must settle before the SPECIES. The shuffle evolves each pick against
         # PokemonInstance.level, and the pool carries VANILLA levels -- a Shadow fielded at 66 was evolved as
@@ -233,23 +422,37 @@ class PokemonXDWorld(World):
                             _final = _shadow_dpkm_levels.get(_mon.index)
                             if _final is not None:
                                 _mon.level = _final
+        # ADDENDUM 424: a relocated Shadow takes its HOST's level, whatever its Citadark census row said.
+        _relocated_level = {shadow["dpkm_index"]: shadow["level"]
+                            for plan in self._nightmare_relocations for shadow in plan["shadows"]}
+        _relocated_host = {shadow["dpkm_index"]: int(plan["trainer_index"])
+                           for plan in self._nightmare_relocations for shadow in plan["shadows"]}
+        if shadow_pool is not None and _relocated_level:
+            for _trainer in shadow_pool.trainers:
+                for _mon in _trainer.team:
+                    if _mon.index in _relocated_level:
+                        _mon.level = _relocated_level[_mon.index]
 
         shadow_obtainable_dex: set[int] = set()
         # ADDENDUM 183: recorded now because the shadow pool is shuffled IN PLACE -- re-loading it at
         # set_rules time returns vanilla species and gates the wrong ones. Labels, not regions.
         self._shadow_catch_labels: dict[int, list[str]] = {}
+        # ADDENDUM 432: the vanilla Shadow (DDPK) behind each label -- what the catch and purification gates key on.
+        self._shadow_catch_ddpks: dict[int, list[int]] = {}
         self._shadow_catch_expansion_hosts: dict[int, list[int]] = {}
         if shadow_pool is not None:
-            if self.options.randomize_shadow_species:
-                from .game_data.real_trainer_data import real_species_pool
-                from .randomizer.team_shuffle import TeamShuffleOptions, shuffle_teams
+            from .game_data.real_trainer_data import real_species_pool
+            from .randomizer.team_shuffle import TeamShuffleOptions, shuffle_teams
+            from .game_data import shadow_legendaries
 
-                # Snapshot vanilla species and location name first: shuffle_teams() reassigns in place.
-                original_by_index = {
-                    mon.index: (mon.species_id, trainer.name)
-                    for trainer in shadow_pool.trainers
-                    for mon in trainer.team
-                }
+            # Snapshot vanilla species and location name first: every pass below reassigns in place.
+            original_by_index = {
+                mon.index: (mon.species_id, trainer.name)
+                for trainer in shadow_pool.trainers
+                for mon in trainer.team
+            }
+            _species_changed = False
+            if self.options.randomize_shadow_species:
                 # legendary_safe=False: Shadows randomize into anything; the dedup keeps the map one-to-one.
                 shuffle_teams(
                     [shadow_pool],
@@ -257,10 +460,28 @@ class PokemonXDWorld(World):
                     TeamShuffleOptions(legendary_safe=False),
                     self.random,
                 )
+                _species_changed = True
+            # ADDENDUM 435: No Legendary Shadows, then Shuffle Shadow Lugia (which the first exempts Lugia from).
+            if self.options.no_legendary_shadows:
+                _exempt = (frozenset({shadow_legendaries.LUGIA_SPECIES_INDEX})
+                           if self.options.shuffle_shadow_lugia else frozenset())
+                if shadow_legendaries.remove_legendary_shadows(shadow_pool, real_species_pool(), self.random,
+                                                               exempt=_exempt):
+                    _species_changed = True
+            if self.options.shuffle_shadow_lugia:
+                if shadow_legendaries.place_shadow_lugia(
+                        shadow_pool, {i: sp for i, (sp, _n) in original_by_index.items()}, self.random,
+                        randomized=bool(self.options.randomize_shadow_species)) is not None:
+                    _species_changed = True
+            if _species_changed:
                 entries: list[dict[str, Any]] = []
                 for trainer in shadow_pool.trainers:
                     for mon in trainer.team:
                         original_species_index, location_name = original_by_index[mon.index]
+                        if mon.index in _relocated_host:
+                            from .catch_sources import _host_label
+
+                            location_name = _host_label(_relocated_host[mon.index]) or location_name
                         orig_dex, orig_name = INTERNAL_INDEX_TO_NATIONAL_DEX.get(original_species_index, (None, None))
                         new_dex, new_name = INTERNAL_INDEX_TO_NATIONAL_DEX.get(mon.species_id, (None, None))
                         entries.append({
@@ -280,8 +501,17 @@ class PokemonXDWorld(World):
                     dex = national_dex_for(mon.species_id)
                     if dex is not None:
                         shadow_obtainable_dex.add(dex)
+                        if mon.index in _relocated_host:
+                            # ADDENDUM 424: gated where it now is -- its host, keyed like a generated Shadow.
+                            self._shadow_catch_expansion_hosts.setdefault(dex, []).append(_relocated_host[mon.index])
+                            continue
                         # This slot's fixed AP location name. A list, so callers take the earliest.
                         self._shadow_catch_labels.setdefault(dex, []).append(trainer.name)
+                        from .game_data.shadow_regions import ddpk_for_dpkm
+
+                        _ddpk = ddpk_for_dpkm().get(mon.index)
+                        if _ddpk is not None:
+                            self._shadow_catch_ddpks.setdefault(dex, []).append(_ddpk)
 
         # ADDENDUM 99: built HERE, because generate_early has already decided which "Catch - {species}"
         # locations exist. Rebuilding it later off the same self.random would change the plan.
@@ -294,6 +524,13 @@ class PokemonXDWorld(World):
             from .randomizer.enhanced_difficulty import ENHANCED_DIFFICULTY_LEVEL_MULTIPLIER
 
             expansion_free_slot_census = real_trainer_free_slot_census()
+            # ADDENDUM 424: the relocated Shadows took their slots first.
+            if expansion_free_slot_census and self._nightmare_relocations:
+                _taken = {int(p["trainer_index"]): len(p["shadows"]) for p in self._nightmare_relocations}
+                expansion_free_slot_census = [
+                    {**row, "free_slots": int(row["free_slots"]) - _taken.get(int(row["trainer_index"]), 0)}
+                    for row in expansion_free_slot_census
+                ]
             expansion_species_pool = real_species_pool()
             expansion_excluded_species = vanilla_shadow_species()
 
@@ -312,7 +549,7 @@ class PokemonXDWorld(World):
                 from .species import EEVEELUTION_DEX_NUMBERS
                 from .tools.xd_species_index import internal_index_for_national_dex
 
-                _gift_line = {133} | set(EEVEELUTION_DEX_NUMBERS)
+                _gift_line = {133} | set(EEVEELUTION_DEX_NUMBERS) | set(self.starter_line_dex)   # ADDENDUM 443
                 expansion_excluded_species = expansion_excluded_species | {
                     index for index in (internal_index_for_national_dex(dex) for dex in _gift_line)
                     if index is not None
@@ -336,7 +573,13 @@ class PokemonXDWorld(World):
                     # ADDENDUM 236: was empty, so catches landed on re-fightable and missable trainers.
                     excluded_trainer_indices=frozenset(
                         (MT_BATTLE_TRAINER_INDICES if self.options.exclude_mt_battle_trainers else frozenset())
-                    ) | missable_trainers.shadow_expansion_excluded_trainer_indices(),
+                    ) | missable_trainers.shadow_expansion_excluded_trainer_indices()
+                    # ADDENDUM 423/424: Nightmare Citadark adds nothing to the island -- its teams are fixed, and
+                    # Greevil's first fight stays Lugia alone.
+                    | (citadark_trainer_indices() if self.options.nightmare_citadark
+                       else frozenset(self._nightmare_teams or ()))
+                    # ADDENDUM 431: a trainer whose Shadows were removed gets none back from the expansion.
+                    | self._shadow_removal_trainers,
                     # ADDENDUM 198: carries the 1.33x onto a generated Shadow, matching its team.
                     level_multiplier=(
                         ENHANCED_DIFFICULTY_LEVEL_MULTIPLIER
@@ -353,6 +596,12 @@ class PokemonXDWorld(World):
                                 int(plan["trainer_index"])
                             )
 
+        # ADDENDUM 415: one `Purify N` per Shadow this seed REALLY holds -- the vanilla count plus what the expansion
+        # actually placed, which can fall short of the request when hosts run out. create_regions reads this.
+        self._purification_location_count = _vanilla_shadow_count + sum(
+            len(plan["new_pokemon"]) for plan in (self._shadow_expansion_plans or ())
+        ) + sum(len(plan["shadows"]) for plan in self._nightmare_relocations)
+
         # Poke Spot reassignment (ADDENDUM 43): always on, no toggle. Prefers species the Shadow pool does not
         # already cover, and is cached for the same two readers.
         from .game_data.pokespot_data import assign_pokespot_species
@@ -364,7 +613,80 @@ class PokemonXDWorld(World):
         # {species}" set from it. None means don't trim -- the 11 Poke Spot species alone would gut the list.
         self._obtainable_species_dex: set[int] | None = (
             None if shadow_pool is None
-            else shadow_obtainable_dex | pokespot_obtainable_dex | {133}  # 133 = Eevee, always guaranteed
+            else shadow_obtainable_dex | pokespot_obtainable_dex | {self.starter_dex}  # the starter, always guaranteed
+        )
+
+    def _assign_shadow_movesets(self, seed_data: dict) -> None:
+        """ADDENDUM 427: legal ordinary moves for every Shadow whose species was randomized, written through the
+        same `trainer_moves_by_dpkm_index` channel the ordinary members use. Level: a relocated Shadow's host
+        level, else the level pass's final value for its DPKM record, else the pool's own."""
+        assignment = getattr(self, "_shadow_species_assignment", None)
+        if not assignment:
+            return
+        # ADDENDUM 435: the assignment also exists for No Legendary Shadows / Shuffle Shadow Lugia alone; then only
+        # the Shadows whose species actually moved get new moves.
+        every_entry = bool(self.options.randomize_shadow_species)
+        from .game_data.real_moveset_data import load_level_up_moves
+        from .randomizer.team_shuffle import choose_moveset, MOVESET_SHUFFLE_DEFAULT_MOVE_COUNT
+
+        learnsets = load_level_up_moves()
+        if learnsets is None:
+            return
+        final_levels = {int(k): int(v) for k, v in
+                        ((seed_data.get("enhanced_difficulty_plan") or {}).get("level_assignment") or {}).items()}
+        for plan in self._nightmare_relocations:
+            for shadow in plan["shadows"]:
+                final_levels[int(shadow["dpkm_index"])] = int(shadow["level"])
+        pool_levels = {mon.index: mon.level for trainer in assignment["pool"].trainers for mon in trainer.team}
+        moves_out = seed_data.setdefault("trainer_moves_by_dpkm_index", {}) or {}
+        seed_data["trainer_moves_by_dpkm_index"] = moves_out
+        written = 0
+        for entry in assignment["entries"]:
+            dpkm, species = int(entry["dpkm_index"]), entry.get("new_species_index")
+            if species is None:
+                continue
+            if not every_entry and species == entry.get("original_species_index"):
+                continue
+            level = final_levels.get(dpkm, pool_levels.get(dpkm))
+            if not level:
+                continue
+            moves = choose_moveset(species, level, learnsets.get(species, []), self.random)
+            if moves:
+                moves_out[str(dpkm)] = moves + [0] * (MOVESET_SHUFFLE_DEFAULT_MOVE_COUNT - len(moves))
+                written += 1
+        if written:
+            seed_data["notes"].append(f"Shadow movesets: {written} Shadow Pokemon given legal ordinary moves.")
+
+    def _story_team_species(self) -> "dict[int, set[int]]":
+        """ADDENDUM 425: {trainer index: the ordinary species it fields this seed} -- shuffled and evolved."""
+        assignment = self._trainer_species_by_dpkm_index or {}
+        return {
+            trainer["index"]: {assignment.get(slot["dpkm_index"], slot["species"])
+                               for slot in trainer.get("team", ()) if slot.get("kind") == "DPKM"}
+            for trainer in (load_json_data_file("deckdata_story_trainers.json") or ())
+        }
+
+    def _plan_nightmare_relocations(self) -> "list[dict]":
+        """ADDENDUM 424: hosts for the Shadows Nightmare Citadark displaces. Same fence as the expansion's
+        (ADDENDUM 236: no missable or re-fightable trainer, no Mt. Battle when it is excluded) plus all of Citadark,
+        and the expansion's level rule. Empty when the free-slot census is missing from this build."""
+        from .game_data import missable_trainers, nightmare_citadark
+        from .game_data.real_trainer_data import MT_BATTLE_TRAINER_INDICES, real_trainer_free_slot_census
+        from .randomizer.enhanced_difficulty import ENHANCED_DIFFICULTY_LEVEL_MULTIPLIER
+
+        census = real_trainer_free_slot_census()
+        if not census:
+            return []
+        excluded = (
+            (frozenset(MT_BATTLE_TRAINER_INDICES) if self.options.exclude_mt_battle_trainers else frozenset())
+            | missable_trainers.shadow_expansion_excluded_trainer_indices()
+            | citadark_trainer_indices()
+        )
+        return nightmare_citadark.plan_relocations(
+            self.random, census, excluded,
+            level_multiplier=(ENHANCED_DIFFICULTY_LEVEL_MULTIPLIER
+                              if self.options.enhanced_difficulty_level_scaling else 1.0),
+            trainers=self._shadow_removal_trainers,
         )
 
     def _build_trainer_team_shuffle(self) -> None:
@@ -384,7 +706,11 @@ class PokemonXDWorld(World):
         real_census = load_real_trainer_pools()
         if real_census is not None:
             species_pool, trainer_pools = real_census
-            shuffle_teams(trainer_pools, species_pool, TeamShuffleOptions(legendary_safe=True), self.random)
+            # ADDENDUM 435: Legendary Trainer Pokemon lifts the legendary-for-legendary rule for ordinary teams.
+            shuffle_teams(trainer_pools, species_pool,
+                          TeamShuffleOptions(legendary_safe=not self.options.legendary_trainer_pokemon), self.random)
+            # ADDENDUM 461: with a random starter, re-draw Chobin #1's one Pokemon so the starter can beat it.
+            self._secure_first_chobin(trainer_pools, species_pool)
 
             # The evolution pass does NOT run here: it needs the final level, and since ADDENDUM 299 the ramp
             # follows this seed's sphere order, which fill decides. It lives in pre_output() -- after fill,
@@ -393,6 +719,62 @@ class PokemonXDWorld(World):
             self._trainer_species_by_dpkm_index = dpkm_species_assignment(trainer_pools)
 
         self._build_trainer_fingerprints()
+
+    def _first_chobin_slots(self, trainer_pools) -> "list":
+        from .game_data.first_battle import FIRST_CHOBIN_DPKM_INDEX
+
+        return [mon for pool in trainer_pools for trainer in pool.trainers for mon in trainer.team
+                if mon.index == FIRST_CHOBIN_DPKM_INDEX and not mon.is_shadow]
+
+    def _secure_first_chobin(self, trainer_pools, species_pool, level: "int | None" = None) -> None:
+        """ADDENDUM 461: Chobin #1 (story trainer 15, DPKM 25) gets a Pokemon the randomized starter is sure to hurt
+        for about half its HP and beats in simulated battle -- `game_data/first_battle.py`. Only with Randomize
+        Starter on, and from its own RNG, like the starter: the option moves no other draw except the moveset
+        chooser's, which now sees a different species for this one slot."""
+        self._first_chobin: "dict | None" = getattr(self, "_first_chobin", None) if level is not None else None
+        if not getattr(self, "_starter", None):
+            return
+        from .game_data import first_battle
+        from .game_data.real_moveset_data import load_level_up_moves
+
+        slots = self._first_chobin_slots(trainer_pools)
+        learnsets = load_level_up_moves()
+        if not slots or learnsets is None:
+            return
+        entry = first_battle.plan(
+            self._starter["internal"], list(self._starter["moves"]),
+            first_battle.candidate_species(species_pool, bool(self.options.legendary_trainer_pokemon)),
+            random.Random(self._ut_seed ^ 0xC40B1), learnsets, level=level or slots[0].level,
+        )
+        if entry is None:
+            return
+        for mon in slots:
+            mon.species_id = entry["species"]
+        self._first_chobin = entry
+
+    def _reassert_first_chobin(self, trainer_pools) -> bool:
+        """After `_apply_final_levels_and_evolution` re-levels and re-evolves every member: Chobin #1 is pinned at 5
+        and nothing evolves by 5, so this normally only confirms. If a future change moves either, the fight is
+        re-planned at the level the ISO will carry rather than shipped against the wrong number."""
+        entry = getattr(self, "_first_chobin", None)
+        if not entry:
+            return False
+        slots = self._first_chobin_slots(trainer_pools)
+        if not slots:
+            return False
+        if any(mon.level != entry["level"] for mon in slots):
+            from .game_data.real_trainer_data import load_real_trainer_pools
+
+            real = load_real_trainer_pools()
+            if real is not None:
+                self._secure_first_chobin(trainer_pools, real[0], level=slots[0].level)
+                return True
+        changed = False
+        for mon in slots:
+            if mon.species_id != self._first_chobin["species"]:
+                mon.species_id = self._first_chobin["species"]
+                changed = True
+        return changed
 
     def _build_trainer_fingerprints(self, final_levels: "dict[int, int] | None" = None) -> None:
         """The fingerprints, split out of the shuffle so they can be rebuilt.
@@ -416,17 +798,25 @@ class PokemonXDWorld(World):
             hp_bands: dict[str, list[int]] = {}
             hp_bands_enhanced: dict[str, list[int]] = {}
             shadow_slots = 0
-            for slot in trainer["team"]:
+            # ADDENDUM 423: a Nightmare Citadark trainer fields six Orre Colosseum members at level 100 and no
+            # Shadow, whatever its deck row said.
+            team_slots = trainer["team"]
+            nightmare_source = (self._nightmare_teams or {}).get(trainer["index"]) \
+                if getattr(self, "_nightmare_teams", None) else None
+            if nightmare_source is not None:
+                from .game_data.nightmare_citadark import NIGHTMARE_LEVEL, team_species
+                team_slots = [{"species": sp, "level": NIGHTMARE_LEVEL} for sp in team_species(nightmare_source)]
+            for slot in team_slots:
                 dpkm_index = slot.get("dpkm_index")
-                if dpkm_index is None:
+                if dpkm_index is None and nightmare_source is None:
                     shadow_slots += 1  # a DDPK/Shadow slot -- see this method's docstring
                     continue
                 # Both are the game's MASTER internal species index, so both go through `national_dex_for`.
                 # NOT national_dex_for_live_species, which is live RAM's compacted index with slots 252-276
                 # squeezed out: on deck data it mis-names every Gen III species.
-                internal = assignment.get(dpkm_index, slot.get("species"))
+                internal = slot.get("species") if dpkm_index is None else assignment.get(dpkm_index, slot.get("species"))
                 # The level this seed really ships: a vanilla-level band cannot hold a path-scaled HP.
-                level = slot.get("level") if final_levels is None else final_levels.get(
+                level = slot.get("level") if (final_levels is None or dpkm_index is None) else final_levels.get(
                     dpkm_index, slot.get("level"))
                 if isinstance(level, int) and level > 0:
                     levels.append(level)
@@ -496,6 +886,27 @@ class PokemonXDWorld(World):
             # A level ramp is not worth failing a generation over; the intended path is still correct.
             return None
 
+    def _catch_progress_by_trainer(self) -> "dict[int, int]":
+        """ADDENDUM 441: {trainer index: 0..1000}, how far along THIS seed's area order the trainer's region opens.
+        The same tiers the path ramp uses (`sphere_tier_order` over the sphere walk), computed here even when Path
+        Level Scaling is off. With travel shuffle off the sphere order is the story's, so both modes share one
+        rule; an empty walk falls back to the intended path."""
+        from .randomizer.path_level_scaling import region_by_trainer_index, sphere_tier_order
+
+        by_trainer = region_by_trainer_index()
+        tiers = getattr(self, "_path_tier_by_region", None)
+        if not tiers:
+            wanted = set(by_trainer.values())
+            try:
+                spheres = self._region_spheres(wanted)
+            except Exception:
+                spheres = {}
+            tiers = sphere_tier_order(spheres, wanted)
+        top = max(tiers.values(), default=0)
+        if top <= 0:
+            return {}
+        return {index: round(1000 * tiers[region] / top) for index, region in by_trainer.items() if region in tiers}
+
     def _region_spheres(self, wanted: "set[str]") -> "dict[str, int]":
         """`{region: the sphere it first becomes reachable in}`, walked over the filled multiworld.
 
@@ -535,7 +946,7 @@ class PokemonXDWorld(World):
             real_trainer_team_census,
         )
         from .randomizer.path_level_scaling import final_ordinary_levels
-        from .randomizer.team_shuffle import resolve_natural_evolution
+        from .randomizer.team_shuffle import pick_distinct_species, resolve_natural_evolution
 
         ed_scaling = bool(self.options.enhanced_difficulty_level_scaling)
         path_scaling = bool(self.options.path_level_scaling)
@@ -551,15 +962,26 @@ class PokemonXDWorld(World):
                 )
                 for pool in trainer_pools:
                     for trainer in pool.trainers:
+                        seen: "set[int]" = set()
                         for mon in trainer.team:
                             level = final_levels.get(mon.index)
-                            if level is None:
-                                continue
-                            mon.level = level
-                            mon.species_id = resolve_natural_evolution(
-                                mon.species_id, level, species_pool,
-                            )
+                            if level is not None:
+                                mon.level = level
+                                mon.species_id = resolve_natural_evolution(
+                                    mon.species_id, level, species_pool, self.random,
+                                )
+                            # ADDENDUM 425: re-evolving can merge two team-mates into one species (two picks
+                            # that both end at Golem); the later one is re-rolled, still at its own level.
+                            if mon.species_id in seen:
+                                legendary = bool(getattr(species_pool.get(mon.species_id), "is_legendary", False))
+                                candidates = [sid for sid, sp in species_pool.items()
+                                              if sp.is_legendary == legendary]
+                                mon.species_id = pick_distinct_species(
+                                    self.random, candidates, mon.level, species_pool, seen)
+                            seen.add(mon.species_id)
                 self._trainer_species_by_dpkm_index = dpkm_species_assignment(trainer_pools)
+        if self._reassert_first_chobin(trainer_pools):   # ADDENDUM 461
+            self._trainer_species_by_dpkm_index = dpkm_species_assignment(trainer_pools)
         self._relevel_generated_shadows()
         self._build_trainer_fingerprints(final_levels or None)
 
@@ -573,7 +995,8 @@ class PokemonXDWorld(World):
         """Re-level the expansion's Shadows to their trainer's path-scaled team, in place. No-op when path
         scaling is off -- the expansion's own Enhanced Difficulty handling is then already correct."""
         plans = self._shadow_expansion_plans
-        if not plans or not bool(self.options.path_level_scaling):
+        relocations = getattr(self, "_nightmare_relocations", None) or []
+        if not (plans or relocations) or not bool(self.options.path_level_scaling):
             return
         from .randomizer.enhanced_difficulty import ENHANCED_DIFFICULTY_LEVEL_MULTIPLIER
         from .randomizer.path_level_scaling import level_by_trainer_index
@@ -583,7 +1006,16 @@ class PokemonXDWorld(World):
             by_trainer = {index: max(1, min(100, int(level * ENHANCED_DIFFICULTY_LEVEL_MULTIPLIER)))
                           for index, level in by_trainer.items()}
         self._generated_shadows_relevelled = 0
-        for plan in plans:
+        from .game_data.real_moveset_data import load_level_up_moves
+        from .randomizer.team_shuffle import choose_moveset
+        learnsets = load_level_up_moves() if plans else None
+        # ADDENDUM 424: Nightmare Citadark's relocated Shadows sit on hosts exactly like generated ones.
+        for plan in relocations:
+            level = by_trainer.get(int(plan["trainer_index"]))
+            if level is not None:
+                for shadow in plan["shadows"]:
+                    shadow["level"] = level
+        for plan in plans or ():
             level = by_trainer.get(int(plan["trainer_index"]))
             if level is None:
                 # No known region, so no place on the ramp -- the expansion's vanilla average stands.
@@ -591,6 +1023,13 @@ class PokemonXDWorld(World):
             for mon in plan["new_pokemon"]:
                 if mon["level"] != level:
                     self._generated_shadows_relevelled += 1
+                    # ADDENDUM 426: its ordinary moves were picked for the old level; a level-up move above the
+                    # new one is a move it could not know.
+                    if learnsets is not None:
+                        picked = choose_moveset(mon["species"], level, learnsets.get(mon["species"], []),
+                                                self.random)
+                        if picked:
+                            mon["moves"] = picked
                 mon["level"] = level
 
     def create_regions(self) -> None:
@@ -643,6 +1082,13 @@ class PokemonXDWorld(World):
         )
         # Useful items may repeat, up to USEFUL_ITEM_MAX_COPIES each -- one copy apiece is ~120 items against
         # several hundred DEFAULT locations. Not unlimited, or nothing is left for filler.
+        # ADDENDUM 396: `item_pool` is progression-only at this point, and `default_capacity` is the real,
+        # post-exclusion count of locations able to hold one. This is the only place in the world where both
+        # numbers exist, so the refusal belongs here rather than in generate_early -- computing it earlier
+        # would mean reimplementing locations.py's exclusion ladder and keeping two copies of it honest.
+        if len(item_pool) > default_capacity:
+            raise OptionError(_capacity_refusal(self, len(item_pool), default_capacity))
+
         useful_budget = max(0, default_capacity - len(item_pool))
         if useful_budget:
             # ITEMS_REMOVED_FROM_POOL was only checked by the progression pass, so `useful` names slipped in.
@@ -671,23 +1117,128 @@ class PokemonXDWorld(World):
     def set_rules(self) -> None:
         rules.set_all_rules(self)
 
+    def pre_fill(self) -> None:
+        """ADDENDUM 430: no Robo Kyogre Part may sit on Citadark Isle or on anything that needs it. Player: "Make
+        sure ZERO robo kyogre parts can ever go in citadark or anything reliant on it."
+
+        Logic alone forbids only the Parts the gate COUNTS: with more available than required, the spare ones
+        were legal on the island. So: with every entrance into Citadark Isle closed, sweep this multiworld with
+        every item, and any of this player's locations still unreachable is Citadark-reliant -- the island, its
+        chests and trainers, and anything whose rule needs them (late purification counts, the goal). Each gets
+        an item rule refusing this player's Parts. Run here, after every world's rules exist, and only when Parts
+        are actually in the pool."""
+        self._citadark_reliant_locations = frozenset()
+        if not any(item.player == self.player and item.name == items.MACGUFFIN_ITEM_NAME
+                   for item in self.multiworld.itempool):
+            return
+        from worlds.generic.Rules import add_item_rule
+
+        citadark = self.multiworld.get_region("Citadark Isle", self.player)
+        saved = [(entrance, entrance.access_rule) for entrance in citadark.entrances]
+        try:
+            for entrance, _rule in saved:
+                entrance.access_rule = lambda state: False
+            state = self.multiworld.get_all_state()
+            reliant = frozenset(location.name for location in self.multiworld.get_locations(self.player)
+                                if location.item is None and not location.can_reach(state))
+        finally:
+            for entrance, rule in saved:
+                entrance.access_rule = rule
+        part, player = items.MACGUFFIN_ITEM_NAME, self.player
+        for name in reliant:
+            add_item_rule(self.multiworld.get_location(name, self.player),
+                          lambda item, _part=part, _player=player: not (item.player == _player and item.name == _part))
+        self._citadark_reliant_locations = reliant
+        self._bind_parts_to_late_story()
+
+    #: ADDENDUM 435: the late story, for Citadark Story Weight -- from the stranded SS Libra on, Citadark excluded.
+    LATE_STORY_REGIONS: "tuple[str, ...]" = (
+        "SS Libra (stranded)", "Kaminko's House (Robo Groudon)", "SS Libra", "Cipher Key Lair (exterior)",
+        "Outskirt Stand", "Snagem Hideout", "Cipher Key Lair", "Cipher Key Lair (deep)",
+    )
+
+    def _bind_parts_to_late_story(self) -> None:
+        """ADDENDUM 435. Player: "Citadark with location shuffle off can be parts-only, but see if you can TRY to
+        make it so that it'll have you complete most of the story most of the time. Exceptions are fine."
+
+        With location shuffle off, Citadark needs only the Parts (regions.TRAVEL_SHUFFLE_PARTS_SOURCE). On
+        `citadark_story_weight` percent of seeds, `available - required + 1` Parts are placed now in this world's
+        late-story locations -- so at most `required - 1` can be anywhere else, and the ride waits on the late
+        story. The rest of the Parts, and every Part on the other seeds, go wherever fill puts them. A seed with
+        too few late locations simply skips the binding (noted in the spoiler log)."""
+        # Idempotent: a second pre_fill (some harnesses run the step twice) finds the Parts already placed.
+        already = sum(1 for location in self.multiworld.get_locations(self.player)
+                      if location.item is not None and location.item.player == self.player
+                      and location.item.name == items.MACGUFFIN_ITEM_NAME and location.locked)
+        self._story_bound_parts = already
+        if already:
+            return
+        if self.options.randomize_travel_locations or not self.options.robo_kyogre_parts_unlock_citadark:
+            return
+        weight = int(self.options.citadark_story_weight)
+        if weight <= 0 or self.random.randrange(100) >= weight:
+            return
+        parts = [item for item in self.multiworld.itempool
+                 if item.player == self.player and item.name == items.MACGUFFIN_ITEM_NAME]
+        required = int(self.options.robo_kyogre_parts_required)
+        bind = len(parts) - required + 1
+        if bind <= 0 or bind > len(parts):
+            return
+        late = [location for region in self.LATE_STORY_REGIONS
+                for location in self.multiworld.get_region(region, self.player).locations
+                if location.item is None and location.address is not None
+                and location.progress_type != LocationProgressType.EXCLUDED
+                and location.name not in self._citadark_reliant_locations
+                and not location.name.startswith("Story - Krane Memo")]
+        if len(late) < bind:
+            self._story_bind_note = (f"Citadark Story Weight: only {len(late)} late-story location(s) for {bind} "
+                                     "Robo Kyogre Parts -- the Parts were left to the ordinary fill.")
+            return
+        from Fill import fill_restrictive
+
+        chosen = parts[:bind]
+        for item in chosen:
+            self.multiworld.itempool.remove(item)
+        self.random.shuffle(late)
+        state = self.multiworld.get_all_state(False)
+        try:
+            # fill_restrictive pops from the list it is given, so it gets a copy and `chosen` stays the record.
+            fill_restrictive(self.multiworld, state, late, list(chosen), single_player_placement=True, lock=True,
+                             allow_partial=True, name="Pokemon XD late-story Robo Kyogre Parts")
+        finally:
+            # Anything that could not be placed goes back to the ordinary fill rather than being lost.
+            for item in chosen:
+                if item.location is None:
+                    self.multiworld.itempool.append(item)
+        self._story_bound_parts = sum(1 for item in chosen if item.location is not None)
+
     def fill_slot_data(self) -> Mapping[str, Any]:
         slot_data: dict[str, Any] = dict(
             self.options.as_dict(
                 "randomize_shadow_species",
-                "randomize_chests", "shuffle_trainer_movesets", "shuffle_trainer_defeats",
+                "shuffle_trainer_defeats",
                 "trainer_defeat_check_count", "trainer_defeat_mode",
                 "shadow_pokemon_expansion", "enhanced_difficulty",
                 "exclude_mt_battle_trainers", "randomize_travel_locations", "randomize_shops", "goal",
                 "death_link",  # ADDENDUM 351 -- the client turns the DeathLink tag on from this
                 "agate_village_pit_stop",  # ADDENDUM 311 -- the client stops treating Agate's shop as a shop
+                "reduce_citadark_grind",  # ADDENDUM 427 -- the client describes the Candy Box at Gateon
+                "purification_checks",  # ADDENDUM 415 -- off: the client sends no `Purify N`
                 # ADDENDUM 196: both options are gone -- the area memory arms off randomize_travel_locations.
                 "key_item_shuffle",
+                "nightmare_citadark",  # ADDENDUM 423
+                "nightmare_greevil", "trade_evolutions_by_level",  # ADDENDUM 429
+                "remove_citadark_shadows", "remove_greevil_shadows",  # ADDENDUM 431
+                "no_legendary_shadows", "shuffle_shadow_lugia", "legendary_trainer_pokemon",  # ADDENDUM 435
+                "text_speed", "hold_b_to_advance", "battle_speed", "citadark_story_weight",  # ADDENDUM 435
                 "shuffle_scooter_upgrade",
                 "robo_kyogre_parts_unlock_citadark", "robo_kyogre_parts_required",
+                "disable_move_animations",  # ADDENDUM 454 -- the client's live guard
                 # Only the toggle travels; the per-seed plans are heavy and only iso_patcher.py needs them.
             )
         )
+        # ADDENDUM 453/454: the Ability Swap is on Gateon's last shelf in every seed (a Bag USE item; the patch does it).
+        slot_data["ability_patch"] = True
         if self._trainer_team_fingerprints:
             # ADDENDUM 155: {location -> that trainer's real species}, ambiguous surnames only -- which Dosk.
             slot_data["trainer_team_fingerprints"] = self._trainer_team_fingerprints
@@ -729,8 +1280,20 @@ class PokemonXDWorld(World):
         # ADDENDUM 310: "Catch - {species}" -> where it is caught this seed, for /catches; a datapackage name
         # cannot carry it. ADDENDUM 251: the location-table fingerprint, sent unconditionally.
         slot_data["catch_sources"] = catch_sources.sources_by_location(self)
+        # ADDENDUM 443: the starter and its line -- the client's "owned without purifying" set.
+        slot_data["starter_dex"] = int(self.starter_dex)
+        slot_data["starter_line_dex"] = sorted(self.starter_line_dex)
         slot_data["location_table_fingerprint"] = locations.LOCATION_TABLE_FINGERPRINT
         slot_data["location_count"] = len(locations.LOCATION_TABLE)
+        # ADDENDUM 404: the option is gone but the key stays -- the client gates its chest detector on it, and a
+        # client from this build connecting to an older seed still needs to read the old value.
+        slot_data["randomize_chests"] = True
+        # ADDENDUM 403: what Universal Tracker needs to regenerate this exact world -- see the block above the class.
+        slot_data[UT_SLOT_DATA_KEY] = {
+            "format": UT_SLOT_DATA_FORMAT,
+            "seed": self._ut_seed,
+            "options": self.options.as_dict(*ut_option_names()),
+        }
         return slot_data
 
     def extend_hint_information(self, hint_data: "dict[int, dict[int, str]]") -> None:
@@ -765,6 +1328,9 @@ class PokemonXDWorld(World):
             ENHANCED_DIFFICULTY_LEVEL_MULTIPLIER,
             adjust_team_census_for_reserved_slots,
             build_enhanced_difficulty_plan,
+            evolve_for_final_levels,
+            PERMANENTLY_EXCLUDED_TRAINER_INDICES,
+            settle_padding_members,
             cap_for_option as _enhanced_difficulty_cap,
             shadow_level_assignment,
         )
@@ -772,6 +1338,7 @@ class PokemonXDWorld(World):
         from .randomizer.path_level_scaling import (
             FIRST_TIER_LEVEL as PATH_FIRST_TIER_LEVEL,
             LAST_TIER_LEVEL as PATH_LAST_TIER_LEVEL,
+            CITADARK_LEVEL as PATH_CITADARK_LEVEL,
             MIN_LEVEL as PATH_MIN_LEVEL,
             MAX_LEVEL as PATH_MAX_LEVEL,
             build_mt_battle_path_level_plan,
@@ -824,10 +1391,23 @@ class PokemonXDWorld(World):
             # table, which the patcher has open and generation does not -- shipping 386 species' values per
             # seed is the mismatch class ADDENDUM 245 came from. 100 is vanilla and writes nothing.
             "experience_rate": 100,
-            # ADDENDUM 291: a plain flag -- the work happens at patch time against the ISO's own move table.
+            # ADDENDUM 440: the heart-gauge percentage; the patcher scales every in-use DDPK record's gauge.
+            "purification_rate": 100,
+            # ADDENDUM 443: None keeps Eevee; otherwise {"dex", "internal", "moves"}.
+            "starter": None,
+            # ADDENDUM 441: 0 is vanilla. With it on, {trainer index: 0..1000 progress} travels too.
+            "catch_rate_scaling": 0,
+            "catch_rate_progress_by_trainer": None,
+            # ADDENDUM 291/454: a plain flag -- the patcher writes main.dol's waza_func_data animation pointers.
             "disable_move_animations": False,
             # Same: the stats table and in-use DDPK catch-rate overrides are read off the ISO at patch time.
             "max_catch_rate": False,
+            "max_catch_rate_excluded_trainers": [],   # ADDENDUM 416
+            # ADDENDUM 423: {citadark trainer index: the team's patch entry}, or None when off.
+            "nightmare_citadark_teams": None,
+            # ADDENDUM 424: [{"trainer_index": host, "shadows": [{ddpk_index, dpkm_index, species, level}]}].
+            "nightmare_shadow_relocations": None,
+            "shadow_vacated_slots": None,
             # The shape write_shadow_multi_trainer_patch() consumes: trainer_index plus its new_pokemon.
             "new_shadow_pokemon_plans": None,
             # {"level_assignment", "new_dpkm_entries", "team_slot_plan"}. Ordinary slots only, never Shadow.
@@ -857,34 +1437,36 @@ class PokemonXDWorld(World):
                 for dpkm_index, new_species in (self._trainer_species_by_dpkm_index or {}).items()
             }
 
-            # Runs AFTER shuffle_teams(), so movesets are drawn for each slot's FINAL species. Only ordinary
-            # (DPKM) pools are in trainer_pools, so "Shadow Pokemon keep their moves" holds without a check.
-            if self.options.shuffle_trainer_movesets:
-                level_up_moves = load_level_up_moves()
-                if level_up_moves is not None:
-                    # move_count omitted on purpose -- assign_movesets' own MOVESET_SHUFFLE_DEFAULT_MOVE_COUNT
-                    # (4 since ADDENDUM 217). It was 3 from ADDENDUM 35 for a measured DeckData_Story.bin LZSS
-                    # budget overflow that black-screened the game. Do not pin a number here.
-                    moves_assignment = assign_movesets(trainer_pools, level_up_moves, self.random)
-                    seed_data["trainer_moves_by_dpkm_index"] = {
-                        str(dpkm_index): moves for dpkm_index, moves in moves_assignment.items()
-                    }
-                    seed_data["notes"].append(
-                        "shuffle_trainer_movesets: all 4 move slots on each ordinary trainer Pokemon are "
-                        "randomized among moves its species could plausibly know by that level, including its "
-                        "level-1 move. This was capped at 3 slots (and excluded level-1 moves) from ADDENDUM "
-                        "35/75 until ADDENDUM 217 re-measured the DeckData_Story.bin compression budget and "
-                        "found 4 now fits. A slot with fewer than 4 real learnable moves at its level is left "
-                        "empty, same as many vanilla Pokemon already are."
-                    )
-                else:
-                    seed_data["notes"].append(
-                        "shuffle_trainer_movesets is enabled but no real level-up-moveset ISO data was "
-                        "available in this build -- trainer movesets were NOT shuffled for this seed. See "
-                        "pokemon_xd/game_data/real_moveset_data.py: drop a real pokemon_xd/data/"
-                        "species_level_up_moves.json (extracted from a real ISO via tools/xd_rel_format.py) "
-                        "in to enable this."
-                    )
+            # Runs AFTER shuffle_teams(), so movesets are drawn for each slot's FINAL species. ADDENDUM 427: always,
+            # not behind an option -- the player: "separate the TM/move functionality from our enhanced difficulty
+            # options - just make it default, not attached to any option."
+            level_up_moves = load_level_up_moves()
+            if level_up_moves is not None:
+                # move_count omitted on purpose -- assign_movesets' own MOVESET_SHUFFLE_DEFAULT_MOVE_COUNT
+                # (4 since ADDENDUM 217). It was 3 from ADDENDUM 35 for a measured DeckData_Story.bin LZSS
+                # budget overflow that black-screened the game. Do not pin a number here.
+                moves_assignment = assign_movesets(trainer_pools, level_up_moves, self.random)
+                seed_data["trainer_moves_by_dpkm_index"] = {
+                    str(dpkm_index): moves for dpkm_index, moves in moves_assignment.items()
+                }
+                # ADDENDUM 461: Chobin #1's moves are the ones the battle sims were run against.
+                if getattr(self, "_first_chobin", None):
+                    from .game_data import first_battle
+                    from .randomizer.team_shuffle import MOVESET_SHUFFLE_DEFAULT_MOVE_COUNT
+
+                    first = self._first_chobin
+                    seed_data["trainer_moves_by_dpkm_index"][str(first_battle.FIRST_CHOBIN_DPKM_INDEX)] = (
+                        list(first["moves"]) + [0] * (MOVESET_SHUFFLE_DEFAULT_MOVE_COUNT - len(first["moves"])))
+                    seed_data["first_chobin"] = dict(first)
+                    seed_data["notes"].append(first_battle.describe(first))
+                seed_data["notes"].append(
+                    "movesets: every ordinary trainer Pokemon's moves are drawn from what its species can know "
+                    "at its level in Gen III, plus one TM/HM, tutor or egg move it can learn (ADDENDUM 426/427)."
+                )
+            else:
+                seed_data["notes"].append(
+                    "No level-up moveset data in this build -- trainer movesets were NOT rebuilt for this seed."
+                )
         else:
             seed_data["notes"].append(
                 "No real trainer census data available in this build -- trainer-team species were NOT "
@@ -922,26 +1504,25 @@ class PokemonXDWorld(World):
             )
 
         # A fixed dummy id, not per-seed: every chest gets the same reserved item (Rabuta Berry since ADDENDUM
-        # 31), so the chest patch is identical across seeds. A missing value means chests off.
-        if self.options.randomize_chests:
-            seed_data["chest_dummy_item_id"] = CHEST_DUMMY_GAME_ITEM_ID
-            # ADDENDUM 177: the five key-item chests KeyItemShuffle pools must be dummied too, or the player
-            # gets the real key item AND the shuffled one, and every gate on them falls to the vanilla copy.
-            # In the seed so the ISO and the location table follow one list.
-            from .game_data import key_item_chests
+        # 31), so the chest patch is identical across seeds. ADDENDUM 404: always present now.
+        seed_data["chest_dummy_item_id"] = CHEST_DUMMY_GAME_ITEM_ID
+        # ADDENDUM 177: the five key-item chests KeyItemShuffle pools must be dummied too, or the player
+        # gets the real key item AND the shuffled one, and every gate on them falls to the vanilla copy.
+        # In the seed so the ISO and the location table follow one list.
+        from .game_data import key_item_chests
 
-            seed_data["shuffled_key_item_chest_ids"] = sorted(
-                key_item_chests.chest_ids_to_convert(bool(self.options.key_item_shuffle))
-            )
-            # ADDENDUM 218: per-chest berry identity, fixed rather than seed-random -- the client must
-            # identify a chest without the seed's table. In the seed anyway, so both come from one
-            # computation.
-            from .game_data import chest_berries
+        seed_data["shuffled_key_item_chest_ids"] = sorted(
+            key_item_chests.chest_ids_to_convert(bool(self.options.key_item_shuffle))
+        )
+        # ADDENDUM 218: per-chest berry identity, fixed rather than seed-random -- the client must
+        # identify a chest without the seed's table. In the seed anyway, so both come from one
+        # computation.
+        from .game_data import chest_berries
 
-            seed_data["chest_berry_assignment"] = {
-                str(chest): [berry, quantity]
-                for chest, (berry, quantity) in sorted(chest_berries.CHEST_BERRY_ASSIGNMENT.items())
-            }
+        seed_data["chest_berry_assignment"] = {
+            str(chest): [berry, quantity]
+            for chest, (berry, quantity) in sorted(chest_berries.CHEST_BERRY_ASSIGNMENT.items())
+        }
 
         # Shop randomization (ADDENDUM 110/111). USELESS_BERRY_IDS is a DIFFERENT reserved set from chests'
         # Rabuta Berry -- reusing Rabuta would corrupt ChestCountTracker. The order identifies each shop.
@@ -950,14 +1531,26 @@ class PokemonXDWorld(World):
             seed_data["shop_excluded_item_ids"] = sorted(SHOP_EXCLUDED_ITEM_IDS)
             # ADDENDUM 311: read by iso_patcher's shop pass; only meaningful when that pass runs at all.
             seed_data["agate_village_pit_stop"] = bool(self.options.agate_village_pit_stop)
+        # ADDENDUM 427: Gateon's Gorigan tier sells a Rare Candy and a Candy Box. ADDENDUM 437: shops randomized or not.
+        seed_data["reduce_citadark_grind"] = bool(self.options.reduce_citadark_grind)
+        # ADDENDUM 456: `equal_to_citadark_entry` -- the Candy Box levels to the lowest level on any Citadark Isle
+        # trainer. The patcher reads that level off the patched ISO (after Enhanced Difficulty, Path Level Scaling and
+        # every other team pass), so the seed carries only the mode and which trainers count as Citadark.
+        if int(self.options.reduce_citadark_grind.value) == 2:
+            from .game_data import trainer_placements as _placements
+            seed_data["candy_box_target"] = "citadark_entry"
+            seed_data["citadark_trainer_indices"] = sorted(
+                index for index, placement in _placements.PLACEMENTS.items()
+                if placement.region == "Citadark Isle")
+        seed_data["ability_patch"] = True   # ADDENDUM 453: regardless of options
 
         # Covers whichever dummies this seed plants: shop berries, chest berries, both or neither.
         item_rename_targets: dict[int, str] = {}
         if self.options.randomize_shops:
             item_rename_targets.update(USELESS_BERRY_ID_TO_NAME)
-        if self.options.randomize_chests:
-            # ADDENDUM 218: all seven reserved chest berries now, not just the historical single dummy.
-            item_rename_targets.update(items.CHEST_BERRY_ID_TO_NAME)
+        # ADDENDUM 404: chests are always checks
+        # ADDENDUM 218: all seven reserved chest berries now, not just the historical single dummy.
+        item_rename_targets.update(items.CHEST_BERRY_ID_TO_NAME)
         if item_rename_targets:
             seed_data["item_rename_target_names"] = {
                 str(item_id): name for item_id, name in sorted(item_rename_targets.items())
@@ -976,6 +1569,8 @@ class PokemonXDWorld(World):
         # same self.random would disagree with this seed's locations. shadow_slots_consumed_by_trainer is what
         # ED's census subtracts before padding -- same pre-patch free-slot count, expansion writes first.
         shadow_slots_consumed_by_trainer: dict[int, int] = {}
+        # ADDENDUM 424: Nightmare Citadark's relocated Shadows hold their host slots too.
+        _relocation_slots = {int(p["trainer_index"]): len(p["shadows"]) for p in self._nightmare_relocations}
         if self.options.shadow_pokemon_expansion > 0:
             if self._shadow_expansion_plans is not None:
                 shadow_expansion_plans = self._shadow_expansion_plans
@@ -1010,12 +1605,68 @@ class PokemonXDWorld(World):
         # that order is unknown at patch time. Runs through the SAME block as ED, because two writers of
         # `level_assignment` disagree: path sets the base level, ED's 1.33x multiplies it.
         seed_data["experience_rate"] = int(self.options.experience_rate.value)
+        seed_data["purification_rate"] = int(self.options.purification_rate.value)   # ADDENDUM 440
+        # ADDENDUM 441: catches harden along this seed's own area order (the sphere walk, both travel modes).
+        # ADDENDUM 447/448: one option -- off, location_scaled (the world's own percentage) or guaranteed_catches (the
+        # old Max Catch Rate) -- with the Citadark/Greevil exclusions applying to both. The patcher's seed keys are
+        # unchanged: a percentage for the scaled pass, a flag for the guarantee.
+        catch_choice = self.options.catch_rate_scaling
+        catch_scaled = catch_choice == catch_choice.option_location_scaled
+        catch_guaranteed = catch_choice == catch_choice.option_guaranteed_catches
+        catch_excluded = catch_rate_excluded_trainer_indices(
+            bool(self.options.catch_rate_exclude_citadark),
+            bool(self.options.catch_rate_exclude_greevil),
+        ) if (catch_scaled or catch_guaranteed) else frozenset()
+        seed_data["catch_rate_scaling"] = CATCH_RATE_LOCATION_SCALED_KEEP_PERCENT if catch_scaled else 0
+        if seed_data["catch_rate_scaling"]:
+            seed_data["catch_rate_progress_by_trainer"] = {
+                str(index): permille for index, permille in sorted(self._catch_progress_by_trainer().items())
+                if index not in catch_excluded}
+        # ADDENDUM 429: the species table's trade evolutions become level-ups (and the Candy Box table knows).
+        seed_data["trade_evolutions_by_level"] = bool(self.options.trade_evolutions_by_level)
+        # ADDENDUM 451: friendship evolutions are level-ups in every seed (no option).
+        seed_data["friendship_evolutions_by_level"] = True
+        # ADDENDUM 435: what Citadark Story Weight did this seed.
+        if getattr(self, "_story_bound_parts", 0):
+            seed_data["notes"].append(f"Citadark Story Weight: {self._story_bound_parts} Robo Kyogre Parts placed in "
+                                      "the late story (SS Libra onward).")
+        elif getattr(self, "_story_bind_note", None):
+            seed_data["notes"].append(self._story_bind_note)
         # ADDENDUM 384: the formula divisor the patcher will write, chosen here so the seed carries the
         # decision rather than the patcher re-deriving it from the rate.
         from .game_data.species_stats import choose_exp_divisor
         seed_data["exp_divisor"] = choose_exp_divisor(int(self.options.experience_rate.value))
         seed_data["disable_move_animations"] = bool(self.options.disable_move_animations)
-        seed_data["max_catch_rate"] = bool(self.options.max_catch_rate)
+        # ADDENDUM 454: every world-map place keeps one description (the client's story-byte writes made the
+        # hovered text flip). Every seed; a seed without the key is left alone.
+        seed_data["map_descriptions_constant"] = True
+        # ADDENDUM 435: the text and battle-pacing patches (main.dol).
+        seed_data["text_speed"] = int(self.options.text_speed)
+        seed_data["hold_b_to_advance"] = bool(self.options.hold_b_to_advance)
+        seed_data["battle_speed"] = int(self.options.battle_speed)
+        seed_data["max_catch_rate"] = bool(catch_guaranteed)   # ADDENDUM 447/448
+        # ADDENDUM 443: the starter's species (internal index) and four moves, five main.dol immediates.
+        if self._starter:
+            seed_data["starter"] = {"dex": self._starter["dex"], "internal": self._starter["internal"],
+                                    "moves": list(self._starter["moves"])}
+            seed_data["notes"].append(
+                f"Starter: {species.NATIONAL_DEX.get(self._starter['dex'], self._starter['dex'])} "
+                f"(moves {', '.join(str(m) for m in self._starter['moves'])}).")
+        if self._nightmare_teams:
+            from .game_data.nightmare_citadark import seed_entry
+
+            seed_data["nightmare_citadark_teams"] = {
+                str(trainer): seed_entry(key) for trainer, key in sorted(self._nightmare_teams.items())}
+        if self._nightmare_relocations:
+            seed_data["nightmare_shadow_relocations"] = self._nightmare_relocations
+        if self._shadow_vacated_slots and self._nightmare_relocations:
+            # ADDENDUM 431: the slots that keep an ordinary copy of the Pokemon whose Shadow moved away.
+            seed_data["shadow_vacated_slots"] = self._shadow_vacated_slots
+        # ADDENDUM 416: the trainers whose Shadows keep their vanilla catch rate under Max Catch Rate. Trainer
+        # indices, not DDPK indices -- the expansion's Shadows get their DDPK slots at patch time, so the patcher
+        # resolves the slots off the patched DeckData_Story.bin itself.
+        seed_data["max_catch_rate_excluded_trainers"] = (
+            sorted(catch_excluded) if seed_data["max_catch_rate"] else [])
 
         path_scale_levels = bool(self.options.path_level_scaling)
         if ed_added_members != 0 or ed_scale_levels or path_scale_levels:
@@ -1024,7 +1675,10 @@ class PokemonXDWorld(World):
             ed_level_up_moves = load_level_up_moves()
             if ed_team_census and ed_species_pool and ed_level_up_moves:
                 # Subtract the expansion's claim before ED plans padding, or trainers are over-committed.
-                ed_team_census = adjust_team_census_for_reserved_slots(ed_team_census, shadow_slots_consumed_by_trainer)
+                _reserved = dict(shadow_slots_consumed_by_trainer)
+                for _host, _count in _relocation_slots.items():
+                    _reserved[_host] = _reserved.get(_host, 0) + _count
+                ed_team_census = adjust_team_census_for_reserved_slots(ed_team_census, _reserved)
                 # A no-op frozenset(): MT_BATTLE_TRAINER_INDICES is permanently empty here.
                 enhanced_difficulty_plan = build_enhanced_difficulty_plan(
                     ed_team_census,
@@ -1032,8 +1686,16 @@ class PokemonXDWorld(World):
                     ed_level_up_moves,
                     self.random,
                     excluded_trainer_indices=MT_BATTLE_TRAINER_INDICES if self.options.exclude_mt_battle_trainers else frozenset(),
+                    # ADDENDUM 423: Nightmare Citadark's trainers are a fixed six at level 100 -- no padding and
+                    # no multiplier. The patch replaces every slot anyway; this keeps the plan honest.
+                    permanently_excluded_trainer_indices=(
+                        PERMANENTLY_EXCLUDED_TRAINER_INDICES | frozenset(self._nightmare_teams or ())
+                    ),
                     max_added_members=ed_added_members,
                     scale_levels=ed_scale_levels,
+                    # ADDENDUM 425: padding never repeats a species its team already fields.
+                    team_species_by_trainer=self._story_team_species(),
+                    allow_legendaries=bool(self.options.legendary_trainer_pokemon),   # ADDENDUM 435
                 )
                 # ADDENDUM 198: vanilla Shadows match their trainer's team average, then scale. Their levels
                 # live in DPKM records the DDPK table points at, disjoint from every listed slot. ADDENDUM
@@ -1081,8 +1743,9 @@ class PokemonXDWorld(World):
                         "path_level_scaling: re-levelled "
                         f"{len(path_levels)} team members across {len(path_averages)} trainers by their "
                         "region's own place on the game's intended path (its story-byte floor), from level "
-                        f"{PATH_FIRST_TIER_LEVEL} in the opening areas to {PATH_LAST_TIER_LEVEL} at Citadark "
-                        "Isle. Trainers with no known placement kept their vanilla levels."
+                        f"{PATH_FIRST_TIER_LEVEL} in the opening areas to {PATH_LAST_TIER_LEVEL} at the last "
+                        f"area before Citadark Isle, which always comes last at {PATH_CITADARK_LEVEL}. Trainers "
+                        "with no known placement kept their vanilla levels."
                     )
                     seed_data["notes"].extend(describe_path_ramp(tier_by_region=_tier_order))
 
@@ -1125,6 +1788,13 @@ class PokemonXDWorld(World):
                     from .game_data.shadow_holders import describe_resolution
                     # ADDENDUM 370: the level actually written, not the holder's vanilla team average.
                     seed_data["notes"].extend(describe_resolution(shadow_ddpk_levels))
+                # ADDENDUM 425: padding re-levelled onto the ramp re-evolves at its final level, stays distinct.
+                _settled = settle_padding_members(
+                    enhanced_difficulty_plan, ed_species_pool, ed_level_up_moves, self.random,
+                    self._story_team_species(), allow_legendaries=bool(self.options.legendary_trainer_pokemon))
+                if _settled:
+                    seed_data["notes"].append(
+                        f"enhanced_difficulty: {_settled} team additions re-evolved at their final level.")
                 seed_data["enhanced_difficulty_plan"] = enhanced_difficulty_plan
                 seed_data["notes"].append(
                     f"enhanced_difficulty: scaled the level of "
@@ -1170,6 +1840,7 @@ class PokemonXDWorld(World):
                     permanently_excluded_trainer_indices=frozenset(),
                     max_added_members=ed_added_members,
                     scale_levels=mt_ed_scale_levels,
+                    allow_legendaries=bool(self.options.legendary_trainer_pokemon),   # ADDENDUM 435
                 )
                 # Mt. Battle is one tier, so it keeps its own 1-to-100 ramp from the path's starting point.
                 if path_scale_levels:
@@ -1205,6 +1876,29 @@ class PokemonXDWorld(World):
                         "Mt. Battle's own 1-to-100 order, starting at its place on the intended path and "
                         f"climbing to {mt_battle_ramp_top(mt_team_census)} at trainer 100."
                     )
+                # ADDENDUM 425: Mt. Battle's species are never randomized, so a member whose level the plan raises
+                # kept its vanilla, lower-level form. Evolve it for the level it is really fought at, then settle
+                # the padding against the teams as they now stand.
+                _mt_species = {
+                    slot["dpkm_index"]: slot["species"]
+                    for trainer in (load_json_data_file("mtbattle_trainer_census.json") or ())
+                    for slot in trainer.get("team", ()) if slot.get("kind") == "DPKM"
+                }
+                _mt_evolved = evolve_for_final_levels(
+                    _mt_species, mt_battle_enhanced_difficulty_plan["level_assignment"], mt_species_pool,
+                    self.random)
+                mt_battle_enhanced_difficulty_plan["species_assignment"] = _mt_evolved
+                _mt_team_species = {
+                    trainer["index"]: {_mt_evolved.get(slot["dpkm_index"], slot["species"])
+                                       for slot in trainer.get("team", ()) if slot.get("kind") == "DPKM"}
+                    for trainer in (load_json_data_file("mtbattle_trainer_census.json") or ())
+                }
+                settle_padding_members(mt_battle_enhanced_difficulty_plan, mt_species_pool, mt_level_up_moves,
+                                       self.random, _mt_team_species,
+                                       allow_legendaries=bool(self.options.legendary_trainer_pokemon))
+                if _mt_evolved:
+                    seed_data["notes"].append(
+                        f"Mt. Battle: {len(_mt_evolved)} members evolved for the level they are fought at.")
                 seed_data["mt_battle_enhanced_difficulty_plan"] = mt_battle_enhanced_difficulty_plan
                 seed_data["notes"].append(
                     f"enhanced_difficulty (Mt. Battle): scaled the level of "
@@ -1228,6 +1922,12 @@ class PokemonXDWorld(World):
                     "(data/mtbattle_trainer_census.json) wasn't fully available in this build -- Mt. Battle "
                     "trainer levels/team sizes were left untouched."
                 )
+
+        # ADDENDUM 427: "Give the shadows legal movesets please." A Shadow's four ordinary moves are its DPKM
+        # record's, and with its species randomized they were the replaced Shadow's -- often moves the new species
+        # cannot know. Drawn here, after every level pass, for the species and level it is really fought at, by
+        # the same rule as every other trainer Pokemon. A vanilla-species Shadow keeps the moves the game gave it.
+        self._assign_shadow_movesets(seed_data)
 
         out_path = os.path.join(
             output_directory,

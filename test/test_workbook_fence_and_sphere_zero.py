@@ -42,29 +42,34 @@ class TestTheWorkbookFence(unittest.TestCase):
         unfenced = sorted(
             index for index, (repeat, _m) in census_repeat_column.CENSUS_REPEAT_AND_MISSABLE.items()
             if repeat is not None and repeat.startswith("earlier")
-            and index not in missable_trainers.FILLER_ONLY_TRAINER_INDICES
+            and index not in missable_trainers.UNREDOABLE_TRAINER_INDICES
         )
         self.assertEqual([], unfenced)
+        # ADDENDUM 407: the progression fence is that set minus the player's mandatory rematches, nothing else.
+        self.assertEqual(missable_trainers.FILLER_ONLY_TRAINER_INDICES,
+                         missable_trainers.UNREDOABLE_TRAINER_INDICES - missable_trainers.MANDATORY_REMATCH_INDICES)
 
     def test_every_marked_missable_row_is_fenced(self) -> None:
         unfenced = sorted(
             index for index, (_r, missable) in census_repeat_column.CENSUS_REPEAT_AND_MISSABLE.items()
             if missable and index not in missable_trainers.FILLER_ONLY_TRAINER_INDICES
         )
-        self.assertEqual([], unfenced)
+        # ADDENDUM 460: the player's "unmissable" rulings overrule the column for exactly these rows.
+        from ..game_data.missable_indices import PLAYER_RULED_UNMISSABLE
+        self.assertEqual([], [i for i in unfenced if i not in PLAYER_RULED_UNMISSABLE])
 
     def test_every_occurrence_of_a_fenced_name_is_fenced(self) -> None:
         """ADDENDUM 188's rule, kept. The workbook marks OCCURRENCES; fencing "Aferd 1" and leaving Aferd 2-5
         open is what let the Machine Part sit on Aferd #2 for four rounds."""
         fenced_names = {
             trainer_roster.TRAINERS_BY_INDEX[i]["name"].upper()
-            for i in missable_trainers.FILLER_ONLY_TRAINER_INDICES
+            for i in missable_trainers.UNREDOABLE_TRAINER_INDICES
             if i in trainer_roster.TRAINERS_BY_INDEX
         }
         stragglers = sorted(
             index for index, trainer in trainer_roster.TRAINERS_BY_INDEX.items()
             if trainer["name"].upper() in fenced_names
-            and index not in missable_trainers.FILLER_ONLY_TRAINER_INDICES
+            and index not in missable_trainers.UNREDOABLE_TRAINER_INDICES
         )
         self.assertEqual([], stragglers)
 

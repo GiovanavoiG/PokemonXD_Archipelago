@@ -152,8 +152,12 @@ class TestTheReportedSeed(unittest.TestCase):
         "Agate Village": 0, "Cipher Key Lair": 1, "Cipher Key Lair (exterior)": 1, "Phenac City": 2,
         "Snagem Hideout": 3, "Phenac City (Post-Sixes)": 4, "Pyrite Town": 5, "SS Libra": 6,
         "Citadark Isle": 7, "Mt. Battle": 8, "Cipher Lab": 9, "Poke Spots": 10,
-        "Pyrite Town (ONBS)": 11, "Outskirt Stand": 12,
+        # ADDENDUM 407: Pyrite's two visits are one rung, so the reported seed's twelve rungs read this way.
+        "Pyrite Town (ONBS)": 5, "Outskirt Stand": 11,
     }
+    # ADDENDUM 455: `sphere_tier_order` now always puts Citadark last, so a real seed can no longer produce this
+    # order; it is kept, hand-fed, because it is the reported seed and these tests are about the Shadow mark. Fed
+    # this way the last rung (Outskirt Stand) takes the capstone's 53 and the other eleven share 8..50.
 
     def setUp(self) -> None:
         self.census = rtd.real_shadow_census()
@@ -185,7 +189,9 @@ class TestTheReportedSeed(unittest.TestCase):
         """Named regions rather than counts, because these are the numbers a player actually sees: a level-12
         Key Lair team with level-28 Shadows on it, and so on."""
         fixed, broken = self._assign(mark=True), self._assign(mark=False)
-        for region, rung_level in (("Cipher Key Lair", 12), ("Citadark Isle", 33), ("Phenac City", 15)):
+        # ADDENDUM 407 re-spaced the ramp to twelve rungs; ADDENDUM 455's capstone leaves eleven on 8..50:
+        # 8 + rung * 42/10, rounded half up.
+        for region, rung_level in (("Cipher Key Lair", 12), ("Citadark Isle", 37), ("Phenac City", 16)):
             rows = [r for r in self.census
                     if tp.PLACEMENTS.get(r["trainer_index"]) is not None
                     and tp.PLACEMENTS[r["trainer_index"]].region == region
@@ -204,7 +210,7 @@ class TestTheReportedSeed(unittest.TestCase):
         for record in self.census:
             index, ddpk = record.get("trainer_index"), record.get("ddpk_index")
             if index in self.by_trainer and ddpk in assigned:
-                self.assertLessEqual(assigned[ddpk], pls.LAST_TIER_LEVEL)
+                self.assertLessEqual(assigned[ddpk], pls.CITADARK_LEVEL)
                 self.assertGreaterEqual(assigned[ddpk], pls.FIRST_TIER_LEVEL)
 
 
@@ -254,17 +260,18 @@ class TestTheSeedNoteSaysWhatWasWritten(unittest.TestCase):
 
 
 class TestTheKeyLairFloor(unittest.TestCase):
-    def test_it_is_0x67_unconditionally(self) -> None:
-        self.assertEqual(0x67, sb.AREA_ENTRY_FLOOR_OVERRIDES[LAIR])
-        self.assertEqual(0x67, sb.area_entry_floor(LAIR))
-        self.assertEqual(0x67, rc.AreaStoryByteMemory().target_for(LAIR))
+    def test_it_is_the_floor_unconditionally(self) -> None:
+        # ADDENDA 410/411: was 0x67 (storyvar 830); two story steps down is 810, which presents as 0x65.
+        self.assertEqual(0x64, sb.AREA_ENTRY_FLOOR_OVERRIDES[LAIR])   # ADDENDUM 439: 800, Gonzap's rung
+        self.assertEqual(0x64, sb.area_entry_floor(LAIR))
+        self.assertEqual(0x64, rc.AreaStoryByteMemory().target_for(LAIR))
         self.assertEqual([], [r for r in sb.AREA_FLOOR_RULES if r.target == LAIR])
 
     def test_it_is_a_rung_inside_the_lairs_own_window(self) -> None:
         window = sb.REGION_STORY_WINDOW[LAIR]
-        self.assertTrue(sb.byte_is_reachable(0x67))
-        self.assertLessEqual(window.floor, 0x67)
-        self.assertLessEqual(0x67, window.ceiling)
+        self.assertTrue(sb.byte_is_reachable(0x65))
+        self.assertLessEqual(window.floor, 0x65)
+        self.assertLessEqual(0x65, window.ceiling)
 
     def test_the_unlock_floor_did_not_move_with_it(self) -> None:
         """ADDENDUM 247's split. The icon still APPEARS when the game opens the exterior; only the byte the
@@ -295,8 +302,12 @@ class TestTheKeyLairFloor(unittest.TestCase):
         progression behind a fight this floor skips -- the failure would otherwise be an unwinnable seed every
         time rather than a probability."""
         self.assertEqual("Cipher Key Lair (exterior)", tp.PLACEMENTS[147].region)
-        self.assertGreater(sb.area_entry_floor(LAIR), 0x65,
-                           "if the floor drops to 0x65 or below, Zook #2 is fightable and this fence can go")
+        # ADDENDUM 411 brought the floor down to 0x65 itself, "so we can hopefully fight him there"; ADDENDUM 439
+        # took it to 0x64, the rung BEFORE his fight, on the player's instruction. Whether he stands there is
+        # unconfirmed in play, so the fence stays until a play test says he does. Below 0x64 the Lair would be
+        # asking for Gonzap's chain -- the Snagem coupling ADDENDUM 332 removed.
+        self.assertGreaterEqual(sb.area_entry_floor(LAIR), 0x64,
+                                "below 0x64 the Lair would be entered before Gonzap is beaten")
         self.assertIn(147, mt.FILLER_ONLY_TRAINER_INDICES,
                       "the Lair's floor skips Zook #2, so his check must not be able to hold progression")
         self.assertIn(148, mt.FILLER_ONLY_TRAINER_INDICES, "Biden #2 stands beside him")

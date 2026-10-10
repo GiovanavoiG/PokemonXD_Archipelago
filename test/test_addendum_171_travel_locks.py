@@ -160,17 +160,13 @@ class TestTheVanillaUnlockThresholds(unittest.TestCase):
         # An ungrouped destination covers only itself, so every caller can use the helper blindly.
         self.assertEqual(tl.travel_unlock_members("Phenac City"), ("Phenac City",))
 
-    def test_orre_colosseum_no_longer_folds_into_realgam(self) -> None:
-        """UNMERGED 2026-09-14 (ADDENDUM 185, player: "Leave Orre Colosseum as a gettable location, but remove
-        it/all its trainers/chests from the logic. It's a postgame area anyway."). The fold made its travel
-        item a SECOND key to Realgam Tower, which every other destination does not have. Its item now opens a
-        region of its own that holds nothing, while its CHECK still fires off Realgam's byte -- the two
-        questions have different answers and this is the one place they do."""
-        self.assertEqual(tl.TRAVEL_LOCATION_TARGET_REGION["Orre Colosseum"], tl.ORRE_COLOSSEUM_REGION)
-        self.assertNotEqual(tl.ORRE_COLOSSEUM_REGION, "Realgam Tower")
-        self.assertEqual(tl.TRAVEL_UNLOCK_STORY_REGION["Orre Colosseum"], "Realgam Tower")
-        self.assertIsNotNone(tl.vanilla_unlock_story_byte("Orre Colosseum"),
-                             "the check must stay earnable -- the player asked for it to remain gettable")
+    def test_orre_colosseum_is_no_longer_a_destination(self) -> None:
+        """ADDENDUM 185 gave Orre Colosseum a region of its own; ADDENDUM 446 removed it outright. Player: "Remove
+        the travel unlock for Orre Colosseum and ensure no checks are there." """
+        self.assertNotIn("Orre Colosseum", tl.TRAVEL_LOCATION_TARGET_REGION)
+        self.assertNotIn("Orre Colosseum", tl.TRAVEL_LOCATION_BITS)
+        self.assertNotIn("Orre Colosseum", tl.TRAVEL_UNLOCK_STORY_REGION)
+        self.assertIn("Orre Colosseum", tl.RETIRED_TRAVEL_BITS)
 
 
 class TestTheRegionMapIsNowOneToOne(unittest.TestCase):
@@ -180,11 +176,8 @@ class TestTheRegionMapIsNowOneToOne(unittest.TestCase):
         from .. import regions
 
         for name, region in tl.TRAVEL_LOCATION_TARGET_REGION.items():
-            if region == tl.ORRE_COLOSSEUM_REGION:
-                self.assertNotIn(region, regions.REGION_NAMES,
-                                 "the postgame region must stay off the story chain")
-                continue
             self.assertIn(region, regions.REGION_NAMES, f"{name} -> {region}")
+        self.assertNotIn(tl.ORRE_COLOSSEUM_REGION, regions.REGION_NAMES)
 
     def test_the_residual_realgam_bucket_is_gone(self) -> None:
         """Before ADDENDUM 171, five destinations folded into Realgam Tower purely because the seven-region

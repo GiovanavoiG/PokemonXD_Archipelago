@@ -6,7 +6,9 @@ spots." -- corrected mid-answer to "WAIT - WRONG. all pyrite CIPHER battles".
 The audit found almost all of it was already true, and exactly one row was not:
 
   * The ten Cipher Peons (trainer class 17) and Exol's occurrence row (class 40) all sit in
-    "Pyrite Town (ONBS)" in game_data/trainer_placements, each carrying ('Data ROM',) on top.
+    "Pyrite Town (ONBS)" in game_data/trainer_placements, each carrying ('Data ROM',) on top. (ADDENDUM 405
+    removed that tag on the player's word -- "not gated behind Data Rom at all ... only gated behind pyrite town
+    and the pokespots" -- so the region below is now the whole requirement.)
   * The region graph is  Pyrite Town --(Data ROM)--> Poke Spots --> Pyrite Town (ONBS),  so anything in ONBS
     needs the item AND the spots. That is the requirement, stated structurally.
   * `trainer_defeat.TRAINER_DEFEAT_ROSTER` -- a SECOND, parallel table of 66 named trainers -- filed
@@ -43,7 +45,8 @@ class TestTheGraphPutsONBSBehindBothThings(unittest.TestCase):
         self.assertNotIn(("Cipher Lab", "Pyrite Town", ("Data ROM",)), world_regions.REGION_EDGES)
 
     def test_the_spots_are_behind_pyrite(self) -> None:
-        self.assertIn(("Pyrite Town", "Poke Spots", ("Data ROM",)), world_regions.REGION_EDGES)
+        # ADDENDUM 406: behind Pyrite and nothing else. Player (ADDENDUM 406): "Poke spots do NOT need the data rom."
+        self.assertIn(("Pyrite Town", "Poke Spots", ()), world_regions.REGION_EDGES)
 
     def test_onbs_is_behind_the_spots(self) -> None:
         """This edge is what makes "AND poke spots" true for everything filed in ONBS."""
@@ -84,8 +87,9 @@ class TestNoCipherBattleInPyriteEscapesTheGate(unittest.TestCase):
         regions = {name: region
                    for region, names in world_locations.LOCATIONS_BY_REGION.items()
                    for name in names if "Exol" in name}
-        self.assertEqual({"Defeat - Exol": "Pyrite Town (ONBS)",
-                          "Defeat - Cipher Commander Exol": "Pyrite Town (ONBS)"}, regions)
+        # ADDENDUM 414: the cumulative-mode named check left the table ("it should just be a tally"); its roster
+        # row still says ONBS (test above), and the unique check is the one location left.
+        self.assertEqual({"Defeat - Exol": "Pyrite Town (ONBS)"}, regions)
 
     def test_every_cipher_defeat_location_in_pyrite_lives_in_onbs(self) -> None:
         """The whole answer to the player's question, in one assertion."""

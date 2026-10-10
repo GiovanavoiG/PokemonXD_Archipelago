@@ -184,7 +184,7 @@ class TestItIsWiredOncePerBlockBaseAndNeverBlocks(unittest.TestCase):
     def test_it_logs_and_does_not_raise(self) -> None:
         gate = self.source.index("if ctx._move_status_checked_for_block_base != ctx.block_base:")
         body = self.source[gate:gate + 800]
-        self.assertIn("logger.warning", body)
+        self.assertIn("_note_warn(ctx, line)", body)   # ADDENDUM 445: moves confirmed fine -- verbose only
         self.assertIn("except Exception", body, "a diagnostic may never stop the poll loop")
         for forbidden in ("return", "raise", "continue"):
             self.assertNotIn(f"                        {forbidden}", body,

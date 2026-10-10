@@ -145,7 +145,10 @@ class TestPartsGateCitadark(PokemonXDTestBase):
         return self.multiworld.get_location(name, self.player).can_reach(self._state_with(chain, parts))
 
     def test_exactly_the_requested_number_exist_in_the_pool(self) -> None:
-        self.assertEqual([i.name for i in self.multiworld.itempool].count(PART), 12)
+        # ADDENDUM 435: Citadark Story Weight may already have placed some in pre_fill -- count those too.
+        placed = sum(1 for location in self.multiworld.get_locations(self.player)
+                     if location.item is not None and location.item.name == PART)
+        self.assertEqual([i.name for i in self.multiworld.itempool].count(PART) + placed, 12)
 
     def test_citadark_opens_exactly_at_the_required_count(self) -> None:
         # RETARGETED (ADDENDUM 168): full key-item chain instead of five memos; the Parts arithmetic is what
@@ -154,14 +157,11 @@ class TestPartsGateCitadark(PokemonXDTestBase):
         self.assertTrue(self._reach(self.CITADARK, FULL_CHAIN, 8))
 
     def test_the_parts_are_on_top_of_the_key_item_chain_not_instead_of_it(self) -> None:
-        """Every Part in the game must not substitute for the route there.
-
-        RETARGETED 2026-09-13 (ADDENDUM 168), was "...not instead of the memos". Same assertion against the
-        real graph: holding every Part that exists, but missing the System Lever that opens Cipher Key Lair
-        (deep), must leave Citadark Isle shut.
-        """
-        self.assertFalse(self._reach(self.CITADARK, ONE_SHORT, 12))
-        self.assertTrue(self._reach(self.CITADARK, FULL_CHAIN, 12))
+        """SUPERSEDED by ADDENDUM 435. Player: "Citadark with location shuffle off can be parts-only". The Parts ARE
+        the route now -- the Robo Kyogre ride from Gateon -- so holding every Part with the key-item chain one
+        short opens the island, and the chain alone still does not."""
+        self.assertTrue(self._reach(self.CITADARK, ONE_SHORT, 12))
+        self.assertFalse(self._reach(self.CITADARK, FULL_CHAIN, 7))
 
     def test_everything_that_already_needed_citadark_now_needs_the_parts_too(self) -> None:
         """What makes them read as the endgame key rather than a side collection -- the top chest threshold is
@@ -229,9 +229,10 @@ class TestWithTheOptionOff(PokemonXDTestBase):
 
 
 class TestImpossibleConfigurationIsCaughtEarly(unittest.TestCase):
-    def test_requiring_more_parts_than_exist_raises_at_generate_early(self) -> None:
-        """Citadark Isle could never be reached, so the seed is unwinnable. Loud and early beats an obscure
-        fill failure much later."""
+    def test_requiring_more_parts_than_exist_raises_the_supply(self) -> None:
+        """ADDENDUM 406 replaced the error. Player: "make our refusals instead auto-adjust to valid settings.
+        Round available kyogre parts up to amount available" -- Available is raised to Required, and the seed
+        is winnable with exactly that many Parts in the pool."""
 
         class _Case(PokemonXDTestBase):
             options = {"robo_kyogre_parts_unlock_citadark": True,
@@ -240,8 +241,17 @@ class TestImpossibleConfigurationIsCaughtEarly(unittest.TestCase):
             def runTest(self):
                 pass
 
-        with self.assertRaises(OptionError):
-            _Case().setUp()
+        case = _Case()
+        case.setUp()
+        world = case.multiworld.worlds[1]
+        self.assertEqual(20, int(world.options.robo_kyogre_parts_available))
+        self.assertEqual([("robo_kyogre_parts_available", 5, 20)], world.option_adjustments)
+        from .. import items as _items
+        parts = sum(1 for item in case.multiworld.itempool if item.name == _items.MACGUFFIN_ITEM_NAME)
+        # ADDENDUM 435: plus any Citadark Story Weight placed in pre_fill.
+        parts += sum(1 for location in case.multiworld.get_locations(1)
+                     if location.item is not None and location.item.name == _items.MACGUFFIN_ITEM_NAME)
+        self.assertEqual(20, parts)
 
 
 # ============================================================================================================

@@ -78,7 +78,7 @@ class TestLakenAndHebonAreFillerOnly(unittest.TestCase):
 
 
 class TestTheRulingReachesTheGeneratedWorld(PokemonXDTestBase):
-    options = {"shuffle_trainer_defeats": True, "progression_locations": 2}
+    options = {"shuffle_trainer_defeats": True}
 
     def test_no_laken_or_hebon_check_can_hold_progression_at_the_most_permissive_setting(self) -> None:
         checked = 0
@@ -108,7 +108,10 @@ class TestTheSurplusLabelIsRetired(unittest.TestCase):
 
     def test_miror_b_has_nine_distinct_teams_so_the_players_example_works(self) -> None:
         self.assertEqual(trainer_roster.DISTINCT_TEAM_COUNTS["MIROR B."], 9)
-        self.assertEqual(len(trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["MIROR B."]), 9)
+        # ADDENDUM 409: "Make Miror B only have one rematch (so up to miror B 2)." He still fields nine distinct
+        # teams -- the fights stay in the game -- but only the first two distinct wins are checks.
+        self.assertEqual(trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["MIROR B."],
+                         ["Defeat - Miror B. #1", "Defeat - Miror B. #2"])
 
     def test_the_tail_is_what_is_retired_not_the_duplicate(self) -> None:
         """A label now means "the Nth distinct team you beat", so the survivors must be contiguous. Dropping
@@ -129,14 +132,51 @@ class TestTheSurplusLabelIsRetired(unittest.TestCase):
     def test_every_surviving_label_has_a_team_that_can_earn_it(self) -> None:
         """The invariant the whole retirement exists to restore, asserted over all 144 surnames rather than
         the one that failed it."""
+        # ADDENDUM 409: the player trimmed 25 surnames by name ("Remove Cail's rematches ... Make Miror B only have
+        # one rematch ... Hordel is not a check, so remove him"). Those queue FEWER labels than they have teams --
+        # on purpose -- so for them the invariant is the one-sided half: no label without a team behind it, and
+        # (missable labels being auto-sent) no non-missable label without a non-missable team behind it.
+        ruled = {
+            surname for surname, rows in trainer_roster.TRAINERS_BY_NAME.items()
+            if any(trainer_roster.trainer_label(r) in trainer_roster.RULED_OUT_DEFEAT_LOCATIONS for r in rows)
+        }
+        # ADDENDUM 436: + Ardos, Zook and Biden, whose numbered checks all went -- 28.
+        self.assertEqual(len(ruled), 28)
+        self.assertIn("HORDEL", ruled)
+        self.assertEqual([], trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["HORDEL"])
+        from ..game_data import missable_indices
+        missable_labels = {
+            trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[i])
+            for i in missable_indices.MISSABLE_TRAINER_INDICES
+        }
         for surname, labels in trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE.items():
+            if surname in ruled:
+                self.assertLess(len(labels), trainer_roster.DISTINCT_TEAM_COUNTS[surname], surname)
+                needs = [label for label in labels if label not in missable_labels]
+                self.assertLessEqual(len(needs), trainer_roster._NON_MISSABLE_TEAM_COUNTS[surname], surname)
+                continue
+            # ADDENDUM 406: a surname that lost its missable fight queues one label per team it cannot miss.
+            if surname in trainer_roster._REMOVED_SURNAMES:
+                self.assertEqual(len(labels), trainer_roster._NON_MISSABLE_TEAM_COUNTS[surname], surname)
+                continue
             self.assertEqual(len(labels), trainer_roster.DISTINCT_TEAM_COUNTS[surname], surname)
 
     def test_the_roster_list_still_names_all_232_battles(self) -> None:
         """Retiring a LOCATION must not retire the fact that the trainer exists -- the roster list is what a
         trainer index resolves through and what the ids were frozen against."""
         self.assertEqual(len(locations.UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 232)
-        self.assertEqual(len(locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 231)
+        # 232 - Chobin #7 (ADDENDUM 362) - the 15 removed missable fights (ADDENDA 401/406/409) - the 64 labels
+        # the player ruled out by name (ADDENDUM 409: "Remove all their other fights ... Hordel is not a check").
+        # ADDENDUM 436: 15 removed missable fights (Zook #1 unlinked), 70 ruled out (+ Ardos/Zook/Biden's six
+        # numbered labels), three labels in both sets (Zook #1, Biden #1, Biden #2).
+        self.assertEqual(len(trainer_roster.REMOVED_MISSABLE_DEFEAT_LOCATIONS), 15)
+        self.assertEqual(len(trainer_roster.RULED_OUT_DEFEAT_LOCATIONS), 70)
+        self.assertEqual(3, len(trainer_roster.REMOVED_MISSABLE_DEFEAT_LOCATIONS
+                                & trainer_roster.RULED_OUT_DEFEAT_LOCATIONS))
+        # ADDENDUM 410: - the 6 lone #1s whose win (Any) already checks.
+        self.assertEqual(len(trainer_roster.ANY_DUPLICATE_DEFEAT_LOCATIONS), 6)
+        self.assertEqual(len(locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 232 - 1 - 15 - 70 + 3 - 6)
+        self.assertEqual(len(locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 143)
 
 
 # ============================================================================================================

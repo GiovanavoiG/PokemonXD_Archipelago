@@ -1,10 +1,10 @@
 """Trainer levels that follow the INTENDED path through the game, not the order a seed unlocks areas in --
 the received order is not knowable at patch time, since the ISO is patched before anyone plays.
 `story_bytes.region_floor(region)` is the story byte at which the unmodified game first lets you into a
-region, so sorting the trainer-bearing regions by it IS the intended path. Thirteen tiers:
+region, so sorting the trainer-bearing regions by it IS the intended path. Twelve tiers:
 
-    0x19 Agate Village   0x24 Mt. Battle   0x27 Cipher Lab   0x30 Pyrite Town   0x35 Poke Spots
-    0x3C Pyrite Town (ONBS)   0x3E Phenac City   0x46 Phenac City (Post-Sixes)   0x5A SS Libra
+    0x19 Agate Village   0x24 Mt. Battle   0x27 Cipher Lab   0x30 Pyrite Town (+ ONBS, merged)   0x35 Poke Spots
+    0x3E Phenac City   0x46 Phenac City (Post-Sixes)   0x5A SS Libra
     0x5F Outskirt Stand   0x62 Snagem Hideout   0x64 Cipher Key Lair (+ exterior, merged)   0x6E Citadark Isle
 
 The three always-open regions are off the ramp (`PATH_EXCLUDED_REGIONS`). The curve is ENDPOINTS, 8 at the
@@ -24,6 +24,14 @@ import math
 FIRST_TIER_LEVEL = 8
 LAST_TIER_LEVEL = 50
 
+# ADDENDUM 455, player: "For path scaling, can we strap citadark at the end of the path every time as an extra
+# area/layer? if the current max is 50, can we make citadark 53?" Citadark Isle is no longer a rung of the 8..50
+# ramp: it is a capstone tier after it, ALWAYS last (whatever sphere this seed opens it in), at the ramp's top plus
+# this. The other tiers re-space over 8..50 among themselves, so the last of them (the Key Lair) is the 50.
+CITADARK_REGION = "Citadark Isle"
+CITADARK_EXTRA_LEVELS = 3
+CITADARK_LEVEL = LAST_TIER_LEVEL + CITADARK_EXTRA_LEVELS
+
 # Levels are a u8 in the real files and the game's cap is 100. The clamp turns a bad endpoint into a low
 # level rather than a corrupt record.
 MIN_LEVEL = 1
@@ -42,7 +50,28 @@ def path_tiers(regions: "set[str]") -> "list[int | None]":
     # tier behind and re-space the ramp for everyone else.
     floors = {_path_floor(region) for region in regions if region not in PATH_EXCLUDED_REGIONS}
     real = sorted(f for f in floors if f is not None)
+    # ADDENDUM 455: Citadark's floor is always the last tier -- the capstone -- even if a later floor appears.
+    capstone = _path_floor(CITADARK_REGION) if CITADARK_REGION in regions else None
+    if capstone is not None and capstone in real:
+        real.remove(capstone)
+        real.append(capstone)
     return ([None] if None in floors else []) + real
+
+
+def has_capstone(tiers: "list[int | None]") -> bool:
+    """ADDENDUM 455: the last tier is Citadark's, levelled past the ramp rather than on it."""
+    return bool(tiers) and len(tiers) > 1 and tiers[-1] is not None and tiers[-1] == _path_floor(CITADARK_REGION)
+
+
+def tier_level(index: int, tiers: "list[int | None]",
+               first: int = FIRST_TIER_LEVEL, last: int = LAST_TIER_LEVEL) -> int:
+    """The level for tier `index` of this ramp. ADDENDUM 455: with Citadark on it, the tiers before it share
+    `first`..`last` and Citadark sits `CITADARK_EXTRA_LEVELS` above `last`. Every caller goes through here."""
+    if has_capstone(tiers):
+        if index == len(tiers) - 1:
+            return _clamp(last + CITADARK_EXTRA_LEVELS)
+        return level_for_tier(index, len(tiers) - 1, first, last)
+    return level_for_tier(index, len(tiers), first, last)
 
 
 # ADDENDUM 329: the ramp asks each REGION where it sits (`story_bytes.region_floor`), not `area_entry_floor`,
@@ -74,14 +103,20 @@ PATH_EXCLUDED_REGIONS: "frozenset[str]" = frozenset({
 # "where is this region on the path", so merged regions are ONE group and cannot be ordered apart. The target
 # is the INTERIOR (0x64) and the direction matters: 0x64 is when you get inside, keeping the Lair above
 # Outskirt Stand (0x5F) and Snagem Hideout (0x62), where merging the other way drags seventeen interior
-# trainers below Snagem. Scoped to the Key Lair on the player's wording -- the two Phenac, two Pyrite and two
-# SS Libra regions split the same way and are NOT merged, being later STORY MOMENTS in the same place.
+# trainers below Snagem. Scoped to the Key Lair on the player's wording -- the two Phenac and two SS Libra
+# regions split the same way and are NOT merged, being later STORY MOMENTS in the same place. Pyrite's two
+# visits were merged later, on the player's own instruction (ADDENDUM 407).
 PATH_FLOOR_MERGES: "dict[str, str]" = {
     # The doorway and the inside of one building. Zook (147/148) stands in the exterior.
     "Cipher Key Lair (exterior)": "Cipher Key Lair",
     # No trainer is placed in `(deep)` today, so this row binds on nothing. Kept because its floor (0x6A) is
     # its own, so the day the census moves a fight there the split comes straight back.
     "Cipher Key Lair (deep)": "Cipher Key Lair",
+    # ADDENDUM 407, player: "please make sure that pyrite visit 1 and 2 are the same level scaling, rather than
+    # separated." Merged onto visit 1's floor (0x30): the group's place on the path is its EARLIEST member, the
+    # same rule `sphere_tier_order` applies to a group, and ADDENDA 405/406 opened the ONBS raid on nothing but
+    # Pyrite Town and the Poke Spots -- so a visit-2 fight is no longer a later-sphere fight in logic either.
+    "Pyrite Town (ONBS)": "Pyrite Town",
 }
 
 
@@ -187,10 +222,13 @@ def sphere_tier_order(sphere_by_region: "dict[str, int]",
             groups.setdefault(index, []).append(region)
     late = max(sphere_by_region.values(), default=0) + 1
 
-    def sort_key(original_index: int) -> "tuple[int, int]":
+    def sort_key(original_index: int) -> "tuple[int, int, int]":
+        # ADDENDUM 455: the Citadark capstone stays last whatever sphere it opens in.
+        if has_capstone(tiers) and original_index == len(tiers) - 1:
+            return (1, 0, original_index)
         earliest = min((sphere_by_region.get(region, late) for region in groups[original_index]),
                        default=late)
-        return (earliest, original_index)
+        return (0, earliest, original_index)
 
     out: "dict[str, int]" = {}
     for new_index, original_index in enumerate(sorted(groups, key=sort_key)):
@@ -215,7 +253,7 @@ def level_by_trainer_index(first: int = FIRST_TIER_LEVEL,
         index = (tier_by_region.get(region) if tier_by_region is not None
                  else tier_index(region, tiers, set(regions.values())))
         if index is not None:
-            out[trainer_index] = level_for_tier(index, len(tiers), first, last)
+            out[trainer_index] = tier_level(index, tiers, first, last)
     return out
 
 
@@ -382,9 +420,7 @@ def build_path_level_plan(
         if pinned is not None:
             assigned = {dpkm_index: _clamp(pinned) for dpkm_index in row["member_levels"]}
         else:
-            assigned = _spread_over_team(
-                level_for_tier(index, len(tiers), first, last), row["member_levels"],
-            )
+            assigned = _spread_over_team(tier_level(index, tiers, first, last), row["member_levels"])
         if not assigned:
             continue
         levels.update(assigned)
@@ -401,7 +437,7 @@ def build_path_level_plan(
 #
 # Never below the story ramp's top: whatever the census says, the mountain is not allowed to end lower than
 # Citadark, because it is the later content.
-def mt_battle_ramp_top(team_census: "list[dict]", floor: int = LAST_TIER_LEVEL) -> int:
+def mt_battle_ramp_top(team_census: "list[dict]", floor: int = CITADARK_LEVEL) -> int:
     """The highest level the unmodified mountain fields, which is where its own ramp ends."""
     top = max((level for row in team_census for level in row["member_levels"].values()), default=floor)
     return _clamp(max(int(floor), int(top)))
@@ -425,7 +461,7 @@ def build_mt_battle_path_level_plan(
     regions = region_by_trainer_index()
     tiers = path_tiers(set(regions.values()))
     anchor_index = tier_index("Mt. Battle", tiers, set(regions.values()))
-    anchor = level_for_tier(anchor_index, len(tiers), first, last) if anchor_index is not None else first
+    anchor = tier_level(anchor_index, tiers, first, last) if anchor_index is not None else first
 
     indices = sorted({row["trainer_index"] for row in team_census})
     lowest, highest = indices[0], indices[-1]
@@ -469,7 +505,7 @@ def describe(regions_by_trainer: "dict[int, str] | None" = None,
         else:
             where = "this seed's order"
         lines.append(f"  tier {index + 1}/{len(tiers)} ({where}): level "
-                     f"{level_for_tier(index, len(tiers))} -- {', '.join(by_tier[index])}")
+                     f"{tier_level(index, tiers)} -- {', '.join(by_tier[index])}")
     # This list goes into the seed notes, so a reader seeing "level 40" beside a team of 38/40/43 finds the
     # explanation in the same place as the number.
     lines.append("  each member keeps its own distance from its team's vanilla average, so a team the game "

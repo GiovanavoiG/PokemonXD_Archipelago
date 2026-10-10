@@ -39,11 +39,19 @@ def sources_by_dex(world: Any) -> "dict[int, list[str]]":
         if text not in bucket:
             bucket.append(text)
 
+    # ADDENDUM 432: the region is where the carrying fight is, by trainer row (`shadow_regions.gates_for_ddpk`).
+    by_ddpk = getattr(world, "_shadow_catch_ddpks", None) or {}
     for dex, labels in (getattr(world, "_shadow_catch_labels", None) or {}).items():
-        for location_name in labels:
+        ddpks = list(by_ddpk.get(dex, ()))
+        for position, location_name in enumerate(labels):
             label = shadow_regions.trainer_label_from_location(location_name)
-            gate = shadow_regions.gate_for_label(label)
-            add(dex, f"Shadow: {label}, {gate.region}" if gate else f"Shadow: {label}")
+            if position < len(ddpks):
+                gates = shadow_regions.gates_for_ddpk(ddpks[position])
+                region = gates[0].region if gates else None
+            else:
+                gate = shadow_regions.gate_for_label(label)
+                region = gate.region if gate else None
+            add(dex, f"Shadow: {label}, {region}" if region else f"Shadow: {label}")
 
     for dex, hosts in (getattr(world, "_shadow_catch_expansion_hosts", None) or {}).items():
         for index in hosts:

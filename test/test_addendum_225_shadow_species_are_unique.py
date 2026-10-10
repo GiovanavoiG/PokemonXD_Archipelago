@@ -122,7 +122,9 @@ class TestThereAreEnoughDistinctSpeciesForTheLadder(unittest.TestCase):
     def test_even_the_vanilla_slots_alone_clear_the_ladder(self):
         """The floor, not the ceiling: a seed with no expansion at all still has far more distinct Shadow
         species than the ladder has rungs, so this cannot be the thing that runs short."""
-        self.assertGreater(len(set(rsd.vanilla_shadow_species())), rc.PURIFICATION_LOCATION_COUNT)
+        # ADDENDUM 415: the ladder is one rung per Shadow now, so the floor is "at least as many species as
+        # vanilla rungs" -- every vanilla Shadow a distinct species.
+        self.assertGreaterEqual(len(set(rsd.vanilla_shadow_species())), 83)
 
 
 class TestTheTrackerRecordsWhyItCanKeyOnSpecies(unittest.TestCase):

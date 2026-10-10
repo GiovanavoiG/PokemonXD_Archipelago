@@ -79,7 +79,7 @@ from pokemon_xd.game_data import shadow_regions
 from pokemon_xd import locations, rules
 print("shadows", len(shadow_regions.shadow_regions_in_graph_order()))
 print("weightsum", sum(rules._PURIFICATION_WEIGHT_BY_REGION.values()))
-print("expected", locations.PURIFICATION_LOCATION_COUNT)
+print("expected", locations.VANILLA_SHADOW_COUNT)   # ADDENDUM 415
 print("species", len(rules._SPECIES_TO_REGION))
 '''
 

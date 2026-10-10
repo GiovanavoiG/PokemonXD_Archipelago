@@ -28,7 +28,8 @@ from .. import regions as world_regions
 class TestTheEdgeMoved(unittest.TestCase):
     def test_the_way_into_pyrite_is_free_and_the_way_out_is_not(self) -> None:
         self.assertIn(("Cipher Lab", "Pyrite Town", ()), world_regions.REGION_EDGES)
-        self.assertIn(("Pyrite Town", "Poke Spots", ("Data ROM",)), world_regions.REGION_EDGES)
+        # ADDENDUM 406: the way out is free too. Player (ADDENDUM 406): "Poke spots do NOT need the data rom."
+        self.assertIn(("Pyrite Town", "Poke Spots", ()), world_regions.REGION_EDGES)
         self.assertIn(("Poke Spots", "Pyrite Town (ONBS)", ()), world_regions.REGION_EDGES)
 
 
@@ -52,63 +53,63 @@ class TestTheSplitIsWhereThePlayerSaidItIs(PokemonXDTestBase):
                 onbs.append(location)
         return plain, onbs
 
-    def test_only_the_shop_expansion_is_held_back_in_plain_pyrite(self) -> None:
-        """The whole of plain Pyrite opens with the town, EXCEPT the two shop lines the ONBS crisis adds --
-        which are held by their own tier rule, not by the room."""
-        plain, _onbs = self._by_region()
-        no_rom = self._state(["Machine Part"])
-        blocked = sorted(l.name for l in plain if not l.can_reach(no_rom))
-        self.assertEqual(blocked, ["Pyrite Town Shop AP Item 11", "Pyrite Town Shop AP Item 12"])
+    # ADDENDUM 418: with travel shuffle off the ROM is back on the way IN. Player: "Every pyrite town item in
+    # vanilla locations should also be gated behind Data Rom & ID Card". So the town state is the Machine Part AND
+    # the ROM, and the Machine Part alone opens neither half. Travel mode keeps ADDENDUM 406's free Pyrite
+    # (test_addendum_406's TestTravelShuffleToo).
+    TOWN = ["Machine Part", "Data ROM & ID Card"]
 
-    def test_every_onbs_location_still_needs_the_rom(self) -> None:
-        _plain, onbs = self._by_region()
-        self.assertTrue(onbs)
+    def test_nothing_in_either_half_opens_without_the_rom(self) -> None:
+        plain, onbs = self._by_region()
+        self.assertTrue(plain and onbs)
         no_rom = self._state(["Machine Part"])
-        with_rom = self._state(["Machine Part", "Data ROM & ID Card"])
-        for location in onbs:
+        for location in plain + onbs:
             self.assertFalse(location.can_reach(no_rom), location.name)
-            self.assertTrue(location.can_reach(with_rom), location.name)
+
+    def test_only_the_shop_expansion_is_held_back_in_plain_pyrite(self) -> None:
+        """The whole of plain Pyrite opens with the town; nothing in it needs more than the town does."""
+        plain, _onbs = self._by_region()
+        town = self._state(self.TOWN)
+        self.assertEqual(sorted(l.name for l in plain if not l.can_reach(town)), [])
+
+    def test_every_onbs_location_opens_with_the_town(self) -> None:
+        _plain, onbs = self._by_region()
+        town = self._state(self.TOWN)
+        for location in onbs:
+            self.assertTrue(location.can_reach(town), location.name)
 
     def test_the_chests_split_exactly_as_described(self) -> None:
         """Player: "Any chests in ONBS are gated behind the data rom/id card - every other chest is ONLY gated
-        behind pyrite town." """
+        behind pyrite town." With 418 Pyrite itself is behind the ROM, so both halves open together."""
         plain, onbs = self._by_region()
-        no_rom = self._state(["Machine Part"])
+        town = self._state(self.TOWN)
         plain_chests = [l for l in plain if "Chest" in l.name]
         onbs_chests = [l for l in onbs if "Chest" in l.name]
         self.assertTrue(plain_chests and onbs_chests)
-        for location in plain_chests:
-            self.assertTrue(location.can_reach(no_rom), location.name)
-        for location in onbs_chests:
-            self.assertFalse(location.can_reach(no_rom), location.name)
+        for location in plain_chests + onbs_chests:
+            self.assertTrue(location.can_reach(town), location.name)
 
     def test_the_vending_machine_and_the_first_shelf_open_with_the_town(self) -> None:
-        no_rom = self._state(["Machine Part"])
+        town = self._state(self.TOWN)
         for name in ([f"Pyrite Vending Machine AP Item {n}" for n in range(1, 5)]
                      + [f"Pyrite Town Shop AP Item {n}" for n in range(1, 11)]):
-            self.assertTrue(self.multiworld.get_location(name, 1).can_reach(no_rom), name)
+            self.assertTrue(self.multiworld.get_location(name, 1).can_reach(town), name)
 
     def test_the_expansion_gate_now_binds(self) -> None:
-        """ADDENDUM 239b recorded this gate as non-binding -- it opened with its room, because the room needed
-        the ROM too. That is no longer true, so the tier rule is now the only thing holding these two."""
-        no_rom = self._state(["Machine Part"])
-        with_rom = self._state(["Machine Part", "Data ROM & ID Card"])
+        """ADDENDUM 406: the gate names the ONBS regions only, so it opens when they do -- with the town."""
+        town = self._state(self.TOWN)
         for name in ("Pyrite Town Shop AP Item 11", "Pyrite Town Shop AP Item 12"):
-            location = self.multiworld.get_location(name, 1)
-            self.assertFalse(location.can_reach(no_rom), name)
-            self.assertTrue(location.can_reach(with_rom), name)
+            self.assertTrue(self.multiworld.get_location(name, 1).can_reach(town), name)
 
-    def test_addendum_211s_cipher_gate_is_untouched(self) -> None:
-        """The regression that would matter most if this change were wrong."""
-        no_rom = self._state(["Machine Part"])
-        self.assertFalse(self.multiworld.state.__class__(self.multiworld) and
-                         no_rom.can_reach("Poke Spots", player=self.player))
-        self.assertFalse(no_rom.can_reach("Pyrite Town (ONBS)", player=self.player))
+    def test_addendum_211s_cipher_battles_still_sit_in_onbs(self) -> None:
+        """What 211 still guarantees is the PLACE -- every Pyrite Cipher battle is filed in ONBS, which hangs off
+        the Poke Spots."""
+        town = self._state(self.TOWN)
+        self.assertTrue(town.can_reach("Poke Spots", player=self.player))
+        self.assertTrue(town.can_reach("Pyrite Town (ONBS)", player=self.player))
         for location in self.multiworld.get_locations(1):
             if "Cipher" in location.name and "Pyrite" in location.parent_region.name:
                 self.assertEqual(location.parent_region.name, "Pyrite Town (ONBS)", location.name)
-                self.assertFalse(location.can_reach(no_rom), location.name)
-
 
 if __name__ == "__main__":
     unittest.main()

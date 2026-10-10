@@ -66,6 +66,8 @@ class _Bag:
         base = BLOCK_BASE + rc.KEY_ITEMS_OFFSET
         raw = b"".join(struct.pack(">HH", i, q) for i, q in self.slots)
         start = address - base
+        if start < 0 or start >= len(raw):
+            return bytes(length)   # ADDENDUM 434: any other pocket the tracker searches is empty here
         return raw[start:start + length]
 
     def write(self, address: int, payload: bytes) -> None:
@@ -96,122 +98,99 @@ class _Patched:
 ALL_MEMO_IDS = [523, 524, 525, 526, 527]
 
 
-def _poll(tracker, bag, story_byte, times=1):
+def _poll(tracker, bag, times=1):
     fired = []
     with _Patched(bag):
         for _ in range(times):
-            fired += tracker.poll(BLOCK_BASE, story_byte)
+            fired += tracker.poll(BLOCK_BASE)
     return fired
 
 
+# ADDENDUM 434: the check is the removal. Player: "don't automatically send the krane memo checks. Let's instead
+# send them when they enter our inventory and are removed." No story byte is read any more.
 class TestAwarding(unittest.TestCase):
-    def test_nothing_fires_before_the_first_threshold(self) -> None:
-        tracker, bag = rc.KraneMemoTracker(), _Bag(ALL_MEMO_IDS)
-        self.assertEqual(_poll(tracker, bag, 0x0F), [])
-        self.assertEqual(bag.item_ids, set(ALL_MEMO_IDS), "nothing should have been taken either")
+    def test_nothing_fires_while_the_bag_holds_no_memo(self) -> None:
+        tracker, bag = rc.KraneMemoTracker(), _Bag([506])
+        self.assertEqual(_poll(tracker, bag, times=10), [])
+        self.assertEqual(bag.item_ids, {506})
 
-    def test_the_first_threshold_awards_exactly_two(self) -> None:
-        tracker, bag = rc.KraneMemoTracker(), _Bag(ALL_MEMO_IDS)
-        self.assertEqual(_poll(tracker, bag, 0x10),
-                         ["Story - Krane Memo 1", "Story - Krane Memo 2"])
+    def test_the_two_memos_the_game_hands_over_first_are_sent_on_removal(self) -> None:
+        tracker, bag = rc.KraneMemoTracker(), _Bag([523, 524])
+        self.assertEqual(_poll(tracker, bag), ["Story - Krane Memo 1", "Story - Krane Memo 2"])
+        self.assertEqual(bag.item_ids, set())
 
-    def test_the_second_threshold_awards_the_remaining_three(self) -> None:
-        tracker, bag = rc.KraneMemoTracker(), _Bag(ALL_MEMO_IDS)
-        _poll(tracker, bag, 0x10)
-        self.assertEqual(_poll(tracker, bag, 0x17),
+    def test_the_later_three_arrive_later(self) -> None:
+        tracker, bag = rc.KraneMemoTracker(), _Bag([523, 524])
+        _poll(tracker, bag)
+        for slot, item_id in enumerate((525, 526, 527)):
+            bag.slots[slot] = (item_id, 1)
+        self.assertEqual(_poll(tracker, bag),
                          ["Story - Krane Memo 3", "Story - Krane Memo 4", "Story - Krane Memo 5"])
 
     def test_each_location_fires_exactly_once_however_long_you_play(self) -> None:
         tracker, bag = rc.KraneMemoTracker(), _Bag(ALL_MEMO_IDS)
-        fired = _poll(tracker, bag, 0x17, times=50)
-        self.assertEqual(len(fired), 5)
-        self.assertEqual(len(set(fired)), 5)
+        fired = _poll(tracker, bag, times=50)
+        self.assertEqual(sorted(fired), [f"Story - Krane Memo {n}" for n in range(1, 6)])
 
-    def test_connecting_late_still_awards_everything_already_earned(self) -> None:
-        """The threshold is >=, not ==. An equality test would strand a check permanently, and these are the
-        progression-gating locations -- stranding one matters more here than anywhere else."""
-        tracker, bag = rc.KraneMemoTracker(), _Bag([])
-        self.assertEqual(len(_poll(tracker, bag, 0x2F)), 5)
+    def test_a_memo_already_in_the_bag_at_connect_is_sent(self) -> None:
+        """Connecting late loses nothing: a memo the story gave while the client was away is still in the Bag."""
+        tracker, bag = rc.KraneMemoTracker(), _Bag([525])
+        self.assertEqual(_poll(tracker, bag), ["Story - Krane Memo 3"])
 
-    def test_skipping_past_a_threshold_between_two_polls_loses_nothing(self) -> None:
-        tracker, bag = rc.KraneMemoTracker(), _Bag(ALL_MEMO_IDS)
-        _poll(tracker, bag, 0x0F)
-        self.assertEqual(len(_poll(tracker, bag, 0x20)), 5)
-
-    def test_an_unreadable_story_byte_is_not_treated_as_zero(self) -> None:
-        tracker, bag = rc.KraneMemoTracker(), _Bag(ALL_MEMO_IDS)
-        self.assertEqual(_poll(tracker, bag, None), [])
+    def test_a_memo_filed_in_the_items_pocket_is_found_too(self) -> None:
+        """Searched in every window a key item could be filed in, like the key-item reconciler."""
+        windows = rc.key_item_search_windows(BLOCK_BASE, 523)
+        self.assertIn((BLOCK_BASE + rc.ITEMS_POCKET_OFFSET, rc.ITEMS_POCKET_MAX_SLOTS), windows)
 
 
 class TestClearing(unittest.TestCase):
-    """The half that actually makes memo gating mean something."""
+    """The half that makes memo gating mean something -- and, since ADDENDUM 434, the check itself."""
 
     def test_the_games_own_copies_are_taken_out_of_the_bag(self) -> None:
         tracker, bag = rc.KraneMemoTracker(), _Bag(ALL_MEMO_IDS)
-        _poll(tracker, bag, 0x17)
+        _poll(tracker, bag)
         self.assertEqual(bag.item_ids, set())
         self.assertEqual(tracker.cleared_count, 5)
 
-    def test_only_the_memos_at_a_reached_threshold_are_taken(self) -> None:
-        tracker, bag = rc.KraneMemoTracker(), _Bag(ALL_MEMO_IDS)
-        _poll(tracker, bag, 0x10)
-        self.assertEqual(bag.item_ids, {525, 526, 527})
-
     def test_other_key_items_are_never_touched(self) -> None:
         tracker, bag = rc.KraneMemoTracker(), _Bag(ALL_MEMO_IDS + [506, 533])
-        _poll(tracker, bag, 0x17)
+        _poll(tracker, bag)
         self.assertEqual(bag.item_ids, {506, 533}, "the ID Card and Disc Case must survive")
 
-    def test_the_check_still_fires_when_the_bag_write_fails(self) -> None:
-        """Sending and clearing are independent on purpose. A check that waited on a successful write could be
-        lost to a transient failure; a clear that lags just retries."""
-        tracker, bag = rc.KraneMemoTracker(), _Bag(ALL_MEMO_IDS, write_fails=True)
-        self.assertEqual(len(_poll(tracker, bag, 0x10)), 2)
-        self.assertEqual(tracker.cleared_count, 0)
+    def test_no_check_until_the_removal_lands(self) -> None:
+        """The removal IS the check now, so a failed write sends nothing -- and the next poll tries again."""
+        tracker, bag = rc.KraneMemoTracker(), _Bag([523], write_fails=True)
+        self.assertEqual(_poll(tracker, bag, times=3), [])
+        self.assertEqual(bag.item_ids, {523})
+        bag.write_fails = False
+        self.assertEqual(_poll(tracker, bag), ["Story - Krane Memo 1"])
+        self.assertEqual(bag.item_ids, set())
 
-    def test_a_memo_that_arrives_a_poll_late_is_still_cleared(self) -> None:
-        """The story byte can plausibly tick over before the item write lands."""
-        tracker, bag = rc.KraneMemoTracker(), _Bag([])
-        _poll(tracker, bag, 0x10)
+    def test_a_memo_that_reappears_is_removed_again_without_a_second_check(self) -> None:
+        tracker, bag = rc.KraneMemoTracker(), _Bag([523])
+        _poll(tracker, bag)
         bag.slots[0] = (523, 1)
-        _poll(tracker, bag, 0x10)
+        self.assertEqual(_poll(tracker, bag), [])
         self.assertNotIn(523, bag.item_ids)
 
-    def test_retrying_stops_rather_than_scanning_forever(self) -> None:
-        """"Not present" and "already cleared" are indistinguishable from RAM, so the retry has to be bounded
-        or a memo the player never received would cost a pocket scan every tick for the rest of the session."""
+    def test_an_empty_bag_costs_no_writes(self) -> None:
         tracker, bag = rc.KraneMemoTracker(), _Bag([])
-        _poll(tracker, bag, 0x17, times=rc.KraneMemoTracker.CLEAR_ATTEMPTS + 20)
-        writes_before = bag.writes
-        bag.slots[0] = (523, 1)
-        _poll(tracker, bag, 0x17, times=5)
-        self.assertEqual(bag.writes, writes_before, "should have given up by now")
-
-    def test_a_cleared_memo_is_not_re_cleared_every_poll(self) -> None:
-        tracker, bag = rc.KraneMemoTracker(), _Bag(ALL_MEMO_IDS)
-        _poll(tracker, bag, 0x17)
-        writes = bag.writes
-        _poll(tracker, bag, 0x17, times=20)
-        self.assertEqual(bag.writes, writes)
+        _poll(tracker, bag, times=20)
+        self.assertEqual(bag.writes, 0)
 
 
 class TestDescribe(unittest.TestCase):
     def test_before_anything_happens_it_says_what_to_expect(self) -> None:
         text = rc.KraneMemoTracker().describe()
-        self.assertIn("0x10", text)
-        self.assertIn("0x17", text)
+        self.assertIn("Bag", text)
+        self.assertNotIn("0x10", text)
 
     def test_after_awarding_it_reports_both_halves(self) -> None:
-        tracker, bag = rc.KraneMemoTracker(), _Bag(ALL_MEMO_IDS)
-        _poll(tracker, bag, 0x10)
+        tracker, bag = rc.KraneMemoTracker(), _Bag([523, 524])
+        _poll(tracker, bag)
         text = tracker.describe()
         self.assertIn("1, 2", text)
-        self.assertIn("Removed from your Bag: 2", text)
-
-    def test_a_memo_stuck_in_the_bag_is_surfaced(self) -> None:
-        tracker, bag = rc.KraneMemoTracker(), _Bag([], write_fails=True)
-        _poll(tracker, bag, 0x10)
-        self.assertIn("Still trying to remove", tracker.describe())
+        self.assertIn("Taken out of your Bag: 2", text)
 
 
 # ============================================================================================================

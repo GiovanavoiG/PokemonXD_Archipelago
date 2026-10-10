@@ -176,13 +176,13 @@ TIER_GATES: "dict[tuple[str, int], dict]" = {
     ("Agate Village Shop", 19): {
         "event": "solving the ONBS crisis",
         "regions": ("Pyrite Town", "Poke Spots", "Pyrite Town (ONBS)"),
-        "items": ("Data ROM",),
+        "items": (),   # ADDENDUM 406: the ONBS raid is not behind the Data ROM
         "adds": "a Great Ball line",
     },
     ("Gateon Port Shop", 14): {
         "event": "solving the ONBS crisis",
         "regions": ("Pyrite Town", "Poke Spots", "Pyrite Town (ONBS)"),
-        "items": ("Data ROM",),
+        "items": (),   # ADDENDUM 406
         "adds": "a Poke Ball line and a Great Ball line, plus Super Potion, Full Heal and Revive -- the last "
                 "three are unannotated on the player's table and are gated here only because they share a "
                 "mart with the Great Ball (see the elimination caveat above)",
@@ -196,7 +196,7 @@ TIER_GATES: "dict[tuple[str, int], dict]" = {
     ("Pyrite Town Shop", 13): {
         "event": "solving the ONBS crisis",
         "regions": ("Pyrite Town", "Poke Spots", "Pyrite Town (ONBS)"),
-        "items": ("Data ROM",),
+        "items": (),   # ADDENDUM 406
         "adds": "a Poke Ball line and a Great Ball line",
     },
 }
@@ -292,6 +292,18 @@ def shop_line_count(shop: str) -> int:
     if entry is None:
         return 0
     return max((n for mart in entry["marts"] for n in MART_LINE_NUMBERS[mart]), default=0)
+
+
+def line_pool_index(mart: int, line: int) -> "tuple[int, int]":
+    """ADDENDUM 427: (pool slot, vanilla item) of shelf `line` in `mart`. Raises if the mart has no such line."""
+    first, last, items = VANILLA_MARTS[mart]
+    numbers = iter(MART_LINE_NUMBERS[mart])
+    for slot, item in zip(range(first, last + 1), items):
+        if item in _PRESERVED_ITEM_IDS:
+            continue
+        if next(numbers) == line:
+            return slot, item
+    raise KeyError(f"mart {mart} has no line {line}")
 
 
 def shop_lines(shop: str) -> "list[tuple[int, int, int]]":

@@ -290,9 +290,9 @@ class TestTheCeilingStatedByAddendum300StillHolds(unittest.TestCase):
         """This addendum's conclusion, kept after ADDENDUM 305 delivered the certainty a different way: no
         VALUE produces it. The option text may promise a guaranteed catch now -- but only because an
         instruction is patched, and it must still say the data half alone falls short."""
-        from ..options import MaxCatchRate
+        from ..options import CatchRateScaling   # ADDENDUM 447: Max Catch Rate is its 100
 
-        text = " ".join((MaxCatchRate.__doc__ or "").split())
+        text = " ".join((CatchRateScaling.__doc__ or "").split())
         # RETARGETED 2026-09-26: the player rewrote this option's text in their own words (see
         # USER_FACING_TEXT.md's section A). The docstring assertions below went with it. The measured fact is
         # unchanged and still tested against the CODE in this file; what is no longer pinned is that the

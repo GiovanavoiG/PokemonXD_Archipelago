@@ -161,7 +161,7 @@ CENSUS_REPEAT_AND_MISSABLE: "dict[int, tuple[str | None, bool]]" = {
      140: (None, False),   # Defeat - Jedo
      141: (None, True),   # Defeat - Golit
      142: (None, True),   # Defeat - Hobble
-     143: ('earlier (1 of 2)', True),   # Defeat - Biden #1
+     143: ('earlier (1 of 2)', True),   # Defeat - Biden #1 (overruled: missable_indices.WORKBOOK_MISSABLE_OVERRULED)
      144: (None, False),   # Defeat - Wakin
      145: (None, False),   # Defeat - Gonzap
      146: ('earlier (4 of 5)', False),   # Defeat - Aferd #4
@@ -267,4 +267,9 @@ def is_a_one_shot_fight(index: int) -> bool:
     if entry is None:
         return False
     repeat, missable = entry
+    # ADDENDUM 460: the player's "unmissable" rulings overrule the `Missable?` column. "earlier (N of M)" is not a
+    # missability claim and still counts -- that row is fought once, before a later one.
+    from .missable_indices import PLAYER_RULED_UNMISSABLE
+    if index in PLAYER_RULED_UNMISSABLE:
+        missable = False
     return bool(missable) or (repeat is not None and repeat.startswith("earlier"))

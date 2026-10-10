@@ -178,8 +178,8 @@ class TestTheDeliveryPathSaysWhatItIsDoing(unittest.TestCase):
     def test_the_ceiling_is_logged_unconditionally(self) -> None:
         """The ceiling firing is itself a bug report, and it was completely silent -- not `_note`-gated,
         absent. A ten-minute wait, a permanently stuck item and normal operation all looked identical."""
-        self.assertIn("waited the full ", CLIENT_SOURCE)
-        start = CLIENT_SOURCE.index("waited the full ")
+        self.assertIn("waited out the full battle hold", CLIENT_SOURCE)   # ADDENDUM 445: one line
+        start = CLIENT_SOURCE.index("waited out the full battle hold")
         window = CLIENT_SOURCE[start - 400:start]
         self.assertIn("logger.warning(", window)
         self.assertNotIn("_note_warn(", window.split("if not safe_to_start_new_items:")[-1])
@@ -189,9 +189,10 @@ class TestTheDeliveryPathSaysWhatItIsDoing(unittest.TestCase):
         Both call sites discarded that, so a full pocket produced a baseline, no write, a peak that could
         never rise, and an infinite silent retry. The Items pocket is thirty slots and a bag only fills."""
         self.assertIn("def _warn_write_window_full(", CLIENT_SOURCE)
-        self.assertIn("if not ram_client.give_item(pocket_base, game_item_id, quantity, max_slots):",
+        # ADDENDUM 446: both sites go through the PC-overflow wrapper, which still answers False on "nothing took it".
+        self.assertIn("if not _give_item_or_pc_overflow(ctx, idx, item_name, pocket_base, game_item_id, quantity,",
                       CLIENT_SOURCE)
-        self.assertIn("elif not ram_client.give_item(pocket_base, game_item_id, quantity, max_slots):",
+        self.assertIn("elif not _give_item_or_pc_overflow(ctx, idx, item_name, pocket_base, game_item_id,",
                       CLIENT_SOURCE)
         helper = CLIENT_SOURCE[CLIENT_SOURCE.index("def _warn_write_window_full("):]
         helper = helper[:helper.index("\ndef ", 1)]

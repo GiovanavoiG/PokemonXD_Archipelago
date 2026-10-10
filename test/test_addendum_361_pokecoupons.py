@@ -141,8 +141,9 @@ class TestTheItem(unittest.TestCase):
         self.assertEqual([], elsewhere)
 
     def test_the_weights_still_read_as_percentages(self):
-        self.assertEqual(100, sum(items.FILLER_CATEGORY_DEFAULT_WEIGHTS.values()))
-        self.assertEqual(2, items.FILLER_CATEGORY_DEFAULT_WEIGHTS["currency"])
+        # The player's options.py (2026-10-10) raised Poke Coupons 2 -> 4; the weights are relative, so 102 is fine.
+        self.assertEqual(102, sum(items.FILLER_CATEGORY_DEFAULT_WEIGHTS.values()))
+        self.assertEqual(4, items.FILLER_CATEGORY_DEFAULT_WEIGHTS["currency"])
 
     def test_the_option_exists_and_matches_the_default(self):
         """options.py and items.py have to agree; a test already holds the other nine together."""

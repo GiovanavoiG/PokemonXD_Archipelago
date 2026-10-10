@@ -176,20 +176,86 @@ def gate_for_trainer_index(index: int) -> "TrainerGate | None":
     )
 
 
-def shadow_regions_in_graph_order() -> "list[tuple[str, str]]":
-    """[(region, species_name), ...] for every vanilla shadow, sorted by how early its region is in the graph.
+# ADDENDUM 432: a Shadow is snagged from the FIGHT that carries it, so it is gated by that trainer ROW -- never by
+# the trainer's NAME. `gate_for_label` resolved a label to a surname and took that surname's EARLIEST region, so
+# every Shadow of a trainer who appears more than once was gated at their first appearance whether or not that
+# fight carried it: Lovrina's Citadark pair at the Cipher Lab, Ardos's three at Gateon Port, Snattle's and
+# Gorigan's Citadark pairs at Phenac and the Key Lair, Smarton's Arbok at the SS Libra, Miror B.'s post-game
+# Dragonite at the Poke Spots. Player: "make sure to fix that for just any character who appears multiple times".
+#
+# The rows a Shadow cannot be snagged from at all, even though they carry or could carry one. Player: Ardos "shows
+# up in gateon, but you actually can't catch his team at all until citadark", and the same for Zook and Biden.
+# ADDENDUM 433 corrected Biden's row. Player: "Biden's KEY LAIR fight is uncatchable. Snagem is fine."
+NO_SNAG_TRAINER_INDICES: "frozenset[int]" = frozenset({
+    9,     # Zook #1, Gateon Port -- his Zangoose is snagged at the Cipher Key Lair (row 147)
+    10,    # Ardos #1, Gateon Port
+    148,   # Biden #2, Cipher Key Lair (exterior) -- his Snagem Hideout fight (row 143) is snaggable
+})
 
-    This ordering IS the purification ladder: the Nth threshold becomes obtainable in the region of the Nth
-    shadow here."""
+# The three Shadows whose every carrying row has no census region (the player left those rows filler-only), with
+# the region the Shadow is really obtainable in. A decision per Shadow, not a default.
+DDPK_REGION_FALLBACK: "dict[int, tuple[str, str]]" = {
+    29: ("Poke Spots", "Miror B.'s Voltorb, at the Cave Poke Spot"),
+    80: ("Citadark Isle", "Miror B.'s Dragonite, a post-game rematch at Gateon -- nothing earlier than the end game"),
+    81: ("Outskirt Stand", "Hordel's Togepi, at the Outskirt Stand"),
+}
+
+
+@functools.lru_cache(maxsize=1)
+def shadow_carriers() -> "dict[int, tuple[int, ...]]":
+    """ddpk_index -> every Story-deck trainer row carrying it, ascending."""
+    from . import load_json_data_file
+
+    out: "dict[int, list[int]]" = {}
+    for trainer in load_json_data_file("deckdata_story_trainers.json") or []:
+        for slot in trainer.get("team", []):
+            if slot.get("kind") == "DDPK" and slot.get("ddpk_index") is not None:
+                out.setdefault(int(slot["ddpk_index"]), []).append(int(trainer["index"]))
+    return {ddpk: tuple(sorted(set(rows))) for ddpk, rows in out.items()}
+
+
+@functools.lru_cache(maxsize=1)
+def ddpk_for_dpkm() -> "dict[int, int]":
+    """dpkm_index -> ddpk_index, for the 83 vanilla Shadows."""
+    from . import load_json_data_file
+
+    return {int(e["dpkm_index"]): int(e["ddpk_index"]) for e in load_json_data_file("deckdata_dark_pokemon.json") or []}
+
+
+@functools.lru_cache(maxsize=None)
+def gates_for_ddpk(ddpk: int) -> "tuple[TrainerGate, ...]":
+    """Every way to snag vanilla Shadow `ddpk`: one gate per carrying row a Shadow can be snagged from, ANY of
+    which will do. Empty only for a DDPK this project does not know."""
+    gates = []
+    for index in shadow_carriers().get(int(ddpk), ()):
+        if index in NO_SNAG_TRAINER_INDICES:
+            continue
+        gate = gate_for_trainer_index(index)
+        if gate is not None and gate.region in _region_order_cached():
+            gates.append(gate._replace(source=f"carrier #{index}"))
+    if not gates and int(ddpk) in DDPK_REGION_FALLBACK:
+        region, why = DDPK_REGION_FALLBACK[int(ddpk)]
+        gates.append(TrainerGate(region, (), (), f"fallback: {why}"))
+    return tuple(gates)
+
+
+def shadow_regions_in_graph_order(exclude_dex: "frozenset[int]" = frozenset()) -> "list[tuple[str, str]]":
+    """[(region, species_name), ...] for every vanilla shadow, sorted by how early its EARLIEST snag region is in
+    the graph. ADDENDUM 432: by carrying trainer row, not by name -- see `gates_for_ddpk`."""
+    from . import load_json_data_file
+    from ..tools.xd_species_index import INTERNAL_INDEX_TO_NATIONAL_DEX
+
     order = _region_order()
     rows: "list[tuple[int, str, str]]" = []
-    for shadow in _load():
-        # ADDENDUM 183: one join, shared with the catch gates -- see gate_for_label above. The ladder only
-        # wants the region half of it.
-        gate = gate_for_label(shadow.get("trainer", ""))
-        if gate is None or gate.region not in order:
+    for entry in load_json_data_file("deckdata_dark_pokemon.json") or []:
+        dex, name = INTERNAL_INDEX_TO_NATIONAL_DEX.get(int(entry["species"]), (None, "?"))
+        if dex in exclude_dex:
+            continue   # ADDENDUM 423: a Shadow this seed removed (Nightmare Citadark)
+        gates = gates_for_ddpk(int(entry["ddpk_index"]))
+        if not gates:
             continue
-        rows.append((order.index(gate.region), gate.region, shadow.get("species_name", "?")))
+        region = min((g.region for g in gates), key=order.index)
+        rows.append((order.index(region), region, str(name).title()))
     rows.sort(key=lambda row: row[0])
     return [(region, species) for _position, region, species in rows]
 
@@ -202,7 +268,7 @@ def shadow_regions_in_graph_order() -> "list[tuple[str, str]]":
 PURIFICATION_FLOOR_REGION = "Agate Village"
 
 
-def purification_weights(threshold_count: int) -> "dict[str, int]":
+def purification_weights(threshold_count: int, exclude_dex: "frozenset[int]" = frozenset()) -> "dict[str, int]":
     """How many of the first `threshold_count` purification thresholds each region supplies. Truncated at
     `threshold_count` on purpose: 83 vanilla shadows, but the ladder is only as long as
     `locations.PURIFICATION_LOCATION_COUNT` (32). Threshold N is gated where the Nth shadow becomes
@@ -211,7 +277,7 @@ def purification_weights(threshold_count: int) -> "dict[str, int]":
     order = _region_order()
     floor_at = order.index(PURIFICATION_FLOOR_REGION) if PURIFICATION_FLOOR_REGION in order else 0
     counts: "dict[str, int]" = {}
-    for region, _species in shadow_regions_in_graph_order()[:threshold_count]:
+    for region, _species in shadow_regions_in_graph_order(exclude_dex)[:threshold_count]:
         if order.index(region) < floor_at:
             region = PURIFICATION_FLOOR_REGION
         counts[region] = counts.get(region, 0) + 1

@@ -154,7 +154,7 @@ class TestThePlayerSurvey(unittest.TestCase):
         # ADDENDUM 239b added the region graph's own name for the event alongside the player's two, so the
         # gate follows the graph if that edge ever gains a requirement. Today all three are equivalent.
         self.assertEqual(agate["regions"], ("Pyrite Town", "Poke Spots", "Pyrite Town (ONBS)"))
-        self.assertEqual(agate["items"], ("Data ROM",))
+        self.assertEqual(agate["items"], ())   # ADDENDUM 406: the ONBS raid is not behind the ROM
         from .. import regions as _regions   # ADDENDUM 250: relative -- see test_addendum_201's own note
         for name in agate["regions"]:
             self.assertIn(name, _regions.REGION_NAMES)

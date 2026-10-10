@@ -37,11 +37,13 @@ class TestEntryFloorIsTheAreasFirstTier(unittest.TestCase):
         SPLIT is this addendum's property and it is what is asserted: the icon appears at the exterior's 0x5D
         and the destination is entered above it. The region's own floor (0x64) stays what the ladder says --
         `_path_floor` reads that, not this, which is ADDENDUM 329's fence and the reason a floor change here
-        cannot move a level."""
-        self.assertEqual(0x67, sb.area_entry_floor("Cipher Key Lair"))
+        cannot move a level. ADDENDUM 410 then lowered it one story step, 830 -> 820 = 0x66 ("reduce key lair's
+        default floor by one step, remembering that it's more than just a byte"), and ADDENDUM 411 one more, to 810
+        = 0x65 ("so that it's at Zook") -- still above the unlock."""
+        self.assertEqual(0x64, sb.area_entry_floor("Cipher Key Lair"))   # ADDENDUM 439: 800, Gonzap's rung
         self.assertEqual(0x5D, sb.area_unlock_floor("Cipher Key Lair"))
         self.assertEqual(0x64, sb.region_floor("Cipher Key Lair"))
-        self.assertEqual(0x67, sb.AREA_ENTRY_FLOOR_OVERRIDES["Cipher Key Lair"])
+        self.assertEqual(0x64, sb.AREA_ENTRY_FLOOR_OVERRIDES["Cipher Key Lair"])   # ADDENDUM 439: 800, Gonzap's rung
         self.assertLess(sb.area_unlock_floor("Cipher Key Lair"), sb.area_entry_floor("Cipher Key Lair"))
 
     def test_nothing_else_moved(self) -> None:
@@ -138,7 +140,7 @@ class TestTheDeadRuleFence(unittest.TestCase):
         self.assertEqual([], dead,
                          "a Key Lair rule at or below the entry floor can never bind -- that is the dead rule "
                          "ADDENDUM 324 replaced with the override, and ADDENDUM 371 did the same to 364's")
-        self.assertEqual(0x67, sb.area_entry_floor("Cipher Key Lair"))
+        self.assertEqual(0x64, sb.area_entry_floor("Cipher Key Lair"))   # ADDENDA 410/411   # ADDENDUM 439: 800
 
 
 class TestTheLadderTheMemoryActuallyWrites(unittest.TestCase):
@@ -193,7 +195,7 @@ class TestTheLadderTheMemoryActuallyWrites(unittest.TestCase):
         visit. What still has to hold is the direction: never below the floor, and never below a mark the area
         has already reached."""
         floor = sb.area_entry_floor("Cipher Key Lair")
-        self.assertEqual(0x67, floor)
+        self.assertEqual(0x64, floor)   # ADDENDUM 439: 800, Gonzap's rung (ADDENDUM 324's value again)
         mem = rc.AreaStoryByteMemory()
         self.assertEqual(floor, mem.target_for("Cipher Key Lair"))
         mem.observe("Cipher Key Lair (exterior)", 0x5D)

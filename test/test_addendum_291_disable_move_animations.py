@@ -200,29 +200,23 @@ class TestTheOptionAndItsWiring(unittest.TestCase):
         self.assertIn('seed_data["disable_move_animations"] = bool(', world)
 
     def test_the_patcher_verifies_before_it_writes(self) -> None:
+        """ADDENDUM 454: the option is main.dol's waza_func_data now -- every word proven before any is written."""
         import pathlib
         patcher = (pathlib.Path(__file__).resolve().parent.parent
                    / "tools" / "iso_patcher.py").read_text(encoding="utf-8")
-        start = patcher.index("if disable_move_animations:")
-        # Anchored on the next option's block rather than a byte count: ADDENDUM 381 added a second refusal
-        # branch here and a fixed window silently stopped covering the apply call.
-        body = patcher[start:patcher.index('exp_result = {"base_exp_written"', start)]
-        self.assertIn("verify_moves_table", body)
-        verify_at = body.index("verify_moves_table")
-        apply_at = body.index("apply_disable_move_animations")
-        self.assertLess(verify_at, apply_at, "the table must be proven before a byte goes in")
-        # ADDENDUM 381: and the status census too, since this write lands one byte past the effect id.
-        self.assertLess(body.index("verify_move_status_fields"), apply_at)
+        body = patcher[patcher.index("def write_disable_move_animations_patch"):]
+        body = body[:body.index("\ndef ")]
+        self.assertLess(body.index("dol_patch_words(current)"), body.index("write_dol_words_patch("))
 
-    def test_it_shares_the_one_common_rel_pass(self) -> None:
-        """common_rel's LZSS re-encode is the slowest step in the whole patch; a second one for two bytes per
-        move would be the wrong trade. Same reasoning ADDENDUM 285 recorded."""
+    def test_it_no_longer_touches_common_rel(self) -> None:
+        """ADDENDUM 454: +0x1E is the move's function-data id, which the trainer AI reads too -- the option no longer
+        writes it, so it no longer needs (or triggers) the common_rel pass."""
         import pathlib
         patcher = (pathlib.Path(__file__).resolve().parent.parent
                    / "tools" / "iso_patcher.py").read_text(encoding="utf-8")
-        self.assertEqual(1, patcher.count("apply_disable_move_animations(rel_bytes, rel)"))
-        self.assertIn("or experience_rate != 100 or disable_move_animations", patcher)
-
+        self.assertEqual(0, patcher.count("apply_disable_move_animations(rel_bytes, rel)"))
+        self.assertNotIn("or experience_rate != 100 or disable_move_animations", patcher)
+        self.assertEqual(1, patcher.count("write_disable_move_animations_patch(output_path)"))
 
 if __name__ == "__main__":
     unittest.main()

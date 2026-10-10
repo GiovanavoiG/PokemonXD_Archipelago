@@ -55,10 +55,13 @@ class _ShadowHostBase(PokemonXDTestBase):
     def _assert_hosts_are_clean(self) -> None:
         hosts = self._hosts()
         self.assertTrue(hosts, "the expansion produced no hosts -- this test would pass vacuously")
+        from ..game_data.missable_indices import PLAYER_RULED_UNMISSABLE   # ADDENDUM 460
         for host in hosts:
             self.assertNotIn(host, MT.MISSABLE_TRAINER_INDICES, host)
-            self.assertNotIn(host, MT.FILLER_ONLY_TRAINER_INDICES, host)
             self.assertNotIn(host, MT.POST_GOAL_TRAINER_INDICES, host)
+            if host in PLAYER_RULED_UNMISSABLE:
+                continue   # ADDENDUM 460: the player ruled these one-time fights unmissable -- allowed hosts
+            self.assertNotIn(host, MT.FILLER_ONLY_TRAINER_INDICES, host)
             self.assertFalse(C.CENSUS_REPEAT_AND_MISSABLE.get(host, (None, False))[1], host)
             placement = TP.PLACEMENTS.get(host)
             self.assertTrue(placement and placement.region,
@@ -185,7 +188,7 @@ class TestNoPoolPassCanReachIt(unittest.TestCase):
 
 
 class TestItNeverEntersASeed(PokemonXDTestBase):
-    options = {"shuffle_trainer_defeats": True, "progression_locations": 2}
+    options = {"shuffle_trainer_defeats": True}
 
     def test_the_item_pool_does_not_contain_them(self) -> None:
         pool = {item.name for item in self.multiworld.itempool}

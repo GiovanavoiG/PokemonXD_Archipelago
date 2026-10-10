@@ -25,7 +25,7 @@ class TestTheMissableList(unittest.TestCase):
         """EXPANDED 2026-09-13 (ADDENDUM 167) from {8, 51} to the player's full compiled list. Pinned as a
         count plus spot checks rather than the whole literal set, so the set can be corrected without
         rewriting an assertion that merely restates it."""
-        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 47)
+        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 39)  # ADDENDUM 440: +4; 460: -13 ruled unmissable
         self.assertTrue({8, 51}.issubset(missable_trainers.MISSABLE_TRAINER_INDICES),
                         "the original two must survive the expansion")
 
@@ -40,17 +40,27 @@ class TestTheMissableList(unittest.TestCase):
             index for index in missable_trainers.MISSABLE_TRAINER_INDICES
             if trainer_roster.TRAINERS_BY_INDEX[index]["occurrence"] != 1
         }
-        self.assertEqual(later, {148}, "only Biden 2 may be a non-first occurrence")
+        # ADDENDUM 409: "Make their #1 at Cipher Lab, and make their #2 at Phenac (missable, behind disc and note)."
+        # The Sixes' missable fight is their #2 (39-44), by the player's own correction, so it joins Biden 2.
+        self.assertEqual(later, {148, 39, 40, 41, 42, 43, 44},
+                         "only Biden 2 and the Sixes' #2 may be a non-first occurrence")
+        for index in (39, 40, 41, 42, 43, 44):
+            self.assertEqual(trainer_roster.TRAINERS_BY_INDEX[index]["occurrence"], 2, index)
 
     def test_all_six_sixes_are_fenced_with_the_corrected_names(self) -> None:
         """The player's list said "redsix" (no such trainer), listed Greesix twice, and omitted Browsix. The
         roster's real six are RESIX, BLUSIX, BROWSIX, YELLOSIX, PURPSIX, GREESIX at indices 33-38."""
-        sixes = {33, 34, 35, 36, 37, 38}
+        # ADDENDUM 409: "make their #1 at Cipher Lab, and make their #2 at Phenac (missable, behind disc and
+        # note)". The fenced fight moved from #1 (33-38) to #2 (39-44); the names correction still holds for both.
+        sixes = {39, 40, 41, 42, 43, 44}
+        first = {33, 34, 35, 36, 37, 38}
         self.assertTrue(sixes.issubset(missable_trainers.MISSABLE_TRAINER_INDICES))
-        self.assertEqual(
-            {trainer_roster.TRAINERS_BY_INDEX[i]["name"] for i in sixes},
-            {"RESIX", "BLUSIX", "BROWSIX", "YELLOSIX", "PURPSIX", "GREESIX"},
-        )
+        self.assertFalse(first & missable_trainers.MISSABLE_TRAINER_INDICES)
+        for group in (sixes, first):
+            self.assertEqual(
+                {trainer_roster.TRAINERS_BY_INDEX[i]["name"] for i in group},
+                {"RESIX", "BLUSIX", "BROWSIX", "YELLOSIX", "PURPSIX", "GREESIX"},
+            )
 
     def test_index_8_is_aferds_first_fight(self) -> None:
         trainer = trainer_roster.TRAINERS_BY_INDEX[8]
@@ -66,10 +76,24 @@ class TestTheMissableList(unittest.TestCase):
         """A regeneration that renumbered an occurrence suffix would leave a hardcoded name matching nothing,
         silently un-protecting the check."""
         names = missable_trainers.missable_trainer_location_names()
-        self.assertEqual(len(names), len(missable_trainers.MISSABLE_TRAINER_INDICES))
-        self.assertIn("Defeat - Aferd #1", names)
+        # ADDENDUM 401: the 21 rows belonging to missable trainers that fight more than once no longer have a
+        # location -- every numbered fight of those 20 surnames was removed -- so 26 of the 47 resolve. Aferd #1
+        # and Browsix #1 were the two named here; they are now the proof of the removal rather than of the fence.
+        # ADDENDUM 409: "make their #2 at Phenac (missable, behind disc and note)" -- the Sixes' missable #2 is
+        # kept as a check, so 26 + 6 = 32 resolve. Browsix #1 is no longer on the missable list at all.
+        # ADDENDUM 411: + Zook #1, kept because Ardos #1 sends it -- still a missable fight, still fenced. 33.
+        # ADDENDUM 436: - Zook #1 again -- Ardos vs Zook is a fight the player only watches. 32.
+        self.assertEqual(len(names), 31)  # ADDENDUM 440: +4; 460: - Bost and five Snagem fights
+        self.assertNotIn("Defeat - Zook #1", names)
         self.assertIn("Defeat - Digor", names)
-        self.assertIn("Defeat - Browsix #1", names)
+        self.assertNotIn("Defeat - Bost", names)   # ADDENDUM 460: ruled unmissable
+        self.assertLessEqual(trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS, names)
+        self.assertIn("Defeat - Browsix #2", names)
+        self.assertNotIn("Defeat - Browsix #1", names)
+        self.assertIn("Defeat - Browsix #1", locations.LOCATION_TABLE)
+        for gone in ("Defeat - Aferd #1",):
+            self.assertNotIn(gone, names)
+            self.assertIn(gone, trainer_roster.REMOVED_MISSABLE_DEFEAT_LOCATIONS)
 
     def test_every_resolved_name_is_a_real_location(self) -> None:
         for name in missable_trainers.missable_trainer_location_names():
@@ -79,9 +103,13 @@ class TestTheMissableList(unittest.TestCase):
     def test_an_unknown_index_is_skipped_rather_than_crashing_generation(self) -> None:
         original = missable_trainers.MISSABLE_TRAINER_INDICES
         try:
-            missable_trainers.MISSABLE_TRAINER_INDICES = frozenset({8, 999999})
+            # ADDENDUM 401: Digor rather than Aferd #1, whose location no longer exists in any seed.
+            missable_trainers.MISSABLE_TRAINER_INDICES = frozenset({51, 999999})
             self.assertEqual(missable_trainers.missable_trainer_location_names(),
-                             {"Defeat - Aferd #1"})
+                             {"Defeat - Digor"})
+            missable_trainers.MISSABLE_TRAINER_INDICES = frozenset({8, 999999})
+            self.assertEqual(missable_trainers.missable_trainer_location_names(), set(),
+                             "a removed fight resolves to nothing rather than a name with no location")
         finally:
             missable_trainers.MISSABLE_TRAINER_INDICES = original
 
@@ -96,7 +124,7 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
         "randomize_chests": True,
         "shuffle_trainer_defeats": True,
         "trainer_defeat_mode": 1,
-        "progression_locations": 2,
+        
     }
 
     def test_the_players_missable_compilation_is_the_fence_again(self) -> None:
@@ -113,12 +141,20 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
         # fenced -- the fence is on the trainer, and every one of them is still a fight no item may depend on
         # -- but a retired label is not a location, so it has no progress type to assert and the name helper
         # leaves it out. One today: `Defeat - Chobin #7`.
+        # ADDENDUM 401: minus the 75 removed numbered fights too, for the same reason -- not locations, so no
+        # progress type to assert.
+        # ADDENDUM 409: minus the player's ruled-out rematches and Hordel as well ("Remove all their other fights",
+        # "Hordel is not a check, so remove him") -- REMOVED_DEFEAT_LOCATIONS carries both sets.
+        gone = trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS | trainer_roster.REMOVED_DEFEAT_LOCATIONS
+        # ADDENDUM 410: 63 -- the six lone #1s (Cail, Clerr, Belish, Eagun, Dert, Dobit) were fenced and are gone.
+        # ADDENDUM 411: 64 -- Zook #1 is a location again and fenced like every missable fight.
+        # ADDENDUM 436: 60 -- Ardos #1/#2 and Zook #1/#2 are not checks any more.
+        self.assertEqual(len(fenced), 59)  # ADDENDUM 440: +4; 460: - Bost and five Snagem fights
         self.assertEqual(
             len(fenced),
             len(missable_trainers.FILLER_ONLY_TRAINER_INDICES)
-            - len(trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS
-                  & {trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[i])
-                     for i in missable_trainers.FILLER_ONLY_TRAINER_INDICES}),
+            - len(gone & {trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[i])
+                          for i in missable_trainers.FILLER_ONLY_TRAINER_INDICES}),
         )
         self.assertGreater(len(fenced), len(missable_trainers.MISSABLE_TRAINER_INDICES))
         for name in fenced:
@@ -133,11 +169,29 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
         ordinary check because only #1 is in the workbook. That reading was mine, not the player's, and it left
         54 fights against trainers they had told us can be missed fully progression-eligible. A trainer you can
         walk past is one you can walk past every time you would have met them."""
-        for name in ("Defeat - Aferd #1", "Defeat - Aferd #2", "Defeat - Aferd #5",
-                     "Defeat - Digor", "Defeat - Resix #1", "Defeat - Resix #6",
-                     "Defeat - Browsix #1", "Defeat - Browsix #4",
-                     "Defeat - Zook #1", "Defeat - Zook #2", "Defeat - Laken #3"):
+        # ADDENDUM 401 went one step further than 188's fence: the numbered fights of a missable trainer that
+        # fights more than once are not locations at all now. The one-shot (Digor) is still here and still
+        # filler-only -- the client auto-sends it at the area's story cap.
+        self.assertEqual(self.progress_type("Defeat - Digor"), LocationProgressType.EXCLUDED)
+        created = {location.name for location in self.multiworld.get_locations(self.player)}
+        for name in ("Defeat - Aferd #1",):
+            self.assertNotIn(name, created, name)
+        # ADDENDUM 436: Ardos, Zook and Biden have one check each, their (Any); no numbered fights at all.
+        for name in ("Defeat - Zook #1", "Defeat - Zook #2", "Defeat - Ardos #1", "Defeat - Biden #1"):
+            self.assertNotIn(name, created, name)
+        # ADDENDUM 406: their mandatory rematches are checks again -- and still fenced, which is 188's point.
+        for name in ("Defeat - Laken #3",):
+            self.assertIn(name, created, name)
             self.assertEqual(self.progress_type(name), LocationProgressType.EXCLUDED, name)
+        # ADDENDUM 409: "Make their #1 at Cipher Lab, and make their #2 at Phenac (missable, behind disc and note)."
+        # Both Sixes fights are checks, and both are still fenced -- the surname can be walked past.
+        for name in ("Defeat - Resix #1", "Defeat - Browsix #1", "Defeat - Resix #2", "Defeat - Browsix #2"):
+            self.assertIn(name, created, name)
+            self.assertEqual(self.progress_type(name), LocationProgressType.EXCLUDED, name)
+        # ADDENDUM 409: "Remove Aferd's rematches" / "Remove all their other fights" -- not created at all.
+        for name in ("Defeat - Aferd #2", "Defeat - Aferd #5", "Defeat - Resix #6", "Defeat - Browsix #4"):
+            self.assertNotIn(name, created, name)
+            self.assertIn(name, trainer_roster.RULED_OUT_DEFEAT_LOCATIONS, name)
 
     def test_the_missable_list_is_the_applied_fence_widened_to_every_occurrence(self) -> None:
         """ADDENDUM 171 kept the 47-entry field compilation as data while withdrawing it as a rule; ADDENDUM
@@ -150,8 +204,9 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
         `Defeat - Chobin #3` is the row the player named: blank in `Missable?`, "earlier (3 of 7)" next to it.
         The fence is now the union of both columns, the name expansion over both, the 37 rows with no region
         data, and the goal fight (ADDENDUM 193). See game_data/census_repeat_column.py."""
-        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 47)
-        self.assertEqual(len(missable_trainers.FILLER_ONLY_TRAINER_INDICES), 150)   # ADDENDUM 341 lifted 337's +Wakin/+Gonzap
+        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 39)  # ADDENDUM 440: +4; 460: -13 ruled unmissable
+        self.assertEqual(len(missable_trainers.UNREDOABLE_TRAINER_INDICES), 149)   # ADDENDUM 440: +4; 460: -6 (Bost, Snagem)
+        self.assertEqual(len(missable_trainers.FILLER_ONLY_TRAINER_INDICES), 148)   # ADDENDUM 407: -Naps #2; 440: +4; 460: -6
         self.assertTrue(missable_trainers.MISSABLE_TRAINER_INDICES
                         <= missable_trainers.FILLER_ONLY_TRAINER_INDICES,
                         "the workbook's own rows must all survive the widening")
@@ -185,7 +240,7 @@ class TestStillExcludedAtEverySetting(_UniqueModeBase):
         "randomize_chests": True,
         "shuffle_trainer_defeats": True,
         "trainer_defeat_mode": 1,
-        "progression_locations": 1,
+        "purification_progression_cap": 0,   # ADDENDUM 449: was progression_locations: world_checks
     }
 
     def test_world_checks_setting_does_not_re_open_them(self) -> None:

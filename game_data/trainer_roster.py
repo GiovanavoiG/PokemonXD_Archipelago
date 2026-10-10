@@ -317,12 +317,163 @@ assert RETIRED_UNIQUE_DEFEAT_LOCATIONS == frozenset({"Defeat - Chobin #7"}), (
     "that means a new retirement or a corrected row needs reading before this number moves"
 )
 
+# ADDENDUM 401 -- the missable trainers' numbered fights are gone, in every seed.
+#
+# Player: "act under the assumption that missable checks are now bad" ... "Leave the Any, remove ALL numbered
+#          fights, not just later ones, for missable trainers."
+#
+# A trainer is in scope when ANY of its rows is on the player's missable list AND it fights more than once --
+# 20 surnames (Dosk, Cida, the six Sixes, Aferd, Biden, ...). Every numbered `Defeat - X #N` for those surnames
+# goes, the missable #1 and the later rematches alike: 75 labels. What is kept:
+#
+#   * `Defeat X (Any)` for each of them -- it fires on whichever fight the player actually wins, so it does not
+#     care which occurrence was walked past;
+#   * the 26 ONE-SHOT missables (`Defeat - Digor`, `Defeat - Bost`, ...). They have no number, they are not
+#     rematches, and they are what the client now auto-sends when the area's story cap is reached.
+#
+# Retired the same way `Chobin #7` is: out of the location table (the frozen ids stay behind inert, per
+# ADDENDUM 242), out of the dispatch queue below, and out of the missable fence. One set, three consumers.
+# ADDENDUM 409 -- the player's own trim of the roster:
+#   "The resixes fight at many points. Make their #1 at Cipher Lab, and make their #2 at Phenac (missable, behind
+#    disc and note). Remove all their other fights. Remove Cail's rematches, and his normal fight is at pyrite.
+#    Remove all of cida,clerr,belish,dosk, and hebon's rematches. Remove Aferd's rematches. Remove Eagun's
+#    rematch. Remove Finol, Dert, Raling, Labet and Doby's rematches. Remove Eroll, Equin, Willie and Dobit's
+#    rematches. Make Miror B only have one rematch (so up to miror B 2). ... Hordel is not a check, so remove
+#    him, but keep him randomized."
+# Only CHECKS go: the fights stay in the game, and the trainer data is randomized exactly as before.
+SIXES: "frozenset[str]" = frozenset({"RESIX", "BLUSIX", "BROWSIX", "YELLOSIX", "PURPSIX", "GREESIX"})
+_KEEP_ONLY_FIRST: "frozenset[str]" = frozenset({
+    "CAIL", "CIDA", "CLERR", "BELISH", "DOSK", "HEBON", "AFERD", "EAGUN", "FINOL", "DERT", "RALING", "LABET",
+    "DOBY", "EROLL", "EQUIN", "WILLIE", "DOBIT",
+})
+_KEEP_FIRST_TWO: "frozenset[str]" = SIXES | frozenset({"MIROR B."})
+
+
+def _ruled_out_labels() -> "frozenset[str]":
+    from .missable_indices import SINGLE_CHECK_FIGHTS
+
+    out: "set[str]" = set()
+    for trainer in TRAINERS:
+        surname = trainer["name"].upper()
+        if surname in SINGLE_CHECK_FIGHTS:
+            # ADDENDUM 436: Ardos, Zook and Biden keep one check each, their (Any), sent by one fight.
+            out.add(trainer_label(trainer))
+        elif surname == "HORDEL":
+            out.add(trainer_label(trainer))
+        elif surname in _KEEP_ONLY_FIRST and trainer["occurrence"] >= 2:
+            out.add(trainer_label(trainer))
+        elif surname in _KEEP_FIRST_TWO and trainer["occurrence"] >= 3:
+            out.add(trainer_label(trainer))
+    return frozenset(out)
+
+
+RULED_OUT_DEFEAT_LOCATIONS: "frozenset[str]" = _ruled_out_labels()
+"""ADDENDUM 409: defeat checks the player removed by name. Not locations in any seed; frozen ids stay inert."""
+
+# The Sixes' #2 is missable AND kept: the player placed it ("missable, behind disc and note"), so it is a check
+# the client auto-sends at its area's cap rather than a fight whose check disappears.
+KEPT_MISSABLE_DEFEAT_LOCATIONS: "frozenset[str]" = frozenset(
+    trainer_label(t) for t in TRAINERS if t["name"].upper() in SIXES and t["occurrence"] == 2
+)
+
+
+# ADDENDUM 411 -- "Make it so if ardos 1 fires, zook 1 fires, and vice versa."
+#
+# Zook #1 (deck 9) and Ardos #1 (deck 10) are back-to-back at Gateon Port. Zook's is on the player's missable list,
+# so ADDENDUM 401 had removed its check; Ardos's is mandatory. Linked, Zook #1 cannot be lost: the fight nobody
+# can skip sends it. So it is a location again, and each of the pair sends the other (`apply_defeat_links`).
+#
+# ADDENDUM 436 retired the pair: Ardos vs Zook is a fight the player only watches, so neither label is a check any
+# more (`missable_indices.NON_PLAYER_FIGHT_INDICES`). The mechanism stays, empty, for a future pair.
+DEFEAT_LINKS: "dict[str, str]" = {}
+LINKED_MISSABLE_DEFEAT_LOCATIONS: "frozenset[str]" = frozenset()
+"""Missable labels kept because a mandatory partner sends them. Not auto-sent at a story cap: the link covers it."""
+
+
+def _removed_missable_labels() -> "frozenset[str]":
+    from .missable_indices import MISSABLE_TRAINER_INDICES as _LISTED, PLAYER_RULED_UNMISSABLE
+
+    # ADDENDUM 460: the fights since ruled unmissable keep the numbered-check removal they had (the player's own
+    # "remove ... rematches" rulings) -- their check is the surname's (Any), or the single fight's own label.
+    MISSABLE_TRAINER_INDICES = _LISTED | PLAYER_RULED_UNMISSABLE
+    surnames = {
+        TRAINERS_BY_INDEX[index]["name"].upper()
+        for index in MISSABLE_TRAINER_INDICES
+        if index in TRAINERS_BY_INDEX and TRAINERS_BY_INDEX[index]["total_with_name"] > 1
+    }
+    # ADDENDUM 406 narrowed this to the MISSABLE fights themselves. Player: "Naps #2 is also gated there, and a
+    # mandatory fight, so make sure the mandatory/nonmissable rematches are still counted." ADDENDUM 401 had taken
+    # every numbered fight of these surnames -- 75 labels, 54 of them fights nobody can miss. Those 54 are back.
+    return frozenset(
+        trainer_label(TRAINERS_BY_INDEX[index])
+        for index in MISSABLE_TRAINER_INDICES
+        if index in TRAINERS_BY_INDEX and TRAINERS_BY_INDEX[index]["name"].upper() in surnames
+    ) - KEPT_MISSABLE_DEFEAT_LOCATIONS - LINKED_MISSABLE_DEFEAT_LOCATIONS
+
+
+REMOVED_MISSABLE_DEFEAT_LOCATIONS: "frozenset[str]" = _removed_missable_labels()
+"""The numbered defeat locations of the MISSABLE fights of trainers that fight more than once (ADDENDA 401/406).
+Their non-missable rematches keep their checks."""
+
+# A count, not a range: moving off it means the missable list or the roster changed underneath -- worth reading
+# before shipping. 20 surnames' missable first fights, plus Biden #2 (both of Biden's fights are missable).
+# ADDENDUM 409: 15 -- the Sixes' missable fight is now their #2, and the player kept it as a check.
+# ADDENDUM 411: 14 -- Zook #1 is back, sent by Ardos #1.
+# ADDENDUM 436: 15 -- Zook #1 is unlinked (in). Retired anyway (`RULED_OUT_DEFEAT_LOCATIONS`).
+assert len(REMOVED_MISSABLE_DEFEAT_LOCATIONS) == 15, (
+    f"ADDENDUM 436 removes {len(REMOVED_MISSABLE_DEFEAT_LOCATIONS)} numbered missable fights, not 15 -- the "
+    "missable list or the roster moved"
+)
+assert len(KEPT_MISSABLE_DEFEAT_LOCATIONS) == 6
+assert not (KEPT_MISSABLE_DEFEAT_LOCATIONS & RULED_OUT_DEFEAT_LOCATIONS)
+assert all(DEFEAT_LINKS[DEFEAT_LINKS[name]] == name for name in DEFEAT_LINKS), "a defeat link must go both ways"
+
+# ADDENDUM 410 -- "Any trainers that only have 'any' and '#1', just remove the #1."
+#
+# After the trims above, six surnames are left with exactly two checks: `Defeat X (Any)` and `Defeat - X #1`. In
+# unique mode a label fires on the Nth DISTINCT team beaten, so a one-label queue's #1 fires on the first win --
+# the same win `(Any)` fires on. Two checks, one event. The #1 goes; the (Any) stays, and it is the one that does
+# not care which of the trainer's fights the player wins. Every surname that fights more than once has an (Any)
+# (asserted in repeatable_trainers, which imports this module and so cannot be imported from here).
+def _any_duplicate_labels() -> "frozenset[str]":
+    out: "set[str]" = set()
+    for surname, rows in ((name.upper(), group) for name, group in TRAINERS_BY_NAME.items()):
+        if len(rows) < 2:
+            continue
+        live = [
+            trainer_label(row) for row in sorted(rows, key=lambda r: r["index"])
+            if trainer_label(row) not in RETIRED_UNIQUE_DEFEAT_LOCATIONS
+            and trainer_label(row) not in REMOVED_MISSABLE_DEFEAT_LOCATIONS
+            and trainer_label(row) not in RULED_OUT_DEFEAT_LOCATIONS
+        ]
+        if len(live) == 1 and live[0].endswith(" #1"):
+            out.add(live[0])
+    return frozenset(out)
+
+
+ANY_DUPLICATE_DEFEAT_LOCATIONS: "frozenset[str]" = _any_duplicate_labels()
+"""ADDENDUM 410: a surname's lone `#1`, which fires on the same win as its `(Any)`. Not a location in any seed."""
+
+assert ANY_DUPLICATE_DEFEAT_LOCATIONS == frozenset(
+    f"Defeat - {name} #1" for name in ("Cail", "Clerr", "Belish", "Eagun", "Dert", "Dobit")
+), f"ADDENDUM 410 now removes {sorted(ANY_DUPLICATE_DEFEAT_LOCATIONS)} -- the roster or a ruling moved"
+
+#: Every unique-mode label that is not a location, for whatever reason. One set for every consumer.
+REMOVED_DEFEAT_LOCATIONS: "frozenset[str]" = (
+    REMOVED_MISSABLE_DEFEAT_LOCATIONS | RULED_OUT_DEFEAT_LOCATIONS | ANY_DUPLICATE_DEFEAT_LOCATIONS
+)
+# Disjoint by construction today (Chobin is not missable), asserted so the two can never double-count.
+assert not (REMOVED_MISSABLE_DEFEAT_LOCATIONS & RETIRED_UNIQUE_DEFEAT_LOCATIONS)
+
 # The queue the client dispatches against must agree with the location set the seed was built from, or a win
-# would be checked off against a name this multiworld has no id for.
+# would be checked off against a name this multiworld has no id for. A surname whose every label is removed
+# keeps an EMPTY queue rather than losing its key: the tracker still has to recognise the fight as a win, so
+# `Defeat X (Any)` -- dispatched off the surname, not the queue -- still fires.
 for _surname in list(UNIQUE_SURNAME_TO_LOCATION_QUEUE):
     UNIQUE_SURNAME_TO_LOCATION_QUEUE[_surname] = [
         _label for _label in UNIQUE_SURNAME_TO_LOCATION_QUEUE[_surname]
         if _label not in RETIRED_UNIQUE_DEFEAT_LOCATIONS
+        and _label not in REMOVED_DEFEAT_LOCATIONS
     ]
 
 # How many distinct teams each surname fields, for the tracker's fence and for `!teams`.
@@ -331,8 +482,99 @@ DISTINCT_TEAM_COUNTS: "dict[str, int]" = {
     for _surname, _rows in ((_n.upper(), _v) for _n, _v in TRAINERS_BY_NAME.items())
 }
 
-for _surname, _labels in UNIQUE_SURNAME_TO_LOCATION_QUEUE.items():
-    assert len(_labels) == DISTINCT_TEAM_COUNTS[_surname], (
-        f"{_surname} has {len(_labels)} unique-mode labels but fields {DISTINCT_TEAM_COUNTS[_surname]} "
-        "distinct teams -- every label must be earnable by a team no other label claims"
+# ADDENDUM 401: a surname whose numbered fights were all removed has an EMPTY queue on purpose, and is checked
+# for exactly that instead -- an emptied queue is the whole change, and a partly-emptied one would be a bug.
+_REMOVED_SURNAMES: "frozenset[str]" = frozenset(
+    _surname for _surname, _rows in ((_n.upper(), _v) for _n, _v in TRAINERS_BY_NAME.items())
+    if any(trainer_label(_row) in REMOVED_MISSABLE_DEFEAT_LOCATIONS for _row in _rows)
+)
+# ADDENDA 406/409: the queue is exactly the surname's live labels, in roster order, and every one of them must be
+# earnable WITHOUT a missable fight. A label means "the Nth distinct team you have beaten", and the fights a
+# removed check stood for are still in the game, so they still count toward N.
+from .missable_indices import MISSABLE_TRAINER_INDICES as _MISSABLE  # noqa: E402
+
+_NON_MISSABLE_TEAM_COUNTS: "dict[str, int]" = {}
+for _surname, _rows in ((_n.upper(), _v) for _n, _v in TRAINERS_BY_NAME.items()):
+    _NON_MISSABLE_TEAM_COUNTS[_surname] = len(
+        {team_signature(_row) for _row in _rows if _row["index"] not in _MISSABLE}
     )
+    _live = [
+        trainer_label(_row) for _row in sorted(_rows, key=lambda r: r["index"])
+        if trainer_label(_row) not in RETIRED_UNIQUE_DEFEAT_LOCATIONS
+        and trainer_label(_row) not in REMOVED_DEFEAT_LOCATIONS
+    ]
+    assert UNIQUE_SURNAME_TO_LOCATION_QUEUE.get(_surname) == _live, (
+        f"{_surname}: the queue must be exactly its live labels in roster order -- got "
+        f"{UNIQUE_SURNAME_TO_LOCATION_QUEUE.get(_surname)}"
+    )
+    # A label for a missable fight (a one-shot like Bost, or the Sixes' kept #2) is auto-sent at its area's cap;
+    # every other label needs a team the player cannot miss.
+    _missable_labels = {trainer_label(_row) for _row in _rows if _row["index"] in _MISSABLE}
+    _needs = len([label for label in _live if label not in _missable_labels])
+    assert _needs <= _NON_MISSABLE_TEAM_COUNTS[_surname], (
+        f"{_surname} has {_needs} labels but only {_NON_MISSABLE_TEAM_COUNTS[_surname]} distinct teams the "
+        "player cannot miss -- a label nobody can earn"
+    )
+
+
+assert not (set(DEFEAT_LINKS) & REMOVED_DEFEAT_LOCATIONS), "a linked defeat check must be a location"
+assert all(name in sum(UNIQUE_SURNAME_TO_LOCATION_QUEUE.values(), []) for name in DEFEAT_LINKS)
+
+
+def apply_defeat_links(completed: "list[str]", already_checked: "set[str] | frozenset[str]") -> "list[str]":
+    """ADDENDUM 411. The tracker's dispatch, with the linked pairs applied. Pure, so it is tested without a game.
+
+    1. Each linked label brings its partner: Ardos #1 sends Zook #1, Zook #1 sends Ardos #1.
+    2. A missable linked label the tracker reaches AFTER its partner already sent it means that fight was skipped
+       and this win is a LATER team -- Zook at the Key Lair, his first distinct team beaten. The label is already
+       checked, so the win takes the surname's next unchecked label instead (Zook #2), which it would otherwise
+       never reach: a queue position, once used, is not handed out again."""
+    out: "list[str]" = []
+    for name in completed:
+        if name in LINKED_MISSABLE_DEFEAT_LOCATIONS and name in already_checked:
+            for queue in UNIQUE_SURNAME_TO_LOCATION_QUEUE.values():
+                if name in queue:
+                    later = [n for n in queue[queue.index(name) + 1:]
+                             if n not in already_checked and n not in out and n not in completed]
+                    if later:
+                        name = later[0]
+                    break
+        if name not in out:
+            out.append(name)
+    for name in list(out):
+        partner = DEFEAT_LINKS.get(name)
+        if partner is not None and partner not in out:
+            out.append(partner)
+    return out
+
+
+# ADDENDUM 436 -- the fights the player only watches, as the client's tracker needs them: {SURNAME: (every label of
+# that surname in roster order, the labels of the watched fights)}. A confirmed win is resolved against the whole
+# list by team fingerprint; one that lands on a watched fight is ignored.
+def _non_player_fights() -> "dict[str, tuple[tuple[str, ...], frozenset[str]]]":
+    from .missable_indices import NON_PLAYER_FIGHT_INDICES
+
+    out: "dict[str, tuple[tuple[str, ...], frozenset[str]]]" = {}
+    for index in sorted(NON_PLAYER_FIGHT_INDICES):
+        surname = TRAINERS_BY_INDEX[index]["name"].upper()
+        rows = sorted((t for t in TRAINERS if t["name"].upper() == surname), key=lambda t: t["index"])
+        labels = tuple(trainer_label(t) for t in rows)
+        watched = frozenset(trainer_label(t) for t in rows if t["index"] in NON_PLAYER_FIGHT_INDICES)
+        out[surname] = (labels, watched)
+    return out
+
+
+NON_PLAYER_FIGHTS: "dict[str, tuple[tuple[str, ...], frozenset[str]]]" = _non_player_fights()
+# Every surname with a watched fight also has a fight the player DOES fight -- the one its check comes from.
+assert all(len(labels) > len(watched) for labels, watched in NON_PLAYER_FIGHTS.values())
+
+# ADDENDUM 439, player: "zook (any) sent at the gateon fight, which is wrong. Make sure that doesn't happen." Where each
+# watched fight is staged, as an `AREA_GROUPS` place: a win by that surname in that place is the watched fight, whatever
+# the fingerprints say. Each surname's PLAYED fight is somewhere else -- Zook at the Key Lair, Ardos at Citadark, Biden
+# at Snagem (ADDENDUM 436) -- so the room alone separates them.
+WATCHED_FIGHT_AREAS: "dict[str, str]" = {
+    "ZOOK": "Gateon Port",          # Ardos vs Zook
+    "ARDOS": "Gateon Port",         # the same fight, from Ardos's side
+    "BIDEN": "Cipher Key Lair",     # Zook vs Biden
+}
+assert set(WATCHED_FIGHT_AREAS) == set(NON_PLAYER_FIGHTS)

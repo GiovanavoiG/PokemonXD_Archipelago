@@ -79,7 +79,6 @@ class TestThePredecessorLadder(unittest.TestCase):
         "Poke Spots": "Pyrite Town",
         "Phenac City": "Poke Spots",
         "Realgam Tower": "Phenac City",
-        "Orre Colosseum": "Phenac City",
         "SS Libra": "Realgam Tower",
         "Cipher Key Lair": "SS Libra (stranded)",
         "Snagem Hideout": "Cipher Key Lair (exterior)",
@@ -149,9 +148,11 @@ class TestTheClientCreditsFromThePredecessor(unittest.TestCase):
 
     def test_the_diagnostic_names_the_area_being_waited_on(self) -> None:
         """A held check has to say what it is held on. "No progress recorded there yet" needs a "there"."""
+        # SUPERSEDED by ADDENDUM 434: a waiting check waits on the game revealing the destination itself, and
+        # the table prints that destination's bits instead of a predecessor's mark.
         body = CLIENT[CLIENT.index("def _cmd_unlocks(self)"):CLIENT.index("def _cmd_storybyte")]
-        self.assertIn("unlock_predecessor_region(name)", body)
-        self.assertIn("earned_in", body)
+        self.assertIn("travel_unlock_members(name)", body)
+        self.assertIn("waiting for the game to reveal it", body)
 
 
 class TestTheGraphAgreesWithTheClient(unittest.TestCase):
@@ -220,12 +221,13 @@ class TestKaminkoIsRetired(unittest.TestCase):
         YAML from that text."""
         from .. import options
 
-        self.assertEqual(11, len(travel_locations.TRAVEL_LOCATION_NAMES))
-        self.assertEqual(11, len(items.TRAVEL_UNLOCK_ITEMS))
+        # ADDENDUM 446: ten, with Orre Colosseum's unlock removed.
+        self.assertEqual(10, len(travel_locations.TRAVEL_LOCATION_NAMES))
+        self.assertEqual(10, len(items.TRAVEL_UNLOCK_ITEMS))
         doc = options.RandomizeTravelLocations.__doc__ or ""
         # 2026-09-26: the player rewrote this option's text; the phrase moved to "11 of this game's travel
         # destinations". The COUNT is what this test is about, so it is asserted as a number beside the names.
-        self.assertIn("11 of this game's", doc)
+        self.assertIn("10 of this game's", doc)
         for name in travel_locations.TRAVEL_LOCATION_NAMES:
             self.assertIn(name.replace("Cipher Key Lair", "Cipher Key Lair"), doc, name)
         for name in travel_locations.TRAVEL_LOCATION_NAMES:

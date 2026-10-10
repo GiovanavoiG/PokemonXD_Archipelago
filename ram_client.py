@@ -24,6 +24,7 @@ the Archipelago core, so it stays loadable standalone (see `_load_location_name_
 from __future__ import annotations
 
 import os
+import re
 import struct
 import time
 from dataclasses import dataclass, field
@@ -391,23 +392,83 @@ def _looks_like_real_block_base(candidate: int, mem: bytes) -> bool:
     return mem[off:off + 8] == b"\x01" * 8
 
 
-def resolve_block_base(landmark: str) -> int | None:
-    """One-time-per-connection full-memory scan for `landmark` -- which must be the connected player's slot
-    name, per the setup convention on TRAINER_NAME_LANDMARK, never a hardcoded guess. Returns the resolved
-    BLOCK_BASE, or None if no occurrence validates (not in-game yet, trainer name doesn't match the slot name,
-    or XD's name-entry screen altered it).
+# ADDENDUM 444, player: "Any solutions that allow us to increase the yaml name size without losing our search for the
+# player block?" The trainer name was only ever a way to FIND candidates; the money marker and the game's own
+# savedata pointer are what VALIDATE one. So the block is found without a name, and the slot name no longer has to
+# be the in-game name: (1) the game's savedata pointer (`_block_base_from_savedata_pointer`, ADDENDUM 420) when the
+# block it names validates; (2) otherwise a scan for the marker itself, kept to the 0x8047xxxx-0x8049xxxx block
+# range with a readable trainer name in front of it; (3) only then the old name search. Measured on 26 full MEM1
+# dumps spanning a month and three trainer names (MICHAEL, DAVID, Gioig): (1) and (2) each found exactly one block,
+# the same one, every time -- the 0x804A17EC mirror and the 0x80B5xxxx marker look-alikes fall outside the range.
+TRAINER_NAME_MAX_BYTES = 0x16
+BLOCK_BASE_RANGE = (0x80470000, 0x8049FFFF)
+_READABLE_TRAINER_NAME = re.compile(r"[\x21-\x7e\u00a0-\u024f][\x20-\x7e\u00a0-\u024f]{0,9}")
 
-    Checks EVERY occurrence, not just the first: one dump held nine copies of the trainer name (the real block
-    plus several transient recap records), and the lowest-addressed one -- what a naive `bytes.find()` returns
-    -- was inside the unrelated 0x8042xxxx party region.
 
-    Several can also validate: of those nine, two passed -- the real 0x8047xxxx block and a structurally
-    identical 0x804Axxxx mirror with less reliable sync timing (the same mirror the ram-map doc records for the
-    Poke Ball pocket). So a validated candidate in 0x8047xxxx-0x8049xxxx wins; one outside that range is
-    returned only if nothing inside it validated.
+def trainer_name_at(mem: bytes, block_base: int) -> str:
+    """The trainer name in front of a block base (BLOCK_BASE - RECORD_TRAINER_NAME_OFFSET), from a MEM1 image."""
+    off = block_base - RECORD_TRAINER_NAME_OFFSET - MEM1_START
+    if off < 0:
+        return ""
+    raw = mem[off:off + TRAINER_NAME_MAX_BYTES]
+    return raw.decode("utf-16-be", errors="replace").split("\x00")[0]
+
+
+def read_trainer_name(block_base: int) -> str:
+    """The in-game trainer name, live. Empty when unreadable. Never raises."""
+    try:
+        raw = read_bytes(block_base - RECORD_TRAINER_NAME_OFFSET, TRAINER_NAME_MAX_BYTES)
+        return raw.decode("utf-16-be", errors="replace").split("\x00")[0].strip()
+    except Exception:
+        return ""
+
+
+def find_block_base_candidates(mem: bytes) -> "list[int]":
+    """Every validated block base the money marker points at, inside BLOCK_BASE_RANGE, with a readable trainer
+    name in front -- no name needed to find them."""
+    out: "list[int]" = []
+    marker = b"\x01" * 8
+    idx = mem.find(marker)
+    while idx != -1:
+        candidate = MEM1_START + idx - MONEY_DISPLAY_MARKER_OFFSET
+        if (candidate % 4 == 0 and BLOCK_BASE_RANGE[0] <= candidate <= BLOCK_BASE_RANGE[1]
+                and _looks_like_real_block_base(candidate, mem)
+                and _READABLE_TRAINER_NAME.fullmatch(trainer_name_at(mem, candidate) or "")):
+            out.append(candidate)
+        idx = mem.find(marker, idx + 1)
+    return sorted(set(out))
+
+
+def resolve_block_base(landmark: "str | None" = None) -> int | None:
+    """One-time-per-connection resolution of BLOCK_BASE. ADDENDUM 444: no name needed -- see the block above.
+    `landmark` (the slot name) is only a tie-break among several marker hits, and the last resort.
 
     Not cached here: resolve once at connect time and reuse while Dolphin stays hooked to the same boot."""
     mem = dump_mem1()
+    pointed = _block_base_from_savedata_pointer(mem)
+    if pointed is not None and _looks_like_real_block_base(pointed, mem):
+        return pointed
+    found = find_block_base_candidates(mem)
+    if len(found) == 1:
+        return found[0]
+    if found:
+        if landmark:
+            named = [c for c in found if trainer_name_at(mem, c).strip() == landmark.strip()]
+            if named:
+                return named[0]
+        return found[0]
+    if not landmark:
+        return None
+    return _resolve_block_base_by_name(mem, landmark)
+
+
+def _resolve_block_base_by_name(mem: bytes, landmark: str) -> int | None:
+    """The pre-ADDENDUM 444 search, kept as the last resort: every occurrence of the trainer name, validated.
+
+    Checks EVERY occurrence, not just the first: one dump held nine copies of the trainer name (the real block
+    plus several transient recap records), and the lowest-addressed one -- what a naive `bytes.find()` returns
+    -- was inside the unrelated 0x8042xxxx party region. Several can also validate (a 0x804Axxxx mirror), so one
+    in 0x8047xxxx-0x8049xxxx wins."""
     needle = landmark.encode("utf-16-be")
     validated: list[int] = []
     idx = mem.find(needle)
@@ -420,8 +481,82 @@ def resolve_block_base(landmark: str) -> int | None:
         idx = mem.find(needle, idx + 1)
     if not validated:
         return None
+    # ADDENDUM 420: the game's own answer, when it is one of ours. `savedataBiosGetNowSavedataPtr` returns the
+    # word at SAVEDATA_NOW_POINTER, and every script that reads the Bag (scriptHaveItem -> heroGetStatus) uses
+    # that savedata's hero record. Only a tie-breaker among VALIDATED candidates, never a new candidate.
+    authoritative = _block_base_from_savedata_pointer(mem)
+    if authoritative in validated:
+        return authoritative
     preferred = [c for c in validated if 0x80470000 <= c <= 0x8049FFFF]
     return preferred[0] if preferred else validated[0]
+
+
+# ADDENDUM 420. From the USA DOL (symbols: GoD-Tool's GXXE.map): `savedataBiosGetNowSavedataPtr` is
+# `lwz r3,-18216(r13)` with r13 = 0x804EFE20, the hero record is savedata + 0x140 (`savedataBiosGetHeroPtr`), and
+# the trainer name opens the hero record, so BLOCK_BASE = savedata + 0x140 + RECORD_TRAINER_NAME_OFFSET. Measured
+# against six full MEM1 dumps spanning a month (BLOCK_BASE 0x80478FE0..0x804794C0): it agreed every time. The Key
+# Items pocket the scripts read is hero + 0x540 = BLOCK_BASE + KEY_ITEMS_OFFSET, 43 slots (`heroBiosGetExtraItemPtr`).
+SAVEDATA_NOW_POINTER = 0x804EB6F8
+SAVEDATA_HERO_OFFSET = 0x140
+
+
+def _block_base_from_savedata_pointer(mem: bytes) -> "int | None":
+    try:
+        off = SAVEDATA_NOW_POINTER - MEM1_START
+        savedata = struct.unpack(">I", mem[off:off + 4])[0]
+    except Exception:
+        return None
+    if not MEM1_START <= savedata < MEM1_START + MEM1_SIZE:
+        return None
+    return savedata + SAVEDATA_HERO_OFFSET + RECORD_TRAINER_NAME_OFFSET
+
+
+def live_block_base() -> "int | None":
+    """The block base the game is using right now, from its own savedata pointer, or None when the pointer is not
+    set yet or the block it names does not validate (title screen, mid-boot). Two small reads. Never raises."""
+    try:
+        savedata = struct.unpack(">I", read_bytes(SAVEDATA_NOW_POINTER, 4))[0]
+        if not MEM1_START <= savedata < MEM1_START + MEM1_SIZE:
+            return None
+        candidate = savedata + SAVEDATA_HERO_OFFSET + RECORD_TRAINER_NAME_OFFSET
+        money = struct.unpack(">I", read_bytes(candidate + MONEY_OFFSET, 4))[0]
+        if not 0 <= money <= 99_999_999:
+            return None
+        if read_bytes(candidate + MONEY_DISPLAY_MARKER_OFFSET, 8) != b"\x01" * 8:
+            return None
+        return candidate
+    except Exception:
+        return None
+
+
+@dataclass
+class BlockBaseWatch:
+    """ADDENDUM 421. The save buffer's address is chosen once per boot (`zz_8005c71c` adds `OSGetTime() & 0x7E0` to
+    the buffer before `savedataBiosSetNowSavedataPtr`), which is why BLOCK_BASE wanders between dumps. A game reset
+    or a save state from another boot moves it while Dolphin stays hooked, and nothing used to notice: every read
+    and write -- key-item clears, deliveries, chest flags -- kept going to the old address.
+
+    `poll` returns the new base once the game's own pointer has named a different VALIDATED block on
+    `confirm_polls` consecutive polls, else None. A pointer that names nothing valid is not a move."""
+
+    confirm_polls: int = 2
+    moves: int = 0
+    _pending: "int | None" = None
+    _streak: int = 0
+
+    def poll(self, current: int) -> "int | None":
+        live = live_block_base()
+        if live is None or live == current:
+            self._pending, self._streak = None, 0
+            return None
+        if live != self._pending:
+            self._pending, self._streak = live, 0
+        self._streak += 1
+        if self._streak < self.confirm_polls:
+            return None
+        self._pending, self._streak = None, 0
+        self.moves += 1
+        return live
 
 
 # --- Bag pocket read/write (live-confirmed for Items + Poke Ball pockets; Key Items unconfirmed) ---
@@ -723,6 +858,35 @@ def resolve_item_pocket(block_base: int, game_item_id: int | None) -> tuple[int,
     return block_base + ITEMS_POCKET_OFFSET, ITEMS_POCKET_MAX_SLOTS
 
 
+# ADDENDUM 408 -- items in the wrong Bag tab. A player found a "No256" in the TMs tab, twice, each described as a
+# healing item. The TMs tab shows a TM number and move for every slot, so a NON-TM id there renders as "No256"
+# with that item's own description. These are the regions of the shared Balls/TMs/Berries array and what each
+# may hold (XD's layout: Balls 16, TMs 64, Berries 46 -- the same one the write windows above are carved from).
+SHARED_ARRAY_REGIONS: "tuple[tuple[str, int, int, int, int], ...]" = (
+    # (tab, first slot, last slot, lowest id it may hold, highest id it may hold)
+    ("Poke Balls", 0, 15, 1, 12),
+    ("TMs", 16, 79, 289, 346),
+    ("Berries", 80, 125, 133, 175),
+)
+
+
+def find_misfiled_items(block_base: int) -> "list[tuple[str, int, int, int]]":
+    """Every slot of the shared Balls/TMs/Berries array holding an id that does not belong to its tab, plus any
+    Ball, TM or berry sitting in the Items pocket: `[(tab, slot, item id, quantity)]`. Read-only."""
+    out: "list[tuple[str, int, int, int]]" = []
+    shared = read_pocket(block_base + POKEBALL_POCKET_OFFSET, POKEBALL_POCKET_ARRAY_SLOT_COUNT)
+    for tab, first, last, low, high in SHARED_ARRAY_REGIONS:
+        for slot in shared[first:last + 1]:
+            if not slot.empty and not low <= slot.item_id <= high:
+                out.append((tab, slot.index - first, slot.item_id, slot.quantity))
+    for slot in read_pocket(block_base + ITEMS_POCKET_OFFSET, ITEMS_POCKET_MAX_SLOTS):
+        if slot.empty:
+            continue
+        if 1 <= slot.item_id <= 12 or 289 <= slot.item_id <= 346 or 500 <= slot.item_id <= 533:
+            out.append(("Items", slot.index, slot.item_id, slot.quantity))
+    return out
+
+
 def resolve_item_read_window(block_base: int, game_item_id: "int | None") -> "tuple[int, int] | None":
     """Where to READ an item from: `(base address, slot count)`, or None when the id has no pocket.
 
@@ -751,6 +915,88 @@ def resolve_item_read_window(block_base: int, game_item_id: "int | None") -> "tu
         # The array BASE, not the sub-window base. This is the whole bug in one line.
         return block_base + POKEBALL_POCKET_OFFSET, POKEBALL_POCKET_ARRAY_SLOT_COUNT
     return pocket
+
+
+# ADDENDUM 446 -- the Items pocket overflows into the PC's item storage.
+#
+# Player: "Do we have enough info for the item overflow into PC? If so, do it." The Items pocket is 30 slots for 102
+# item types, and until now a full pocket held an incoming item until the player made room.
+#
+# WHAT IS KNOWN (bag-space investigation, 2026-10-04, re-checked for this addendum):
+#   * The player deposited 5 Net Balls and 1 NeverMeltIce and dumped MEM1: `00 06 00 05 | 00 D4 00 01` at
+#     BLOCK_BASE + 0xC1B0, as two `[u16 id][u16 qty]` records -- the Bag's own format -- with all-zero bytes before.
+#   * A SECOND capture taken at a different moment of play (`battle1.bin`, mid-battle, 9.4 million bytes different
+#     from the first) holds the same records at the same offset, and in BOTH dumps that pair occurs nowhere else
+#     in MEM1. So this is the one live copy, not a menu's working buffer that would be written back over it.
+#   * The zero run after the two records ends at exactly 235 slots, the PC item capacity of the GameCube games.
+#   * The offset is relative to the save block, which the client finds through the game's own save pointer.
+#   * None of the 24 other dumps has anything there: the player had never used PC item storage before.
+# NOT YET DONE: a live write. So every write here is a plain stack-or-first-empty `give_item` into that array, the
+# delivery loop confirms it by re-reading (Bag + PC together) over several polls exactly as it does a Bag write,
+# and nothing is written unless the whole 235-slot array reads as item records first.
+PC_ITEMS_OFFSET = 0xC1B0
+PC_ITEMS_MAX_SLOTS = 235
+#: Highest item id this game has (the Battle CDs end below it) and the PC's own per-item ceiling.
+PC_ITEM_ID_MAX = 0x255
+PC_ITEM_QUANTITY_MAX = 999
+
+
+def pc_items_base(block_base: int) -> int:
+    return block_base + PC_ITEMS_OFFSET
+
+
+def pc_storage_looks_valid(block_base: int) -> bool:
+    """True when every one of the 235 PC records is empty or a plausible `[item id][quantity]` -- the guard that
+    keeps a wrong block base, or a build where the array is somewhere else, from ever being written into."""
+    try:
+        slots = read_pocket(pc_items_base(block_base), PC_ITEMS_MAX_SLOTS)
+    except Exception:
+        return False
+    for slot in slots:
+        if slot.empty:
+            continue
+        if not (1 <= slot.item_id <= PC_ITEM_ID_MAX and 1 <= slot.quantity <= PC_ITEM_QUANTITY_MAX):
+            return False
+    return True
+
+
+def overflows_to_pc(block_base: int, game_item_id: "int | None") -> bool:
+    """Items-pocket items only: that is the pocket that fills. Balls, TMs, berries and key items never overflow."""
+    if game_item_id is None:
+        return False
+    pocket = resolve_item_pocket(block_base, game_item_id)
+    return pocket is not None and pocket[0] == block_base + ITEMS_POCKET_OFFSET
+
+
+def pc_overflow_target(block_base: int, game_item_id: "int | None") -> "tuple[int, int] | None":
+    """`(base, slots)` of the PC item storage when `game_item_id` may overflow there now, else None."""
+    if not overflows_to_pc(block_base, game_item_id) or not pc_storage_looks_valid(block_base):
+        return None
+    return pc_items_base(block_base), PC_ITEMS_MAX_SLOTS
+
+
+def may_overflow_to_pc(block_base: int, game_item_id: "int | None") -> bool:
+    return pc_overflow_target(block_base, game_item_id) is not None
+
+
+def give_pc_item(block_base: int, game_item_id: int, quantity: int) -> bool:
+    """Stack onto this item's PC record while it stays within the PC's 999, else take the first empty record.
+    False (nothing written) when neither is possible."""
+    base = pc_items_base(block_base)
+    slots = read_pocket(base, PC_ITEMS_MAX_SLOTS)
+    for slot in slots:
+        if slot.item_id == game_item_id and not slot.empty and slot.quantity + quantity <= PC_ITEM_QUANTITY_MAX:
+            write_slot(slot.address, game_item_id, slot.quantity + quantity)
+            return True
+    for slot in slots:
+        if slot.empty:
+            write_slot(slot.address, game_item_id, min(quantity, PC_ITEM_QUANTITY_MAX))
+            return True
+    return False
+
+
+def pc_item_quantity(block_base: int, game_item_id: int) -> int:
+    return find_item_quantity(pc_items_base(block_base), PC_ITEMS_MAX_SLOTS, game_item_id)
 
 
 def route_and_give_item(block_base: int, game_item_id: int | None, quantity: int = 1) -> bool | None:
@@ -1541,7 +1787,7 @@ class NamedPurificationTracker:
 
 # Mirrors locations.py's PURIFICATION_LOCATION_COUNT and purification_location_name. Duplicated rather than
 # imported because locations.py pulls in BaseClasses/Region, which breaks standalone loading. Keep in sync.
-PURIFICATION_LOCATION_COUNT = 32
+PURIFICATION_LOCATION_COUNT = 127   # ADDENDUM 415: 83 vanilla + 44 expansion; the seed's own Shadow count caps it too
 
 
 def purification_location_name(count: int) -> str:
@@ -1581,6 +1827,21 @@ RECORD_PURIFIED_FLAG_OFFSET = 0x7C        # u16BE == text anchor + PARTY_RECAP_P
 assert RECORD_PURIFIED_FLAG_OFFSET - RECORD_TEXT_ANCHOR_OFFSET == PARTY_RECAP_PURIFIED_FLAG_OFFSET, (
     "the record-relative and anchor-relative purified flag must be the same byte -- one of them has moved"
 )
+
+
+# ADDENDUM 407 -- Unown's letter. A player saw an Unown L become an Unown D at purification. There is no form
+# field anywhere this project writes or reads: the trainer-Pokemon record (DPKM) is 32 bytes, every one accounted
+# for (0x1C shininess, 0x1E nature/gender/ability, 0x1F flags); the Shadow record (DDPK) has no species or PID;
+# and XD's species table has 415 entries with no Unown forms in it. As in every Generation III game, the letter
+# is a function of the personality value and nothing else. So a letter that changes is a PID that changes.
+UNOWN_DEX = 201
+UNOWN_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ!?"
+
+
+def unown_letter(pid: int) -> str:
+    """The Generation III Unown letter for a personality value: two low bits from each byte, mod 28."""
+    value = (((pid >> 24) & 3) << 6) | (((pid >> 16) & 3) << 4) | (((pid >> 8) & 3) << 2) | (pid & 3)
+    return UNOWN_LETTERS[value % 28]
 
 
 @dataclass(frozen=True)
@@ -1781,6 +2042,12 @@ class PurificationCountTracker:
     # out loud. A count that surprises the player has to be traceable to the record that caused it.
     last_counts: "list[str]" = field(default_factory=list)
     shadow_pids: "dict[int, int]" = field(default_factory=dict)
+    # ADDENDUM 407: the PID each Shadow carried BEFORE purification, so a PID the game changes at purification
+    # is caught and reported instead of guessed at. Diagnostic only -- it never decides a count. Persisted, because
+    # a Shadow is usually snagged in one session and purified in another.
+    snag_pids: "dict[int, int]" = field(default_factory=dict)
+    pid_changes: "list[str]" = field(default_factory=list)       # every change seen, for `!purifications`
+    new_pid_changes: "list[str]" = field(default_factory=list)   # this scan's, for the client to announce
     pending_confirmations: "dict[str, int]" = field(default_factory=dict)
     guard_rejections: "dict[str, int]" = field(default_factory=dict)
 
@@ -1854,7 +2121,9 @@ class PurificationCountTracker:
         def reject(reason: str) -> None:
             self.guard_rejections[reason] = self.guard_rejections.get(reason, 0) + 1
 
+        self.new_pid_changes = []
         for record in records:
+            self._watch_pid(record)
             # Is this a Pokemon at all? Before either rule, since both are statements ABOUT a Pokemon -- a box
             # slot of leftover bytes with a plausible level is not a Pokemon that was purified.
             if not record.looks_like_a_pokemon:
@@ -1954,6 +2223,32 @@ class PurificationCountTracker:
             self.pending_confirmations.pop(key, None)
         return newly_crossed
 
+    def _watch_pid(self, record: "ShadowRecord") -> None:
+        """ADDENDUM 407: remember a Shadow's PID while it is still a Shadow; report it if purification changes it.
+        Only trustworthy records are watched (the same plausibility gate the counting uses), and each Shadow id is
+        reported once."""
+        if not record.looks_like_a_pokemon or not record.was_snagged_as_shadow or not record.pid:
+            return
+        if not 1 <= record.shadow_id <= DDPK_MAX_PLAUSIBLE_ID:
+            return
+        if not record.is_purified:
+            if self.snag_pids.get(record.shadow_id) != record.pid:
+                self.snag_pids[record.shadow_id] = record.pid
+                self.dirty = True
+            return
+        before = self.snag_pids.get(record.shadow_id)
+        if before is None or before == record.pid:
+            return
+        tag = f"shadow id {record.shadow_id}"
+        if any(line.startswith(tag + ":") for line in self.pid_changes):
+            return
+        line = (f"{tag}: species {record.dex}, PID {before:08X} as a Shadow -> {record.pid:08X} after purification"
+                + (f" (Unown {unown_letter(before)} -> {unown_letter(record.pid)})" if record.dex == UNOWN_DEX else "")
+                + f" [{record.source} slot {record.slot}]")
+        self.pid_changes.append(line)
+        self.new_pid_changes.append(line)
+        self.dirty = True
+
     def describe(self) -> "list[str]":
         lines = [f"Purifications: {self.total_purified} counted "
                  f"({len(self.purified_species)} distinct species recorded)."]
@@ -1995,6 +2290,11 @@ class PurificationCountTracker:
         if party_changes:
             lines.append(f"  party changes that reset a pending confirmation: {party_changes} "
                          "(a deposit, withdrawal, swap or reorder -- a streak may not span one)")
+        if self.pid_changes:
+            lines.append("  PIDs the game CHANGED at purification (ADDENDUM 407 -- please report these):")
+            lines.extend(f"    {line}" for line in self.pid_changes)
+        elif self.snag_pids:
+            lines.append(f"  PID watch: {len(self.snag_pids)} Shadow(s) recorded before purification, no change seen")
         battle_skips = getattr(self.tracker, "battle_polls_skipped", 0)
         if battle_skips:
             lines.append(f"  polls skipped because a battle was in progress: {battle_skips} "
@@ -2007,7 +2307,9 @@ class PurificationCountTracker:
                 # Saved alongside the species ledger rather than replacing it, so an older state file still
                 # loads and a newer one still means something to an older client.
                 "purified_shadow_ids": sorted(self.purified_shadow_ids),
-                "shadow_pids": {str(k): v for k, v in sorted(self.shadow_pids.items())}}
+                "shadow_pids": {str(k): v for k, v in sorted(self.shadow_pids.items())},
+                "snag_pids": {str(k): v for k, v in sorted(self.snag_pids.items())},
+                "pid_changes": list(self.pid_changes)}
 
     def load_json(self, data: dict) -> None:
         """Tolerant, like every other loader here: a corrupt file degrades to 'nothing counted yet' rather
@@ -2017,6 +2319,8 @@ class PurificationCountTracker:
             self.total_purified = max(int(data.get("total_purified") or 0), 0)
             self.purified_shadow_ids = {int(s) for s in (data.get("purified_shadow_ids") or [])}
             self.shadow_pids = {int(k): int(v) for k, v in (data.get("shadow_pids") or {}).items()}
+            self.snag_pids = {int(k): int(v) for k, v in (data.get("snag_pids") or {}).items()}
+            self.pid_changes = [str(x) for x in (data.get("pid_changes") or [])]
             self.pending_confirmations = {}
             self.dirty = False
         except Exception:
@@ -2024,6 +2328,8 @@ class PurificationCountTracker:
             self.total_purified = 0
             self.purified_shadow_ids = set()
             self.shadow_pids = {}
+            self.snag_pids = {}
+            self.pid_changes = []
             self.pending_confirmations = {}
             self.dirty = False
 
@@ -2092,6 +2398,48 @@ def live_move_status_report(census: "dict[int, tuple[int, int]]") -> "dict | Non
         if now != census[index]:
             drifted.append((index, census[index], now))
     return {"checked": len(census), "drifted": drifted}
+
+
+def guard_move_animations() -> "dict | None":
+    """ADDENDUM 454: with Disable Move Animations on, put the animation pointers back to Null wherever memory has
+    real ones (a save state from an older build), and an older build's zeroed function-data ids (+0x1E) back to
+    their vanilla values. Data only -- no code is written. None when the tables cannot be proven; never raises."""
+    from .game_data import move_animations as anim
+    from .game_data.item_name_strings import COMMON_REL_RAM_BASE
+    from .tools import xd_rel_format as rel_format
+
+    try:
+        block = read_bytes(anim.WAZA_FUNC_DATA, anim.RECORD_COUNT * anim.RECORD_SIZE)
+    except Exception:
+        return None
+    if not anim.anchors_ok(block):
+        return None
+    pointers = 0
+    for address, null in anim.table_needs_guard(block):
+        try:
+            write_bytes(address, struct.pack(">I", null))
+            pointers += 1
+        except Exception:
+            pass
+    func_ids = 0
+    base = COMMON_REL_RAM_BASE + MOVE_TABLE_REL_OFFSET
+    count = 360
+    try:
+        moves = read_bytes(base, count * rel_format.MOVE_ENTRY_SIZE)
+    except Exception:
+        moves = b""
+    proven = len(moves) == count * rel_format.MOVE_ENTRY_SIZE and all(
+        moves[i * rel_format.MOVE_ENTRY_SIZE + rel_format.MOVE_PP_OFFSET] == pp
+        and moves[i * rel_format.MOVE_ENTRY_SIZE + rel_format.MOVE_BASE_POWER_OFFSET] == power
+        for i, (pp, power) in rel_format.MOVE_TABLE_FINGERPRINT.items())
+    if proven:
+        for offset, vanilla in anim.func_id_repairs(moves, rel_format.MOVE_ENTRY_SIZE):
+            try:
+                write_bytes(base + offset, struct.pack(">H", vanilla))
+                func_ids += 1
+            except Exception:
+                pass
+    return {"pointers": pointers, "func_ids": func_ids}
 
 
 def describe_live_move_status(report: "dict | None") -> "list[str]":
@@ -3098,6 +3446,20 @@ class ItemDescriptionWriter:
     # Current gap between chunk scans. Starts active and drops to idle after a full sweep finds nothing, which is
     # proof the table is not resident and the menu is shut.
     _scan_interval: float = 0.25
+    # ADDENDUM 427: other live copies of the table. A reopened menu can load a fresh copy while the old one
+    # lingers with its magic intact, and `locate` kept answering with the OLD one -- so every write went to a
+    # copy nobody was looking at, the canary said "still ours", and the shelf kept its vanilla text until the
+    # old copy was finally overwritten. That is the Realgam Tower report: wrong descriptions, fixed "slowly".
+    # Every copy that passes `item_descriptions.copy_is_writable` is now written, each with its own cache.
+    extra_bases: "list[int]" = field(default_factory=list)
+    copies_found: int = 0
+    _extra_written: "dict[int, dict[int, tuple[str, ...]]]" = field(default_factory=dict)
+    _extra_canary: "dict[int, tuple[int, bytes]]" = field(default_factory=dict)
+    _found_this_scan: "list[int]" = field(default_factory=list)
+    _copy_cursor: int = 0
+    _last_copy_scan_at: float = 0.0
+    # ADDENDUM 427: {shop room: {item id: lines}} written whatever the scout says -- the Candy Box at Gateon.
+    fixed_lines_by_room: "dict[int, dict[int, list[str]]]" = field(default_factory=dict)
 
     # A scan reads MEM1 in chunks. 0x10000 is the chunk size `dump_mem1` already established as trustworthy
     # against dolphin_memory_engine.
@@ -3105,13 +3467,20 @@ class ItemDescriptionWriter:
     # The scan is RESUMABLE, which is the important part: MEM1 is 24 MB, ~380 reads at 64 KB a chunk, and doing them
     # in one tick would stall the loop that is also delivering items and sending checks. 32 rather than 24 so the two
     # measured bands (26 chunks apart) fall inside a SINGLE slice.
-    _CHUNKS_PER_POLL: ClassVar[int] = 32
+    # ADDENDUM 427: 128 (8 MB), was 32. With the table outside both measured bands -- Realgam Tower's heap is
+    # not Gateon's -- a 32-chunk slice needed eleven scans to reach it, and at the idle rate that is eleven
+    # seconds after the menu opens. Three scans now cover the whole sweep.
+    _CHUNKS_PER_POLL: ClassVar[int] = 128
     # Two rates, because `check_shops` runs at POLL_INTERVAL_FAST but a single throttle meant the search advanced
     # at a fixed chunks-per-second regardless. `_ACTIVE` is the rate while the table might be there; `_IDLE` is
     # the rate after a full sweep has proved it is not -- the state of a player standing in a shop with the menu
     # shut, which otherwise cost 2 MB of reads a second indefinitely.
     _MIN_SECONDS_BETWEEN_SCANS: ClassVar[float] = 0.25
-    _IDLE_SECONDS_BETWEEN_SCANS: ClassVar[float] = 1.0
+    # ADDENDUM 427: 0.5, was 1.0 -- the idle rate is the one a player opening the menu actually waits on.
+    _IDLE_SECONDS_BETWEEN_SCANS: ClassVar[float] = 0.5
+    # ADDENDUM 427: while a table is known, how often to look for a second copy of it, and how many to keep.
+    _COPY_SCAN_SECONDS: ClassVar[float] = 1.0
+    _EXTRA_BASES_KEPT: ClassVar[int] = 3
     # How many confirmed bases to keep and re-probe. Eight 8-byte reads is free next to a chunk, and the table
     # lands back on a recent address often enough that this is the fast path in practice.
     _HOT_BASES_KEPT: ClassVar[int] = 8
@@ -3135,6 +3504,9 @@ class ItemDescriptionWriter:
             except Exception:  # pragma: no cover - live-Dolphin failure path
                 header = b""
             if ids.looks_like_table(header):
+                # ADDENDUM 427: a known table is not proof it is the one on screen. Look for others.
+                self._prune_extra_bases()
+                self._scan_for_copies(time.monotonic() if now is None else now)
                 return self.table_base
             # Gone or moved. Either way every edit at the old base is void, so the write cache is dropped --
             # keeping it would make the next write a no-op against a table that is vanilla again.
@@ -3149,6 +3521,15 @@ class ItemDescriptionWriter:
             # reopen case from "up to a second before the search starts" to "next tick".
             self._last_scan_at = 0.0
             self._scan_interval = self._MIN_SECONDS_BETWEEN_SCANS
+            # ADDENDUM 427: a second copy that is still there takes over at once.
+            self._prune_extra_bases()
+            if self.extra_bases:
+                promoted = self.extra_bases.pop(0)
+                self._extra_written.pop(promoted, None)
+                self._extra_canary.pop(promoted, None)
+                self.table_base = promoted
+                self._remember_base(promoted)
+                return promoted
 
         # Free, and deliberately outside the throttle: a handful of 8-byte reads is not what the throttle is
         # for, and this is the path that makes a reopen feel instant.
@@ -3167,6 +3548,7 @@ class ItemDescriptionWriter:
         self._last_scan_at = now
 
         # The likeliest 28 chunks, every scan, regardless of where the sweep is.
+        self._found_this_scan = []
         found = self._probe_bands()
         if found is None:
             found = self._scan_slice()
@@ -3175,7 +3557,128 @@ class ItemDescriptionWriter:
             self._scan_cursor = 0
             self._scan_interval = self._MIN_SECONDS_BETWEEN_SCANS
             self._remember_base(found)
+            for other in self._found_this_scan:
+                self._adopt_copy(other)
         return found
+
+    # --- ADDENDUM 427: every copy, not the first one found ---------------------------------------------------
+
+    def _adopt_copy(self, base: int) -> bool:
+        """Keep `base` as a second copy to write, if it is not the primary and its memory is still the table."""
+        from .game_data import item_descriptions as ids
+
+        if base == self.table_base or base in self.extra_bases:
+            return False
+        if len(self.extra_bases) >= self._EXTRA_BASES_KEPT:
+            return False
+        try:
+            blob = read_bytes(base, ids.COPY_CHECK_SPAN)
+        except Exception:  # pragma: no cover - live-Dolphin failure path
+            return False
+        if not ids.copy_is_writable(blob, USELESS_BERRY_IDS):
+            return False
+        self.extra_bases.append(base)
+        self.copies_found += 1
+        return True
+
+    def _prune_extra_bases(self) -> None:
+        """Drop every second copy whose magic is gone. One 8-byte read each."""
+        from .game_data import item_descriptions as ids
+
+        keep = []
+        for base in self.extra_bases:
+            try:
+                header = read_bytes(base, ids.MSG_MAGIC_OFFSET + len(ids.MSG_MAGIC))
+            except Exception:  # pragma: no cover - live-Dolphin failure path
+                header = b""
+            if ids.looks_like_table(header) and base != self.table_base:
+                keep.append(base)
+            else:
+                self._extra_written.pop(base, None)
+                self._extra_canary.pop(base, None)
+        self.extra_bases = keep
+
+    def _scan_for_copies(self, now: float) -> None:
+        """While a table is known, walk the whole search plan a slice at a time, once a second, for any OTHER
+        copy. Its own cursor, so it never disturbs the not-found sweep's cursor, failure count or rate."""
+        from .game_data import item_descriptions as ids
+
+        if now - self._last_copy_scan_at < self._COPY_SCAN_SECONDS:
+            return
+        self._last_copy_scan_at = now
+        step = self._chunk_step()
+        plan = self._search_plan()
+        total = sum(max(1, -(-(high - low) // step)) for low, high in plan)
+        for _ in range(self._CHUNKS_PER_POLL):
+            if self._copy_cursor >= total:
+                self._copy_cursor = 0
+                return
+            index = self._copy_cursor
+            self._copy_cursor += 1
+            for low, high in plan:
+                chunks = max(1, -(-(high - low) // step))
+                if index < chunks:
+                    address = low + index * step
+                    try:
+                        chunk = read_bytes(address, min(self._CHUNK, high - address))
+                    except Exception:  # pragma: no cover - live-Dolphin failure path
+                        self.read_failures += 1
+                        break
+                    for base in ids.search_chunk_for_bases(chunk, address):
+                        self._adopt_copy(base)
+                    break
+                index -= chunks
+
+    def _write_copy(self, base: int, desired: "dict[int, list[str]]") -> int:
+        """`_write` for a second copy: its own cache and canary, and the copy re-proven before any rewrite."""
+        from .game_data import item_descriptions as ids
+
+        cache = self._extra_written.setdefault(base, {})
+        canary = self._extra_canary.get(base)
+        if canary is not None:
+            item_id, expected = canary
+            offset = ids.entry_offset(item_id)
+            try:
+                if offset is not None and read_bytes(base + offset, len(expected)) != expected:
+                    cache.clear()
+            except Exception:  # pragma: no cover - live-Dolphin failure path
+                pass
+        pending = {item_id: lines for item_id, lines in desired.items() if cache.get(item_id) != tuple(lines)}
+        if not pending:
+            return 0
+        try:
+            blob = read_bytes(base, ids.COPY_CHECK_SPAN)
+        except Exception:  # pragma: no cover - live-Dolphin failure path
+            return 0
+        if not ids.copy_is_writable(blob, USELESS_BERRY_IDS):
+            # Its memory went to something else. Forget it rather than write over whatever that is now.
+            self.extra_bases = [b for b in self.extra_bases if b != base]
+            self._extra_written.pop(base, None)
+            self._extra_canary.pop(base, None)
+            return 0
+        written = 0
+        for item_id, lines in pending.items():
+            offset = ids.entry_offset(item_id)
+            budget = ids.budget_bytes(item_id)
+            if offset is None or budget is None:
+                continue
+            payload = ids.encode_lines(lines, budget)
+            if payload is None:
+                continue
+            try:
+                write_bytes(base + offset, payload)
+            except Exception as exc:  # pragma: no cover - live-Dolphin failure path
+                # A second copy is optional: lose IT, and leave the primary path to decide about the bridge.
+                self.extra_bases = [b for b in self.extra_bases if b != base]
+                self._extra_written.pop(base, None)
+                self._extra_canary.pop(base, None)
+                self.last_error = str(exc)
+                return written
+            cache[item_id] = tuple(lines)
+            self._extra_canary[base] = (item_id, payload)
+            written += 1
+            self.writes += 1
+        return written
 
     def _remember_base(self, base: int) -> None:
         """Record `base` as somewhere this table has really lived, most recent first, bounded."""
@@ -3251,9 +3754,10 @@ class ItemDescriptionWriter:
                 self.read_failures += 1
                 self.last_error = "MEM1 read failed during description table search"
                 return None
-            found = ids.search_chunk_for_base(chunk, address)
-            if found is not None:
-                return found
+            found_here = ids.search_chunk_for_bases(chunk, address)
+            if found_here:
+                self._found_this_scan.extend(found_here)
+                return found_here[0]
             address += step
         return None
 
@@ -3313,9 +3817,10 @@ class ItemDescriptionWriter:
                 return None
             self._scan_cursor += 1
             done += 1
-            found = ids.search_chunk_for_base(chunk, address)
-            if found is not None:
-                return found
+            found_here = ids.search_chunk_for_bases(chunk, address)
+            if found_here:
+                self._found_this_scan.extend(found_here)
+                return found_here[0]
         return None
 
     def desired_lines(
@@ -3362,6 +3867,10 @@ class ItemDescriptionWriter:
                 continue
             item_name, player_name = entry
             out[item_id] = ids.describe_ap_item(item_name, player_name, budget)
+        for item_id, lines in self.fixed_lines_by_room.get(shop.room_id, {}).items():
+            budget = ids.budget_bytes(item_id)
+            if budget is not None:
+                out[item_id] = ids.fit_lines(list(lines), budget)
         return out
 
     def poll(
@@ -3380,7 +3889,13 @@ class ItemDescriptionWriter:
         base = self.locate()
         if base is None:
             return 0
-        return self._write(base, desired)
+        written = self._write(base, desired)
+        # ADDENDUM 427: and every other live copy, since which one the menu is showing cannot be told apart.
+        for extra in list(self.extra_bases):
+            if not self.enabled:
+                break
+            written += self._write_copy(extra, desired)
+        return written
 
     def _canary_still_ours(self, base: int) -> bool:
         """Is the ONE entry we last wrote still holding what we wrote?
@@ -3800,6 +4315,11 @@ class TrainerBattleDefeatTracker:
     # WHICH surname was confirmed, and `poll()`'s return value only carries location names, which loses that
     # identity for the ~166 trainers with no named location.
     last_confirmed_surnames: list[str] = field(default_factory=list)
+    non_player_fights_ignored: int = 0          # ADDENDUM 436
+    last_ignored_fight: "str | None" = None     # ADDENDUM 436
+    # ADDENDUM 415: every confirmed win per UPPER-CASE surname, rematches included -- not team-gated. The Greevil goal
+    # reads it ("just having ever defeated greevil twice should send the victory"). Persisted with the team ledger.
+    wins_by_surname: "dict[str, int]" = field(default_factory=dict)
     # {surname: stray records dropped as out-of-cluster on the last poll}. Diagnostic only, surfaced by
     # !trainers so a future miss of this shape is recognisable on sight.
     last_strays_dropped: dict[str, int] = field(default_factory=dict)
@@ -3819,6 +4339,9 @@ class TrainerBattleDefeatTracker:
         count_location_max: int | None = None,
         exclude_surnames: "frozenset[str] | set[str]" = frozenset(),
         team_fingerprints: "dict[str, list[str]] | None" = None,
+        confirm_only_surnames: "frozenset[str] | set[str]" = frozenset(),
+        non_player_fights: "dict[str, tuple[tuple[str, ...], frozenset[str]]] | None" = None,
+        watched_here: "frozenset[str] | set[str]" = frozenset(),
     ) -> list[str]:
         """`records`: pass an already-scanned `scan_battle_roster()` result to reuse it. Omit it and this calls
         `scan_battle_roster()` itself, for a standalone caller or a test.
@@ -3832,7 +4355,12 @@ class TrainerBattleDefeatTracker:
         A surname's queue may contain `None` entries (`trainer_defeat.GREEVIL_DECOY_BATTLE_SENTINEL`). A `None`
         still consumes a queue position on a confirmed kill, so the queue advances rather than sticking, but is
         never returned in `completed`, so it can never become a location check or reach goal detection. The
-        cumulative count and `last_confirmed_surnames` are unaffected."""
+        cumulative count and `last_confirmed_surnames` are unaffected.
+
+        `confirm_only_surnames` (ADDENDUM 406): watched through `exclude_surnames` all the same -- a confirmed kill
+        lands in `last_confirmed_surnames`, so goal detection sees it -- but never counted and never dispatched.
+        Mt. Battle's final trainer is excluded from checks by default, and an excluded surname used to be dropped
+        before anything looked at it, which left the Mt. Battle goal nothing to fire on."""
         self.last_confirmed_surnames = []
         # Match surnames CASE-INSENSITIVELY. The roster reports NPC names upper case ("LOVRINA", "BARDO") while
         # `trainer_defeat.SURNAME_TO_LOCATION_QUEUE` is keyed title case, so every key missed and the named
@@ -3849,7 +4377,7 @@ class TrainerBattleDefeatTracker:
             if record.species_dex is None:
                 continue  # not a real record -- see BattleRosterRecord.species_dex's own docstring
             surname = record.trainer_name.strip()
-            if not surname or surname in exclude_surnames:
+            if not surname or (surname in exclude_surnames and surname not in confirm_only_surnames):
                 continue
             records_by_surname.setdefault(surname, []).append(record)
 
@@ -3945,10 +4473,37 @@ class TrainerBattleDefeatTracker:
 
             # Every slot this surname currently has in the roster is a confirmed (not just baselined-0) kill.
             self._awaiting_clear.add(surname)
+            # ADDENDUM 436: a fight the player only WATCHES (Ardos vs Zook at Gateon, Zook vs Biden at the Key Lair)
+            # is no win of theirs: no check, no (Any), no tally, nothing for goal detection. Resolved by team
+            # fingerprint across every one of the surname's teams; a team it cannot place counts as an ordinary win.
+            watched = (non_player_fights or {}).get(surname.upper())
+            # ADDENDUM 439: "zook (any) sent at the gateon fight". The ROOM decides first: a win by a surname whose
+            # watched fight is staged in the room the player is standing in (`watched_fight_surnames`) is that
+            # fight. Zook's Gateon team is one Shadow and nothing else, so it has no fingerprint at all, and the
+            # fingerprint test below could only ever call it "unplaced" -- which counted as a win.
+            if surname.upper() in {name.upper() for name in watched_here}:
+                self.non_player_fights_ignored += 1
+                self.last_ignored_fight = f"{surname.upper()} (watched-fight room)"
+                continue
+            if watched and team_fingerprints:
+                labels, watched_labels = watched
+                observed = {name.upper() for name in species_groups}
+                observed_hp = {name.upper(): self._max_hp_seen.get((surname, name), 0) for name in species_groups}
+                resolved = self._resolve_occurrence(list(labels), observed, team_fingerprints, observed_hp)
+                if resolved is None:
+                    resolved = self._eliminate_to_watched(labels, watched_labels, observed, team_fingerprints,
+                                                          observed_hp)
+                if resolved in watched_labels:
+                    self.non_player_fights_ignored += 1
+                    self.last_ignored_fight = resolved
+                    continue
             # Appended for EVERY confirmed win, rematch or not: the "Defeat X (Any)" checks and goal detection
             # both ask "was this trainer beaten", which a rematch answers just as well. Only counting is
             # team-gated.
             self.last_confirmed_surnames.append(surname)
+            self.wins_by_surname[surname.upper()] = self.wins_by_surname.get(surname.upper(), 0) + 1
+            if surname in confirm_only_surnames:
+                continue   # ADDENDUM 406: seen for the goal, never a check and never a count
 
             # The Nth check needs an Nth TEAM, not an Nth win. A queue entry per win is defensible for a trainer met
             # once per story beat and wrong for one you can re-fight on demand: beating Miror B.'s first team three
@@ -4052,6 +4607,28 @@ class TrainerBattleDefeatTracker:
     #: IV/EV spread, narrow enough that two encounters differing by whole level bands never share a bucket.
     HP_IDENTITY_BAND: int = 8
 
+    def _eliminate_to_watched(
+        self,
+        labels: "tuple[str, ...] | list[str]",
+        watched_labels: "frozenset[str]",
+        observed_species: "set[str]",
+        team_fingerprints: "dict[str, Any]",
+        observed_max_hp: "dict[str, int] | None" = None,
+    ) -> "str | None":
+        """ADDENDUM 439: the watched team when it is the only one left. A watched fight whose team has no
+        fingerprint (Zook at Gateon: a lone Shadow) can never be matched positively, so it is matched by
+        elimination instead: exactly one fingerprintless watched label, and every fingerprinted fight the player
+        DOES fight is contradicted (scores below zero -- more distinct species than were ever on the field)."""
+        bare = [label for label in labels if label in watched_labels and not team_fingerprints.get(label)]
+        if len(bare) != 1:
+            return None
+        played = [label for label in labels if label not in watched_labels]
+        scored = [self._fingerprint_score(team_fingerprints[label], observed_species, None, observed_max_hp)
+                  for label in played if team_fingerprints.get(label)]
+        if not scored or len(scored) != len(played) or any(score >= 0 for score in scored):
+            return None
+        return bare[0]
+
     def _resolve_occurrence(
         self,
         queue: "list[str | None]",
@@ -4080,13 +4657,19 @@ class TrainerBattleDefeatTracker:
     # ADDENDUM 362: the beaten-team ledger, so a client restart cannot reopen the rematch it closes. Shaped
     # like `PurificationCountTracker.to_json` and persisted beside it in the same per-seed state file.
     def to_json(self) -> dict:
-        return {"beaten_teams": {k: list(v) for k, v in self._beaten_team_ids.items() if v}}
+        return {"beaten_teams": {k: list(v) for k, v in self._beaten_team_ids.items() if v},
+                "wins": {k: v for k, v in self.wins_by_surname.items() if v}}   # ADDENDUM 415
 
     def load_json(self, data: "dict | None") -> None:
         """Tolerant on purpose: a hand-edited or older state file must degrade to "nothing beaten yet" rather
         than take the client down, exactly as the area-memory loader does."""
         if not isinstance(data, dict):
             return
+        wins = data.get("wins")   # ADDENDUM 415
+        if isinstance(wins, dict):
+            for surname, count in wins.items():
+                if isinstance(surname, str) and isinstance(count, int) and count > 0:
+                    self.wins_by_surname[surname.upper()] = max(self.wins_by_surname.get(surname.upper(), 0), count)
         beaten = data.get("beaten_teams")
         if not isinstance(beaten, dict):
             return
@@ -4740,6 +5323,9 @@ STORY_BYTE_LANDMARKS: "dict[int, str]" = {
 # when the story byte crosses each threshold, the game's own copies are cleared out of the Key Items pocket and the
 # matching locations are sent. Mirrors locations.py's KRANE_MEMO_* constants for the same standalone-loadability
 # reason as the other mirrored constants here; test_addendum_153 asserts the two copies against each other.
+#
+# ADDENDUM 434: the thresholds and the handover area below are a RECORD of when the game hands the memos over, no
+# longer what sends them. `KraneMemoTracker` sends a memo's check when it finds the memo in the Bag and removes it.
 KRANE_MEMO_COUNT = 5
 KRANE_MEMO_STORY_THRESHOLDS: "dict[int, int]" = {1: 0x10, 2: 0x10, 3: 0x17, 4: 0x17, 5: 0x17}
 
@@ -4884,106 +5470,71 @@ class KeyItemReconciler:
 
 @dataclass
 class KraneMemoTracker:
-    """Awards a memo's location once the story byte says the game has handed it over, and clears the game's own copy
-    out of the Bag so only Archipelago-delivered memos count toward this world's region gating.
+    """ADDENDUM 434: a memo's location is sent when the game's copy ENTERS the Bag and this client removes it.
 
-    Threshold is `>=`, not `==`, so a player who connects mid-playthrough or blows past 0x10 between two polls still
-    gets everything earned -- these are the progression-gating locations, so stranding one is worse here than anywhere
-    else. Sending and clearing are independent: the location is reported the moment the threshold is crossed and the
-    Bag clear is retried every poll, because the story byte can tick over a frame before the item write lands and a
-    check that waited on a successful clear could be lost to a transient failure.
+    Player: "don't automatically send the krane memo checks. Let's instead send them when they enter our inventory
+    and are removed." Before this the checks went out off the HQ Lab's story mark (0x10 for memos 1-2, 0x17 for
+    3-5) and the clear was a bounded afterthought; now the removal IS the check. The memo ITEMS are out of the
+    pool (`items.ITEMS_REMOVED_FROM_POOL`), so Archipelago never delivers one and every copy in the Bag is the
+    game's own handover -- which is what makes "it was there and we took it" mean "the story gave it to you".
 
-    Clearing is idempotent and bounded: `clear_item` returns False both for "already cleared" and "not there yet",
-    which RAM cannot distinguish, so retries stop after `CLEAR_ATTEMPTS` polls. Gated by the caller on the
+    Every poll, every memo: `clear_item_verified` in each window a key item could be filed in. True (present, now
+    gone) awards it once; None (never there) waits; False (a clear that did not stick) retries next poll. No retry
+    bound and no threshold: a memo that has not arrived is simply not there yet. A memo already awarded is still
+    cleared if it reappears, so the Bag never holds memo access the seed did not give. Gated by the caller on the
     block-stability check, like every other Bag reader/writer."""
 
     awarded: set = None          # type: ignore[assignment]  # memo numbers whose location has been sent
-    cleared: set = None          # type: ignore[assignment]  # memo numbers confirmed gone from the Bag
-    _clear_attempts: dict = None  # type: ignore[assignment]
+    cleared: set = None          # type: ignore[assignment]  # memo numbers the client has taken out of the Bag
     cleared_count: int = 0
-
-    CLEAR_ATTEMPTS: int = 30
+    failed_clears: int = 0
 
     def __post_init__(self) -> None:
         if self.awarded is None:
             self.awarded = set()
         if self.cleared is None:
             self.cleared = set()
-        if self._clear_attempts is None:
-            self._clear_attempts = {}
 
-    def poll(self, block_base: int, story_byte: "int | None") -> "list[str]":
+    def poll(self, block_base: int) -> "list[str]":
         """Returns the memo location names newly earned this poll. Never raises."""
         newly_awarded: list[str] = []
-        if story_byte is None:
-            return newly_awarded
-
-        for memo_number, threshold in sorted(KRANE_MEMO_STORY_THRESHOLDS.items()):
-            if story_byte < threshold:
-                continue
-            if memo_number not in self.awarded:
+        for memo_number in sorted(KRANE_MEMO_GAME_ITEM_IDS):
+            if self._take(block_base, memo_number) and memo_number not in self.awarded:
                 self.awarded.add(memo_number)
                 newly_awarded.append(krane_memo_location_name(memo_number))
-            self._try_clear(block_base, memo_number)
         return newly_awarded
 
-    def award_now(self, location_names: "tuple[str, ...]") -> "list[str]":
-        """Mark these memo locations awarded out of band and return the ones not already sent.
-
-        The HQ Lab bump skips the tier the memo handover sits behind, so the checks have to go out at the moment of
-        the skip rather than when the threshold is eventually witnessed. Marking them here stops `poll` sending
-        them again; it deliberately does NOT touch the Bag clear, which still waits for the ordinary threshold --
-        clearing an item the player has not been given yet would just burn retries."""
-        by_name = {krane_memo_location_name(n): n for n in KRANE_MEMO_STORY_THRESHOLDS}
-        newly: "list[str]" = []
-        for name in location_names:
-            number = by_name.get(name)
-            if number is None:
-                continue          # not a memo location -- a future bump may award other things
-            if number in self.awarded:
-                continue
-            self.awarded.add(number)
-            newly.append(name)
-        return newly
-
-    def _try_clear(self, block_base: int, memo_number: int) -> None:
-        if memo_number in self.cleared:
-            return
-        attempts = self._clear_attempts.get(memo_number, 0)
-        if attempts >= self.CLEAR_ATTEMPTS:
-            return
-        self._clear_attempts[memo_number] = attempts + 1
+    def _take(self, block_base: int, memo_number: int) -> bool:
+        """True when this memo was in the Bag and is gone now."""
+        item_id = KRANE_MEMO_GAME_ITEM_IDS[memo_number]
         try:
-            removed = clear_item(
-                block_base + KEY_ITEMS_OFFSET,
-                KEY_ITEMS_MAX_SLOTS,
-                KRANE_MEMO_GAME_ITEM_IDS[memo_number],
-            )
+            windows = key_item_search_windows(block_base, item_id)
         except Exception:
-            return
-        if removed:
+            windows = ((block_base + KEY_ITEMS_OFFSET, KEY_ITEMS_MAX_SLOTS),)
+        taken = False
+        for base, slots in windows:
+            try:
+                result = clear_item_verified(base, slots, item_id)
+            except Exception:
+                continue
+            if result is True:
+                taken = True
+            elif result is False:
+                self.failed_clears += 1
+        if taken:
             self.cleared.add(memo_number)
             self.cleared_count += 1
+        return taken
 
     def describe(self) -> str:
         if not self.awarded:
-            return (
-                "Krane Memos: none awarded yet. The client sends these when your story byte reaches "
-                f"0x{KRANE_MEMO_STORY_THRESHOLDS[1]:02X} (memos 1-2) and "
-                f"0x{KRANE_MEMO_STORY_THRESHOLDS[3]:02X} (memos 3-5)."
-            )
+            return ("Krane Memos: none sent yet. Each check is sent when the game puts that memo in your Bag and the "
+                    "client takes it out again.")
         awarded = ", ".join(str(n) for n in sorted(self.awarded))
-        pending = sorted(set(self.awarded) - self.cleared)
-        lines = [f"Krane Memos: checks sent for {awarded}. Removed from your Bag: {self.cleared_count}."]
-        if pending:
-            lines.append(
-                "Still trying to remove from the Bag: "
-                + ", ".join(
-                    f"{n} ({self._clear_attempts.get(n, 0)}/{self.CLEAR_ATTEMPTS} polls)" for n in pending
-                )
-                + " -- a memo you never physically received will simply time out; the check still stands."
-            )
-        return " ".join(lines)
+        line = f"Krane Memos: checks sent for {awarded}. Taken out of your Bag: {self.cleared_count} time(s)."
+        if self.failed_clears:
+            line += f" {self.failed_clears} removal(s) did not stick and were retried."
+        return line
 
 
 # --- The manual story-byte write log. ---
@@ -5290,6 +5841,15 @@ CITADARK_REGION = "Citadark Isle"
 _GATEON_ROOM_NEIGHBOURHOOD = range(140, 166)
 
 
+#: ADDENDUM 435: Citadark's room ids sit in 73-88 (the island's whole map range, not just its chest rooms).
+CITADARK_ROOM_RANGE = range(73, 89)
+
+
+def is_citadark_room(room_id: int, arrival_room: "int | None" = None) -> bool:
+    """A room on Citadark Isle: its chest rooms, its id range, or the room the ride landed in."""
+    return room_id in CITADARK_ROOM_IDS or room_id in CITADARK_ROOM_RANGE or room_id == arrival_room
+
+
 def _citadark_room_ids() -> "frozenset[int]":
     from .game_data import chest_regions
 
@@ -5297,6 +5857,29 @@ def _citadark_room_ids() -> "frozenset[int]":
 
 
 CITADARK_ROOM_IDS: "frozenset[int]" = _citadark_room_ids()
+
+
+# --- ADDENDUM 412: a room reached from Gateon WITHOUT the map is still Gateon, unless it is the ride. ---
+# Player: "user reported having access to citadark despite having only 6/8 kyogre parts." The ceiling held the byte
+# only in the six Gateon rooms the tables know (146, 147, 153, 156, 158, 160). Gateon has more -- 148-152, 154, 155,
+# 157, 159, 161 and 162 are unnamed and unfiled -- and stepping into one read as LEAVING Gateon: `_restore` put the
+# player's real byte back (0x76 in the report), so that room was built with the ride open, and walking back into a
+# known room built it from the high byte too, the clamp landing a tick after the load.
+#
+# The rule the Citadark detection already rests on closes it: every walk-out of Gateon goes through the map screen,
+# and the Robo Kyogre ride is the one exit that does not. So a room reached from a held Gateon room without the map
+# is either the ride (a big jump in room id -- Citadark's rooms are 73-88, Gateon's sit in 140-165) or more of
+# Gateon. Inside Gateon's neighbourhood and filed nowhere else, it is treated as Gateon and the byte stays held.
+# Through the map it is not: the hover restores, and a walk-out was a walk-out.
+def looks_like_unlisted_gateon_room(room_id: int) -> bool:
+    """An unfiled room in Gateon's room-id neighbourhood -- Gateon, when reached from Gateon without the map."""
+    from .game_data import chest_regions
+
+    if room_id in GATEON_ROOM_IDS:
+        return True
+    if room_id == MAP_SCREEN_ROOM_ID or room_id not in _GATEON_ROOM_NEIGHBOURHOOD:
+        return False
+    return chest_regions.region_for_room(room_id) is None
 
 
 def looks_like_citadark_arrival(room_id: int) -> bool:
@@ -5308,6 +5891,26 @@ def looks_like_citadark_arrival(room_id: int) -> bool:
     if room_id == MAP_SCREEN_ROOM_ID or room_id in GATEON_ROOM_IDS or room_id in _GATEON_ROOM_NEIGHBOURHOOD:
         return False
     return chest_regions.region_for_room(room_id) is None
+
+
+def watched_fight_surnames(room_id: "int | None") -> "frozenset[str]":
+    """ADDENDUM 439: the surnames whose wins are a fight the player only WATCHES when won in `room_id` --
+    `trainer_roster.WATCHED_FIGHT_AREAS`. Gateon is recognised with its unfiled neighbourhood
+    (`looks_like_unlisted_gateon_room`); any other area by the region table. An unknown room names nobody."""
+    from .game_data import chest_regions, story_bytes, trainer_roster
+
+    if room_id is None or room_id == MAP_SCREEN_ROOM_ID:
+        return frozenset()
+    region = chest_regions.region_for_room(room_id)
+    out = set()
+    for surname, area in trainer_roster.WATCHED_FIGHT_AREAS.items():
+        if area == "Gateon Port":
+            here = looks_like_unlisted_gateon_room(room_id)
+        else:
+            here = region is not None and region in story_bytes.AREA_GROUPS.get(area, (area,))
+        if here:
+            out.add(surname)
+    return frozenset(out)
 
 
 assert GATEON_STORY_CEILING < CITADARK_ENTRY_FLOOR < STORY_OVERRIDE_VALUE < VICTORY_STORY_BYTE
@@ -6080,6 +6683,379 @@ class ScooterStoryHold:
         return line + "."
 
 
+# --- ADDENDUM 419: the Music Disc is a story byte, not an item. ---
+# Player: "Apparently the music disc is a fake item, and the action that takes it is actually determined via story
+# byte. Let's add a system to ensure that our story byte is forced capped to before the music disc if we don't have
+# it in Phenac."
+#
+# Opening chest 80 is the game's "picked up the Music Disc" event (0x41 -> 0x42), and the Mayor's House handover
+# (0x42 -> 0x43) reads the BYTE, not the Bag. So with key items shuffled, opening chest 80 -- which holds whatever the
+# seed put there -- let the player hand over a disc they never received and walk into the Mayor's Note tier. The
+# hold makes the game agree with the graph: in Phenac, without the Music Disc, the byte stays at 0x41.
+#
+# Same shape as `ScooterStoryHold`: a band it pulls back from, a floor it writes, and a grant when the item lands.
+# Two differences, both because 0x41 is an ordinary Phenac value and not a byte only we write:
+#   * the hold only runs while the player stands in a Phenac room -- Realgam Tower's window also spans 0x41..0x43,
+#     and the player said "in Phenac";
+#   * the grant puts back the highest byte the hold declined, and only when the byte still sits at the floor in
+#     Phenac. After a client restart that memory is gone, so the fallback is "chest 80 is already checked": the
+#     pickup happened, the chest cannot be opened twice, and without the grant the run could never reach 0x42.
+MUSIC_DISC_HOLD_FLOOR = 0x41
+# 0x42 is the pickup, 0x43 the handover. Anything above was reached by a route this does not model (a save from
+# before the hold, the Mayor's Note already taken), so it is left alone rather than rolled back.
+MUSIC_DISC_HOLD_BAND = (0x42, 0x43)
+MUSIC_DISC_CHEST_ID = 80
+MUSIC_DISC_AREA = "Phenac City"
+# ADDENDUM 441, player: "The phenac guard is slightly weird and continuously brings up the music disc dialogue in its
+# room, and I couldnt pick up the item. Can we try lowering the guard byte by one?" At 0x41 the disc's own room
+# (room 98, chest 80) stages the pickup scene; the scene writes 0x42, the hold pulls it back to 0x41, and the scene
+# runs again -- a loop the chest never gets out of. In THAT room the guard now holds one story step lower: storyvar
+# 520 -> 510, which presents as 0x3F. Only that room -- 0x3F is "Phenac first visit, forced to Realgam Tower", and
+# the rest of Phenac keeps 0x41 so nothing logic expects open there closes. Walking out puts 0x41 back.
+MUSIC_DISC_ROOM_ID = 98
+MUSIC_DISC_ROOM_FLOOR = 0x3F
+
+assert MUSIC_DISC_HOLD_FLOOR < MUSIC_DISC_HOLD_BAND[0] <= MUSIC_DISC_HOLD_BAND[1] < VICTORY_STORY_BYTE
+
+
+def _music_disc_ladder_agrees() -> bool:
+    """The constants above are copied from the ladder, so check them against it rather than trust the copy."""
+    from .game_data import story_bytes
+    by_start = {t.before: t for t in story_bytes.TRANSITIONS}
+    pickup, handover = by_start.get(MUSIC_DISC_HOLD_FLOOR), by_start.get(MUSIC_DISC_HOLD_BAND[0])
+    return (pickup is not None and pickup.after == MUSIC_DISC_HOLD_BAND[0] and "Music Disc picked up" in pickup.what
+            and handover is not None and handover.after == MUSIC_DISC_HOLD_BAND[1]
+            and "Music Disc handed over" in handover.what)
+
+
+assert _music_disc_ladder_agrees(), "ADDENDUM 419: the Music Disc hold's bytes no longer match story_bytes.TRANSITIONS"
+
+
+def _music_disc_room_floor_is_one_step_down() -> bool:
+    from .game_data import chest_regions, story_bytes
+    below = story_bytes.story_value_for_byte(MUSIC_DISC_ROOM_FLOOR)
+    floor = story_bytes.story_value_for_byte(MUSIC_DISC_HOLD_FLOOR)
+    return (below is not None and floor is not None and below == floor - story_bytes.STORY_VARIABLE_STEP
+            and chest_regions.region_for_room(MUSIC_DISC_ROOM_ID) == MUSIC_DISC_AREA)
+
+
+assert _music_disc_room_floor_is_one_step_down(), "ADDENDUM 441: the disc room's floor must be 0x41 less one step"
+
+
+def _room_in_areas(room_id: "int | None", areas: "frozenset[str]") -> bool:
+    if room_id is None:
+        return False
+    from .game_data import chest_regions, story_bytes
+    region = chest_regions.region_for_room(room_id)
+    if region is not None:
+        return story_bytes.area_of(region) in areas
+    # ADDENDUM 412's unlisted Gateon rooms are Gateon all the same.
+    return "Gateon Port" in areas and looks_like_unlisted_gateon_room(room_id)
+
+
+def is_phenac_room(room_id: "int | None") -> bool:
+    """True when `room_id` is filed under any Phenac City region (town, Mayor's House, Post-Sixes)."""
+    return _room_in_areas(room_id, frozenset({MUSIC_DISC_AREA}))
+
+
+@dataclass
+class ItemStoryHold:
+    """ADDENDA 419/421: a key item whose in-game effect is a story byte, not the Bag. While the player stands in
+    the item's areas without the Archipelago item, a byte inside `BAND` is pulled back to `FLOOR`; when the item
+    arrives, the highest value pulled back from is given back. A subclass names the item, the bytes and the areas.
+
+    Never raises. Writes nothing unless `enabled`."""
+
+    ITEM: "ClassVar[str]" = ""
+    FLOOR: "ClassVar[int]" = 0
+    BAND: "ClassVar[tuple[int, int]]" = (0, 0)
+    AREAS: "ClassVar[frozenset[str]]" = frozenset()
+    LOG_SOURCE: "ClassVar[str]" = ""
+    PLACE: "ClassVar[str]" = ""
+
+    enabled: bool = False
+    item_held: bool = False
+    holds: int = 0
+    grants: int = 0
+    declined_out_of_band: int = 0
+    # The highest byte the hold pulled back from since the last grant -- what the grant restores. Persisted by the
+    # client, so a restart between the hold and the item does not strand the step it pulled back.
+    declined_value: "int | None" = None
+    write_log: "StoryByteWriteLog | None" = None
+    last_written_value: "int | None" = None   # for `_claim_story_write`, as every other writer
+
+    def in_place(self, room_id: "int | None") -> bool:
+        return _room_in_areas(room_id, self.AREAS)
+
+    def fallback_grant(self, already_happened: bool) -> "int | None":
+        """What to give back when nothing was remembered. None unless a subclass can prove the step happened."""
+        return None
+
+    def poll(self, block_base: int, story_byte: "int | None", room_id: "int | None",
+             already_happened: bool = False) -> "str | None":
+        if not self.enabled or story_byte is None or not self.in_place(room_id):
+            return None
+        try:
+            if self.item_held:
+                return self._grant(block_base, story_byte, already_happened)
+            low, high = self.BAND
+            if story_byte < low:
+                return None
+            if story_byte > high:
+                self.declined_out_of_band += 1
+                return None
+            poke_story_byte(block_base, self.FLOOR & 0xFF)
+            self.last_written_value = self.FLOOR
+            self.declined_value = max(story_byte, self.declined_value or 0)
+            self.holds += 1
+            if self.write_log is not None:
+                self.write_log.record(f"{self.LOG_SOURCE} hold", self.PLACE, story_byte, self.FLOOR,
+                                      f"the {self.ITEM} is an Archipelago item this slot does not hold yet")
+            if self.holds == 1:
+                return (f"The {self.ITEM} is an Archipelago item in this seed, so the story in {self.PLACE} is held at "
+                        f"0x{self.FLOOR:02X} (was 0x{story_byte:02X}) until it arrives. Nothing is lost -- the "
+                        f"held step is given back the moment it lands.")
+            return None
+        except Exception:
+            return None
+
+    def _grant(self, block_base: int, story_byte: int, already_happened: bool) -> "str | None":
+        if story_byte != self.FLOOR:
+            return None
+        target = self.declined_value
+        if target is None:
+            target = self.fallback_grant(already_happened)
+        if target is None:
+            return None
+        try:
+            poke_story_byte(block_base, target & 0xFF)
+        except Exception:
+            return None
+        self.last_written_value = target
+        self.declined_value = None
+        self.grants += 1
+        if self.write_log is not None:
+            self.write_log.record(f"{self.LOG_SOURCE} grant", self.PLACE, story_byte, target,
+                                  f"{self.ITEM} received -- the held step given back")
+        return f"{self.ITEM} received -- the story byte in {self.PLACE} restored to 0x{target:02X}."
+
+    def describe(self) -> str:
+        if not self.enabled:
+            return f"{self.ITEM} hold: off for this seed."
+        state = "item held" if self.item_held else f"capping {self.PLACE} at 0x{self.FLOOR:02X}"
+        line = f"{self.ITEM} hold: {state}. {self.holds} hold write(s), {self.grants} grant(s)"
+        if self.declined_value is not None:
+            line += f", waiting to give back 0x{self.declined_value:02X}"
+        if self.declined_out_of_band:
+            line += (f", declined {self.declined_out_of_band}x because the byte was past "
+                     f"0x{self.BAND[1]:02X} (a rollback, not a hold)")
+        return line + "."
+
+
+@dataclass
+class MusicDiscStoryHold(ItemStoryHold):
+    """Caps the story byte at 0x41 in Phenac until the Music Disc item arrives, then gives back what it held.
+    Enabled with key items shuffled -- with them off, chest 80 holds the real disc and the pickup IS receiving it.
+
+    The restart fallback is chest 80 already checked: the pickup happened, the chest cannot open twice, and
+    without a grant the run could never reach 0x42."""
+
+    ITEM: "ClassVar[str]" = "Music Disc"
+    FLOOR: "ClassVar[int]" = MUSIC_DISC_HOLD_FLOOR
+    BAND: "ClassVar[tuple[int, int]]" = MUSIC_DISC_HOLD_BAND
+    AREAS: "ClassVar[frozenset[str]]" = frozenset({MUSIC_DISC_AREA})
+    LOG_SOURCE: "ClassVar[str]" = "music disc"
+    PLACE: "ClassVar[str]" = MUSIC_DISC_AREA
+
+    @property
+    def disc_held(self) -> bool:
+        return self.item_held
+
+    @disc_held.setter
+    def disc_held(self, value: bool) -> None:
+        self.item_held = value
+
+    def fallback_grant(self, already_happened: bool) -> "int | None":
+        return MUSIC_DISC_HOLD_BAND[0] if already_happened else None
+
+    # ADDENDUM 441: the disc's own room holds one story step lower. True while a 0x3F in Phenac is ours to undo;
+    # persisted by the client, since 0x3F is also an ordinary first-visit Phenac value we must never "restore".
+    lowered: bool = False
+    room_holds: int = 0
+
+    def _write(self, block_base: int, value: int, before: int, why: str) -> None:
+        poke_story_byte(block_base, value & 0xFF)
+        self.last_written_value = value
+        if self.write_log is not None:
+            self.write_log.record(f"{self.LOG_SOURCE} room", self.PLACE, before, value, why)
+
+    def poll(self, block_base: int, story_byte: "int | None", room_id: "int | None",
+             already_happened: bool = False) -> "str | None":
+        if not self.enabled or story_byte is None or not self.in_place(room_id):
+            return None
+        try:
+            in_room = room_id == MUSIC_DISC_ROOM_ID
+            note = None
+            if self.lowered and (not in_room or self.item_held):
+                # Out of the disc's room (or the disc arrived): Phenac gets its own floor back, then the ordinary
+                # hold or grant carries on from there.
+                self.lowered = False
+                if story_byte == MUSIC_DISC_ROOM_FLOOR:
+                    self._write(block_base, MUSIC_DISC_HOLD_FLOOR, story_byte,
+                                "left the Music Disc's room -- Phenac's own floor back")
+                    story_byte = MUSIC_DISC_HOLD_FLOOR
+            elif in_room and not self.item_held and MUSIC_DISC_HOLD_FLOOR <= story_byte <= MUSIC_DISC_HOLD_BAND[1]:
+                if story_byte > MUSIC_DISC_HOLD_FLOOR:
+                    self.declined_value = max(story_byte, self.declined_value or 0)
+                self._write(block_base, MUSIC_DISC_ROOM_FLOOR, story_byte,
+                            "the Music Disc's room, one step below the pickup scene")
+                self.lowered = True
+                self.room_holds += 1
+                if self.room_holds == 1:
+                    note = (f"In the Music Disc's room the story is held one step lower (0x{MUSIC_DISC_ROOM_FLOOR:02X}) "
+                            f"so the pickup scene does not loop; Phenac's 0x{MUSIC_DISC_HOLD_FLOOR:02X} comes back as "
+                            f"you walk out.")
+                return note
+            return super().poll(block_base, story_byte, room_id, already_happened)
+        except Exception:
+            return None
+
+    def describe(self) -> str:
+        line = super().describe()
+        if self.room_holds or self.lowered:
+            line = line[:-1] + (f"; the disc's room held at 0x{MUSIC_DISC_ROOM_FLOOR:02X} {self.room_holds}x"
+                                + (" (now)" if self.lowered else "") + ".")
+        return line
+
+
+# --- ADDENDUM 421: the Machine Part is a story byte too. ---
+# Player: "Player reported they had not received machine part yet in multiworld. Please check for holes."
+# The Gateon parts shop is the 0x15 -> 0x16 event; the lab's Krane Memo 3-5 handover (0x17) and the Agate unlock
+# (0x17 -> 0x19) follow from the BYTE. Clearing the Bag's copy (the reconciler) does not undo 0x16, so with
+# location shuffle OFF -- where Agate and everything after it are behind the Machine Part -- the hold keeps the
+# early areas at 0x15 until the item arrives. Not with it ON: there the Part gates only purification, Agate is
+# open from the start, and Krane Memos 3-5 (0x17) are logically free, so holding 0x16 would strand them.
+MACHINE_PART_HOLD_FLOOR = 0x15
+MACHINE_PART_HOLD_BAND = (0x16, 0x18)    # the pickup, the lab's memo tier, and the step before Agate's 0x19
+MACHINE_PART_AREAS: "frozenset[str]" = frozenset({"Gateon Port", "Pokemon HQ Lab", "Kaminko's House"})
+
+assert MACHINE_PART_HOLD_FLOOR < MACHINE_PART_HOLD_BAND[0] <= MACHINE_PART_HOLD_BAND[1] < 0x19
+
+
+def _machine_part_ladder_agrees() -> bool:
+    from .game_data import story_bytes
+    by_start = {t.before: t for t in story_bytes.TRANSITIONS}
+    pickup = by_start.get(MACHINE_PART_HOLD_FLOOR)
+    agate = [t for t in story_bytes.TRANSITIONS if "Agate Village" in t.opens_regions]
+    return (pickup is not None and pickup.after == MACHINE_PART_HOLD_BAND[0] and "Machine Part" in pickup.what
+            and len(agate) == 1 and agate[0].after == MACHINE_PART_HOLD_BAND[1] + 1
+            and "Machine Part" in agate[0].requires)
+
+
+assert _machine_part_ladder_agrees(), "ADDENDUM 421: the Machine Part hold's bytes no longer match the ladder"
+
+
+@dataclass
+class MachinePartStoryHold(ItemStoryHold):
+    """Caps the early story at 0x15 (before the Gateon parts shop) until the Machine Part arrives. Enabled with key
+    items shuffled AND location shuffle off. No restart fallback: the parts-shop event is the byte, so after a
+    pull-back the shop simply runs again -- and the held value is persisted besides."""
+
+    ITEM: "ClassVar[str]" = "Machine Part"
+    FLOOR: "ClassVar[int]" = MACHINE_PART_HOLD_FLOOR
+    BAND: "ClassVar[tuple[int, int]]" = MACHINE_PART_HOLD_BAND
+    AREAS: "ClassVar[frozenset[str]]" = MACHINE_PART_AREAS
+    LOG_SOURCE: "ClassVar[str]" = "machine part"
+    PLACE: "ClassVar[str]" = "Gateon Port, the HQ Lab and Kaminko's House"
+
+
+# --- ADDENDUM 452: the HQ Lab waits at 0x16 for Krane Memos 3-5. ---
+# Player: "When we gain the machine part, set HQ Lab's floor to 0x16. HOLD IT THERE NO MATTER WHAT until we've
+# received krane memo 3, 4, and 5."
+# 0x16 is "Machine Part obtained" -- the byte the lab's Krane Memo 3-5 handover (0x16 -> 0x17) plays from. The lab's
+# floor rule (0x17 once Gateon reached 0x16) and its own high-water mark could both put the lab past the handover, so
+# the memos -- and their three checks -- never came. While armed (Machine Part held, memos 3-5 not all received) the
+# byte in every HQ Lab room is written to 0x16 whatever else wrote it, and the lab's map-hover target is 0x16 too
+# (`AreaStoryByteMemory.forced_floor_by_region`). "Received" is the memo's check sent: the memos are out of the item
+# pool, so the game's own handover is the only way a memo arrives, and `KraneMemoTracker` sends its check when it does.
+# On release the highest byte the hold pulled back from is given back, in the lab, exactly like the item holds.
+LAB_MEMO_HOLD_BYTE = 0x16
+LAB_MEMO_HOLD_AREA = "Pokemon HQ Lab"
+LAB_MEMO_HOLD_MEMOS: "tuple[int, ...]" = (3, 4, 5)
+
+
+@dataclass
+class LabMemoStoryHold:
+    """Holds every HQ Lab room at exactly 0x16 while `armed`. Never raises; writes nothing unless enabled."""
+
+    enabled: bool = True
+    armed: bool = False
+    holds: int = 0
+    grants: int = 0
+    declined_value: "int | None" = None      # the highest byte pulled back from, given back on release (persisted)
+    write_log: "StoryByteWriteLog | None" = None
+    last_written_value: "int | None" = None
+    # ADDENDUM 458: armed once, armed until the memos come -- a tick that cannot see the Machine Part does not disarm
+    # it (persisted with `declined_value`).
+    latched: bool = False
+
+    def in_place(self, room_id: "int | None") -> bool:
+        return _room_in_areas(room_id, frozenset({LAB_MEMO_HOLD_AREA}))
+
+    def poll(self, block_base: int, story_byte: "int | None", room_id: "int | None",
+             memos_received: bool = True) -> "str | None":
+        """`memos_received`: Krane Memos 3-5 really handed over. ADDENDUM 458: the give-back below runs ONLY then --
+        a hold that is merely not armed this tick (the Machine Part not seen yet after a reconnect, before the server
+        has re-sent the items) must not hand the lab the byte it was pulled back from."""
+        if not self.enabled or story_byte is None or not self.in_place(room_id):
+            return None
+        try:
+            if self.armed:
+                if story_byte == LAB_MEMO_HOLD_BYTE:
+                    return None
+                poke_story_byte(block_base, LAB_MEMO_HOLD_BYTE)
+                self.last_written_value = LAB_MEMO_HOLD_BYTE
+                if story_byte > LAB_MEMO_HOLD_BYTE:
+                    self.declined_value = max(story_byte, self.declined_value or 0)
+                self.holds += 1
+                if self.write_log is not None:
+                    self.write_log.record("lab memo hold", LAB_MEMO_HOLD_AREA, story_byte, LAB_MEMO_HOLD_BYTE,
+                                          "Machine Part held, Krane Memos 3-5 not all received yet")
+                if self.holds == 1:
+                    return (f"The HQ Lab is held at 0x{LAB_MEMO_HOLD_BYTE:02X} (was 0x{story_byte:02X}) until Krane "
+                            f"Memos 3, 4 and 5 are handed over -- talk to Krane.")
+                return None
+            # Released: give back what the hold pulled back from, once, if the lab still reads our 0x16 -- and only
+            # because the memos came (ADDENDUM 458).
+            if not memos_received:
+                return None
+            if self.declined_value is not None and story_byte == LAB_MEMO_HOLD_BYTE:
+                target = self.declined_value
+                poke_story_byte(block_base, target & 0xFF)
+                self.last_written_value = target
+                self.declined_value = None
+                self.grants += 1
+                if self.write_log is not None:
+                    self.write_log.record("lab memo grant", LAB_MEMO_HOLD_AREA, story_byte, target,
+                                          "Krane Memos 3-5 received -- the held step given back")
+                return f"Krane Memos 3-5 received -- the HQ Lab's story restored to 0x{target:02X}."
+            if self.declined_value is not None and story_byte > LAB_MEMO_HOLD_BYTE:
+                self.declined_value = None   # the game moved on by itself; nothing to give back
+            return None
+        except Exception:
+            return None
+
+    def describe(self) -> str:
+        if not self.enabled:
+            return "HQ Lab memo hold: off."
+        state = (f"holding the HQ Lab at 0x{LAB_MEMO_HOLD_BYTE:02X}" if self.armed
+                 else "not holding (no Machine Part yet, or Krane Memos 3-5 received)")
+        line = f"HQ Lab memo hold: {state}. {self.holds} hold write(s), {self.grants} grant(s)"
+        if self.declined_value is not None:
+            line += f", waiting to give back 0x{self.declined_value:02X}"
+        return line + "."
+
+
 @dataclass
 class StoryByteOverride:
     """Writes a story-byte value while the player is inside a set of rooms, and puts back what was there when they
@@ -6115,6 +7091,17 @@ class StoryByteOverride:
     citadark_floor_writes: int = 0     # ADDENDUM 313
     citadark_arrival_room: "int | None" = None   # ADDENDUM 313: the room the ride landed in, for the table
     declined_clamp_won: int = 0        # ADDENDUM 272: refused to clamp a byte at or past victory
+    # ADDENDUM 412: unlisted rooms reached from Gateon without the map, held as Gateon. Reported by `!parts` so the
+    # room table can learn them (the Robo Kyogre dock among them, if it is one).
+    unlisted_gateon_rooms: "set[int]" = field(default_factory=set)
+    # ADDENDUM 435: with location shuffle OFF there is one story byte for the whole game, so an early ride would
+    # leave it at Citadark's value for the rest of the story. With this on (vanilla travel), the byte the player
+    # had before the ride is put back when they leave the island, and the island's own progress is remembered
+    # for the next ride. Both persist (`Client._save_local_state`).
+    return_story_after_citadark: bool = False
+    pre_ride_byte: "int | None" = None
+    citadark_mark: "int | None" = None
+    story_returns: int = 0
 
     # Optional so every existing construction of this class keeps working; when supplied, both of this class's
     # writes land in the running overwrite list.
@@ -6124,6 +7111,16 @@ class StoryByteOverride:
         """Call once per tick with the current room. Returns a one-line note when it acts, else None."""
         if room_id is None:
             return None  # room unknown -- never guess at a transition, and never write on a guess
+        # ADDENDUM 435: back from an early ride (vanilla travel only). Checked before anything else, so the Gateon
+        # lift that follows saves the player's real byte, not the island's.
+        if self.pre_ride_byte is not None and room_id != MAP_SCREEN_ROOM_ID:
+            if is_citadark_room(room_id, self.citadark_arrival_room):
+                self._note_citadark_progress(block_base)
+            else:
+                try:
+                    return self._return_story(block_base, room_id)
+                except Exception:
+                    return None
         # The map screen is not "outside Gateon". `poll_hover` writes while the cursor rests on Gateon, because the
         # room is built from the byte and the write has to land BEFORE the load -- but the map is room 910, not in
         # `trigger_rooms`, so the next tick would restore the byte before the destination loaded and the hover write
@@ -6134,9 +7131,21 @@ class StoryByteOverride:
             return None
         inside = room_id in self.trigger_rooms
         try:
-            # The ride to Citadark is not a walk-out -- enter at the island's floor instead.
+            # The ride to Citadark is not a walk-out -- enter at the island's floor instead. Checked FIRST, and it
+            # only raises: max(0x71, the byte saved on the way in), never the restore, so the first trip over
+            # cannot drop the player back to whatever Gateon held before.
             if not inside and self.active and not self.via_map and looks_like_citadark_arrival(room_id):
                 return self._arrive_citadark(block_base, room_id)
+            # ADDENDUM 412: more of Gateon, not a walk-out -- keep holding. See the section comment above.
+            first_sight = None
+            if not inside and self.active and not self.via_map and looks_like_unlisted_gateon_room(room_id):
+                inside = True
+                if room_id not in self.unlisted_gateon_rooms:
+                    self.unlisted_gateon_rooms.add(room_id)
+                    first_sight = (f"Room {room_id} reached from Gateon Port without the map -- treated as "
+                                   f"Gateon, so the story byte stays held at 0x{self.applied_value or 0:02X}.")
+                held = self._hold(block_base)
+                return held or first_sight
             if not inside and not self.active and room_id in CITADARK_ROOM_IDS:
                 return self._citadark_floor(block_base)
             if inside:
@@ -6257,6 +7266,34 @@ class StoryByteOverride:
         return (f"Robo Kyogre Parts complete -- story byte set to 0x{target:02X} for Gateon Port "
                 f"(was 0x{current:02X}, restored when you leave).")
 
+    def _note_citadark_progress(self, block_base: int) -> None:
+        """ADDENDUM 435: remember how far the island got, so the next ride resumes there."""
+        live = read_story_byte(block_base)
+        if live is not None and CITADARK_ENTRY_FLOOR <= live < VICTORY_STORY_BYTE:
+            self.citadark_mark = max(self.citadark_mark or 0, live)
+
+    def _return_story(self, block_base: int, room_id: int) -> "str | None":
+        """ADDENDUM 435: the player has left Citadark after riding there before the story got that far. Put back
+        the byte they had, unless they won (a won game is never lowered)."""
+        live = read_story_byte(block_base)
+        if live is None:
+            return None
+        restore = self.pre_ride_byte
+        if live >= VICTORY_STORY_BYTE or restore is None or live <= restore:
+            self.pre_ride_byte = None
+            return None
+        if CITADARK_ENTRY_FLOOR <= live:
+            self.citadark_mark = max(self.citadark_mark or 0, live)
+        poke_story_byte(block_base, restore & 0xFF)
+        self.last_written_value = restore
+        self.pre_ride_byte = None
+        self.story_returns += 1
+        if self.write_log is not None:
+            self.write_log.record("citadark return", "Gateon Port", live, restore,
+                                  f"left Citadark Isle (room {room_id}) before the story reached it")
+        return (f"Left Citadark Isle -- story byte put back to 0x{restore:02X} (your story before the ride); the "
+                f"island's progress (0x{self.citadark_mark or CITADARK_ENTRY_FLOOR:02X}) is kept for next time.")
+
     def _arrive_citadark(self, block_base: int, room_id: int) -> "str | None":
         """Rode the Robo Kyogre out of Gateon: write the island's entry value and let go.
 
@@ -6264,6 +7301,12 @@ class StoryByteOverride:
         island they had already advanced keeps that advance, and a won game is left exactly as it was."""
         saved = self.saved_byte
         target = CITADARK_ENTRY_FLOOR if saved is None else max(CITADARK_ENTRY_FLOOR, saved)
+        # ADDENDUM 435: vanilla travel -- resume the island where it was left, and remember the story to go back to.
+        if self.return_story_after_citadark:
+            if self.citadark_mark is not None:
+                target = max(target, self.citadark_mark)
+            if saved is not None and saved < CITADARK_ENTRY_FLOOR:
+                self.pre_ride_byte = saved
         live = read_story_byte(block_base)
         if live is not None and live >= VICTORY_STORY_BYTE:
             target = live
@@ -6288,6 +7331,10 @@ class StoryByteOverride:
         live = read_story_byte(block_base)
         if live is None or live >= CITADARK_ENTRY_FLOOR:
             return None
+        # ADDENDUM 435: a session that starts on the island after an early ride (vanilla travel) still owes the
+        # player their story back when they leave.
+        if self.return_story_after_citadark and self.pre_ride_byte is None:
+            self.pre_ride_byte = live
         poke_story_byte(block_base, CITADARK_ENTRY_FLOOR)
         self.last_written_value = CITADARK_ENTRY_FLOOR
         self.citadark_floor_writes += 1
@@ -6386,6 +7433,11 @@ class StoryByteOverride:
                      f"(0x{VICTORY_STORY_BYTE:02X})")
         if self.saved_byte is not None:
             line += f". Holding 0x{self.saved_byte:02X} to put back"
+        if self.unlisted_gateon_rooms:
+            line += (". Unlisted rooms held as Gateon (reached without the map): "
+                     + ", ".join(str(r) for r in sorted(self.unlisted_gateon_rooms)))
+        if self.citadark_arrival_room is not None:
+            line += f". The Robo Kyogre ride landed in room {self.citadark_arrival_room}"
         return line + "."
 
 
@@ -6427,7 +7479,13 @@ def read_story_value(block_base: int) -> "int | None":
         raw = read_bytes(block_base + STORY_RECORD_OFFSET + STORY_BYTE_OFFSET, 2)
     except Exception:
         return None
-    return (struct.unpack(">H", raw)[0] >> STORY_VALUE_SHIFT) & 0xFFF
+    # A short read is "cannot be read" too. Only the read was guarded, so two bytes that came back as fewer
+    # raised `struct.error` out of a function documented to return None -- and `!storybyte` with it. Hidden
+    # until 2026-10-02 because its test module never ran: it died importing `websockets` in every environment
+    # this project had tested in.
+    if raw is None or len(raw) < 2:
+        return None
+    return (struct.unpack(">H", raw[:2])[0] >> STORY_VALUE_SHIFT) & 0xFFF
 
 
 def poke_story_byte(block_base: int, story_byte: int) -> bool:
@@ -6677,7 +7735,7 @@ def open_chest_ids(block: bytes) -> "tuple[int, ...]":
 # THE BERRY IS CLEARED AFTER CREDITING, because a berry is shared by ~16 chests across rooms, so an uncleared stack
 # makes every later pickup a delta against a growing number -- and the player can use, sell or toss one, which would
 # look like a negative pickup. A berry seen while the room is unreadable is left in the Bag and resolved by the next
-# poll with a readable room, so nothing is lost. Needs `randomize_chests` on; a key-item chest keeping its vanilla
+# poll with a readable room, so nothing is lost. Chests are always on (ADD. 404); a key-item chest keeping its vanilla
 # contents gives no berry and is not a location, so it correctly credits nothing.
 
 
@@ -7128,9 +8186,8 @@ class ChestBerryTracker:
                 self.berries_in_a_room_with_no_such_chest += 1
                 berry_name = chest_berries.CHEST_BERRY_ID_TO_NAME.get(berry_id, str(berry_id))
                 self.unplaceable_notices.append(
-                    f"Pokemon XD: a {berry_name} reached the Bag but no chest in any room you were in around "
-                    f"then holds it, so no chest check could be sent. If you just opened a chest, use "
-                    f"`!checked` to see what is still missing.")
+                    f"A {berry_name} reached the Bag but no nearby chest holds it -- no check sent "
+                    f"(`!checked` if you just opened one).")
                 continue
 
             name = CHEST_ID_TO_LOCATION.get(chest)
@@ -7215,18 +8272,10 @@ class ChestBerryTracker:
             for b, q in sorted(self.baseline_carried.items())
         )
         candidates = self.backfill_candidates(already_checked)
-        lines = [
-            f"{len(self.baseline_carried)} chest berry/berries were ALREADY in the Bag when this client "
-            f"started watching ({carried}).",
-            "That means at least one chest was opened before the client was running. Those checks cannot "
-            "fire on their own -- a berry in the Bag carries no room, and the room is what names the chest.",
-        ]
-        if candidates:
-            shown = ", ".join(candidates[:12])
-            more = f" (+{len(candidates) - 12} more, see !chests)" if len(candidates) > 12 else ""
-            lines.append(f"Candidates -- NOT a diagnosis, one of these per berry: {shown}{more}")
-        lines.append("If you opened one of these, send it by hand with `!checked <name>`.")
-        return lines
+        # ADDENDUM 445: one line by default; the candidates are `!chests`.
+        more = f" -- maybe: {', '.join(candidates[:4])}" + (" ..." if len(candidates) > 4 else "") if candidates else ""
+        return [f"{len(self.baseline_carried)} chest berry/berries ({carried}) were already in the Bag at connect; "
+                f"send their chests with `!checked <name>`{more}."]
 
     def describe(self) -> "list[str]":
         from .game_data import chest_berries
@@ -7361,8 +8410,14 @@ class AreaStoryByteMemory:
     writes: int = 0
     declined_unknown_destination: int = 0
     declined_no_window: int = 0
+    #: ADDENDUM 400. Set by the client once, so this class reads one object rather than growing its own copy
+    #: of the white-out signal. None means "no latch wired" and every floor behaves exactly as before.
+    whiteout_latch: "WhiteoutLatch | None" = None
     last_written_region: "str | None" = None
     dirty: bool = False               # something changed that the persisted file does not have yet
+    #: ADDENDUM 452: {region: byte} entered at exactly this byte, above every other rule, while set -- the HQ Lab at
+    #: 0x16 until Krane Memos 3-5 are handed over. Set by the client each tick; never persisted.
+    forced_floor_by_region: "dict[str, int]" = field(default_factory=dict)
 
     # BACKING OUT OF THE MAP PUTS THE BYTE BACK. The hover write is a pre-load hook, so "no restore" holds for
     # travelling and not for backing out, where the player returns to the room they were already standing in carrying
@@ -7493,6 +8548,9 @@ class AreaStoryByteMemory:
 
         if region is None:
             return None
+        # ADDENDUM 452: a forced floor outranks everything, the pause and the white-out latch included.
+        if region in self.forced_floor_by_region:
+            return self.forced_floor_by_region[region]
         # FIRST, above every candidate, because the candidates are the problem for a paused area. Kaminko's mark is
         # a floor and its first-visit byte is 0x03, so once the player has been there the answer is always "whatever
         # byte you happened to be carrying the last time you walked in" -- a number about them, not about the manor.
@@ -7504,6 +8562,12 @@ class AreaStoryByteMemory:
         # behaves as before. Asking the rule table rather than hardcoding a second byte keeps the two from drifting.
         if story_bytes.floor_writes_are_paused(region, self.highest_by_region):
             self.declined_floor_paused += 1
+            return None
+        # ADDENDUM 400: above the candidates for the same reason the pause is -- the candidates ARE the problem
+        # here. A white-out drops the player into the HQ Lab carrying a late byte; the lab's own mark is early,
+        # the mark is a candidate, and `max()` then hands back a number that walks the story backwards. While
+        # the latch is armed the honest answer is "say nothing and leave their byte alone".
+        if self.whiteout_latch is not None and self.whiteout_latch.holds_floor_for(region):
             return None
         # Two sources of floor, not one. The static window says where an area's FIRST visit sits; the rule table
         # says where its SECOND one does, conditional on what other areas have reached. Gateon Port and Kaminko's
@@ -7752,6 +8816,8 @@ class AreaStoryByteMemory:
                          f"{self.declined_floor_paused}")
         if self.declined_no_window:
             lines.append(f"  declined (no story window for the destination): {self.declined_no_window}")
+        if self.whiteout_latch is not None and self.whiteout_latch.floor_writes_held:
+            lines.append("  " + self.whiteout_latch.describe())
         if self.saved_byte is not None:
             lines.append(f"  holding 0x{self.saved_byte:02X} to put back if you back out of the map")
         if self._write_outstanding:
@@ -8600,6 +9666,141 @@ def wipe_party(block_base: int) -> int:
     return written
 
 
+# ============================================================================================================
+# ADDENDUM 417 -- the in-battle kill: the battle's own copy of each party Pokemon.
+# ============================================================================================================
+# Measured live, 2026-10-04, in a double battle (Minun + Tauros on the field):
+#
+#   * `wipe_party` (the save-side records at BLOCK_BASE - 0x10 + i*0xC4) -- all six read back 0 HP, and NOTHING
+#     happened in battle; opening the party menu restored everyone to full. The battle does not read them.
+#   * the 0x60-ish records at 0x8094B480 / +0x520 (name, +0x17 level, +0x18/+0x1A HP) -- the HP display. Zeroed,
+#     still nothing.
+#   * 0x804A2128 + i*0x300: one record per party slot, the same `Pokemon` layout (+0x00 species, +0x04 HP,
+#     +0x11 level, +0x90 max HP), each preceded by a u32 POINTER to that slot's record in the 0x804A mirror of the
+#     party (0x804A17DC + i*0xC4). Zeroing +0x04 on all six: **the player whited out.** That is the kill switch.
+#
+# Addresses move per boot, so they are FOUND, not stored: a battle record is a copy of a live party member's
+# stat block (+0x90..+0xA8 -- max HP, five stats, EVs: 24 bytes no other Pokemon shares) that is NOT the live
+# record itself and whose preceding word points at another copy of the same Pokemon. The mirror copy has no such
+# header and the HP display has a different layout, so neither matches.
+BATTLE_RECORD_SCAN_WINDOW = 0x80000      # from BLOCK_BASE; this boot's records sat at +0x28C68
+_STAT_KEY = slice(POKEMON_MAXHP_OFFSET, POKEMON_MAXHP_OFFSET + 0x18)
+
+
+def find_battle_party_records(mem: bytes, mem_base: int, members: "list[LivePartyMember]") -> "list[int]":
+    """Addresses of the battle's own records for `members`, from a memory image `mem` starting at `mem_base`.
+    Pure, so it is tested without a game. A member with no unique battle record contributes nothing."""
+    found: "list[int]" = []
+    for member in members:
+        key = member.raw[_STAT_KEY]
+        if len(key) != 0x18 or not any(key):
+            continue
+        candidates = []
+        start = mem.find(key)
+        while start != -1:
+            record = start - POKEMON_MAXHP_OFFSET
+            address = mem_base + record
+            if record >= 4 and address != member.address and (record & 3) == 0:
+                pointer = struct.unpack_from(">I", mem, record - 4)[0]
+                target = pointer - mem_base
+                if (pointer != address and pointer != member.address and 0 <= target <= len(mem) - POKEMON_STRIDE
+                        and mem[target + POKEMON_MAXHP_OFFSET:target + POKEMON_MAXHP_OFFSET + 0x18] == key
+                        and mem[record:record + 2] == member.raw[0:2]
+                        and mem[record + POKEMON_LEVEL_OFFSET] == member.level):
+                    candidates.append(address)
+            start = mem.find(key, start + 1)
+        if len(candidates) == 1:          # ambiguous means unknown -- never write on a guess
+            found.append(candidates[0])
+    return found
+
+
+def wipe_battle_party(block_base: int) -> int:
+    """Zero HP on the battle's own copy of every conscious party Pokemon. Returns how many were written and read
+    back at 0. Only meaningful IN battle -- outside one these records are the last battle's leftovers."""
+    members = read_party(block_base)
+    if not members:
+        return 0
+    try:
+        window = read_bytes(block_base, BATTLE_RECORD_SCAN_WINDOW)
+    except Exception:
+        return 0
+    records = find_battle_party_records(window, block_base, members)
+    if not records:
+        # The window is where this boot's records sat; a boot that lays the heap out differently gets one full
+        # MEM1 pass (seconds, and only when a death arrives mid-battle) rather than a missed kill.
+        try:
+            records = find_battle_party_records(dump_mem1(), MEM1_START, members)
+        except Exception:
+            records = []
+    written = 0
+    for address in records:
+        try:
+            if struct.unpack(">H", read_bytes(address + POKEMON_HP_OFFSET, 2))[0] == 0:
+                continue
+            write_bytes(address + POKEMON_HP_OFFSET, b"\x00\x00")
+            if read_bytes(address + POKEMON_HP_OFFSET, 2) == b"\x00\x00":
+                written += 1
+        except Exception:
+            continue
+    return written
+
+
+@dataclass
+class BattlePartyWatch:
+    """ADDENDUM 417: the SEND side -- the player's team fainting in battle, read off the battle's own records.
+
+    Why it exists: in a battle the game fights from its own copy of the party, and a white-out heals the save-side
+    party inside the same end sequence, so `party_is_wiped` (save-side) never sees zero. The annihilation flag
+    ADDENDUM 390 derived does not read on the player's build either (442 "records", several "set" outside any
+    battle). These records DO go to zero as the team faints, and stay there through the end screens.
+
+    Safety: outside a battle these records are the last fight's leftovers -- after a loss, all zero. So a wipe is
+    only reported after THIS battle was seen with someone conscious (`seen_alive`), and nothing is read at all
+    when the battle flag says there is no battle."""
+
+    addresses: "list[int]" = field(default_factory=list)
+    seen_alive: bool = False
+    locates: int = 0
+    _locate_cooldown: int = 0
+    LOCATE_EVERY: ClassVar[int] = 5          # polls between attempts when the records cannot be found
+
+    def reset(self) -> None:
+        self.addresses = []
+        self.seen_alive = False
+        self._locate_cooldown = 0
+
+    def poll(self, block_base: "int | None", in_battle: bool) -> "bool | None":
+        """True: every party Pokemon in this battle is at 0 HP. False: someone is conscious. None: no answer."""
+        if not in_battle or block_base is None:
+            self.reset()
+            return None
+        if not self.addresses:
+            if self._locate_cooldown > 0:
+                self._locate_cooldown -= 1
+                return None
+            members = read_party(block_base)
+            if not members:
+                return None
+            try:
+                window = read_bytes(block_base, BATTLE_RECORD_SCAN_WINDOW)
+                found = find_battle_party_records(window, block_base, members)
+            except Exception:
+                found = []
+            self.locates += 1
+            if len(found) != len(members):        # all or nothing: a partial team cannot say "all fainted"
+                self._locate_cooldown = self.LOCATE_EVERY
+                return None
+            self.addresses = found
+        try:
+            hps = [struct.unpack(">H", read_bytes(a + POKEMON_HP_OFFSET, 2))[0] for a in self.addresses]
+        except Exception:
+            return None
+        if any(hps):
+            self.seen_alive = True
+            return False
+        return True if self.seen_alive else None
+
+
 @dataclass
 class DeathLinkBridge:
     """Sends a death when the player's party is wiped, and wipes the party when a death arrives.
@@ -8620,20 +9821,42 @@ class DeathLinkBridge:
     receipts: int = 0            # deaths taken from the pool
     sends: int = 0               # deaths sent to it
     suppressed: int = 0          # wipes not sent, because they were ours
+    battle_wipes: int = 0        # ADDENDUM 417: deaths that landed mid-battle, on the battle's own records
     #: ADDENDUM 390: which signal fired each send, so `!deathlink` can say whether the HP edge is working.
     sends_by_hp: int = 0
     sends_by_flag: int = 0
+    sends_by_battle: int = 0     # ADDENDUM 417: sends off the battle's own records
     flag_readable: bool = False
     last_cause: str = ""
+    #: ADDENDUM 400. When wired, the latch's armed state IS the annihilation signal -- it is sampled at 20 Hz
+    #: in the fast window, where this class's own 1 Hz read was missing the window entirely. None keeps the
+    #: old direct read, so the bridge still works on its own.
+    whiteout_latch: "WhiteoutLatch | None" = None
 
-    def receive(self, block_base: "int | None", cause: str = "") -> "str | None":
-        """A death arrived. Wipe the party and remember that the resulting white-out is ours."""
+    def receive(self, block_base: "int | None", cause: str = "", in_battle: bool = False) -> "str | None":
+        """A death arrived. Wipe the party and remember that the resulting white-out is ours.
+
+        ADDENDUM 417: in a battle, the battle's own copies are zeroed too -- that is what makes the game white out
+        on the spot. The save-side wipe still runs: it is what lands when no battle is running."""
         if not self.enabled or block_base is None:
             return None
+        battle_written = 0
+        if in_battle:
+            try:
+                battle_written = wipe_battle_party(block_base)
+            except Exception:
+                battle_written = 0
         try:
             written = wipe_party(block_base)
         except Exception:
-            return None
+            written = 0
+        self.battle_wipes += 1 if battle_written else 0
+        if battle_written:
+            self.receipts += 1
+            self.last_cause = cause
+            self._ours = True
+            return (f"your party fainted{f' -- {cause}' if cause else ''}. "
+                    f"{battle_written} Pokemon in this battle set to 0 HP -- you white out now.")
         self.receipts += 1
         self.last_cause = cause
         # `_ours` is set and `_was_wiped` deliberately is NOT: letting `poll` do the edge detection is what makes
@@ -8650,7 +9873,7 @@ class DeathLinkBridge:
         return (f"your party fainted{f' -- {cause}' if cause else ''}. "
                 f"{written} Pokemon set to 0 HP; the white-out lands when the game next resolves a battle.")
 
-    def poll(self, block_base: "int | None") -> "tuple[bool, str | None]":
+    def poll(self, block_base: "int | None", battle_wiped: "bool | None" = None) -> "tuple[bool, str | None]":
         """One tick. Returns `(should_send_death, note)`.
 
         TWO INDEPENDENT SIGNALS (ADDENDUM 390), because the original one was never measured.
@@ -8672,7 +9895,22 @@ class DeathLinkBridge:
             wiped = party_is_wiped(block_base)
         except Exception:
             wiped = None
-        annihilated = read_annihilation_flag()
+        # ADDENDUM 417: the battle's own records are the reliable "you lost" signal; the save-side party is healed
+        # before it ever reads zero. Either one says wiped.
+        from_battle = battle_wiped is True and wiped is not True
+        if battle_wiped is True:
+            wiped = True
+        # ADDENDUM 400: prefer the latch. It is sampled every 0.05s rather than every 1.0s, so it SEES the
+        # white-out; reading the flag again here would be asking the same question at the rate that was
+        # already proven to miss. The latch stays armed until the player leaves the respawn area, which is
+        # far longer than the flag is held -- harmless, because `_was_annihilated` makes this an edge.
+        if self.whiteout_latch is not None:
+            # ADDENDUM 435: only a FLAG arming stands for the flag; a latch armed by the battle's records is the
+            # same loss `battle_wiped` already reports, and counting it twice would mislabel the send.
+            annihilated = (True if self.whiteout_latch.armed and not self.whiteout_latch.armed_by_battle
+                           else read_annihilation_flag())
+        else:
+            annihilated = read_annihilation_flag()
         self.flag_readable = annihilated is not None
 
         # The fence comes down when BOTH signals say the white-out is over -- the party healed and the flag
@@ -8699,9 +9937,12 @@ class DeathLinkBridge:
         self.sends += 1
         if fresh_flag:
             self.sends_by_flag += 1
+        elif from_battle:
+            self.sends_by_battle += 1
         else:
             self.sends_by_hp += 1
-        how = "the game's annihilation flag" if fresh_flag else "your party at 0 HP"
+        how = ("the game's annihilation flag" if fresh_flag
+               else "your team fainted in battle" if from_battle else "your party at 0 HP")
         return (True, f"you whited out ({how}) -- sending a death to everyone linked.")
 
     def describe(self) -> str:
@@ -8710,12 +9951,251 @@ class DeathLinkBridge:
         number. The per-signal split is here so the next report says WHICH trigger is doing the work."""
         if not self.enabled:
             return "Death Link: off for this seed."
-        return (f"Death Link: on. Sent {self.sends} ({self.sends_by_flag} from the game's annihilation flag, "
+        return (f"Death Link: on. Sent {self.sends} ({self.sends_by_battle} from your team fainting in battle, "
+                f"{self.sends_by_flag} from the game's annihilation flag, "
                 f"{self.sends_by_hp} from the party at 0 HP), received {self.receipts}, "
-                f"{self.suppressed} wipe(s) not re-sent because they were ours. "
+                f"{self.suppressed} wipe(s) not re-sent because they were ours, "
+                f"{self.battle_wipes} landed mid-battle. "
                 f"Party currently {'wiped' if self._was_wiped else 'conscious'}; "
                 f"annihilation flag {'readable' if self.flag_readable else 'NOT readable on this build'}"
                 + (", currently set" if self._was_annihilated else "") + ".")
+
+
+# ============================================================================================================
+# ADDENDUM 400 -- the white-out latch.
+# ============================================================================================================
+# Player: "White outs arent sending deathlinks. ... Also dying sends us back to HQ lab and breaks story order.
+#          When we white out we need to lock HQ lab's floor"
+#
+# Both halves are the same event seen from two places, so one latch serves both.
+#
+# WHY THE SEND WAS MISSING. `DeathLinkBridge.poll` was correct and was being called -- from the main loop, at
+# `POLL_INTERVAL_INGAME`, which is ONE SECOND. A white-out's whole window is the end-of-battle sequence:
+# `fightEncountCheckZenmetu` sets `zenmetuFlag`, `fightEncountAnnihilationRecovery` heals the party, and both
+# happen inside that sequence. At 1 Hz the client can sit between polls across the entire thing. ADDENDUM 390
+# reasoned the flag "is a latch and cannot be missed between polls" -- true of the flag, not of a sampler that
+# only looks once a second. The flag is a latch for as long as the game holds it, which is not a second.
+#
+# So the signal is sampled in `fast_poll_window` now, at `POLL_INTERVAL_FAST` (0.05s), out of time the loop was
+# going to spend waiting anyway. Twenty looks per second instead of one.
+#
+# WHY HQ LAB REGRESSES. A white-out teleports the player to the HQ Lab carrying whatever byte they had. The lab
+# has no `area_entry_floor` at all, and ADDENDUM 279 declines to bank a byte that merely arrived with the
+# player -- so the lab's own mark stays at whatever it genuinely reached, early-game. `target_for` then offers
+# that mark as the lab's floor and the byte is written DOWN to it. A player who whited out at 0x5F comes back
+# to 0x17 and the story is out of order.
+#
+# The latch holds the lab's floor write off until the player leaves. It is NOT a Death Link feature and does
+# not check `death_link`: the story regression happens whether or not the option is on.
+
+#: Every region the game can dump a white-out survivor into. One name today; a tuple because "where the game
+#: respawns you" is data, not a constant, and a second entry must not need a code change.
+WHITEOUT_RESPAWN_REGIONS: "frozenset[str]" = frozenset({"Pokemon HQ Lab"})
+
+
+class WhiteoutLatch:
+    """Watches for an annihilation and remembers it until the player leaves the respawn area.
+
+    Sampled from the fast window, so `poll()` must stay cheap and must never raise -- every failure mode is
+    "no answer this tick", which reads as "not whited out" to every caller. A latch that guessed True would
+    hold the HQ Lab's floor off forever; one that guessed False is merely back to the old behaviour.
+    """
+
+    armed: bool = False
+    arms: int = 0                  #: how many white-outs this session
+    floor_writes_held: int = 0     #: how many HQ Lab floor writes were declined because of one
+    samples: int = 0               #: fast-window ticks that actually read the flag
+    last_signal: str = ""
+    #: ADDENDUM 435: True when the CURRENT arming came from the battle's own records (`arm_from_battle`).
+    #: ADDENDUM 417 found the annihilation flag never reads on the player's build, so a loss arms the latch
+    #: instead -- and the Death Link bridge treats only a non-battle arming as "the game's annihilation flag".
+    armed_by_battle: bool = False
+    #: ADDENDUM 435: a loss arms the latch in the battle's own area; it may only disarm after the player has
+    #: actually arrived in the respawn area, or the first poll after the loss (still in that area) would undo it.
+    arrived: bool = False
+
+    def sample(self) -> bool:
+        """One cheap look. True when the game is holding an annihilation right now."""
+        self.samples += 1
+        try:
+            flagged = read_annihilation_flag()
+        except Exception:
+            return False
+        if flagged is True:
+            if not self.armed:
+                self.arms += 1
+                self.last_signal = "the game's annihilation flag"
+                self.arrived = False
+            self.armed = True
+            self.armed_by_battle = False
+            return True
+        return False
+
+    def arm_from_battle(self) -> bool:
+        """ADDENDUM 435: the player's whole team fainted in battle (`BattlePartyWatch`). That loss is the
+        white-out, so it arms the latch the annihilation flag was meant to. Returns True on a fresh arming."""
+        if self.armed:
+            return False
+        self.armed = True
+        self.armed_by_battle = True
+        self.arrived = False
+        self.arms += 1
+        self.last_signal = "your team fainting in battle"
+        return True
+
+    def note_region(self, region: "str | None") -> "str | None":
+        """Called with the region the player is actually in. Disarms once they are out of the respawn area.
+
+        Disarm is on LEAVING, not on a timer: the player may stand in the lab for as long as they like after a
+        white-out, and the floor write is wrong for the whole of that time, not for the first few seconds."""
+        if not self.armed or region is None:
+            return None
+        if region in WHITEOUT_RESPAWN_REGIONS:
+            self.arrived = True
+            return None
+        if not self.arrived and self.armed_by_battle:
+            # ADDENDUM 435: armed by the loss itself, in the battle's own area. The white-out has not moved the
+            # player yet; disarming here would leave the lab unprotected when they land.
+            return None
+        self.armed = False
+        self.armed_by_battle = False
+        self.arrived = False
+        return (f"Left {', '.join(sorted(WHITEOUT_RESPAWN_REGIONS))} after a white-out -- "
+                "the story byte is yours again.")
+
+    def holds_floor_for(self, region: "str | None") -> bool:
+        """True when `region`'s floor write must be skipped this poll."""
+        if not self.armed or region is None:
+            return False
+        if region not in WHITEOUT_RESPAWN_REGIONS:
+            return False
+        self.floor_writes_held += 1
+        return True
+
+    def describe(self) -> str:
+        where = ", ".join(sorted(WHITEOUT_RESPAWN_REGIONS))
+        if not self.arms:
+            return (f"White-out latch: no white-out seen this session ({self.samples} fast sample(s)). "
+                    f"When one happens, {where}'s floor write is held until you walk out.")
+        return (f"White-out latch: {self.arms} white-out(s) seen, {self.floor_writes_held} {where} floor "
+                f"write(s) held, {self.samples} fast sample(s). Currently "
+                + ("ARMED -- holding that floor until you leave." if self.armed else "disarmed."))
+
+
+# ============================================================================================================
+# ADDENDUM 402 -- missable trainer checks are sent for the player once the story passes them.
+# ============================================================================================================
+# Player: "once we hit the story cap for an area, we receive all missable trainer defeats in that area."
+# ADDENDUM 405, player: "make sure we send the checks AT the story cap for each area, and only when THAT AREA's
+# floor reaches it." With travel randomization on that is the per-area memory, never the global high-water mark.
+#
+# The schedule is `game_data.missable_autosend.AUTO_SEND_AT_STORY_BYTE` -- which checks, and the byte that
+# releases each one. This class only decides WHEN, and it decides from `StoryProgressWitness.high_water`, never
+# the live story byte: this client writes that byte itself (a map hover writes the destination's floor, the Parts
+# override lifts Gateon to 0x6E), and either would read as "every cap passed" and release all 27 at once.
+#
+# A beaten trainer still sends its own check the ordinary way, through the defeat tracker. This is the floor
+# under that, not a replacement for it: whichever comes first wins, and `_send_checks` is idempotent.
+
+
+class MissableAutoSender:
+    """Releases each scheduled check once its area's story progress reaches its cap.
+
+    ADDENDUM 405: two measures, one per travel mode. With travel randomization ON every area keeps its own story
+    byte, so a check waits on ITS area (`area_caps`, judged by an `area_progress(region)` callable the client
+    builds from `AreaStoryByteMemory`). With it OFF there is one byte for every area, and the witness's high-water
+    mark is that area's floor too."""
+
+    def __init__(self, schedule: "dict[str, int] | None" = None,
+                 area_caps: "dict[str, tuple[tuple[str, int], ...]] | None" = None) -> None:
+        if schedule is None or area_caps is None:
+            from .game_data.missable_autosend import AUTO_SEND_AREA_CAPS, AUTO_SEND_AT_STORY_BYTE
+            schedule = AUTO_SEND_AT_STORY_BYTE if schedule is None else schedule
+            area_caps = AUTO_SEND_AREA_CAPS if area_caps is None else area_caps
+        self.schedule: "dict[str, int]" = dict(schedule)
+        self.area_caps: "dict[str, tuple[tuple[str, int], ...]]" = {
+            name: tuple(area_caps.get(name, ())) for name in self.schedule
+        }
+        self.released: "set[str]" = set()      #: names this session has handed to the send funnel
+        self.last_progress: int = -1
+        #: The last per-area reading, {region: progress or None}, kept for `describe()`. Empty in vanilla travel.
+        self.last_area_progress: "dict[str, int | None]" = {}
+
+    def _area_ready(self, name: str, area_progress) -> bool:
+        caps = self.area_caps.get(name, ())
+        if not caps:
+            return False                       # no area named -> nothing honest to wait on, so never release
+        for region, cap in caps:
+            reached = area_progress(region)
+            self.last_area_progress[region] = reached
+            if reached is None or reached < cap:
+                return False
+        return True
+
+    def due(self, progress: "int | None", in_seed: "set[str] | None",
+            already_checked: "set[str]", area_progress=None) -> "list[str]":
+        """The names to send this tick. Sorted, so a log line reads the same on every run.
+
+        `area_progress` -- travel randomization ON: a callable region -> that AREA's progress (or None when
+        nothing is known), and each check is judged against its own area(s) only; `progress` is then not
+        consulted for release. OFF (None): `progress` is the witness's high-water mark (-1 or None before it has
+        seen a credible byte, which releases nothing) and is every area's floor at once.
+
+        `in_seed` is the set of location names this seed contains, or None when the client does not know yet --
+        None releases nothing rather than guessing, because a name outside the seed is a disconnect (ADDENDUM 322)
+        and the funnel would only drop it anyway. A cap is reached AT the cap, not past it."""
+        if in_seed is None:
+            return []
+        if progress is not None and progress >= 0:
+            self.last_progress = max(self.last_progress, progress)
+        candidates = [name for name in self.schedule if name in in_seed and name not in already_checked]
+        if area_progress is not None:
+            ready = sorted(name for name in candidates if self._area_ready(name, area_progress))
+        else:
+            if progress is None or progress < 0:
+                return []
+            ready = sorted(name for name in candidates if self.schedule[name] <= progress)
+        self.released.update(ready)
+        return ready
+
+    def describe(self, in_seed: "set[str] | None", already_checked: "set[str]",
+                 area_progress=None) -> "list[str]":
+        live = {n: c for n, c in self.schedule.items() if in_seed is None or n in in_seed}
+        if not live:
+            return ["Missable trainer checks: none in this seed (trainer defeats off, or cumulative mode)."]
+        if area_progress is not None:
+            lines = [f"Missable trainer checks: {len(live)} in this seed, each sent once ITS AREA reaches the "
+                     "area's story cap (travel randomization is on, so every area keeps its own story)."]
+            by_area: "dict[tuple[tuple[str, int], ...], list[str]]" = {}
+            for name in live:
+                by_area.setdefault(self.area_caps.get(name, ()), []).append(name)
+            for caps in sorted(by_area, key=lambda c: (max((cap for _r, cap in c), default=-1), c)):
+                names = sorted(by_area[caps])
+                done = sum(1 for n in names if n in already_checked)
+                parts = []
+                ready = bool(caps)
+                for region, cap in caps:
+                    reached = area_progress(region)
+                    shown = "nothing seen yet" if reached is None else f"0x{reached:02X}"
+                    parts.append(f"{region} at 0x{cap:02X} (now {shown})")
+                    ready = ready and reached is not None and reached >= cap
+                state = "all sent" if done == len(names) else ("due now" if ready else "waiting")
+                where = " and ".join(parts) if parts else "no area known"
+                lines.append(f"  {where} ({state}, {done}/{len(names)}): {', '.join(names)}")
+            return lines
+        shown = "none seen yet" if self.last_progress < 0 else f"0x{self.last_progress:02X}"
+        lines = [f"Missable trainer checks: {len(live)} in this seed, sent automatically once the story reaches "
+                 f"their area's cap. Your story progress: {shown}."]
+        by_cap: "dict[int, list[str]]" = {}
+        for name, cap in live.items():
+            by_cap.setdefault(cap, []).append(name)
+        for cap in sorted(by_cap):
+            names = sorted(by_cap[cap])
+            done = sum(1 for n in names if n in already_checked)
+            state = "all sent" if done == len(names) else (
+                "due now" if 0 <= self.last_progress and cap <= self.last_progress else "waiting")
+            lines.append(f"  at 0x{cap:02X} ({state}, {done}/{len(names)}): {', '.join(names)}")
+        return lines
 
 
 # --- The undertaker (Miror B.) engine, and forcing an appearance. ---
@@ -8804,14 +10284,18 @@ def read_annihilation_flag() -> "bool | None":
         return None
     if not 0 < count <= ENCOUNTER_PLAUSIBLE_COUNT:
         return None
+    # ADDENDUM 400: ONE read of the whole record array, not `count` single-byte reads. This is called at
+    # `POLL_INTERVAL_FAST` now (20 Hz) rather than once a second, and 64 round trips at that rate is not a
+    # diagnostic, it is a load. The flag byte is picked out of the buffer at each record's own stride.
     try:
-        for index in range(count):
-            address = (records + index * ENCOUNTER_RECORD_STRIDE
-                       + ENCOUNTER_ZENMETU_FLAG_OFFSET)
-            if read_bytes(address, 1)[0]:
-                return True
+        blob = read_bytes(records, count * ENCOUNTER_RECORD_STRIDE)
     except Exception:
         return None
+    if len(blob) < count * ENCOUNTER_RECORD_STRIDE:
+        return None
+    for index in range(count):
+        if blob[index * ENCOUNTER_RECORD_STRIDE + ENCOUNTER_ZENMETU_FLAG_OFFSET]:
+            return True
     return False
 
 # Config-struct offsets, all confirmed live.

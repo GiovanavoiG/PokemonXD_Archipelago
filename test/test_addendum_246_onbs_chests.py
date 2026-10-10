@@ -72,14 +72,18 @@ class TestTheRename(unittest.TestCase):
 
 
 class TestTheGateIsNamedAndInherited(unittest.TestCase):
-    def test_every_onbs_chest_names_the_rom_itself(self) -> None:
+    def test_no_onbs_chest_names_the_rom_itself(self) -> None:
+        """ADDENDUM 405 reversed this. Player, 2026-10-03: "Pyrite Town 2nd visit (ONBS raid) in fact is not gated
+        behind Data Rom at all - this means it's only gated behind pyrite town and the pokespots." The region is
+        now the whole requirement."""
         for chest in ONBS_CHESTS:
-            self.assertEqual(("Data ROM", "ID Card"), chest_regions.CHEST_ITEM_GATES.get(chest),
-                             f"chest {chest}")
+            self.assertIsNone(chest_regions.CHEST_ITEM_GATES.get(chest), f"chest {chest}")
+            self.assertIn(chest, chest_regions.UNGATED_BY_PLAYER)
 
     def test_the_region_path_still_carries_it_too(self) -> None:
         """Both belts. If this edge ever moves, the explicit gate above is what survives."""
-        self.assertIn(("Pyrite Town", "Poke Spots", ("Data ROM",)), world_regions.REGION_EDGES)
+        # ADDENDUM 406: and the path carries no ROM either. Player (ADDENDUM 406): "Poke spots do NOT need the data rom."
+        self.assertIn(("Pyrite Town", "Poke Spots", ()), world_regions.REGION_EDGES)
         self.assertIn(("Poke Spots", "Pyrite Town (ONBS)", ()), world_regions.REGION_EDGES)
 
 
@@ -101,7 +105,9 @@ class TestAgainstARealWorld(PokemonXDTestBase):
     def test_all_three_exist_under_their_new_names(self) -> None:
         self.assertEqual(3, len(self._onbs_locations()))
 
-    def test_none_of_them_open_without_the_rom(self) -> None:
+    def test_all_of_them_open_without_the_rom(self) -> None:
+        """ADDENDA 405/406 reversed this, and ADDENDUM 418 reversed it back for travel shuffle off -- through the
+        Cipher Lab -> Pyrite Town edge, never through a rule of the chests' own (see the class below)."""
         without = self._state(["Machine Part"])
         for location in self._onbs_locations():
             self.assertFalse(location.can_reach(without), location.name)
@@ -112,17 +118,19 @@ class TestAgainstARealWorld(PokemonXDTestBase):
             self.assertTrue(location.can_reach(with_rom), location.name)
 
 
-class TestTheGateSurvivesTheRegionMoving(PokemonXDTestBase):
-    """The reason the explicit gate is worth its three lines. Re-parent the ONBS region onto plain Pyrite --
-    the exact shape of the ADDENDUM 240 mistake -- and the chests must STILL need the ROM."""
+class TestTheRegionIsTheWholeGate(PokemonXDTestBase):
+    """ADDENDUM 405: the explicit gate is gone, so the region carries everything. Re-parent the ONBS region onto
+    plain Pyrite and the chests open with it -- the opposite of what this class used to pin."""
 
     options = {"key_item_shuffle": True}
 
-    def test_reparenting_onbs_onto_plain_pyrite_does_not_free_the_chests(self) -> None:
+    def test_reparenting_onbs_onto_plain_pyrite_frees_the_chests(self) -> None:
         from BaseClasses import CollectionState
 
         onbs = self.multiworld.get_region("Pyrite Town (ONBS)", 1)
-        pyrite = self.multiworld.get_region("Pyrite Town", 1)
+        # ADDENDUM 418: plain Pyrite is behind the ROM with travel shuffle off, so re-parent onto Mt. Battle, which
+        # the Machine Part alone opens.
+        pyrite = self.multiworld.get_region("Mt. Battle", 1)
         pyrite.connect(onbs, name="TEST re-parent")   # a second, unconditional way in
 
         state = CollectionState(self.multiworld)
@@ -133,8 +141,8 @@ class TestTheGateSurvivesTheRegionMoving(PokemonXDTestBase):
         names = {locations.CHEST_ID_TO_LOCATION[c] for c in ONBS_CHESTS}
         for location in self.multiworld.get_locations(1):
             if location.name in names:
-                self.assertFalse(location.can_reach(state),
-                                 f"{location.name} lost its Data ROM requirement with the region")
+                self.assertTrue(location.can_reach(state),
+                                f"{location.name} still needs something beyond its region")
 
 
 class TestTheBackfillNotice(unittest.TestCase):
@@ -202,8 +210,9 @@ class TestTheBackfillNotice(unittest.TestCase):
         self.assertTrue(lines)
         blob = " ".join(lines)
         self.assertIn("!checked", blob)
-        self.assertIn("Candidates", blob)
-        self.assertIn("Player's Room Chest", blob)
+        self.assertIn("maybe:", blob)          # ADDENDUM 445: one line, first four candidates
+        self.assertEqual(1, len(lines))
+        self.assertIn("Player's Room Chest", tracker.backfill_candidates())
 
     def test_it_refuses_to_narrow_to_one_chest(self) -> None:
         """Seven berries cover 115 chests. A berry in the Bag carries no room, and the room is the identity,

@@ -186,15 +186,12 @@ class TestTheCallSiteReallyUsesIt(unittest.TestCase):
         check = self.source.index("assert_move_status_fields_unchanged")
         fenced = self.source[snap:check]
         for writer in ("apply_chest_dummy_item", "apply_pokespot_species", "apply_experience_rate",
-                       "apply_catch_rate", "apply_disable_move_animations", "apply_item_name_rename"):
+                       "apply_catch_rate", "apply_item_name_rename"):   # ADDENDUM 454: animations left common_rel
             self.assertIn(writer, fenced, f"{writer} is outside the status fence")
 
-    def test_the_animation_option_requires_the_status_verification(self) -> None:
-        start = self.source.index("if disable_move_animations:")
-        body = self.source[start:self.source.index("apply_disable_move_animations(rel_bytes, rel)", start)]
-        self.assertIn("verify_move_status_fields", body,
-                      "the write nearest the status fields must require the stronger check")
-
+    def test_the_animation_option_no_longer_writes_beside_the_status_fields(self) -> None:
+        """ADDENDUM 454: the option writes main.dol's waza_func_data, nowhere near the move table."""
+        self.assertNotIn("apply_disable_move_animations(rel_bytes, rel)", self.source)
 
 if __name__ == "__main__":
     unittest.main()

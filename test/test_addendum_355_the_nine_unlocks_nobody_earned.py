@@ -135,7 +135,9 @@ class TestTheGateAsksAboutTheDestination(unittest.TestCase):
     def test_the_credit_calls_it_with_the_destination(self) -> None:
         """The whole change in one line: the gate takes the DESTINATION now. 268's took only a threshold,
         because the other half of its question was the player's live position."""
-        self.assertIn("if not _unlock_is_earned(ctx, name, threshold):", CLIENT)
+        # SUPERSEDED by ADDENDUM 434: the check is sent when the game sets the destination's travel bits.
+        self.assertNotIn("if not _unlock_is_earned(ctx, name, threshold):", CLIENT)
+        self.assertIn("travel_locations.revealed_by_game(record_base, name, name in received)", CLIENT)
 
     def test_it_compares_a_mark_and_nothing_else(self) -> None:
         code = re.sub(r'""".*?"""', "", self.gate, flags=re.S)
@@ -225,9 +227,9 @@ class TestTheDiagnosticExists(unittest.TestCase):
 
     def test_it_prints_the_threshold_the_mark_and_a_verdict(self) -> None:
         body = CLIENT[CLIENT.index("def _cmd_unlocks(self)"):CLIENT.index("def _cmd_storybyte")]
-        self.assertIn("_unlock_mark_for(ctx, name)", body)
-        self.assertIn("_unlock_is_earned(ctx, name, threshold)", body)
-        self.assertIn("HELD", body)
+        # ADDENDUM 434: the table now shows each destination's travel bits and whether the game revealed it.
+        self.assertIn("ctx.travel_revealed", body)
+        self.assertIn("waiting for the game to reveal it", body)
         self.assertIn("SENT", body)
 
     def test_it_says_so_when_the_seed_has_no_such_checks(self) -> None:

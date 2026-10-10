@@ -136,7 +136,10 @@ class TestTheRosterIsNeverLooserThanTheOccurrenceTable(PokemonXDTestBase):
         a future change that breaks the join (a renamed surname, a reshaped table) fails loudly here rather
         than quietly turning the assertion above into a no-op."""
         pairs = self._pairs()
-        self.assertEqual(len(pairs), 41)
+        # ADDENDUM 409: "His 1 and 2 can be in either outskirt stand or cave spot interchangeably" gave Miror B.'s
+        # second encounter a region, so the named rematch now joins a placed occurrence row: 41 -> 42.
+        self.assertEqual(len(pairs), 42)
+        self.assertIn("Defeat - Wanderer Miror B. (rematch)", {name for name, _region, _placement in pairs})
 
     def test_the_deliberate_over_strict_rows_are_still_allowed(self) -> None:
         """The fence must stay ONE-SIDED. ADDENDUM 185 moved the five Sixes to "Phenac City (Post-Sixes)" to be

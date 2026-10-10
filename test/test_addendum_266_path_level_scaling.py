@@ -272,9 +272,12 @@ class TestMtBattleKeepsItsGauntlet(unittest.TestCase):
         levels, averages = path.build_mt_battle_path_level_plan(self.CENSUS)
         regions = {p.region for p in trainer_placements.PLACEMENTS.values() if p.region}
         tiers = path.path_tiers(regions)
-        anchor = path.level_for_tier(path.tier_index("Mt. Battle", tiers), len(tiers))
+        # ADDENDUM 455: a flat census tops out at the floor, now Citadark's 53, and the anchor is that ramp's rung.
+        top = path.mt_battle_ramp_top(self.CENSUS)
+        self.assertEqual(path.CITADARK_LEVEL, top)
+        anchor = path.tier_level(path.tier_index("Mt. Battle", tiers), tiers, path.FIRST_TIER_LEVEL, top)
         self.assertEqual(anchor, averages[1])
-        self.assertEqual(path.LAST_TIER_LEVEL, averages[100])
+        self.assertEqual(top, averages[100])
 
     def test_it_is_not_flattened_into_one_band(self) -> None:
         """The whole reason Mt. Battle needed its own path. One region at one tier would put all 100 trainers

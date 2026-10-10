@@ -107,6 +107,15 @@ TRAVEL_LOCATION_BITS: dict[str, TravelBit] = {
     "Cipher Lab": TravelBit(0x0F, 0x08),
     "Mt. Battle": TravelBit(0x0F, 0x20),
     "SS Libra": TravelBit(0x0F, 0x80),
+    # "Orre Colosseum" (`TravelBit(0x11, 0x04)`) removed 2026-10-09, ADDENDUM 446. Player: "Remove the travel unlock
+    # for Orre Colosseum and ensure no checks are there." Its item opened an empty region that led nowhere, and its
+    # only check was `Unlock - Orre Colosseum`. The client no longer touches the bit, so the game reveals the icon
+    # at its own vanilla moment. Frozen item id 253 and location id 1431 are retired, never reused.
+}
+
+#: ADDENDUM 446: the bit the game owns again. Kept as a record so a later audit can tell "removed" from "never
+#: mapped" (ADDENDUM 91 measured it), and asserted absent from the managed table below.
+RETIRED_TRAVEL_BITS: "dict[str, TravelBit]" = {
     "Orre Colosseum": TravelBit(0x11, 0x04),
 }
 
@@ -157,9 +166,9 @@ ALWAYS_OPEN_TRAVEL_BITS: dict[str, TravelBit] = {
 # ADDENDUM 171/168 gave the graph 21 real regions, 13 of 14 are exact 1:1 matches rather than the old
 # seven-region approximations; the one merge is the player's own, all three Poke Spots on one region.
 #
-# ADDENDUM 185 unmerged Orre Colosseum from Realgam Tower, which had made its item a SECOND key to a region that
-# already had one. It now points at a region of its own that holds nothing and leads nowhere, so the item and
-# its check still work in game and the logic no longer cares -- it is a postgame area.
+# ADDENDUM 185 gave Orre Colosseum a region of its own that held nothing and led nowhere; ADDENDUM 446 removed the
+# destination, its item, its check and that region.
+#: The map cursor's name for it (`map_destinations`). Not a region of the logic graph since ADDENDUM 446.
 ORRE_COLOSSEUM_REGION = "Orre Colosseum"
 
 TRAVEL_LOCATION_TARGET_REGION: dict[str, str] = {
@@ -176,7 +185,6 @@ TRAVEL_LOCATION_TARGET_REGION: dict[str, str] = {
     "Cipher Lab": "Cipher Lab",
     "Mt. Battle": "Mt. Battle",
     "SS Libra": "SS Libra",
-    "Orre Colosseum": ORRE_COLOSSEUM_REGION,
 }
 
 # ADDENDUM 171: the vanilla unlock moment becomes a CHECK. The player's own example -- "Mt Battle is vanilla
@@ -194,13 +202,9 @@ def travel_unlock_location_name(destination: str) -> str:
     return f"{TRAVEL_UNLOCK_LOCATION_PREFIX}{destination}"
 
 
-# ADDENDUM 185: where a destination's CHECK fires is a different question from what its ITEM opens, and Orre
-# Colosseum is the one place the answers differ. Its item opens a region that gates nothing, but the check still
-# has to be gettable -- and it is physically part of the Realgam complex, so Realgam's unlock byte is when the
-# game would make it selectable. Any destination absent here answers with its target region.
-TRAVEL_UNLOCK_STORY_REGION: dict[str, str] = {
-    "Orre Colosseum": "Realgam Tower",
-}
+# ADDENDUM 185: where a destination's CHECK fires can differ from what its ITEM opens. Orre Colosseum was the one
+# entry (Realgam's byte) until ADDENDUM 446 removed it. Any destination absent here answers with its target region.
+TRAVEL_UNLOCK_STORY_REGION: "dict[str, str]" = {}
 
 
 def vanilla_unlock_story_byte(destination: str) -> "int | None":
@@ -238,13 +242,12 @@ def vanilla_unlock_story_byte(destination: str) -> "int | None":
 # threshold, over the same `area_unlock_floor` that produces it, and resolving to:
 #     Cipher Lab, Mt. Battle   <- Agate Village        Phenac City      <- Poke Spots
 #     Pyrite Town              <- Cipher Lab           Realgam Tower    <- Phenac City
-#     Poke Spots               <- Pyrite Town          Orre Colosseum   <- Phenac City
+#     Poke Spots               <- Pyrite Town
 #     SS Libra                 <- Realgam Tower        Cipher Key Lair  <- SS Libra
 #     Outskirt Stand, Snagem Hideout                   <- Cipher Key Lair
 #
-# Orre Colosseum needs the substitution it already has: no room in `chest_regions.ROOM_TO_REGION` maps to its
-# region, so an arrival test against it could never be satisfied. `TRAVEL_UNLOCK_STORY_REGION` answers this for
-# the threshold already, for the same physical reason, so the witness uses the same table.
+# `TRAVEL_UNLOCK_STORY_REGION` (empty since ADDENDUM 446) is consulted first, for a destination whose check fires
+# somewhere other than its own target region.
 _UNLOCK_PREDECESSORS: "dict[str, tuple[str, ...]]" = {}
 
 
@@ -331,6 +334,8 @@ def clear_travel_location_bit(record_base: int, location_name: str) -> bool:
             changed = True
     return changed
 
+
+assert not set(RETIRED_TRAVEL_BITS) & set(TRAVEL_LOCATION_BITS), "a retired travel bit is managed again"
 
 assert set(TRAVEL_LOCATION_TARGET_REGION) == set(TRAVEL_LOCATION_NAMES), (
     "travel_locations.py: TRAVEL_LOCATION_TARGET_REGION must cover exactly the same names as "
@@ -524,6 +529,32 @@ def write_travel_location_bit(record_base: int, location_name: str) -> None:
     per spot and writing one would leave the other two icons dark."""
     for destination in travel_unlock_members(location_name):
         _or_write_bit(record_base, TRAVEL_LOCATION_BITS[destination])
+
+
+def revealed_by_game(record_base: int, location_name: str, received: bool) -> bool:
+    """ADDENDUM 434: has the GAME revealed `location_name` on the map? The moment it does is the `Unlock -` check.
+
+    Player: "instead of sending location unlock checks via story byte, instead do it when we detect a partial bit
+    of any kind for travel visibility." The game sets a destination's bits itself when the story reveals it
+    (ADDENDUM 380 saw it set the partial bit), and this client owns every other write to them, so a bit we would
+    not have left there is the game's reveal:
+
+      * NOT received: `enforce_travel_locks` holds full AND partial clear every tick, so ANY of `all_bits` set is
+        the game's.
+      * received: `_or_write_bit` holds full set and partial clear every tick, so only a PARTIAL bit is news --
+        the full bit is ours.
+
+    Must be read BEFORE either of those writes in the tick, or the evidence is erased first. A grouped unlock (the
+    Poke Spots) is revealed when ANY member is: the game reveals the spots one at a time. Read-only."""
+    from . import ram_client  # lazy -- see the module docstring
+
+    for destination in travel_unlock_members(location_name):
+        bit = TRAVEL_LOCATION_BITS[destination]
+        current = ram_client.read_bytes(record_base + bit.byte_offset, 1)[0]
+        watched = bit.partial_bits if received else bit.all_bits
+        if current & watched:
+            return True
+    return False
 
 
 def read_travel_location_unlocked(record_base: int, location_name: str) -> bool:

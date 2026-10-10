@@ -53,7 +53,7 @@ class TestTheMeasurementThatMovedIt(unittest.TestCase):
         # ADDENDUM 368 removed the Key Lair doorway's rung, so this measurement -- taken with the exclusions
         # lifted, hence one extra always-open tier -- is fourteen where it was fifteen. What it demonstrates is
         # unchanged: excluding Kaminko's House alone moves NOTHING, because it never had a rung of its own.
-        self.assertEqual(len(before), 14)
+        self.assertEqual(len(before), 13) # ADDENDUM 407: Pyrite visits 1 and 2 are one rung
 
     def test_the_opening_tier_was_full_of_late_game_fights(self) -> None:
         """Why it could not stay. These are real placements, not a fixture."""
@@ -92,7 +92,7 @@ class TestAllThreeAreOff(unittest.TestCase):
         says it is, derived the same way the ramp derives it."""
         known = _known()
         tiers = pls.path_tiers(known)
-        self.assertEqual(len(tiers), 13)
+        self.assertEqual(len(tiers), 12) # ADDENDUM 407: Pyrite visits 1 and 2 are one rung
         self.assertEqual(pls.tier_index("Agate Village", tiers, known), 0)
         self.assertEqual(pls.tier_index("Citadark Isle", tiers, known), len(tiers) - 1)
 

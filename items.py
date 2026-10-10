@@ -578,6 +578,9 @@ SCOOTER_ITEMS = _table(_SCOOTER_SPECS,
 _GETITEM_ONLY_SPECS: list[tuple[str, ItemClassification, int | None, bool, int]] = [
     ("99 Master Balls", F, 1, True, 99),
     ("99 Rare Candies", F, 68, True, 99),
+    # ADDENDUM 428: the Candy Box (ADDENDUM 427) is the Yellow Shard's id. Only a Candy Box in a seed with
+    # Reduce Citadark Grind -- the patch is what makes id 50 one; the client says so if it is not.
+    ("99 Candy Boxes", F, 50, True, 99),
 ]
 GETITEM_ONLY_ITEMS = _bundle_table(
     _GETITEM_ONLY_SPECS,
@@ -875,7 +878,7 @@ _FROZEN_ITEM_OFFSETS: dict[str, int] = {
     'Travel Unlock - Cipher Lab': 250,
     'Travel Unlock - Mt. Battle': 251,
     'Travel Unlock - SS Libra': 252,
-    'Travel Unlock - Orre Colosseum': 253,
+    'Travel Unlock - Orre Colosseum': 253,   # retired by ADDENDUM 446 -- inert, never reused
     # ADDENDUM 270: the merged Poke Spots unlock (177) and the combined key item (179) slipped past the
     # paste-it-immediately convention. `next_free` starts at `max(frozen.values()) + 1` and counts in
     # ITEM_TABLE order, so both ids moved whenever anything above them changed. Frozen at the values they
@@ -886,6 +889,7 @@ _FROZEN_ITEM_OFFSETS: dict[str, int] = {
     '99 Master Balls': 258,       # frozen on the commit that added it
     '99 Rare Candies': 259,       # frozen on the commit that added it
     '5000 Poke Coupons': 260,     # frozen on the commit that added it
+    '99 Candy Boxes': 261,        # frozen on the commit that added it (ADDENDUM 428)
     #
     # Retired by ADDENDUM 177's merge, reserved so nothing can inherit them: 242 (Cave Poke Spot), 245 (Oasis
     # Poke Spot), 248 (Rockground Poke Spot). Their entries stay above, inert.
@@ -932,11 +936,22 @@ ITEM_NAME_GROUPS: dict[str, set[str]] = {
     "Travel Unlocks": set(TRAVEL_UNLOCK_ITEMS.keys()),
     "Robo Kyogre Parts": set(MACGUFFIN_ITEMS.keys()),
     "Scooter": set(SCOOTER_ITEMS.keys()),
+    # ADDENDUM 443: "!hint ID Card" (or "!hint Data ROM") hints the combined item.
+    **{part: {COMBINED_KEY_ITEM_NAME} for part in COMBINED_KEY_ITEM_PARTS},
 }
 
 
-def get_item_name_to_id(base_id: int) -> dict[str, int]:
-    return {name: base_id + data.id_offset for name, data in ITEM_TABLE.items()}
+# ADDENDUM 443, player: "Can you make it so if someone types "!hint ID Card" it will hint Data Rom & ID Card?" The two
+# halves ADDENDUM 179 merged are never placed, but they were still in the datapackage, so the server's hint matched
+# the dead "ID Card" item and found nothing. Archipelago forbids a group name that is also an item name, so the two
+# halves leave the WORLD's datapackage and come back as groups naming the combined item. Their ids (13, 19) stay
+# reserved in ITEM_TABLE and the client still resolves them (`include_retired=True`), so nothing can inherit them.
+RETIRED_DATAPACKAGE_ITEMS: "frozenset[str]" = frozenset(COMBINED_KEY_ITEM_PARTS)
+
+
+def get_item_name_to_id(base_id: int, include_retired: bool = False) -> dict[str, int]:
+    return {name: base_id + data.id_offset for name, data in ITEM_TABLE.items()
+            if include_retired or name not in RETIRED_DATAPACKAGE_ITEMS}
 
 
 def create_item(world, name: str) -> "PokemonXDItem":
@@ -1027,9 +1042,10 @@ FILLER_CATEGORIES: "tuple[tuple[str, tuple[str, ...]], ...]" = (
 )
 FILLER_CATEGORY_DEFAULT_WEIGHTS: "dict[str, int]" = {
     "poke_balls": 43, "medicine": 28, "status_heals": 2, "berries": 4, "battle_items": 2, "treasure": 2, "flutes": 1, "tms": 12, "evolution_stones": 4,
-    "currency": 2,
+    "currency": 4,   # player's options.py (2026-10-10): 2 -> 4, so the defaults now sum to 102
 }
-assert sum(FILLER_CATEGORY_DEFAULT_WEIGHTS.values()) == 100, "the defaults read as percentages"
+# Relative weights, not percentages: the player's own defaults sum to 102 since currency went to 4.
+assert all(weight >= 0 for weight in FILLER_CATEGORY_DEFAULT_WEIGHTS.values()) and sum(FILLER_CATEGORY_DEFAULT_WEIGHTS.values()) > 0
 # Drawn when every category is weighted 0 -- generation must never fail over a filler preference.
 FILLER_FALLBACK_ITEM_NAME = "Poke Ball"
 

@@ -134,7 +134,9 @@ class TestNoIdCollisionsAfterAllThis(unittest.TestCase):
 
     def test_the_name_to_id_map_still_builds(self):
         mapping = items.get_item_name_to_id(1000)
-        self.assertEqual(len(mapping), len(items.ITEM_TABLE))
+        # ADDENDUM 443: the two retired halves of "Data ROM & ID Card" left the datapackage (they are hint groups now).
+        self.assertEqual(len(mapping), len(items.ITEM_TABLE) - len(items.RETIRED_DATAPACKAGE_ITEMS))
+        self.assertEqual(len(items.get_item_name_to_id(1000, include_retired=True)), len(items.ITEM_TABLE))
         self.assertNotIn("Cologne Case", mapping)
         self.assertNotIn("HM01", mapping)
         self.assertIn("Rare Candy", mapping)

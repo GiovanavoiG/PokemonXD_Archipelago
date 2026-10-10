@@ -77,8 +77,8 @@ class TestLabelJoin(unittest.TestCase):
         carrying its own copy of the join. The ladder's own contract must not have moved: rules.py asserts the
         weights sum to exactly PURIFICATION_LOCATION_COUNT."""
         self.assertEqual(shadow_regions.total_shadow_count(), 83)
-        weights = shadow_regions.purification_weights(locations.PURIFICATION_LOCATION_COUNT)
-        self.assertEqual(sum(weights.values()), locations.PURIFICATION_LOCATION_COUNT)
+        weights = shadow_regions.purification_weights(locations.VANILLA_SHADOW_COUNT)
+        self.assertEqual(sum(weights.values()), locations.VANILLA_SHADOW_COUNT)
 
 
 class TestSnagFloorIsTwoRegionsNotAnItem(unittest.TestCase):
@@ -115,7 +115,7 @@ class TestCatchGatesInAWorld(PokemonXDTestBase):
     options = {
         "key_item_shuffle": True,
         "shadow_pokemon_expansion": 44,
-        "progression_locations": 2,
+        
         "randomize_shadow_species": True,
     }
 
@@ -220,7 +220,7 @@ class TestTheGuard(PokemonXDTestBase):
     it without anything failing, because a MISSING rule is silent by construction. The guard is what converts
     that class of mistake into a generation error, so the guard itself has to be exercised."""
 
-    options = {"progression_locations": 2}
+    options = {}
 
     def test_it_fires_when_a_bucket_location_is_ungated_and_progression_eligible(self) -> None:
         region = self.multiworld.get_region("Pokemon Storage", self.player)

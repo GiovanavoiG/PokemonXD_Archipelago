@@ -121,8 +121,9 @@ class TestFourMovesAndLevelOneMoves(unittest.TestCase):
 
     def test_the_level_one_move_is_selectable_again(self):
         """The direct statement of the change: at a level where Growl is the only remaining candidate, it has
-        to be picked. Under ADDENDUM 75 it could never be."""
-        chosen = team_shuffle.choose_moveset(species_id=1, level=12, learnset=self.learnset(),
+        to be picked. Under ADDENDUM 75 it could never be. Species 0 has no TM/tutor/egg data (ADDENDUM 426), so
+        only the level-up list is in play."""
+        chosen = team_shuffle.choose_moveset(species_id=0, level=12, learnset=self.learnset(),
                                              rng=random.Random(1), move_count=3)
         self.assertIn(self.GROWL, chosen)
 
@@ -137,7 +138,7 @@ class TestFourMovesAndLevelOneMoves(unittest.TestCase):
     def test_a_species_whose_only_move_is_its_first_is_no_longer_left_empty(self):
         """The concrete cost of the old exclusion: a slot low enough to have learned exactly one move got
         nothing at all, because that one move was the excluded one."""
-        chosen = team_shuffle.choose_moveset(species_id=1, level=3, learnset=[(1, self.TACKLE)],
+        chosen = team_shuffle.choose_moveset(species_id=0, level=3, learnset=[(1, self.TACKLE)],
                                              rng=random.Random(0))
         self.assertEqual(chosen, [self.TACKLE])
 

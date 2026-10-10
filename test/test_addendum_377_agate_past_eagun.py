@@ -31,9 +31,12 @@ AGATE = "Agate Village"
 
 
 class TestTheCeiling(unittest.TestCase):
-    def test_agate_reaches_mt_battles_opening_byte(self) -> None:
-        self.assertEqual(0x24, sb.REGION_STORY_WINDOW[AGATE].ceiling)
+    def test_agate_reaches_past_mt_battles_opening_byte(self) -> None:
+        # ADDENDUM 398 raised this from 0x24 to 0x25 at the player's instruction. Mt. Battle's own floor and
+        # ceiling are untouched -- only how far Agate's window reaches changed.
+        self.assertEqual(0x25, sb.REGION_STORY_WINDOW[AGATE].ceiling)
         self.assertEqual(0x24, sb.REGION_STORY_WINDOW["Mt. Battle"].floor)
+        self.assertEqual(0x25, sb.REGION_STORY_WINDOW["Mt. Battle"].ceiling)
         self.assertEqual(0x19, sb.REGION_STORY_WINDOW[AGATE].floor, "the floor must not have moved")
 
     def test_the_override_is_what_did_it_rather_than_a_changed_derivation(self) -> None:
@@ -45,7 +48,7 @@ class TestTheCeiling(unittest.TestCase):
         # successor's opening byte while the player is still standing in it.
         self.assertEqual(
             {
-                AGATE: 0x24,
+                AGATE: 0x25,
                 "Phenac City": 0x41,
                 "Pyrite Town (ONBS)": 0x3E,
                 "Phenac City (Post-Sixes)": 0x4E,
@@ -62,15 +65,21 @@ class TestTheCeiling(unittest.TestCase):
             if later:
                 self.assertEqual(later[0] - 1, window.ceiling, f"{region} moved and should not have")
 
-    def test_0x24_is_a_rung_the_game_rests_on(self) -> None:
+    def test_both_rungs_are_ones_the_game_rests_on(self) -> None:
         self.assertTrue(sb.byte_is_reachable(0x24))
+        self.assertTrue(sb.byte_is_reachable(0x25))
 
-    def test_the_overlap_with_mt_battle_is_deliberate_and_only_one_byte(self) -> None:
-        """Agate and Mt. Battle now both contain 0x24. That is the point -- it is the byte Agate hands you and
-        the byte Mt. Battle opens on -- and it must not be more than that one rung."""
+    def test_the_overlap_with_mt_battle_is_deliberate_and_bounded(self) -> None:
+        """ADDENDUM 398: Agate's window now spans the WHOLE of Mt. Battle's rather than just its floor.
+
+        0x24 is the byte Agate hands you and the byte Mt. Battle opens on; 0x25 is Mt. Battle's own ceiling.
+        The overlap is now both of them, and it must not reach past Mt. Battle's ceiling into Cipher Lab's
+        window -- that would make Agate's guard accept a byte the player can only hold somewhere else."""
         agate, mt = sb.REGION_STORY_WINDOW[AGATE], sb.REGION_STORY_WINDOW["Mt. Battle"]
         shared = {b for b in range(agate.floor, agate.ceiling + 1) if mt.contains(b)}
-        self.assertEqual({0x24}, shared)
+        self.assertEqual({0x24, 0x25}, shared)
+        self.assertEqual(mt.ceiling, agate.ceiling, "Agate stops exactly where Mt. Battle does")
+        self.assertLess(agate.ceiling, sb.REGION_STORY_WINDOW["Cipher Lab"].floor)
 
 
 class TestTheReturnTripIsPastEagun(unittest.TestCase):
@@ -127,10 +136,21 @@ class TestNothingElseMoved(unittest.TestCase):
         self.assertEqual(0x24, memory.highest_by_region.get(AGATE))
 
     def test_the_poison_guard_still_catches_a_genuinely_foreign_byte(self) -> None:
-        """ADDENDUM 365 is widened by exactly one rung, not disabled. A Pyrite floor standing in Agate is still
-        poison."""
-        self.assertEqual(0x24, sb.AREA_GUARD_CEILINGS[AGATE])
+        """ADDENDUM 365 is widened, not disabled. A Pyrite floor standing in Agate is still poison.
+
+        ADDENDUM 398 raised Agate's window ceiling from 0x24 to 0x25, and the guard ceiling is DERIVED rather
+        than typed, so it moved two rungs rather than one: `_build_area_guard_ceilings` adds every transition
+        whose `before` sits inside the span and whose `after` is above it, and `0x25 -> 0x26` is "Cipher Lab
+        unlocked / first visit". That is the same rule that put 0x24 inside Agate in the first place -- the
+        unlock is earned while the player is still standing in the village -- so 0x26 is now a byte Agate can
+        legitimately hold. Asserted explicitly, because it is a real widening of a safety check and nobody
+        asked for it directly: it fell out of the ceiling change.
+        """
+        self.assertEqual(0x26, sb.AREA_GUARD_CEILINGS[AGATE])
         self.assertFalse(sb.poisoned_byte(AGATE, 0x24))
+        self.assertFalse(sb.poisoned_byte(AGATE, 0x25))
+        self.assertFalse(sb.poisoned_byte(AGATE, 0x26), "Cipher Lab's unlock is earned standing in Agate")
+        self.assertTrue(sb.poisoned_byte(AGATE, 0x28), "the arrival scene OUTSIDE the lab is foreign to Agate")
         self.assertTrue(sb.poisoned_byte(AGATE, 0x30))
 
     def test_the_level_ramp_cannot_have_moved(self) -> None:

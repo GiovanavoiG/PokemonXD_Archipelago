@@ -60,11 +60,21 @@ class TestThePlanKeySurvivesTheSeedBoundary(unittest.TestCase):
     def test_every_key_the_world_writes_into_the_plan_is_read_back(self) -> None:
         """THE FENCE. Derived from what `__init__.py` actually writes, so a key added there later and not
         here fails the suite instead of being dropped in silence."""
-        written = set(re.findall(r'enhanced_difficulty_plan\["([a-z_]+)"\]', self.world))
+        # ADDENDUM 425: the Story plan's keys only -- the Mt. Battle plan has its own rebuild and its own fence.
+        written = set(re.findall(r'(?<!mt_battle_)enhanced_difficulty_plan\["([a-z_]+)"\]', self.world))
         self.assertIn("shadow_level_assignment", written, "the world must still build this")
         for key in written:
             self.assertIn(f'"{key}"', self.rebuild,
                           f"__init__.py writes {key!r} into the plan but apply_patch's rebuild drops it")
+
+    def test_the_mt_battle_plan_has_the_same_fence(self) -> None:
+        """ADDENDUM 425 added `species_assignment` to the Mt. Battle plan; its rebuild is a whitelist too."""
+        start = self.patcher.index("mt_battle_enhanced_difficulty_plan_raw = seed.get(")
+        rebuild = self.patcher[start:self.patcher.index("chunked_copy(", start)]
+        written = set(re.findall(r'mt_battle_enhanced_difficulty_plan\["([a-z_]+)"\]', self.world))
+        self.assertIn("species_assignment", written)
+        for key in written:
+            self.assertIn(f'"{key}"', rebuild, f"the Mt. Battle rebuild drops {key!r}")
 
     def test_the_shadow_levels_are_coerced_to_int_keys(self) -> None:
         """JSON keys come back as strings, and `apply_shadow_level_boost`'s bounds check compares to ints."""

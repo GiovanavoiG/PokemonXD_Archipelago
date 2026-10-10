@@ -65,15 +65,27 @@ class TestTheFlagReadRefusesRatherThanGuessing(unittest.TestCase):
 
     def setUp(self) -> None:
         self.saved = rc.read_bytes
-        self.mem: "dict[int, bytes]" = {}
-        rc.read_bytes = lambda address, length: self.mem.get(
-            address, b"\x00" * length)[:length].ljust(length, b"\x00")
+        # ADDENDUM 400: BYTE-ADDRESSABLE, not a dict keyed by whole reads.
+        #
+        # The old fake mapped an exact start address to an exact blob, so it only answered a read that began
+        # where a write had begun. `read_annihilation_flag` now takes the records array in ONE bulk read
+        # instead of `count` single-byte reads -- it is sampled at 20 Hz in the fast window, where 64 round
+        # trips a tick is a load rather than a diagnostic -- and the old fake returned zeros for that read
+        # while still answering the per-byte ones. A fake that cannot be read across is a fake that pins the
+        # access pattern instead of the behaviour.
+        self.mem: "dict[int, int]" = {}
+        rc.read_bytes = lambda address, length: bytes(
+            self.mem.get(address + offset, 0) for offset in range(length))
 
     def tearDown(self) -> None:
         rc.read_bytes = self.saved
 
+    def _write(self, address: int, data: bytes) -> None:
+        for offset, byte in enumerate(data):
+            self.mem[address + offset] = byte
+
     def _u32(self, address: int, value: int) -> None:
-        self.mem[address] = value.to_bytes(4, "big")
+        self._write(address, value.to_bytes(4, "big"))
 
     def test_uninitialised_pointers_give_no_answer(self) -> None:
         self.assertIsNone(rc.read_annihilation_flag())
@@ -105,14 +117,14 @@ class TestTheFlagReadRefusesRatherThanGuessing(unittest.TestCase):
         for index in range(4):
             self.setUp()
             records = self._sane_tables(count=4)
-            self.mem[records + index * rc.ENCOUNTER_RECORD_STRIDE
-                     + rc.ENCOUNTER_ZENMETU_FLAG_OFFSET] = b"\x01"
+            self._write(records + index * rc.ENCOUNTER_RECORD_STRIDE
+                        + rc.ENCOUNTER_ZENMETU_FLAG_OFFSET, b"\x01")
             self.assertIs(True, rc.read_annihilation_flag(), f"record {index}")
 
     def test_it_reads_the_flag_field_and_not_its_neighbours(self) -> None:
         records = self._sane_tables(count=1)
         for offset in (0x00, 0x01, 0x02, 0x03, 0x05, 0x06):
-            self.mem[records + offset] = b"\xFF"
+            self._write(records + offset, b"\xFF")
         self.assertIs(False, rc.read_annihilation_flag(),
                       "only +0x04 is the annihilation flag")
 

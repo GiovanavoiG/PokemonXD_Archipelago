@@ -10,7 +10,7 @@ import random
 import unittest
 
 from ..game_data.move_data import MOVE_TYPES, TM_ATTACKING_MOVES
-from ..randomizer.team_shuffle import STATUS_MOVE_IDS, choose_moveset
+from ..randomizer.team_shuffle import STATUS_MOVE_IDS, choose_moveset, move_power, species_move_compat
 
 # Real move ids used across these tests (see game_data/move_data.py's own docstring for the id scheme):
 GROWL = 45      # status, level 1 -- selectable again since ADDENDUM 217 lifted the first-entry exclusion
@@ -19,6 +19,9 @@ EMBER = 52      # Fire, damaging
 LEER = 43       # status
 FIRE_PUNCH = 7  # Fire, damaging
 FLAME_WHEEL = 172  # Fire, damaging
+# ADDENDUM 426: a species id with no entry in species_move_compat.json, so no extra (TM/tutor/egg) move is
+# ever offered and these tests see the level-up ordering alone.
+NO_COMPAT_SPECIES = 0
 
 
 class TestLatestLevelupPriority(unittest.TestCase):
@@ -40,7 +43,7 @@ class TestLatestLevelupPriority(unittest.TestCase):
         # over the lowest (Tackle, level 5) -- and no status move (Leer) should appear at all while a damaging
         # candidate is still available.
         chosen = choose_moveset(
-            species_id=1, level=29, learnset=self._learnset(), rng=random.Random(1), move_count=3,
+            species_id=NO_COMPAT_SPECIES, level=29, learnset=self._learnset(), rng=random.Random(1), move_count=3,
         )
         self.assertEqual(set(chosen), {EMBER, FIRE_PUNCH, FLAME_WHEEL})
         self.assertNotIn(TACKLE, chosen)  # the lowest-level damaging candidate, correctly dropped
@@ -50,7 +53,7 @@ class TestLatestLevelupPriority(unittest.TestCase):
         # At level 22, Flame Wheel (needs 25) isn't legal yet -- the remaining damaging candidates (Tackle,
         # Ember, Fire Punch) exactly fill 3 slots.
         chosen = choose_moveset(
-            species_id=1, level=22, learnset=self._learnset(), rng=random.Random(1), move_count=3,
+            species_id=NO_COMPAT_SPECIES, level=22, learnset=self._learnset(), rng=random.Random(1), move_count=3,
         )
         self.assertEqual(set(chosen), {TACKLE, EMBER, FIRE_PUNCH})
 
@@ -61,7 +64,7 @@ class TestLatestLevelupPriority(unittest.TestCase):
         # 3rd slot therefore came back empty -- so this test used to assert {TACKLE, EMBER}. Restoring level-1
         # moves is exactly the behaviour change the player asked for, and this is where it shows.
         chosen = choose_moveset(
-            species_id=1, level=12, learnset=self._learnset(), rng=random.Random(1), move_count=3,
+            species_id=NO_COMPAT_SPECIES, level=12, learnset=self._learnset(), rng=random.Random(1), move_count=3,
         )
         # All three legal-by-level-12 candidates (Growl 1, Tackle 5, Ember 10) exactly fill the 3 slots, so
         # this asserts the SET only -- the priority ORDER is covered by the level-40 test above, where there
@@ -77,63 +80,84 @@ class TestLatestLevelupPriority(unittest.TestCase):
         seen_first_pick: set[int] = set()
         for seed in range(30):
             chosen = choose_moveset(
-                species_id=1, level=10, learnset=learnset, rng=random.Random(seed), move_count=1,
+                species_id=NO_COMPAT_SPECIES, level=10, learnset=learnset, rng=random.Random(seed), move_count=1,
             )
             seen_first_pick.update(chosen)
         self.assertEqual(seen_first_pick, {TACKLE, EMBER})
 
 
 class TestLevel30TmBonusMove(unittest.TestCase):
-    """Covers the player's "above level 30, teach them one strong TM attacking move ... anything 80 BP or
-    above that isn't the same type as attacking moves they already have" request."""
+    """ADDENDUM 100's "above level 30, teach them one strong TM attacking move that they could learn", as
+    ADDENDUM 426 made it true: the extra move comes only from THIS species' Gen III TM/HM, tutor or egg moves
+    (XD's own species table), and below 30 from its tutor or egg moves of at most 70 power."""
+
+    SPECIES = 4   # Charmander (internal 4): Fire level-up moves, plenty of non-Fire TMs, tutors and egg moves
 
     def _fire_type_learnset(self) -> list[tuple[int, int]]:
-        # A species whose only real damaging moves are all Fire-type, so every legal TM candidate that is
-        # ALSO Fire-type must be excluded, forcing a non-Fire TM pick.
         return [(1, 999), (5, EMBER), (10, FIRE_PUNCH), (15, FLAME_WHEEL)]
 
-    def test_no_tm_bonus_below_level_30(self) -> None:
-        chosen = choose_moveset(
-            species_id=1, level=29, learnset=self._fire_type_learnset(), rng=random.Random(2), move_count=3,
-        )
-        self.assertTrue(set(chosen).isdisjoint(TM_ATTACKING_MOVES))
+    def _extra(self, chosen):
+        return [m for m in chosen if m not in {999, EMBER, FIRE_PUNCH, FLAME_WHEEL}]
 
-    def test_tm_bonus_move_added_at_level_30(self) -> None:
-        chosen = choose_moveset(
-            species_id=1, level=30, learnset=self._fire_type_learnset(), rng=random.Random(2), move_count=3,
-        )
-        tm_moves_present = set(chosen) & set(TM_ATTACKING_MOVES)
-        self.assertEqual(len(tm_moves_present), 1, f"expected exactly one TM bonus move in {chosen}")
+    def test_the_extra_move_is_one_the_species_can_learn(self) -> None:
+        compat = species_move_compat()[self.SPECIES]
+        for level in (12, 29, 30, 45):
+            for seed in range(10):
+                chosen = choose_moveset(self.SPECIES, level, self._fire_type_learnset(), random.Random(seed), 3)
+                for move in self._extra(chosen):
+                    sources = compat["tutor"] + compat["egg"] + (compat["tm"] if level >= 30 else [])
+                    self.assertIn(move, sources, (level, seed, move))
 
-    def test_tm_bonus_move_is_80_bp_or_higher(self) -> None:
-        chosen = choose_moveset(
-            species_id=1, level=35, learnset=self._fire_type_learnset(), rng=random.Random(3), move_count=3,
-        )
-        tm_move = next(m for m in chosen if m in TM_ATTACKING_MOVES)
-        self.assertGreaterEqual(TM_ATTACKING_MOVES[tm_move], 80)
+    def test_below_30_no_tm_and_at_most_70_power(self) -> None:
+        compat, power = species_move_compat()[self.SPECIES], move_power()
+        for seed in range(20):
+            chosen = choose_moveset(self.SPECIES, 29, self._fire_type_learnset(), random.Random(seed), 3)
+            for move in self._extra(chosen):
+                self.assertIn(move, compat["tutor"] + compat["egg"])
+                self.assertLessEqual(power[move], 70)
 
-    def test_tm_bonus_move_never_shares_a_type_with_an_existing_attacking_move(self) -> None:
+    def test_at_30_exactly_one_extra_move_of_80_power(self) -> None:
+        power = move_power()
+        for seed in range(10):
+            chosen = choose_moveset(self.SPECIES, 35, self._fire_type_learnset(), random.Random(seed), 3)
+            extra = self._extra(chosen)
+            self.assertEqual(1, len(extra), chosen)
+            self.assertGreaterEqual(power[extra[0]], 80)
+
+    def test_the_extra_move_never_shares_a_type(self) -> None:
         for seed in range(15):
-            chosen = choose_moveset(
-                species_id=1, level=40, learnset=self._fire_type_learnset(), rng=random.Random(seed),
-                move_count=3,
-            )
-            tm_move = next((m for m in chosen if m in TM_ATTACKING_MOVES), None)
-            self.assertIsNotNone(tm_move, f"seed {seed}: no TM move chosen at all")
-            other_types = {MOVE_TYPES[m] for m in chosen if m != tm_move and m in MOVE_TYPES}
-            self.assertNotIn(MOVE_TYPES[tm_move], other_types)
+            chosen = choose_moveset(self.SPECIES, 40, self._fire_type_learnset(), random.Random(seed), 3)
+            extra = self._extra(chosen)
+            self.assertTrue(extra, f"seed {seed}: no extra move")
+            other_types = {MOVE_TYPES[m] for m in chosen if m not in extra and m in MOVE_TYPES}
+            self.assertNotIn(MOVE_TYPES[extra[0]], other_types)
+
+    def test_focus_punch_only_for_what_can_learn_it(self) -> None:
+        """The player's report: a Pokemon that cannot learn Focus Punch used it."""
+        compat = species_move_compat()
+        for species in range(1, 412):
+            for seed in range(3):
+                chosen = choose_moveset(species, 50, [(1, TACKLE)], random.Random(seed), 4)
+                if 264 in chosen:
+                    self.assertIn(264, compat.get(species, {}).get("tm", []), species)
 
     def test_tm_bonus_never_exceeds_move_count(self) -> None:
-        chosen = choose_moveset(
-            species_id=1, level=40, learnset=self._fire_type_learnset(), rng=random.Random(4), move_count=3,
-        )
+        chosen = choose_moveset(self.SPECIES, 40, self._fire_type_learnset(), random.Random(4), 3)
         self.assertLessEqual(len(chosen), 3)
 
     def test_no_bonus_move_when_nothing_qualifies(self) -> None:
-        # A species with no real learnset data at all -- choose_moveset's pre-existing "no data" fallback
-        # (return []) must win over the TM-bonus step, not crash trying to index into an empty `chosen`.
-        chosen = choose_moveset(species_id=1, level=50, learnset=[], rng=random.Random(5), move_count=3)
+        chosen = choose_moveset(species_id=NO_COMPAT_SPECIES, level=50, learnset=[], rng=random.Random(5),
+                                move_count=3)
         self.assertEqual(chosen, [])
+
+    def test_no_legal_level_up_move_falls_back_to_tutor_and_egg(self) -> None:
+        """ADDENDUM 426: when the only level-1 move is the excluded Pound, tutor and egg moves -- legal at any
+        level -- come before level-up moves the Pokemon is too young for."""
+        compat = species_move_compat()[self.SPECIES]
+        chosen = choose_moveset(self.SPECIES, 5, [(1, 1), (40, 53)], random.Random(5), 4)
+        self.assertTrue(chosen)
+        for move in chosen:
+            self.assertIn(move, compat["tutor"] + compat["egg"])
 
 
 class TestMoveTypesTableSanity(unittest.TestCase):

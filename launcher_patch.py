@@ -68,8 +68,41 @@ def _ensure_visible_console() -> bool:
         sys.stdin = open("CONIN$", "r", encoding="utf-8", errors="replace")  # noqa: SIM115
     except OSError:
         sys.stdin = _console_state["stdin"]  # no console input available -- the prompt degrades, see below
+    _disable_quick_edit()
     _console_state["allocated"] = True
     return True
+
+
+# ADDENDUM 437. Player: "I had to hit enter to progress the patch after the trade evolutions line. Why?"
+# Windows consoles start in QuickEdit mode: a click inside the window begins a text selection, and while a selection
+# is open the console stops accepting output -- the next print() BLOCKS the whole patch until Enter (or Esc) ends the
+# selection. The trade-evolutions line is the last print before the common_rel re-encode, the patch's longest silent
+# stretch, which is exactly when a player clicks the window to see whether it is still alive. Turning QuickEdit off
+# for the console this module allocated means a click can never pause the patch. Never raises: a console that keeps
+# QuickEdit only means the old behaviour.
+ENABLE_QUICK_EDIT_MODE = 0x0040
+ENABLE_EXTENDED_FLAGS = 0x0080
+
+
+def quick_edit_off(mode: int) -> int:
+    """The console input mode with QuickEdit cleared. ENABLE_EXTENDED_FLAGS has to be set for the change to apply."""
+    return (mode & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS
+
+
+def _disable_quick_edit() -> bool:
+    try:
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        kernel32 = ctypes.windll.kernel32
+        handle = msvcrt.get_osfhandle(sys.stdin.fileno())
+        mode = wintypes.DWORD()
+        if not kernel32.GetConsoleMode(wintypes.HANDLE(handle), ctypes.byref(mode)):
+            return False
+        return bool(kernel32.SetConsoleMode(wintypes.HANDLE(handle), quick_edit_off(mode.value)))
+    except Exception:
+        return False
 
 
 def _has_console() -> bool:

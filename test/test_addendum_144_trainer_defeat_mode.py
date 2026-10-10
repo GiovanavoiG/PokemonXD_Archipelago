@@ -74,9 +74,14 @@ class TestUniqueRosterQueue(unittest.TestCase):
     def test_the_queue_covers_every_trainer_exactly_once(self) -> None:
         total = sum(len(v) for v in trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE.values())
         # ADDENDUM 362: every trainer except the ones whose label was retired for having no distinct team.
+        # ADDENDUM 401: and except the 75 numbered fights of the missable trainers that fight more than once.
+        # ADDENDUM 409: and except the player's own trim -- "Remove Cail's rematches ... Hordel is not a check, so
+        # remove him" -- REMOVED_DEFEAT_LOCATIONS is the missable removals plus RULED_OUT_DEFEAT_LOCATIONS.
         self.assertEqual(
             total, len(trainer_roster.TRAINERS) - len(trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS)
+            - len(trainer_roster.REMOVED_DEFEAT_LOCATIONS)
         )
+        self.assertEqual(total, 143)   # ADDENDUM 436: Ardos #1/#2 and Zook #1/#2 out -- one (Any) each
         names = [n for v in trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE.values() for n in v]
         self.assertEqual(len(names), len(set(names)))
 
@@ -89,7 +94,9 @@ class TestUniqueRosterQueue(unittest.TestCase):
         what advances the queue. Three wins against the same team would check off one location, not three --
         see test_addendum_362 for that half."""
         queue = trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE
-        self.assertEqual(len(queue["MIROR B."]), 9)
+        # ADDENDUM 409: "Make Miror B only have one rematch (so up to miror B 2)." Two labels, not nine; a third
+        # distinct team is still a win but has no label left to check off.
+        self.assertEqual(queue["MIROR B."], ["Defeat - Miror B. #1", "Defeat - Miror B. #2"])
         tracker = rc.TrainerBattleDefeatTracker()
         fired: list[str] = []
         teams = (("ZUBAT", "GULPIN"), ("LUDICOLO",), ("LOUDRED", "GOLBAT"))
@@ -99,7 +106,7 @@ class TestUniqueRosterQueue(unittest.TestCase):
                                       records=frame, count_location_max=0)
             tracker.poll(queue, locations.trainer_defeat_count_location_name, records=[],
                          count_location_max=0)  # roster clears, surname re-arms
-        self.assertEqual(fired, ["Defeat - Miror B. #1", "Defeat - Miror B. #2", "Defeat - Miror B. #3"])
+        self.assertEqual(fired, ["Defeat - Miror B. #1", "Defeat - Miror B. #2"])
 
     def test_unique_mode_produces_no_cumulative_names(self) -> None:
         """count_location_max=0 is how the client suppresses the bucket in unique mode."""
@@ -118,7 +125,15 @@ class TestLocationTable(unittest.TestCase):
         self.assertEqual(len(locations.UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 232)
         for name in locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES:
             self.assertIn(name, locations.LOCATION_TABLE, name)
-        retired = trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS
+        # ADDENDUM 401: the removed missable fights leave the table by the same door as the retired label --
+        # still named in the 232-row roster list, absent from every seed.
+        # ADDENDUM 409: so do the player's ruled-out rematches ("Remove all their other fights", "Remove Cail's
+        # rematches", ...) and Hordel ("Hordel is not a check, so remove him") -- 152 live, not 216.
+        retired = trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS | trainer_roster.REMOVED_DEFEAT_LOCATIONS
+        # ADDENDUM 410: minus the six lone #1s that fired on the same win as their (Any) -- 146.
+        # ADDENDUM 411: plus Zook #1, back because Ardos #1 sends it -- 147.
+        # ADDENDUM 436: minus Ardos #1/#2 and Zook #1/#2 -- 143.
+        self.assertEqual(len(locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 143)
         self.assertEqual(
             len(locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 232 - len(retired)
         )
@@ -151,20 +166,31 @@ class TestLocationTable(unittest.TestCase):
         in and only the 37 with no known region are left here -- the 36 marked N/A plus Hordel, all
         filler-only. The bucket still exists and is still reachable from the start, because AP requires every
         location to be reachable so filler can be placed on it."""
+        # ADDENDUM 401: 23 of those 37 were numbered fights of missable trainers and are gone, so the bucket
+        # holds the other 14. `_UNPLACED_TRAINER_LOCATION_NAMES` is still the census's own 37 -- it describes
+        # the roster, not a seed -- so the bucket is that set minus what was removed.
+        # ADDENDUM 409: "His 1 and 2 can be in either outskirt stand or cave spot interchangeably" placed Miror B.
+        # #2, so the census leaves 36 unplaced; "Hordel is not a check, so remove him" and the rest of the ruling
+        # removed every one of those 36. The bucket's whole population is gone: no live unique-mode defeat is
+        # region-less any more.
         self.assertIn("Unique Trainer Defeats", locations.LOCATIONS_BY_REGION)
-        self.assertEqual(len(locations.LOCATIONS_BY_REGION["Unique Trainer Defeats"]), 37)
-        self.assertEqual(
-            set(locations.LOCATIONS_BY_REGION["Unique Trainer Defeats"]),
-            locations._UNPLACED_TRAINER_LOCATION_NAMES,
-        )
+        self.assertEqual(len(locations._UNPLACED_TRAINER_LOCATION_NAMES), 36)
+        self.assertNotIn("Defeat - Miror B. #2", locations._UNPLACED_TRAINER_LOCATION_NAMES)
+        self.assertLessEqual(locations._UNPLACED_TRAINER_LOCATION_NAMES, trainer_roster.RULED_OUT_DEFEAT_LOCATIONS)
+        expected = locations._UNPLACED_TRAINER_LOCATION_NAMES - trainer_roster.REMOVED_DEFEAT_LOCATIONS
+        self.assertEqual(expected, set())
+        self.assertEqual(locations.LOCATIONS_BY_REGION["Unique Trainer Defeats"], [])
+        for name in locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES:
+            self.assertNotEqual(locations.LOCATION_TABLE[name].region, "Unique Trainer Defeats", name)
 
     def test_every_roster_trainer_still_has_exactly_one_location(self) -> None:
         """The re-filing must not drop or duplicate one. 232 names, spread across the real regions plus the
         leftover bucket, and each appearing once."""
         placed = sum(1 for name in locations.UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES
                      if name in locations._TRAINER_REGION_BY_LOCATION)
-        self.assertEqual(placed, 195)
-        self.assertEqual(placed + 37, 232)
+        # ADDENDUM 409: Miror B. #2 is placed ("outskirt stand or cave spot"), 195 -> 196 placed, 37 -> 36 not.
+        self.assertEqual(placed, 196)
+        self.assertEqual(placed + len(locations._UNPLACED_TRAINER_LOCATION_NAMES), 232)
 
 
 class TestOption(unittest.TestCase):

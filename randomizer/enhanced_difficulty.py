@@ -16,7 +16,7 @@ import math
 import random
 
 from ..game_data.real_trainer_data import PERMANENTLY_EXCLUDED_TRAINER_INDICES
-from .team_shuffle import Species, choose_moveset, resolve_natural_evolution
+from .team_shuffle import Species, choose_moveset, pick_distinct_species, resolve_natural_evolution
 
 # Multiplied into each Pokemon's own level and floored, through `_scaled_level()` -- the one place both
 # existing-member boosting and new-member padding go, so the two cannot drift apart.
@@ -163,6 +163,8 @@ def build_enhanced_difficulty_plan(
     permanently_excluded_trainer_indices: frozenset[int] = PERMANENTLY_EXCLUDED_TRAINER_INDICES,
     max_added_members: "int | None" = FILL_THE_TEAM,
     scale_levels: bool = True,
+    team_species_by_trainer: "dict[int, set[int]] | None" = None,
+    allow_legendaries: bool = False,
 ) -> dict:
     """The full per-seed plan: every existing ordinary member's level scaled to `floor(level *
     level_multiplier)`, and every eligible trainer's team padded per the ramp with real, level-appropriate,
@@ -174,9 +176,13 @@ def build_enhanced_difficulty_plan(
     wrong for any other table -- Story trainer_index 15 and Mt. Battle trainer_index 15 are unrelated trainers
     -- so a Mt. Battle caller must pass its own value, usually `frozenset()`.
 
+    ADDENDUM 425: `team_species_by_trainer` -- each trainer's species as the seed really fields them -- keeps a
+    padding member off a species its team already has, and off its fellow padding members.
+
     Returns `{"level_assignment", "new_dpkm_entries", "team_slot_plan"}` as
     `iso_patcher.write_enhanced_difficulty_patch` consumes it."""
-    candidate_species = [sid for sid, sp in species_pool.items() if not sp.is_legendary]
+    # ADDENDUM 435: Legendary Trainer Pokemon lets padding draw legendaries too.
+    candidate_species = [sid for sid, sp in species_pool.items() if allow_legendaries or not sp.is_legendary]
 
     level_assignment: dict[int, int] = {}
     new_dpkm_entries: list[dict] = []
@@ -204,10 +210,10 @@ def build_enhanced_difficulty_plan(
         # switch would still hand padded trainers members 33% above the team they joined.
         new_member_level = (_scaled_level(t["avg_level"], level_multiplier) if scale_levels
                             else _scaled_level(t["avg_level"], 1.0))
+        taken = set((team_species_by_trainer or {}).get(trainer_index, ()))
         for _ in range(add_count):
-            species_id = rng.choice(candidate_species)
-            # An ordinary slot has no cross-slot uniqueness invariant (unlike the shadow dedup) to protect.
-            species_id = resolve_natural_evolution(species_id, new_member_level, species_pool)
+            species_id = pick_distinct_species(rng, candidate_species, new_member_level, species_pool, taken)
+            taken.add(species_id)
             entry_pos = len(new_dpkm_entries)
             new_dpkm_entries.append({
                 "species": species_id,
@@ -221,3 +227,43 @@ def build_enhanced_difficulty_plan(
         "new_dpkm_entries": new_dpkm_entries,
         "team_slot_plan": team_slot_plan,
     }
+
+
+def settle_padding_members(plan: dict, species_pool: "dict[int, Species]",
+                           level_up_moves: "dict[int, list[tuple[int, int]]]", rng: random.Random,
+                           team_species_by_trainer: "dict[int, set[int]] | None" = None,
+                           allow_legendaries: bool = False) -> int:
+    """ADDENDUM 425: a padding member re-levelled after the plan was built (path scaling moves it onto the ramp)
+    kept the species chosen at its old level -- a level-45 Machop. Re-evolve each one at its final level, keep it
+    off species its team already fields, and re-pick its moves when the species changed. Returns how many changed."""
+    taken = {int(t): set(s) for t, s in (team_species_by_trainer or {}).items()}
+    candidates = [sid for sid, sp in species_pool.items() if allow_legendaries or not sp.is_legendary]
+    changed = 0
+    for entry, slot in zip(plan["new_dpkm_entries"], plan["team_slot_plan"]):
+        team = taken.setdefault(int(slot["trainer_index"]), set())
+        species = resolve_natural_evolution(entry["species"], entry["level"], species_pool, rng)
+        if species in team and candidates:
+            species = pick_distinct_species(rng, candidates, entry["level"], species_pool, team)
+        team.add(species)
+        if species != entry["species"]:
+            changed += 1
+        entry["species"] = species
+        # ADDENDUM 426: always re-picked -- the level may have moved even where the species did not, and a
+        # level-up move chosen for the old, higher level is one this Pokemon is now too young to know.
+        entry["moves"] = _moveset_for(species, entry["level"], level_up_moves, rng)
+    return changed
+
+
+def evolve_for_final_levels(member_species: "dict[int, int]", final_levels: "dict[int, int]",
+                            species_pool: "dict[int, Species]", rng: random.Random) -> "dict[int, int]":
+    """ADDENDUM 425: {dpkm_index: evolved species} for every member whose final level carries it past an evolution
+    -- for a table whose species are not randomized (Mt. Battle), so only its levels ever moved."""
+    out: "dict[int, int]" = {}
+    for dpkm_index, level in sorted(final_levels.items()):
+        species = member_species.get(dpkm_index)
+        if species is None:
+            continue
+        evolved = resolve_natural_evolution(species, level, species_pool, rng)
+        if evolved != species:
+            out[dpkm_index] = evolved
+    return out

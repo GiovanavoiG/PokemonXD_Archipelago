@@ -547,10 +547,10 @@ class TestTheRenames(unittest.TestCase):
             self.assertEqual(chest_regions.CHEST_TO_REGION[chest], "Pyrite Town (ONBS)",
                              "ONBS is reached only through Data ROM -> Poke Spots, which is the "
                              "'Data Rom AND all three Poke Spots' requirement the list states")
-            # ADDENDUM 246 (player: "Since it's onbs, it's behind data rom/id card"). The region already
-            # says this; the explicit gate is what keeps it true if the region is ever re-parented.
-            self.assertEqual(chest_regions.CHEST_ITEM_GATES.get(chest), ("Data ROM", "ID Card"),
-                             f"chest {chest} must name the ROM itself, not only inherit it")
+            # ADDENDUM 405 reversed ADDENDUM 246's explicit gate. Player: "Pyrite Town 2nd visit (ONBS raid) in
+            # fact is not gated behind Data Rom at all - this means it's only gated behind pyrite town and the
+            # pokespots." The region is the whole requirement now.
+            self.assertIsNone(chest_regions.CHEST_ITEM_GATES.get(chest), f"chest {chest}")
 
 
 if __name__ == "__main__":

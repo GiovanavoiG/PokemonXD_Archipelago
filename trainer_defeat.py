@@ -126,11 +126,28 @@ for _region, _name, _surname in TRAINER_DEFEAT_ROSTER:
 # surname -> ordered queue of location names sharing it (2-3 for a trainer fought more than once). Each
 # confirmed win pops the front of the matching queue. Every non-None name appears in exactly one queue; a
 # `None` slot (see GREEVIL_DECOY_BATTLE_SENTINEL) is consumed by a kill but never dispatched as a location.
+# ADDENDUM 409: cumulative mode's named rematches of trainers the player trimmed to one or two checks -- Eagun's
+# second fight and Miror B.'s third ("Make Miror B only have one rematch"; "Remove Eagun's rematch"). Kept in
+# the roster as the record of where the names came from; retired from the location table like any other.
+RULED_OUT_NAMED_LOCATIONS: "frozenset[str]" = frozenset({
+    "Defeat - Legendary Trainer Eagun",
+    "Defeat - Wanderer Miror B. (final)",
+})
+
 SURNAME_TO_LOCATION_QUEUE: dict[str, list[str | None]] = {}
 for _region, _name, _surname in TRAINER_DEFEAT_ROSTER:
+    if _name in RULED_OUT_NAMED_LOCATIONS:
+        continue
     SURNAME_TO_LOCATION_QUEUE.setdefault(_surname, []).append(_name)
 
 TRAINER_DEFEAT_LOCATION_NAMES: list[str] = [name for _region, name, _surname in TRAINER_DEFEAT_ROSTER]
+
+# ADDENDUM 414 -- player: "Cumulative mode should not have the 64 names and any checks - it should just be a
+# tally." Unique mode never created these (it replaces them), so no seed holds any of the 66 now: they leave the
+# location table (frozen ids stay inert, ADDENDUM 413's rule). The ROSTER stays -- it is data: `rules.py` reads it
+# for catch-area gating, and the client still dispatches against `SURNAME_TO_LOCATION_QUEUE` in cumulative mode
+# so the Greevil goal is still recognised; it simply sends nothing but the tally.
+RETIRED_CUMULATIVE_NAMED_LOCATIONS: "frozenset[str]" = frozenset(TRAINER_DEFEAT_LOCATION_NAMES)
 
 assert len(TRAINER_DEFEAT_LOCATION_NAMES) == len(set(TRAINER_DEFEAT_LOCATION_NAMES)), (
     "TRAINER_DEFEAT_ROSTER has a duplicate location name -- every entry must be byte-unique"

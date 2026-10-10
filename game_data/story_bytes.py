@@ -174,10 +174,13 @@ class StoryWindow:
 # BELONGING to an area (`observe()`'s mark banking, ADDENDUM 365's poison guard); it is not what the client
 # writes on arrival, so the paired AREA_FLOOR_RULES entry is what actually puts a revisit there.
 REGION_CEILING_OVERRIDES: "dict[str, int]" = {
-    # ADDENDUM 377. Derived was 0x19..0x23. But 0x23 ("first Shadow purified") is earned at Agate's own Relic
-    # Stone and 0x24 is the errand it hands you, so the village is still Agate's at 0x24 -- and 0x24 is the
-    # byte past Eagun, whose cutscene was replaying on a revisit.
-    "Agate Village": 0x24,
+    # ADDENDUM 377, raised to 0x25 by ADDENDUM 398 at the player's instruction. Derived was 0x19..0x23. But
+    # 0x23 ("first Shadow purified") is earned at Agate's own Relic Stone and 0x24 is the errand it hands you,
+    # so the village is still Agate's at 0x24 -- and 0x24 is the byte past Eagun, whose cutscene was replaying
+    # on a revisit. 0x25 carries that one rung further: it is Mt. Battle's own ceiling, so Agate's window now
+    # spans the whole of Mt. Battle's rather than just its floor. Both bytes clear ADDENDUM 350's
+    # `byte_is_reachable` fence (0x24 -> story value 290, 0x25 -> 300).
+    "Agate Village": 0x25,
     # ADDENDUM 379. Derived was 0x3E..0x40, one rung BELOW the 0x41 this client writes on every Phenac arrival
     # (`AREA_ENTRY_FLOOR_OVERRIDES`), so `observe()` could not bank our own arrival state as Phenac's. 0x40 is
     # also not a byte the game rests on at all -- the ladder runs 0x3E -> 0x3F -> 0x41.
@@ -340,10 +343,10 @@ class AreaFloorRule:
 
 
 # Rules deliberately gone, each because the ADDENDUM 247 fence below refuses a floor that is not above the
-# area's entry floor: Phenac City 0x41 and Cipher Key Lair 0x64/0x67 are `AREA_ENTRY_FLOOR_OVERRIDES` values now
-# (ADDENDUM 331, and ADDENDA 324/371 -- player, verbatim: "And make Cipher Key Lab's floor 0x64."), and SS Libra
-# 0x5A became the Scooter item (ADDENDUM 273), which no rule here can ask for. A condition nobody can trigger
-# reads as a guarantee.
+# area's entry floor: Phenac City 0x41 and Cipher Key Lair 0x64/0x67/0x66/0x65 are `AREA_ENTRY_FLOOR_OVERRIDES`
+# values now (ADDENDUM 331, and ADDENDA 324/371/410/411 -- player, verbatim:
+# "And make Cipher Key Lab's floor 0x64."), and SS Libra 0x5A became the Scooter item (ADDENDUM 273), which no
+# rule here can ask for. A condition nobody can trigger reads as a guarantee.
 AREA_FLOOR_RULES: "tuple[AreaFloorRule, ...]" = (
     # ADDENDUM 334/350. Keyed on the lab's own mark at 0x28, the byte `brother_enter` writes -- and our writes are
     # never banked as a mark (ADDENDUM 277), so a mark there means the first visit really happened.
@@ -480,9 +483,9 @@ LIVE_STORY_BYTE_BUMPS: "tuple[LiveStoryByteBump, ...]" = (
     # ADDENDUM 304. The memo handover sits at 0x10 (`KRANE_MEMO_STORY_THRESHOLDS`), judged against this area's
     # mark, which is never our own write -- so a skipped player reaches it without the mark witnessing it, and the
     # memos gate every region past Phenac City. `awards_locations` sends them at the instant of the skip.
+    # ADDENDUM 434 took the memos off: they are sent when the game's copy is taken out of the Bag, never by a bump.
     LiveStoryByteBump("Pokemon HQ Lab", 0x0D, 0x0F,
                       "the lab's 0x0D is a pass-through -- bumped to 0x0F on the spot (player, ADDENDUM 304)",
-                      awards_locations=("Story - Krane Memo 1", "Story - Krane Memo 2"),
                       gate=TRAVEL_SHUFFLE_ONLY),
     # ADDENDUM 293. 0x5B exists only to be climbed on the deck; 0x5D is the Snag Machine theft that
     # `opens_regions=("Cipher Key Lair (exterior)",)` hangs off, and the ladder then runs 0x5F -> 0x62 without
@@ -562,6 +565,30 @@ def highest_in_area(area: str, highest_by_region: "dict[str, int]") -> "int | No
     return max(seen) if seen else None
 
 
+def area_of(region_name: str) -> str:
+    """The AREA_GROUPS key whose place contains `region_name`, or the region itself when no group names it."""
+    for area, members in AREA_GROUPS.items():
+        if region_name in members:
+            return area
+    return region_name
+
+
+def area_progress(region_name: str, highest_by_region: "dict[str, int]") -> "int | None":
+    """ADDENDUM 405: how far the story has gone IN THE AREA that holds `region_name`, or None if nothing is known.
+
+    Two inputs, both about that one area and nothing else. The highest byte the player has earned standing
+    anywhere in it (`highest_in_area`, the per-area memory's marks), and the floor a satisfied `AreaFloorRule`
+    now imposes on any of its members -- the byte the client will enter it at from now on, which is the area's
+    floor whether or not the player has walked back in since. The static first-visit floor is deliberately NOT
+    an input: it is a fact about the map, not about anything the player has done, and Phenac's (0x41) already
+    equals its own cap, so it would release Phenac's fights before the player ever saw the town."""
+    area = area_of(region_name)
+    candidates = [highest_in_area(area, highest_by_region)]
+    candidates += [dynamic_region_floor(member, highest_by_region) for member in AREA_GROUPS.get(area, (area,))]
+    known = [value for value in candidates if value is not None]
+    return max(known) if known else None
+
+
 def satisfied_area_floor_rules(highest_by_region: "dict[str, int]") -> "list[AreaFloorRule]":
     """Every rule whose conditions are all met by the marks recorded so far."""
     out: "list[AreaFloorRule]" = []
@@ -611,14 +638,29 @@ def region_floor(region_name: str) -> "int | None":
 # the first tier -- 15 of 17 destinations unchanged. `AREA_ENTRY_FLOOR_OVERRIDES` is the other case, an icon
 # entering at a LATER tier; a per-area override rather than reordering AREA_GROUPS, which the chain edges use.
 AREA_ENTRY_FLOOR_OVERRIDES: "dict[str, int]" = {
-    # ADDENDUM 371, was 0x64 (ADDENDUM 324, player: "And make Cipher Key Lab's floor 0x64." -- their spelling,
-    # left verbatim). 0x67 is the `before` of `0x67 -> 0x69`, so arriving there puts the
-    # player at the doorway and walking in fires the transition -- three rungs above 0x64, so the Lair can never
-    # ask for the Snagem chain. The cost: 0x65 is "Zook beaten at the Lair", so a first visit is staged past that
-    # fight and `Defeat - Zook #2` (trainer 147) cannot be relied on. Already fenced into
-    # `missable_trainers.FILLER_ONLY_TRAINER_INDICES` (ADDENDUM 188), like Biden #2 (148) beside him, and
-    # `test_addendum_371` pins that raising this floor and un-fencing Zook cannot both be true.
-    "Cipher Key Lair": 0x67,
+    # ADDENDUM 411, was 0x66 (ADDENDUM 410), 0x67 (ADDENDUM 371), 0x64 (ADDENDUM 324, player:
+    # "And make Cipher Key Lab's floor 0x64." -- their spelling, left verbatim).
+    # Steps are the STORY VARIABLE's (var964, 12 bits, multiples of ten -- see the block above `STORY_VARIABLE_ID`),
+    # never the byte's: ADDENDUM 410, "reduce key lair's default floor by one step, remembering that it's more
+    # than just a byte", took 830 -> 820; ADDENDUM 411, "Drop that 820 another step so that it's at Zook, so we
+    # can hopefully fight him there", takes 820 -> 810. 810 presents as 0x65, the `after` of `0x64 -> 0x65`
+    # ("Zook defeated at the Key Lair after Snagem"), and is written as the whole value through
+    # `story_value_for_byte`. Still above 0x64 (Gonzap beaten, the Lair open), so the Lair still never asks for
+    # the Snagem chain. Whether Zook stands at 810 is what the player is testing; 800 (0x64) is the rung before
+    # his fight if he does not. `Defeat - Zook #2` (trainer 147) stays in
+    # `missable_trainers.FILLER_ONLY_TRAINER_INDICES` (ADDENDUM 188) either way, like Biden #2 (148) beside him.
+    #
+    # ADDENDUM 438, player: "Raise the floor for Cipher Key Lair by ONE step." 810 -> 820, presenting as 0x66 -- the
+    # passthrough of `0x65 -> 0x67`, ADDENDUM 410's value again. One story step past Zook's rung, so an arrival here
+    # can be past his Key Lair fight; `missable_autosend.FLOOR_SKIPPED_CHECKS` sends his (Any) once the Lair moves
+    # on, so his one check (ADDENDUM 436) cannot be stranded by the floor.
+    #
+    # ADDENDUM 439, player: "I lied. put it to 64, so drop it one (two after the shift)." 820 -> 800, presenting as
+    # 0x64 -- ADDENDUM 324's original value: "Gonzap defeated", the Lair open, and the `before` of `0x64 -> 0x65`
+    # ("Zook defeated at the Key Lair"), so an arrival stages the courtyard with Zook's fight still ahead of it.
+    # Never below 0x64, so the Lair still never asks for the Snagem chain (ADDENDUM 332). A return visit after the
+    # game moved the Lair on enters at the Lair's own mark, which `AreaStoryByteMemory.target_for` maxes in.
+    "Cipher Key Lair": 0x64,
     # ADDENDUM 331. The window floor 0x3E is the locked first visit, and the only thing that used to raise the
     # icon above it needed a `Realgam Tower` mark a travel-shuffle player may never earn. The UNLOCK floor stays
     # at 0x3E (`area_unlock_floor` does not read this table), so `Unlock - Phenac City` still credits at the byte

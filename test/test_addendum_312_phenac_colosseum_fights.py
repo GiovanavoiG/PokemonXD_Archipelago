@@ -48,7 +48,16 @@ class TestUnique(_Probe, PokemonXDTestBase):
     options = {"key_item_shuffle": True}
 
 
-class TestCumulative(_Probe, PokemonXDTestBase):
+class _TallyOnly:
+    """ADDENDUM 414: "Cumulative mode should not have the 64 names and any checks - it should just be a tally."
+    There are no Snattle or Smarton checks to gate in cumulative mode -- only the `Defeat N Trainers` tally."""
+
+    def test_no_named_fights_exist(self) -> None:
+        self.assertEqual([], [l.name for l in self.multiworld.get_locations(self.player)
+                              if any(k in l.name for k in _FIGHTS)])
+
+
+class TestCumulative(_TallyOnly, PokemonXDTestBase):
     options = {"key_item_shuffle": True, "trainer_defeat_mode": 0}
 
 
@@ -56,5 +65,5 @@ class TestUniqueTravel(_Probe, PokemonXDTestBase):
     options = {"key_item_shuffle": True, "randomize_travel_locations": True}
 
 
-class TestCumulativeTravel(_Probe, PokemonXDTestBase):
+class TestCumulativeTravel(_TallyOnly, PokemonXDTestBase):
     options = {"key_item_shuffle": True, "randomize_travel_locations": True, "trainer_defeat_mode": 0}

@@ -115,8 +115,12 @@ class TestSphereTierOrder(unittest.TestCase):
         highest = max(self.tiered.values())
         reversed_order = sphere_tier_order(
             {r: highest - i for r, i in self.tiered.items()}, self.regions)
+        # ADDENDUM 455: Citadark is the capstone and stays last; the other tiers reverse among themselves.
         for region, index in self.tiered.items():
-            self.assertEqual(reversed_order[region], highest - index)
+            if region == path.CITADARK_REGION:
+                self.assertEqual(highest, reversed_order[region])
+            else:
+                self.assertEqual(reversed_order[region], highest - 1 - index)
         for region in self.fixed:
             if region in path.PATH_EXCLUDED_REGIONS:
                 self.assertNotIn(region, reversed_order, "ADDENDUM 366: excluded here too")
@@ -193,7 +197,7 @@ class TestTheOrderingIsThreadedEverywhere(unittest.TestCase):
 
     def test_generate_output_passes_it_to_all_four(self) -> None:
         start = SOURCE.index("if path_scale_levels:")
-        body = SOURCE[start:start + 4000]
+        body = SOURCE[start:start + 4600]
         self.assertIn("tier_by_region=_tier_order", body)
         self.assertEqual(body.count("tier_by_region=_tier_order"), 4,
                          "every one of the four call sites must take this seed's ordering")

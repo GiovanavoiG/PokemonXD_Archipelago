@@ -98,7 +98,7 @@ class TestTheExclusion(unittest.TestCase):
         rather than the spacing because the curve is stored as endpoints -- see `THE CURVE` in the module."""
         regions = _regions()
         known = {r for r in regions.values() if r}
-        self.assertEqual(len(pls.path_tiers(known)), 13)
+        self.assertEqual(len(pls.path_tiers(known)), 12) # ADDENDUM 407: Pyrite visits 1 and 2 are one rung
 
     def test_the_seeds_own_sphere_ordering_excludes_it_too(self) -> None:
         """`sphere_tier_order` feeds `tier_by_region`, which the builders read instead of `tier_index`. If the

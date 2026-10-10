@@ -237,12 +237,12 @@ class TestBothHalvesAreReachedAndInTheRightOrder(unittest.TestCase):
 
     def test_the_option_drives_the_stats_table_and_the_shadow_pass(self) -> None:
         self.assertIn("rel_format.apply_catch_rate", self.source)
-        self.assertIn("write_max_catch_rate_shadow_patch(output_path)", self.source)
+        self.assertIn("write_max_catch_rate_shadow_patch(output_path, excluded_trainers=", self.source)
 
     def test_the_shadow_pass_runs_after_everything_that_can_create_a_shadow(self) -> None:
         """Ordering IS the coverage mechanism -- see this module's docstring. If the call moves above either
         of these, Shadow Pokemon the seed invented silently keep their vanilla catch rate."""
-        call = self.source.index("write_max_catch_rate_shadow_patch(output_path)")
+        call = self.source.index("write_max_catch_rate_shadow_patch(output_path, excluded_trainers=")
         expansion = self.source.index("shadow_result = write_shadow_multi_trainer_patch(output_path")
         difficulty = self.source.index("ed_result = write_enhanced_difficulty_patch(output_path")
         self.assertLess(expansion, call)
@@ -262,16 +262,19 @@ class TestBothHalvesAreReachedAndInTheRightOrder(unittest.TestCase):
 
 class TestTheOption(unittest.TestCase):
     def test_it_exists_and_is_off_by_default(self) -> None:
-        from ..options import MaxCatchRate, PokemonXDOptions
-        self.assertEqual(0, MaxCatchRate.default)
-        self.assertIn("max_catch_rate", PokemonXDOptions.__annotations__)
+        """ADDENDUM 448: Max Catch Rate is Catch Rate Scaling's `guaranteed_catches`; off by default like before."""
+        from ..options import CatchRateScaling, PokemonXDOptions
+        self.assertEqual(CatchRateScaling.option_off, CatchRateScaling.default)
+        self.assertEqual(2, CatchRateScaling.option_guaranteed_catches)
+        self.assertNotIn("max_catch_rate", PokemonXDOptions.__annotations__)
 
     def test_the_option_text_still_says_what_the_data_alone_delivers(self) -> None:
         """ADDENDUM 305 gave this option a second half (an instruction patch) that DOES deliver certainty, so
         the old "not literally 100%" wording is gone. What must survive is the honest account of the data
         half on its own, because that is what a player gets when the instruction cannot be applied."""
-        from ..options import MaxCatchRate
-        text = " ".join((MaxCatchRate.__doc__ or "").split())
+        from ..options import CatchRateScaling
+        text = " ".join((CatchRateScaling.__doc__ or "").split())
+        self.assertIn("Guaranteed Catches: every catch succeeds", text)   # ADDENDUM 448
         # RETARGETED 2026-09-26: the player rewrote this option's text in their own words (see
         # USER_FACING_TEXT.md's section A). The docstring assertions below went with it. The measured fact is
         # unchanged and still tested against the CODE in this file; what is no longer pinned is that the
@@ -286,7 +289,7 @@ class TestTheOption(unittest.TestCase):
         source = open(os.path.join(os.path.dirname(iso_patcher.__file__), "..", "__init__.py"),
                       encoding="utf-8").read()
         self.assertIn('"max_catch_rate": False,', source)
-        self.assertIn('seed_data["max_catch_rate"] = bool(self.options.max_catch_rate)', source)
+        self.assertIn('seed_data["max_catch_rate"] = bool(catch_guaranteed)', source)   # 448
 
     def test_the_patcher_treats_a_seed_without_the_key_as_off(self) -> None:
         """Every seed generated before this addendum has no such key at all."""

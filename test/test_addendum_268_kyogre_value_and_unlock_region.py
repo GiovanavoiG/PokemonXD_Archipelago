@@ -187,7 +187,10 @@ class TestTheClientGate(unittest.TestCase):
         return source[start:start + len(header) + following.start()]
 
     def test_the_credit_consults_it(self) -> None:
-        self.assertIn("if not _unlock_is_earned(ctx, name, threshold):", self.source)
+        # ADDENDUM 434: the credit is the game's own travel bits now, not a story mark; the mark helper stays
+        # for `!unlocks`-era callers but nothing sends a check off it.
+        self.assertNotIn("if not _unlock_is_earned(ctx, name, threshold):", self.source)
+        self.assertIn("travel_locations.revealed_by_game(record_base, name, name in received)", self.source)
         # Prose references to the retired name survive on purpose (the addendum trail). A definition or a
         # call does not.
         self.assertNotIn("def _story_byte_was_earned_here", self.source)

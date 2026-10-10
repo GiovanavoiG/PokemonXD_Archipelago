@@ -148,7 +148,7 @@ class TestWriteTravelLocationBit(unittest.TestCase):
         self.assertNotIn(self.record_base + 0x0A, self.mem.data)
 
     def test_read_travel_location_unlocked_is_false_before_any_write(self) -> None:
-        self.assertFalse(travel_locations.read_travel_location_unlocked(self.record_base, "Orre Colosseum"))
+        self.assertFalse(travel_locations.read_travel_location_unlocked(self.record_base, "SS Libra"))
 
     def test_outskirt_stands_old_partial_access_combo_alone_does_not_read_as_full_icon_unlocked(self) -> None:
         # Outskirt Stand's full-icon state needs 0x02|0x20 (dropping the partial-only 0x10 bit, ADDENDUM 90) --

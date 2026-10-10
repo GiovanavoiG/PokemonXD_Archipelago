@@ -125,12 +125,10 @@ class TestTheMemoWitness(unittest.TestCase):
         self.assertEqual([1, 2, 3, 4, 5], sorted(earned))
 
     def test_the_client_falls_back_to_the_live_byte_without_travel_shuffle(self) -> None:
-        """With travel randomization off the area memory never runs, so there are no marks -- and the live
-        byte is trustworthy there precisely because nothing writes it. Getting this backwards would strand
-        five progression-gating checks."""
+        """SUPERSEDED by ADDENDUM 434: the memos are sent when the game's copy is taken out of the Bag, in both
+        travel modes, so no story byte -- mark or live -- is consulted any more. Pinned the other way round."""
         import pathlib
 
         source = (pathlib.Path(__file__).resolve().parent.parent / "Client.py").read_text(encoding="utf-8")
-        self.assertIn("def _memo_witness", source)
-        self.assertIn("if not ctx.randomize_travel_locations:\n        return ctx.story_tracker.current",
-                      source)
+        self.assertNotIn("def _memo_witness", source)
+        self.assertIn("ctx.krane_memo_tracker.poll(ctx.block_base)", source)

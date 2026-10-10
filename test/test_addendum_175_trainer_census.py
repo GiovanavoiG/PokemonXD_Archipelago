@@ -51,11 +51,16 @@ class TestTheCensusData(unittest.TestCase):
             self.assertIn(name, items.ITEM_TABLE, name)
 
     def test_the_counts_are_what_the_player_returned(self) -> None:
-        self.assertEqual(len(trainer_placements.PLACED_INDICES), 195)
-        self.assertEqual(len(trainer_placements.FILLER_ONLY_INDICES), 37)
+        # ADDENDUM 409: "His 1 and 2 can be in either outskirt stand or cave spot interchangeably" -- Miror B. #2
+        # (index 3) is placed now, so 196 placed and 36 region-less.
+        self.assertEqual(len(trainer_placements.PLACED_INDICES), 196)
+        self.assertEqual(len(trainer_placements.FILLER_ONLY_INDICES), 36)
+        self.assertIn(3, trainer_placements.PLACED_INDICES)
         with_items = [i for i, p in trainer_placements.PLACEMENTS.items() if p.required_items]
-        # 38 from the player's census, +1 for ADDENDUM 312 (row 128, Smarton #1: Music Disc + Mayor's Note).
-        self.assertEqual(len(with_items), 39)
+        # 38 from the player's census, +1 for ADDENDUM 312 (row 128, Smarton #1: Music Disc + Mayor's Note),
+        # -11 for ADDENDUM 405 (the ONBS raid's fights no longer name the Data ROM: "only gated behind pyrite town
+        # and the pokespots").
+        self.assertEqual(len(with_items), 28)
         self.assertEqual(trainer_placements.PLACEMENTS[128].required_items, ("Music Disc", "Mayor's Note"))
 
 
@@ -69,7 +74,10 @@ class TestNAMeansFiller(unittest.TestCase):
         5th and 6th occurrences, the third fights of Cida/Clerr/Belish/Dosk/Hebon), none of which the missable
         list covers. Pinned as disjoint so nobody "simplifies" one set into the other."""
         na = set(trainer_placements.FILLER_ONLY_INDICES) - {1}   # 1 is Hordel, blank rather than N/A
-        self.assertEqual(len(na), 36)
+        # ADDENDUM 409: Miror B. #2 (index 3) left the N/A population -- the player placed it ("outskirt stand or
+        # cave spot interchangeably") -- so 35 remain.
+        self.assertEqual(len(na), 35)
+        self.assertNotIn(3, na)
         self.assertEqual(na & set(missable_trainers.MISSABLE_TRAINER_INDICES), set())
 
     def test_they_are_actually_excluded_and_not_just_labelled(self) -> None:
@@ -89,9 +97,20 @@ class TestNAMeansFiller(unittest.TestCase):
     def test_unknown_region_rows_still_exist_somewhere_reachable(self) -> None:
         """AP requires every location to be reachable so filler can be placed on it. "No region known" is not
         a reason for a location to vanish -- it is a reason for nothing to depend on it."""
+        # ADDENDUM 401: 23 of the 37 were numbered fights of missable trainers, which are no longer locations
+        # in any seed. The rest are still parked here, still reachable.
+        # ADDENDUM 409: "Hordel is not a check, so remove him" plus the rematch trim removed every region-less row
+        # that 406 had brought back, and Miror B. #2 got a region. Nothing is parked in the bucket any more, and
+        # no live location sits in a region the census could not name.
         bucket = locations.LOCATIONS_BY_REGION["Unique Trainer Defeats"]
-        self.assertEqual(len(bucket), 37)
-        self.assertEqual(set(bucket), locations._UNPLACED_TRAINER_LOCATION_NAMES)
+        expected = locations._UNPLACED_TRAINER_LOCATION_NAMES - trainer_roster.REMOVED_DEFEAT_LOCATIONS
+        self.assertEqual(expected, set())
+        self.assertEqual(bucket, [])
+        for name in locations._UNPLACED_TRAINER_LOCATION_NAMES:
+            self.assertIn(name, trainer_roster.RULED_OUT_DEFEAT_LOCATIONS, name)
+            self.assertNotIn(name, locations.LOCATION_TABLE, name)
+        for name, data in locations.LOCATION_TABLE.items():
+            self.assertNotEqual(data.region, "Unique Trainer Defeats", name)
 
 
 class TestTheLocationsMoved(unittest.TestCase):
@@ -107,6 +126,13 @@ class TestTheLocationsMoved(unittest.TestCase):
         changes reachability and nothing else -- the same guarantee ADDENDUM 169 relied on."""
         for index in (1, 2, 106, 147, 232):
             name = trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[index])
+            # ADDENDUM 409: Hordel (1) as well -- "Hordel is not a check, so remove him" -- same inert frozen id.
+            if name in trainer_roster.REMOVED_DEFEAT_LOCATIONS:
+                # ADDENDUM 401: Equin #1 (106) is removed. Its frozen id stays behind, inert, so a future
+                # reinstatement gets the SAME id back rather than a new one -- the guarantee 242 exists for.
+                self.assertIn(name, locations._FROZEN_LOCATION_OFFSETS, name)
+                self.assertNotIn(name, locations.LOCATION_TABLE, name)
+                continue
             self.assertEqual(locations.LOCATION_TABLE[name].id_offset,
                              locations._FROZEN_LOCATION_OFFSETS[name], name)
 
@@ -117,8 +143,14 @@ class TestTheLocationsMoved(unittest.TestCase):
         for name in locations._TRAINER_REGION_BY_LOCATION:
             # ADDENDUM 362: a name the unique-team rule retired keeps its census region -- that is evidence
             # about a real fight and does not stop being true -- but it is no longer a location.
-            if name not in trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS:
+            # ADDENDUM 401: and the same for the removed missable fights.
+            # ADDENDUM 409: and for the ruled-out rematches ("Remove all of cida,clerr,belish,dosk, and hebon's
+            # rematches", ...), which keep their census region but are not locations.
+            if (name not in trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS
+                    and name not in trainer_roster.REMOVED_DEFEAT_LOCATIONS):
                 self.assertIn(name, locations.LOCATION_TABLE, name)
+            else:
+                self.assertNotIn(name, locations.LOCATION_TABLE, name)
             self.assertFalse(name.startswith("Defeat - Defeat"), name)
 
 
@@ -167,8 +199,10 @@ class TestTheItemGates(PokemonXDTestBase):
     def test_a_gated_trainer_needs_its_item_on_top_of_its_region(self) -> None:
         """Both halves, which is the whole instruction. Probed with the full key-item chain collected so the
         region is definitely open -- what remains shut can only be the item gate."""
+        # ADDENDUM 405 took the bare ('Data ROM',) rows away (all eleven were the ONBS raid); Lovrina #1 in the
+        # Cipher Lab still names it, alongside the ID Card that ships in the same item.
         gated = [i for i, p in trainer_placements.PLACEMENTS.items()
-                 if p.required_items == ("Data ROM",) and p.region is not None]
+                 if "Data ROM" in p.required_items and p.region is not None]
         self.assertTrue(gated, "expected at least one Data ROM-gated trainer in the census")
         index = gated[0]
         name = self._location(index)
@@ -221,6 +255,8 @@ class TestTheElevatorKeyIsFilteredNotRequired(PokemonXDTestBase):
             if trainer_placements.PLACEMENTS[index].region is None:
                 continue
             name = trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[index])
+            if name in trainer_roster.REMOVED_MISSABLE_DEFEAT_LOCATIONS:
+                continue        # ADDENDUM 401: Equin #1 is no longer a location to reach
             self.collect_key_item_chain()
             self.assertTrue(self.can_reach_location(name), name)
 

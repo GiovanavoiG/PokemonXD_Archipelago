@@ -28,7 +28,7 @@ class TestPurificationFloor(unittest.TestCase):
 
         order = list(region_module.REGION_NAMES)
         floor_at = order.index(shadow_regions.PURIFICATION_FLOOR_REGION)
-        for region in shadow_regions.purification_weights(locations.PURIFICATION_LOCATION_COUNT):
+        for region in shadow_regions.purification_weights(locations.VANILLA_SHADOW_COUNT):
             self.assertGreaterEqual(
                 order.index(region), floor_at,
                 f"{region} is earlier than {shadow_regions.PURIFICATION_FLOOR_REGION}, so a purification "
@@ -38,20 +38,20 @@ class TestPurificationFloor(unittest.TestCase):
     def test_the_always_open_regions_no_longer_carry_any_of_the_ladder(self) -> None:
         """The exact shape of ADDENDUM 182's F2: thresholds 1-7 were filed under Pokemon HQ Lab and Gateon
         Port, which are open from the start."""
-        weights = shadow_regions.purification_weights(locations.PURIFICATION_LOCATION_COUNT)
+        weights = shadow_regions.purification_weights(locations.VANILLA_SHADOW_COUNT)
         for region in story_bytes.ALWAYS_OPEN_REGIONS:
             self.assertNotIn(region, weights)
 
     def test_the_weights_still_sum_to_the_ladder_length(self) -> None:
         """rules.py asserts this at import; clamping regions must move thresholds, never drop them."""
-        weights = shadow_regions.purification_weights(locations.PURIFICATION_LOCATION_COUNT)
-        self.assertEqual(sum(weights.values()), locations.PURIFICATION_LOCATION_COUNT)
+        weights = shadow_regions.purification_weights(locations.VANILLA_SHADOW_COUNT)
+        self.assertEqual(sum(weights.values()), locations.VANILLA_SHADOW_COUNT)
         self.assertEqual(sum(rules._PURIFICATION_WEIGHT_BY_REGION.values()),
-                         locations.PURIFICATION_LOCATION_COUNT)
+                         locations.VANILLA_SHADOW_COUNT)
 
 
 class TestPurificationFloorInAWorld(PokemonXDTestBase):
-    options = {"progression_locations": 2, "purification_progression_cap": 15}
+    options = {"purification_progression_cap": 15}
 
     def test_the_first_threshold_is_closed_until_agate_village_is_reachable(self) -> None:
         """The seed that motivated this put the Machine Part on 'Purify 2 Shadow Pokemon' -- and the Machine
@@ -184,7 +184,7 @@ class TestSecondVisitFloorRules(unittest.TestCase):
         to anyone who walks Gateon far enough) fails loudly."""
         self.assertIsNone(story_bytes.dynamic_region_floor("SS Libra", {"Gateon Port": 0x5A}))
 
-    def test_the_key_lair_has_no_rule_at_all_and_enters_at_0x67(self) -> None:
+    def test_the_key_lair_has_no_rule_at_all_and_enters_at_its_floor(self) -> None:
         """RETARGETED TWICE. ADDENDUM 324, player: "And make Cipher Key Lair's floor 0x64" -- which deleted the
         conditional 0x64 rule this originally asserted. ADDENDUM 371, player: "make the key lair floor 0x67 by
         default" -- which deleted ADDENDUM 364's conditional 0x67 rule the same way.
@@ -194,7 +194,8 @@ class TestSecondVisitFloorRules(unittest.TestCase):
         Lair can be entered BELOW its floor again, and this fails loudly if one comes back."""
         marks = {"Cipher Key Lair (exterior)": 0x5D, "Snagem Hideout": 0x63, "Cipher Key Lair": 0x65}
         self.assertIsNone(story_bytes.dynamic_region_floor("Cipher Key Lair", marks))
-        self.assertEqual(0x67, story_bytes.area_entry_floor("Cipher Key Lair"))
+        # ADDENDUM 410: one story step lower, 830 -> 820 ("reduce key lair's default floor by one step").
+        self.assertEqual(0x64, story_bytes.area_entry_floor("Cipher Key Lair"))   # ADDENDUM 439: 800
 
     def test_every_rule_names_regions_and_areas_that_exist(self) -> None:
         from .. import regions as region_module

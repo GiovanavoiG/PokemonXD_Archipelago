@@ -334,6 +334,9 @@ class TestShopRandomizationOptionOn(PokemonXDTestBase):
 
         all_names = {loc.name for loc in self.multiworld.get_locations(self.player)}
         for name in locations.SHOP_ITEM_LOCATIONS:
+            if name == locations.ability_patch_shop_location_name():
+                self.assertNotIn(name, all_names)   # ADDENDUM 453: the Ability Patch's line, in every seed
+                continue
             self.assertIn(name, all_names)
         self.assertEqual(len(locations.SHOP_ITEM_LOCATIONS),
                          sum(shop.slot_count for shop in shops.CONFIRMED_SHOPS))

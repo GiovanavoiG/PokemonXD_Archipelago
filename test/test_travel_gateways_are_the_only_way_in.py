@@ -139,12 +139,12 @@ class TestTravelGatewaysAreTheOnlyWayIn(PokemonXDTestBase):
             if item.advancement and item.name.startswith(travel_locations.TRAVEL_UNLOCK_ITEM_PREFIX):
                 state.collect(item, True)
         state.sweep_for_advancements()
+        # ADDENDUM 406: neither carries the ROM any more, so each opens on its own unlock. Player: "Poke spots do
+        # NOT need the data rom. Also, Cipher Lab is not gated by Data Rom - just Lovrina, her defeat item, and
+        # chest 23." The mechanism this test was written for -- a suppressed edge's ITEM moving to the gateway --
+        # is still exercised by the Music Disc / Mayor's Note tiers elsewhere.
         for region in ("Cipher Lab", "Poke Spots"):
-            self.assertFalse(
-                state.can_reach(region, player=self.player),
-                f"{region} opened on its travel unlock alone -- the Data ROM requirement was dropped with the "
-                f"suppressed chain edge instead of moving to the gateway",
-            )
+            self.assertTrue(state.can_reach(region, player=self.player), region)
         self.assertTrue(
             state.can_reach("Pyrite Town", player=self.player),
             "plain Pyrite Town has no Data ROM requirement any more, so its own travel unlock must be enough",

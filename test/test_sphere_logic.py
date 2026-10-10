@@ -13,6 +13,7 @@ really needs, rather than a memo count.
 from __future__ import annotations
 
 from . import PokemonXDTestBase
+from .. import items
 from .. import rules
 from ..locations import trainer_defeat_count_location_name
 from ._chest_samples import CHEST_SAMPLES_IN_GRAPH_ORDER, DEEPEST_CHEST, EARLIEST_CHEST
@@ -146,118 +147,53 @@ class TestSphereLogicDefaultOptions(PokemonXDTestBase):
         self.assertTrue(self.can_reach_location("Citadark Isle Chest 2"))
         self.assertTrue(self.can_reach_location(DEEPEST_CHEST))
 
+    # REWRITTEN BY ADDENDUM 432. Both tests below asserted the retired LADDER: threshold N open as soon as the one
+    # region holding the Nth trainer of a story-order list was. "Defeat N Trainers" is now a tally of the fights
+    # this state can really reach, so the property they protect is stated against that tally instead.
+    def _available_trainers(self) -> int:
+        total = 0
+        for ways, count in rules._trainer_count_groups(self.multiworld.worlds[self.player]):
+            if any(all(self.multiworld.state.can_reach(r, player=self.player) for r in regions)
+                   and all(self.multiworld.state.has(i, self.player) for i in held) for regions, held in ways):
+                total += count
+        return total
+
+    def _assert_tally_boundary(self) -> int:
+        n = self._available_trainers()
+        if 1 <= n <= TRAINER_CEILING:
+            self.assertTrue(self.can_reach_location(trainer_defeat_count_location_name(n)), n)
+        if n + 1 <= TRAINER_CEILING:
+            self.assertFalse(self.can_reach_location(trainer_defeat_count_location_name(n + 1)), n)
+        return n
+
     def test_the_top_trainer_threshold_stops_short_of_the_final_sphere(self) -> None:
-        """A real consequence of ADDENDUM 161's 114 ceiling, asserted so it is a decision rather than a
-        surprise: the trainer ladder no longer reaches the final sphere.
-
-        RETARGETED 2026-09-13 (ADDENDUM 168), was "lands in the Mt. Battle bucket not Citadark". Mt. Battle no
-        longer sits at the top of the trainer table -- ADDENDUM 168 moved it off Agate Village (the story bytes
-        put it at 0x23 -> 0x24), so in sphere order its 92-threshold block now starts just past Agate Village's
-        own capacity rather than at 114. (ADDENDUM 169: that capacity went 4 -> 10 when the unvisited Relic
-        Forest weights folded into Agate, so the block runs 11-102 and the 114 ceiling lands in Pyrite Town
-        rather than Realgam Tower. The assertions below name neither region, so they did not have to move.)
-        The surviving, still-load-bearing half of the original
-        assertion is the contrast with chests: the trainer ceiling must NOT require the last region, while the
-        top chest threshold must, so "Citadark Isle is the last possible sphere" still holds for the category
-        that can express it.
-        """
+        """The highest count the option can ask for opens before Citadark Isle does, while the deepest chest still
+        waits for the whole chain."""
         top_trainer = trainer_defeat_count_location_name(TRAINER_CEILING)
-        ceiling_region = rules._region_for_sphere_count(_TRAINER_THRESHOLDS, TRAINER_CEILING)
-        self.assertNotEqual(ceiling_region, "Citadark Isle")
-        self.assertLess(rules._SPHERE_REGION_ORDER.index(ceiling_region),
-                        rules._SPHERE_REGION_ORDER.index("Citadark Isle"))
-
-        # Two links in (Machine Part + Data ROM) is enough for the whole Agate -> Realgam stretch, so the top of
-        # the trainer ladder opens there -- while the top chest threshold still waits for the full chain.
-        self.collect_key_item_chain(2)
-        self.assertTrue(self.can_reach_location(top_trainer))
+        opened_at = None
+        for links in range(1, len(self.KEY_ITEM_CHAIN) + 1):
+            self.collect_by_name(self.KEY_ITEM_CHAIN[links - 1])
+            self._assert_tally_boundary()
+            if self.can_reach_location(top_trainer):
+                opened_at = links
+                break
+        self.assertIsNotNone(opened_at)
+        self.assertFalse(self.multiworld.state.can_reach("Citadark Isle", player=self.player))
         self.assertFalse(self.can_reach_location(DEEPEST_CHEST))
 
     def test_a_count_past_agate_villages_capacity_requires_mt_battle(self) -> None:
-        """RETARGETED 2026-09-13 (ADDENDUM 168), was "a count past Cipher Key Lair's capacity requires
-        Mt. Battle"; RETARGETED again the same day (ADDENDUM 169); and RETARGETED once more the same day, for
-        ADDENDUM 169's own partial reversal.
-
-        SAME-DAY REVERSAL. ADDENDUM 169 briefly made Agate Village unconditionally open in every mode; the
-        player corrected it ("Leave Agate, Kaminko and Gateon locked by default if travel randomization is
-        off. Let them unlock normally."), so with travel randomization off the Machine Part gates Agate Village
-        again and Mt. Battle INHERITS it through Agate rather than carrying a gate of its own.
-
-        The shape this test was written to protect is the sphere-logic boundary: the first threshold past
-        region X's cumulative capacity must be the first that needs the NEXT region in sphere order, and that
-        next region must really cost something. The reversal splits that into two halves, and both are
-        asserted here rather than dropping the half that got weaker:
-
-          * the Agate/Mt. Battle boundary is still the boundary in the THRESHOLD TABLE, and both sides are
-            still gated (they are simply gated by the same item now -- the Machine Part opens Agate, and
-            Mt. Battle hangs off Agate with no requirement of its own). Asserting the closed-then-open
-            transition around it still catches Agate silently re-opening or the Machine Part being demoted to
-            flavour, which is what the ADDENDUM 169 version was watching for.
-          * the ITEM-SEPARATED boundary -- one region's capacity open while the very next count is not --
-            moved up the table to Mt. Battle's capacity vs Pyrite Town, which needs the Data ROM. That is the
-            discriminating property, so it is exercised explicitly instead of being lost.
-
-        Every boundary is read out of the live threshold tables rather than copied out of them -- hardcoding
-        "4 and 5" is precisely what went stale here the first time.
-        """
-        capacity_of = dict((region, total) for total, region in _TRAINER_THRESHOLDS)
-
-        agate_capacity = capacity_of["Agate Village"]
-        self.assertEqual(rules._region_for_sphere_count(_TRAINER_THRESHOLDS, agate_capacity), "Agate Village")
-        self.assertEqual(rules._region_for_sphere_count(_TRAINER_THRESHOLDS, agate_capacity + 1), "Mt. Battle")
-        self.assertLessEqual(agate_capacity + 1, TRAINER_CEILING,
-                             "the probe past Agate's capacity must be a location this seed really created")
-
-        at_capacity = trainer_defeat_count_location_name(agate_capacity)
-        past_capacity = trainer_defeat_count_location_name(agate_capacity + 1)
-
-        # Nothing collected: Agate is behind the Machine Part again, so BOTH sides of this boundary are shut.
+        """Each key item opens exactly as many counts as the fights it makes reachable: nothing collected opens
+        none past what is free, the Machine Part opens more, and the Data ROM more again."""
         self.assertFalse(self.multiworld.state.can_reach("Agate Village", player=self.player))
-        self.assertFalse(self.multiworld.state.can_reach("Mt. Battle", player=self.player))
-        self.assertFalse(self.can_reach_location("Agate Bridge Chest"))
-        self.assertFalse(self.can_reach_location(at_capacity))
-        self.assertFalse(self.can_reach_location(past_capacity))
-
-        self.collect_key_item_chain(1)  # the Machine Part -- opens Agate Village, and Mt. Battle behind it
-        self.assertTrue(self.multiworld.state.can_reach("Agate Village", player=self.player))
+        before = self._assert_tally_boundary()
+        self.collect_key_item_chain(1)  # the Machine Part -- Agate Village and Mt. Battle behind it
         self.assertTrue(self.multiworld.state.can_reach("Mt. Battle", player=self.player))
-        self.assertTrue(self.can_reach_location("Agate Bridge Chest"))
-        self.assertTrue(self.can_reach_location(at_capacity))
-        self.assertTrue(self.can_reach_location(past_capacity))
+        with_part = self._assert_tally_boundary()
+        self.assertGreater(with_part, before)
+        self.collect_by_name(self.KEY_ITEM_CHAIN[1])
+        with_rom = self._assert_tally_boundary()
+        self.assertGreater(with_rom, with_part)
 
-        # The discriminating half: the first boundary where the next region really does cost the next key
-        # item. RETARGETED 2026-09-13 (ADDENDUM 175) from Mt. Battle -> Pyrite Town to Cipher Lab -> Pyrite
-        # Town, and AGAIN 2026-09-16 (ADDENDUM 240) now that plain Pyrite Town is no longer behind the Data
-        # ROM -- the boundary is Pyrite Town -> Poke Spots.
-        #
-        # That is four retargets, every one of them because this test NAMED a region pair. So it no longer
-        # names one: the boundary is FOUND by reachability in the current state -- the first trainer-bearing
-        # region this state can reach whose next trainer-bearing region it cannot. Whatever the graph does
-        # next, this finds the real Data ROM boundary instead of going stale.
-        free_side = next(
-            region for _total, region in _TRAINER_THRESHOLDS
-            if rules._TRAINER_WEIGHT_BY_REGION.get(region, 0)
-            and self.multiworld.state.can_reach(region, player=self.player)
-            and _next_region_with_trainers(region)
-            and not self.multiworld.state.can_reach(
-                _next_region_with_trainers(region), player=self.player)
-        )
-        gated_side = _next_region_with_trainers(free_side)
-        free_capacity = capacity_of[free_side]
-        self.assertEqual(rules._region_for_sphere_count(_TRAINER_THRESHOLDS, free_capacity), free_side)
-        self.assertEqual(rules._region_for_sphere_count(_TRAINER_THRESHOLDS, free_capacity + 1), gated_side)
-        self.assertLessEqual(free_capacity + 1, TRAINER_CEILING,
-                             "the probe past that capacity must be a location this seed really created")
-        # ADDENDUM 179: the Data ROM ships packaged with the ID Card, so the thing collected below is the
-        # chain's second link by name rather than "Data ROM" -- which is exactly why the chain is resolved
-        # from items.COMBINED_KEY_ITEM_NAME in one place instead of being typed out in every test.
-        self.assertFalse(self.multiworld.state.can_reach(gated_side, player=self.player))
-        self.assertTrue(self.can_reach_location(trainer_defeat_count_location_name(free_capacity)))
-        self.assertFalse(self.can_reach_location(trainer_defeat_count_location_name(free_capacity + 1)))
-
-        self.collect_key_item_chain(2)   # + the packaged Data ROM & ID Card
-        self.assertTrue(self.multiworld.state.can_reach(gated_side, player=self.player))
-        self.assertTrue(self.can_reach_location(trainer_defeat_count_location_name(free_capacity + 1)))
     def test_sphere_thresholds_are_monotonic_non_increasing_in_a_fixed_state(self) -> None:
         """Progressive logic sanity check: in any ONE fixed state, once a chest threshold is unreachable, every
         HIGHER threshold checked afterward must also stay unreachable -- reachability can only get harder as N

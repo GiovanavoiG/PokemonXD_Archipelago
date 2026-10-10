@@ -103,6 +103,10 @@ ITEM_DESCRIPTION_ENTRIES: "dict[int, tuple[int, int, int]]" = {
     172: (0x00434D, 90, 10139),
     173: (0x0043A7, 114, 10140),
     174: (0x004419, 104, 10141),
+    # --- ADDENDUM 427: the Yellow Shard, sold as the CANDY BOX by Reduce Citadark Grind ---
+    50: (0x0023CD, 88, 10050),
+    # --- ADDENDUM 454: the Green Shard, sold as the ABILITY SWAP on Gateon's last shelf in every seed ---
+    51: (0x002425, 88, 10051),
 }
 
 # The smallest budget across the SHOP berries -- the ceiling for any text that must work on all twenty.
@@ -138,6 +142,63 @@ def search_chunk_for_base(chunk: bytes, chunk_start_address: int) -> "int | None
             return base
         index = chunk.find(MSG_MAGIC, index + 1)
     return None
+
+
+def search_chunk_for_bases(chunk: bytes, chunk_start_address: int) -> "list[int]":
+    """ADDENDUM 427: EVERY table base in this chunk, not just the first. A reopened menu can leave the old copy
+    lingering next to the new one, and the writer has to see both."""
+    out: "list[int]" = []
+    index = chunk.find(MSG_MAGIC)
+    while index >= 0:
+        base = chunk_start_address + index - MSG_MAGIC_OFFSET
+        if base >= MEM1_START:
+            out.append(base)
+        index = chunk.find(MSG_MAGIC, index + 1)
+    return out
+
+
+def entry_looks_like_text(raw: bytes) -> bool:
+    """ADDENDUM 427: does one entry's bytes still have the shape of a `.msg` string -- UTF-16BE units with a zero
+    high byte, `FF FF xx` control sequences, a `00 00` terminator and nothing but zero padding after it?
+
+    The vanilla text and every payload `encode_lines` produces both pass. A copy of the table whose memory has
+    been handed to something else fails, and is then not written to."""
+    i = 0
+    n = len(raw)
+    while i + 2 <= n:
+        if raw[i] == 0xFF and raw[i + 1] == 0xFF:
+            i += 3
+            continue
+        if raw[i] == 0 and raw[i + 1] == 0:
+            return not any(raw[i + 2:])
+        if raw[i] != 0:
+            return False
+        i += 2
+    return False
+
+
+#: How far into the table a copy check has to read: the end of the last shop-berry description entry.
+COPY_CHECK_SPAN = max(offset + budget for offset, budget, _sid in ITEM_DESCRIPTION_ENTRIES.values())
+
+
+def copy_is_writable(blob: bytes, berry_ids: "list[int] | tuple[int, ...]") -> bool:
+    """ADDENDUM 427: `blob` is the first `COPY_CHECK_SPAN` bytes of a candidate table. True only when its pair
+    table still files every known description id at the offset this module records, and every shop berry's
+    entry still looks like a string. Only then is it safe to write a second copy of the table."""
+    if len(blob) < COPY_CHECK_SPAN or not looks_like_table(blob):
+        return False
+    pairs = dict(parse_pair_table(blob))
+    for offset, _budget, string_id in ITEM_DESCRIPTION_ENTRIES.values():
+        if pairs.get(string_id) != offset:
+            return False
+    for item_id in berry_ids:
+        entry = ITEM_DESCRIPTION_ENTRIES.get(item_id)
+        if entry is None:
+            continue
+        offset, budget, _sid = entry
+        if not entry_looks_like_text(blob[offset:offset + budget]):
+            return False
+    return True
 
 
 def parse_pair_table(table_bytes: bytes) -> "list[tuple[int, int]]":

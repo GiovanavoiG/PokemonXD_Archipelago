@@ -46,10 +46,11 @@ class TestTheBumpItself(unittest.TestCase):
 
 class TestWhatItDeclaresItSkips(unittest.TestCase):
     def test_the_declared_names_are_the_real_memo_locations(self) -> None:
-        """The table holds plain strings so ram_client can read it without Archipelago imports. This is what
-        keeps those strings honest."""
-        self.assertEqual((L.krane_memo_location_name(1), L.krane_memo_location_name(2)),
-                         _lab_bump().awards_locations)
+        """SUPERSEDED by ADDENDUM 434. Player: "don't automatically send the krane memo checks. Let's instead send
+        them when they enter our inventory and are removed." The bump declares nothing now; the memos go out when
+        the game's copy is taken out of the Bag, which the bump does not skip -- it lands at 0x0F, below the
+        0x10 handover, so the game still hands them over."""
+        self.assertEqual((), _lab_bump().awards_locations)
 
     def test_those_locations_really_exist_in_the_world(self) -> None:
         for name in _lab_bump().awards_locations:
@@ -70,36 +71,10 @@ class TestWhatItDeclaresItSkips(unittest.TestCase):
 
 
 class TestTheTrackerAwardsThemOnce(unittest.TestCase):
-    def setUp(self) -> None:
-        self.tracker = ram_client.KraneMemoTracker()
+    """SUPERSEDED by ADDENDUM 434: there is no out-of-band award any more -- a memo check is the removal."""
 
-    def test_award_now_returns_the_names(self) -> None:
-        self.assertEqual(["Story - Krane Memo 1", "Story - Krane Memo 2"],
-                         self.tracker.award_now(_lab_bump().awards_locations))
-
-    def test_a_second_call_returns_nothing(self) -> None:
-        self.tracker.award_now(_lab_bump().awards_locations)
-        self.assertEqual([], self.tracker.award_now(_lab_bump().awards_locations))
-
-    def test_the_ordinary_poll_will_not_send_them_again(self) -> None:
-        """The whole reason this routes through the tracker instead of sending straight out."""
-        self.tracker.award_now(_lab_bump().awards_locations)
-        later = self.tracker.poll(block_base=0, story_byte=0x10)
-        self.assertEqual([], later)
-
-    def test_the_poll_still_sends_the_other_three(self) -> None:
-        """Without this the test above could pass by breaking the tracker."""
-        self.tracker.award_now(_lab_bump().awards_locations)
-        later = self.tracker.poll(block_base=0, story_byte=0x17)
-        self.assertEqual({L.krane_memo_location_name(n) for n in (3, 4, 5)}, set(later))
-
-    def test_an_unknown_name_is_ignored_rather_than_crashing(self) -> None:
-        self.assertEqual([], self.tracker.award_now(("Something Else",)))
-
-    def test_a_player_who_never_hits_the_bump_still_gets_them_normally(self) -> None:
-        """The bump is travel-shuffle-only, so the ordinary threshold path has to keep working untouched."""
-        self.assertEqual({L.krane_memo_location_name(n) for n in (1, 2)},
-                         set(ram_client.KraneMemoTracker().poll(block_base=0, story_byte=0x10)))
+    def test_there_is_no_award_now(self) -> None:
+        self.assertFalse(hasattr(ram_client.KraneMemoTracker(), "award_now"))
 
 
 class TestTheBumperHandsThemToTheCaller(unittest.TestCase):

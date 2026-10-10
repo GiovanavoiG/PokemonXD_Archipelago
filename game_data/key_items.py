@@ -27,7 +27,8 @@ class KeyItem:
 KEY_ITEMS: "tuple[KeyItem, ...]" = (
     KeyItem("Machine Part", 503, gates=("Agate Village",),
             note="obtained at the Gateon Port parts shop (player, 2026-09-13)"),
-    KeyItem("Data ROM", 505, gates=("Cipher Lab", "Pyrite Town", "Poke Spots")),
+    KeyItem("Data ROM", 505, gates=("Lovrina 1", "Lovrina Defeat Item (chest 17)", "Chest 23", "Naps 2"),
+            note="ADDENDUM 406: not the Cipher Lab, Pyrite Town, the Poke Spots or the ONBS raid"),
     KeyItem("ID Card", 506, gates=("Chest 27", "Lovrina 1"),
             note="the only id that was already live-confirmed before this table existed"),
     KeyItem("Music Disc", 507, gates=("Phenac City (Mayor's House)", "Phenac City (Post-Sixes)")),

@@ -33,6 +33,12 @@ TREE = ast.parse(SOURCE)
 # The only automatic (non-command) log output the player asked to keep, as substrings of the call's source.
 # Grouped by the reason each one survives, so a future reader can tell "kept on purpose" from "missed."
 ALLOWED_AUTOMATIC = {
+    # ADDENDUM 453: a held Ability Patch was used -- once per Pokemon it touches.
+    "Ability Patch: %s",
+    # ADDENDUM 446: once per item, the Items pocket was full and it went to the PC instead.
+    "Your Items pocket is full",
+    # ADDENDUM 428: one-shot guidance, once per received item -- 99 Candy Boxes in a seed with no Candy Box code.
+    "99 Candy Boxes: this seed does not have",
     # -- the connection lifecycle: exactly "the standard archipelago connection logs."
     "Starting Dolphin connector",
     "CONNECTION_REFUSED_GAME_STATUS",
@@ -41,6 +47,9 @@ ALLOWED_AUTOMATIC = {
     "Connection to Dolphin lost",
     "Attempting to connect to Dolphin",
     "Connection to Dolphin failed",
+    # ADDENDUM 421: the save data moved under a live hook (a reset or another boot's save state) -- the same
+    # lifecycle event as a lost connection, said once per move.
+    "The game's save data moved",
     "DOLPHIN_MISSING_MESSAGE",
     # ADDENDUM 307: one-shot actionable guidance, in the same class as DOLPHIN_MISSING_MESSAGE -- a real
     # failure the player can only fix outside this client, said once and never repeated.
@@ -65,7 +74,7 @@ ALLOWED_AUTOMATIC = {
     # these are locations the player earned in a previous session and is being told about now, at most once per
     # connect, and only on a seed where a chest was opened while the client was not running. Gating it behind
     # `!verbose` would mean silently sending checks the player has no way to account for.
-    "only one unchecked chest could have held each",
+    "opened before the client connected",   # ADDENDUM 445
     # ADDENDUM 322: the other half of that funnel -- a location this SEED does not contain, named once and
     # then held. Same class as the one-shot guidance above: it is the diagnostic for an options mismatch that
     # used to disconnect the player, and a player who never hits one never sees it.
@@ -88,8 +97,10 @@ ALLOWED_AUTOMATIC = {
     # -- real failures. Each one means something did not work and the player has to know.
     "Couldn't persist local client state",
     "Couldn't apply {item_name}'s effect",
-    "Failed to deliver {item_name}",
+    "Couldn't deliver {item_name} yet",   # ADDENDUM 445: one line
     "failed forcing delivery",
+    "!getitem: couldn't force",          # ADDENDUM 445: one line
+    "Lost the game for a moment",        # ADDENDUM 445: the poll loop's catch-all, one line
     "Could not read a file table",
     "Could not read the area story-byte memory file",
     # -- one-shot actionable guidance: printed at most once per session, each with exactly one fix.
@@ -100,12 +111,12 @@ ALLOWED_AUTOMATIC = {
     # ADDENDUM 253: the Bag slot that cannot hold any more. This is a real failure being reported rather than
     # narration -- the item stops being retried at this point, so if it is not said here it is not said at
     # all, and a saturated slot is the only surviving evidence that an item was never confirming.
-    "Bag slot is full at the maximum the game can store",
+    "that Bag slot is at the game's maximum",   # ADDENDUM 445
     # ADDENDUM 251: the seed/apworld mismatch warning. Same category and the same argument as the line above
     # and ADDENDUM 246's backfill notice -- ADDENDA 245/246 are a worked example of what silence costs here:
     # 63 locations that could never be checked, five of them holding progression, discovered hours into a run.
     # Printed at most once, at connect, and only when something is actually wrong.
-    "different build of the Pokemon XD apworld",
+    "came from a different apworld build",   # ADDENDUM 445
     # ADDENDUM 261: the shop scout reply that could not be read. Added ON PURPOSE, and this addendum is the
     # argument for the whole category. That branch was already wrapped and already reported through
     # `_note_warn` -- correctly, by the letter of this rule -- and the result was that a `TypeError` on the
@@ -117,19 +128,17 @@ ALLOWED_AUTOMATIC = {
     # you asked for is off and will stay off". The first belongs behind `!verbose`; the second has to be said
     # once, out loud, or it is not said at all. Fires only when the scout produced nothing AND had problems,
     # so a working seed never sees it.
-    "the shop scout reply could not be read",
-    "do not exist in the installed apworld",
-    "Location tables differ",
-    "version mismatch, not a logic error",
+    "Shop scouting failed",   # ADDENDUM 445
+    "Version mismatch: ",   # ADDENDUM 445: the three lines are one
     # ADDENDUM 246: chest berries already in the Bag at the first poll. Same category and the same reasoning
     # as the line above -- a check that cannot fire on its own is not narration, and this one is silent in
     # every other way. Printed at most once per session (`backfill_announced`) and it names the fix.
     "logger.warning(line)",
-    "file-table watchdog can't repair it from a snapshot",
+    "Tip: run `!fstiso",   # ADDENDUM 445
     "Still waiting to detect your party as loaded in-game",
     # -- the delivery-safety warning that names a real missing companion item (ADDENDUM 179). This one is
     #    the whole reason the Data ROM / ID Card softlock is recoverable, so it is never gated.
-    "also carries game item id(s)",
+    "has not landed yet",   # ADDENDUM 445
     # -- ADDENDUM 215: the story-byte watch. This is the one automatic line the player asked for BY NAME
     #    ("Add a toggle to the client for printing out every time the story byte changes"), and it is
     #    unreachable unless they turn `!storywatch` on -- so it is opt-in output rather than narration. It
@@ -141,13 +150,12 @@ ALLOWED_AUTOMATIC = {
     # NOTHING was logged when an item crossed that ceiling -- not narration, the absence of a bug report.
     # A gate claiming a battle for six hundred unbroken seconds means the gate is wrong, it fires at most once
     # per item, and it names the command that says which roster record is holding it.
-    "waited the full "
-    ,
+    "waited out the full battle hold",   # ADDENDUM 445
     # ADDENDUM 294: the write that never reached memory. `give_item` answers False when every slot in the
     # write window is taken; both call sites used to discard that, so a full pocket was an infinite silent
     # retry. Unconditional and once per item, in the same category as ADDENDUM 253's saturated slot directly
     # above: the item stops making progress here, so if it is not said here it is not said at all.
-    "could not be written to your Bag",
+    "that Bag pocket is full",   # ADDENDUM 445
     # -- the helpers' own bodies. THREE helpers as of ADDENDUM 294, not two: `_announce_first` joins
     #    `_note`/`_note_warn` and shares their exemption because it is the same shape of thing -- a named
     #    gate whose body is one `logger` call and whose callers are the ones deciding. Named here so the

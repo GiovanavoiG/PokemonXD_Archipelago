@@ -101,8 +101,8 @@ class TestFillerWeights(unittest.TestCase):
 # ============================================================================================================
 class TestSphereWeightTables(unittest.TestCase):
     def test_purification_weights_come_from_the_real_83_shadow_roster(self) -> None:
-        self.assertEqual(sum(rules._PURIFICATION_WEIGHT_BY_REGION.values()),
-                         locations.PURIFICATION_LOCATION_COUNT)
+        # ADDENDUM 415: the census ladder is the vanilla 83; thresholds past it are gated per seed.
+        self.assertEqual(sum(rules._PURIFICATION_WEIGHT_BY_REGION.values()), locations.VANILLA_SHADOW_COUNT)
 
     def test_a_region_with_no_shadows_and_no_clamped_ones_carries_no_weight(self) -> None:
         """RETARGETED AGAIN 2026-09-14 (ADDENDUM 184, player: "You can purify in Agate Village"). This used to
@@ -116,8 +116,11 @@ class TestSphereWeightTables(unittest.TestCase):
         rather than present-and-zero, and there are no tombstones."""
         self.assertEqual(rules._PURIFICATION_WEIGHT_BY_REGION.get("Mt. Battle", 0), 0)
         self.assertNotIn("_retired Relic Forest", rules._PURIFICATION_WEIGHT_BY_REGION)
-        self.assertEqual(rules._PURIFICATION_WEIGHT_BY_REGION.get("Agate Village", 0), 7,
-                         "the seven pre-Agate shadows should have been clamped here, not dropped")
+        # RETARGETED BY ADDENDUM 432: 7 -> 3. Four of the seven were never snaggable before Agate -- Zook's Zangoose
+        # (his Gateon fight cannot be snagged from) and Ardos's three (carried only by his Citadark fight) were filed
+        # at Gateon Port by their trainers' NAME. By carrying row, three remain: the intro's and the HQ Lab's.
+        self.assertEqual(rules._PURIFICATION_WEIGHT_BY_REGION.get("Agate Village", 0), 3,
+                         "the pre-Agate shadows should have been clamped here, not dropped")
 
     def test_the_purification_ladder_starts_at_the_first_place_that_can_purify(self) -> None:
         """REWRITTEN 2026-09-14 (ADDENDUM 184). The first vanilla shadow really is in the HQ Lab (Teddiursa,
@@ -171,7 +174,7 @@ class TestSphereWeightTables(unittest.TestCase):
             "_UNIQUE_TRAINER_WEIGHT_BY_REGION": (rules._UNIQUE_TRAINER_WEIGHT_BY_REGION,
                                                  locations.TRAINER_DEFEAT_COUNT_LOCATION_COUNT),
             "_PURIFICATION_WEIGHT_BY_REGION": (rules._PURIFICATION_WEIGHT_BY_REGION,
-                                               locations.PURIFICATION_LOCATION_COUNT),
+                                               locations.VANILLA_SHADOW_COUNT),   # ADDENDUM 415
         }
         for table_name, (table, real_count) in expected.items():
             walk = rules._cumulative_region_thresholds(table)
@@ -266,7 +269,7 @@ class TestEverything(_ScopeBase):
         "trainer_defeat_mode": 0,
         "randomize_chests": True,
         "shuffle_trainer_defeats": True,
-        "progression_locations": 2,
+        
     }
 
     def test_chests_can_hold_progression(self) -> None:
@@ -353,7 +356,9 @@ class TestWorldChecks(_ScopeBase):
         "trainer_defeat_mode": 0,
         "randomize_chests": True,
         "shuffle_trainer_defeats": True,
-        "progression_locations": 1,
+        # ADDENDUM 449: `progression_locations: world_checks` is gone; it was exactly this.
+        "purification_progression_cap": 0,
+        "shadow_catch_progression": False,
     }
 
     def test_chests_and_trainers_open_but_purifications_stay_shut(self) -> None:
@@ -374,7 +379,7 @@ class TestSpheresAreRealNotFlat(_ScopeBase):
         "trainer_defeat_mode": 0,
         "randomize_chests": True,
         "shuffle_trainer_defeats": True,
-        "progression_locations": 2,
+        
     }
 
     def test_the_first_chest_is_early_and_the_last_is_not(self) -> None:
@@ -402,7 +407,7 @@ class TestPurificationProgressionCap(_ScopeBase):
         "trainer_defeat_mode": 0,
         "randomize_chests": True,
         "shuffle_trainer_defeats": True,
-        "progression_locations": 2,
+        
         "purification_progression_cap": 12,
     }
 
@@ -430,7 +435,7 @@ class TestPurificationCapAtZero(_ScopeBase):
         "trainer_defeat_mode": 0,
         "randomize_chests": True,
         "shuffle_trainer_defeats": True,
-        "progression_locations": 2,
+        
         "purification_progression_cap": 0,
     }
 
@@ -444,28 +449,18 @@ class TestPurificationCapAtMaximum(_ScopeBase):
         "trainer_defeat_mode": 0,
         "randomize_chests": True,
         "shuffle_trainer_defeats": True,
-        "progression_locations": 2,
-        "purification_progression_cap": 32,
+        
+        "purification_progression_cap": 127,   # ADDENDUM 415: adjusted down to this seed's 83
     }
 
     def test_every_threshold_is_eligible_again(self) -> None:
-        for count in (1, 16, locations.PURIFICATION_LOCATION_COUNT):
+        for count in (1, 16, 32, locations.VANILLA_SHADOW_COUNT):
             self.assert_default(locations.purification_location_name(count))
 
 
-class TestPurificationCapIsMootWhenNothingIsEligible(_ScopeBase):
-    """The cap narrows an allowance; it can never grant one ProgressionLocations withheld."""
-
-    options = {
-        "trainer_defeat_mode": 0,
-        "randomize_chests": True,
-        "shuffle_trainer_defeats": True,
-        "progression_locations": 1,
-        "purification_progression_cap": 32,
-    }
-
-    def test_purifications_stay_excluded(self) -> None:
-        self.assert_excluded(locations.purification_location_name(1))
+# REMOVED 2026-10-09 (ADDENDUM 449): TestPurificationCapIsMootWhenNothingIsEligible set `progression_locations:
+# world_checks` with a cap of 32 to show the cap could not re-open what the scope shut. The scope option is gone, so
+# the cap alone decides -- there is nothing left for it to be moot against.
 
 
 class TestTheOptionItself(unittest.TestCase):

@@ -24,14 +24,14 @@ REGION_EDGES: "tuple[tuple[str, str, tuple[str, ...]], ...]" = (
     ("Kaminko's House", "Gateon Port", ()),
     ("Gateon Port", "Agate Village", ("Machine Part",)),
     ("Agate Village", "Mt. Battle", ()),
-    # Vanilla unlocks Cipher Lab at Mt. Battle; with travel randomization on it keys off the Data ROM. The
-    # ROM's vanilla home is Cipher Lab chest 17, so requiring it in vanilla-placement mode would gate the
-    # region behind itself -- hence the split in `_edge_rule`.
+    # Vanilla unlocks Cipher Lab at Mt. Battle. ADDENDUM 406: the lab itself is not behind the Data ROM in either
+    # travel mode -- player: "Cipher Lab is not gated by Data Rom - just Lovrina, her defeat item, and chest 23."
+    # Those carry the gate themselves (trainer_placements, chest_regions.CHEST_ITEM_GATES), as does Naps #2.
     ("Mt. Battle", "Cipher Lab", ()),
-    # Pyrite is visited in two halves and only the second is behind the Data ROM. Requiring the ROM on this
-    # edge put all 39 plain-Pyrite locations behind it.
+    # Pyrite is visited in two halves. ADDENDUM 406: neither is behind the Data ROM -- player: "Poke spots do NOT
+    # need the data rom" (and ADDENDUM 405, the ONBS raid: "only gated behind pyrite town and the pokespots").
     ("Cipher Lab", "Pyrite Town", ()),
-    ("Pyrite Town", "Poke Spots", ("Data ROM",)),
+    ("Pyrite Town", "Poke Spots", ()),
     ("Poke Spots", "Pyrite Town (ONBS)", ()),
     ("Pyrite Town (ONBS)", "Realgam Tower", ()),
     ("Realgam Tower", "Phenac City", ()),
@@ -54,6 +54,16 @@ REGION_EDGES: "tuple[tuple[str, str, tuple[str, ...]], ...]" = (
     ("Cipher Key Lair (deep)", "Citadark Isle", ()),
 )
 
+# ADDENDUM 418: with travel shuffle OFF, Pyrite Town is behind the Data ROM, and so is everything the chain reaches
+# through it. Player: "Every pyrite town item in vanilla locations should also be gated behind Data Rom & ID Card"
+# ... "As should everything after pyrite town, which is EVERYTHING EXCEPT agate, gateon, mt battle, and cipher lab".
+# Kept out of REGION_EDGES on purpose: travel mode carries a suppressed chain edge's items onto its gateway, and
+# ADDENDUM 406 left travel mode's Pyrite, Poke Spots and ONBS off the ROM. One edge is enough -- the vanilla chain
+# is linear past the lab, so Poke Spots, the ONBS, Realgam and on inherit it.
+VANILLA_TRAVEL_EDGE_ITEMS: "dict[tuple[str, str], tuple[str, ...]]" = {
+    ("Cipher Lab", "Pyrite Town"): ("Data ROM",),
+}
+
 # With travel shuffle ON, re-source these edges. `SS Libra -> Cipher Key Lair (exterior)` was the one edge
 # still running through the ship, putting the Scooter Upgrade in front of the exterior, the deep tier and
 # Citadark; the ship's predecessor implies everything that path did. Not applied with shuffle off: there the
@@ -62,6 +72,21 @@ REGION_EDGES: "tuple[tuple[str, str, tuple[str, ...]], ...]" = (
 # Snagem makes `AreaStoryByteMemory` write `story_bytes.SNAGEM_BASE_FLOOR` (0x62) and they walk in.
 TRAVEL_SHUFFLE_REROUTED_EDGES: "dict[str, str]" = {
     "Cipher Key Lair (exterior)": "Kaminko's House (Robo Groudon)",
+}
+
+# ADDENDUM 435 widened this to BOTH travel modes. Player: "Citadark with location shuffle off can be parts-only, but
+# see if you can TRY to make it so that it'll have you complete most of the story most of the time." The late-story
+# weighting is a placement bias (`PokemonXDWorld._bind_parts_to_late_story`), not a logic gate, and the client gives
+# a vanilla-travel player their story byte back after an early ride (`StoryByteOverride.return_story_after_citadark`).
+#
+# ADDENDUM 433: with travel shuffle ON and the Parts gate ON, Citadark Isle is reached from Gateon Port with the Parts
+# and nothing else. Player: "Citadark is not gated behind key lair in location shuffle." The client's Parts override
+# (`ram_client.StoryByteOverride`) lifts Gateon's byte to the ride value "regardless of story progress", and Gateon
+# is open from the start in that mode, so the Key Lair travel unlock and the System Lever never stood between the
+# player and the ride. The Parts count stays the gate (ADDENDUM 430's fence reads Citadark's entrances, whatever
+# they are). Not applied with the Parts gate off, where the ride is reached by playing the story.
+TRAVEL_SHUFFLE_PARTS_SOURCE: "dict[str, str]" = {
+    "Citadark Isle": "Gateon Port",
 }
 
 # Every region the graph names, in a stable order (first appearance).
@@ -73,6 +98,10 @@ REGION_NAMES: "tuple[str, ...]" = tuple(
 assert all(target in REGION_NAMES and source in REGION_NAMES
            for target, source in TRAVEL_SHUFFLE_REROUTED_EDGES.items()), (
     "ADDENDUM 293: a rerouted edge names a region the graph does not have"
+)
+assert all(target in REGION_NAMES and source in REGION_NAMES
+           for target, source in TRAVEL_SHUFFLE_PARTS_SOURCE.items()), (
+    "ADDENDUM 433: the Parts route names a region the graph does not have"
 )
 assert all(any(edge[1] == target for edge in REGION_EDGES)
            for target in TRAVEL_SHUFFLE_REROUTED_EDGES), (
@@ -128,10 +157,8 @@ def create_and_connect_regions(world) -> None:
         # as one item. Translating here keeps the table a description of the game, not of the item pool.
         names = [items.requirement_to_pool_item(name) for name in required]
         names = [name for name in dict.fromkeys(names) if _item_is_in_the_pool(name)]
-        # The Cipher Lab / Data ROM split -- see REGION_EDGES' own comment for why this cannot be one rule.
-        data_rom = items.requirement_to_pool_item("Data ROM")
-        if target == "Cipher Lab" and travel_shuffle and _item_is_in_the_pool(data_rom):
-            names = [data_rom]
+        # ADDENDUM 406 retired the Cipher Lab / Data ROM split: travel shuffle used to replace the lab's way in
+        # with the ROM. The lab is reached like any other destination now; the ROM gates what is inside it.
         return tuple(names)
 
     def _edge_rule(required: "tuple[str, ...]", target: str):
@@ -182,6 +209,11 @@ def create_and_connect_regions(world) -> None:
         # ship. What changes is the route AP may assume, in the mode where the client delivers the other one.
         if travel_shuffle:
             source = TRAVEL_SHUFFLE_REROUTED_EDGES.get(target, source)
+        else:
+            required = tuple(required) + VANILLA_TRAVEL_EDGE_ITEMS.get((source, target), ())
+        # ADDENDUM 433 (shuffle on) and 435 (shuffle off): with the Parts gate, the ride from Gateon is the way in.
+        if parts_for_citadark:
+            source = TRAVEL_SHUFFLE_PARTS_SOURCE.get(target, source)
         origin = menu if source == "Menu" else regions[source]
         rule = _edge_rule(required, target)
         needed_item = sibling_travel_item.get(target)
@@ -213,12 +245,7 @@ def create_and_connect_regions(world) -> None:
     if "Unique Trainer Defeats" in regions:
         menu.connect(regions["Unique Trainer Defeats"], name="Menu -> Unique Trainer Defeats")
 
-    # No locations and no chain edge: the travel gateway is the only way in and nothing depends on reaching
-    # it. Created unconditionally so TRAVEL_LOCATION_TARGET_REGION always resolves; unreachable with travel
-    # randomization off, which costs nothing for an empty region.
-    orre = Region(travel_locations.ORRE_COLOSSEUM_REGION, world.player, world.multiworld)
-    world.multiworld.regions.append(orre)
-    regions[travel_locations.ORRE_COLOSSEUM_REGION] = orre
+    # ADDENDUM 446: the empty "Orre Colosseum" region (ADDENDUM 185) is gone with its travel unlock.
 
     # Agate Village's sub-area: no extra requirement, since reaching Agate already implies reaching it.
     relic_forest = Region("Relic Forest", world.player, world.multiworld)

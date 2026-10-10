@@ -1,3 +1,32 @@
+# ADDENDUM 401 (test infrastructure): ONE `dolphin_memory_engine` stub for the whole suite, installed before any
+# test module loads.
+#
+# `ram_client` guards its import of the native package and binds `dme = None` for the life of the process if the
+# package is missing. A dozen test modules each install a stub "if 'dolphin_memory_engine' not in sys.modules" and
+# then drive a fake memory by assigning onto `sys.modules["dolphin_memory_engine"]` -- which only works if
+# `ram_client` had not been imported yet. Whether it had depended purely on the ALPHABETICAL ORDER of test files:
+# the first module to import `ram_client` decided the binding for everyone. A new file sorting early
+# (`test_addenda_401_402_*`) flipped it, and 297 tests in 340-342 started reading None from memory; the 9
+# `test_addendum_321` errors that had been "permanent" were the same race lost the other way.
+#
+# Installed here, the stub exists before ANY module imports `ram_client`, so `ram_client.dme` is always this one
+# object, and every test's fake memory mutates the module `ram_client` actually reads. A real installed package is
+# respected: this only fills the gap when there is none.
+import sys as _sys
+import types as _types
+
+if "dolphin_memory_engine" not in _sys.modules:
+    try:
+        import dolphin_memory_engine as _real_dme  # noqa: F401 -- prefer the real one when it is installed
+    except Exception:
+        _stub = _types.ModuleType("dolphin_memory_engine")
+        _stub.hook = lambda: None
+        _stub.un_hook = lambda: None
+        _stub.is_hooked = lambda: False
+        _stub.read_bytes = lambda address, length: b""
+        _stub.write_bytes = lambda address, data: None
+        _sys.modules["dolphin_memory_engine"] = _stub
+
 from test.bases import WorldTestBase
 
 from .. import items as _items

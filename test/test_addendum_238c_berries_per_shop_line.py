@@ -324,18 +324,18 @@ class TestTheGatesActuallyBiteWhereTheyShould(PokemonXDTestBase):
                 continue
             self.assertEqual(first.can_reach(empty), peers[0].can_reach(empty), shop.name)
 
-    def test_the_onbs_tiers_are_blocked_without_the_data_rom(self) -> None:
-        """The player's own requirement, measured. Agate Village and Gateon Port both sit BEFORE the Data ROM
-        in the region chain, so their ONBS lines are the ones where this gate really bites: the room is
-        reachable and the line is not."""
+    def test_the_onbs_tiers_open_without_the_data_rom(self) -> None:
+        """ADDENDUM 406 reversed this: the ONBS crisis is solved without the ROM, so its shop lines need the ONBS
+        regions and nothing else. Player: "Poke spots do NOT need the data rom." The region gate is still real --
+        `test_addendum_238` pins its regions -- it simply opens on the same chain the rooms do."""
+        # ADDENDUM 418: with travel shuffle off the ONBS is past Pyrite, which is behind the ROM again, so these
+        # lines need it through the chain -- never through a shop rule of their own.
         everything_but_the_rom = ["Machine Part", "Music Disc", "Mayor's Note", "Elevator Key", "System Lever"]
-        for room_line, gated_line in (("Agate Village Shop AP Item 1", "Agate Village Shop AP Item 9"),
-                                      ("Gateon Port Shop AP Item 1", "Gateon Port Shop AP Item 7"),
-                                      ("Gateon Port Shop AP Item 1", "Gateon Port Shop AP Item 11")):
-            self.assertTrue(self._reach(room_line, everything_but_the_rom), room_line)
+        for gated_line in ("Agate Village Shop AP Item 9", "Gateon Port Shop AP Item 7",
+                           "Gateon Port Shop AP Item 11"):
             self.assertFalse(self._reach(gated_line, everything_but_the_rom), gated_line)
-            self.assertTrue(self._reach(gated_line, [*everything_but_the_rom, "Data ROM & ID Card"]),
-                            gated_line)
+            self.assertTrue(self._reach(gated_line, [*everything_but_the_rom, "Data ROM & ID Card"]), gated_line)
+        self.assertFalse(self._reach("Agate Village Shop AP Item 9", []), "the region half must still bind")
 
     def test_gorigans_gateon_tier_needs_the_system_lever(self) -> None:
         """The strictest gate in the game: Gateon's last four lines need the whole chain plus the lever."""
@@ -392,6 +392,9 @@ class TestTheGatesActuallyBiteWhereTheyShould(PokemonXDTestBase):
                 for numbers, _gate in gated:
                     for number in numbers:
                         line = shop_table.shop_location_name(shop, number)
+                        from .. import locations as _L
+                        if line == _L.ability_patch_shop_location_name():
+                            continue   # ADDENDUM 453: sells the Ability Patch, never a check
                         if self._reach(line, held):
                             self.assertTrue(room_open, f"{line} opened before {room_line}")
 

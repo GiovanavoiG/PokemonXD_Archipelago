@@ -22,6 +22,13 @@ class Species:
     # what this evolves into and the minimum level for it; None = no evolution, or a non-level one (stone).
     evolves_into: int | None = None
     evolves_at_level: int | None = None
+    # ADDENDUM 425: further (target, level) options -- a branch (Eevee, Gloom, Tyrogue...) or a second route
+    # (Slowpoke's Slowking beside its Slowbro). `evolves_into` stays the first option, so older callers still read.
+    other_evolutions: "tuple[tuple[int, int | None], ...]" = ()
+
+    def evolution_options(self) -> "list[tuple[int, int | None]]":
+        options = [] if self.evolves_into is None else [(self.evolves_into, self.evolves_at_level)]
+        return options + list(self.other_evolutions)
 
 
 @dataclass
@@ -59,19 +66,43 @@ class TeamShuffleOptions:
         self.level_boost_percent = max(0, min(100, self.level_boost_percent))
 
 
-def resolve_natural_evolution(species_id: int, level: int, species_pool: dict[int, Species]) -> int:
+def resolve_natural_evolution(species_id: int, level: int, species_pool: dict[int, Species],
+                              rng: "random.Random | None" = None) -> int:
     """Highest-stage form `species_id` could naturally have reached by `level` -- a level-70 Houndour (evolves
     at 24) becomes Houndoom, a level-40 Charmander becomes Charizard, not Charmeleon. Unchanged when there is no
-    chain data or the level misses the next threshold. Module-level so `enhanced_difficulty` can reuse it."""
+    chain data or the level misses the next threshold. Module-level so `enhanced_difficulty` can reuse it.
+
+    ADDENDUM 425: a species with several reachable targets (a branch) takes one at random from `rng`, or the
+    first listed without one."""
     current = species_id
     for _ in range(6):  # no real chain exceeds 3 stages; the bound only guards a malformed/cyclic pool
         sp = species_pool.get(current)
-        if sp is None or sp.evolves_into is None:
+        if sp is None:
             return current
-        if sp.evolves_at_level is not None and level < sp.evolves_at_level:
+        reachable = [target for target, at_level in sp.evolution_options()
+                     if (at_level is None or level >= at_level) and target in species_pool]
+        if not reachable:
             return current
-        current = sp.evolves_into
+        current = reachable[0] if rng is None or len(reachable) == 1 else rng.choice(reachable)
     return current
+
+
+def pick_distinct_species(rng: random.Random, candidates: "list[int]", level: int,
+                          species_pool: "dict[int, Species]", taken: "set[int]", attempts: int = 40) -> int:
+    """ADDENDUM 425: a candidate, evolved to `level`, that is not in `taken` -- what keeps one trainer from
+    fielding the same species twice. Random draws first, then every candidate in a shuffled order; only when
+    every one collides does it give up and return a duplicate rather than fail generation."""
+    for _ in range(attempts):
+        evolved = resolve_natural_evolution(rng.choice(candidates), level, species_pool, rng)
+        if evolved not in taken:
+            return evolved
+    order = list(candidates)
+    rng.shuffle(order)
+    for candidate in order:
+        evolved = resolve_natural_evolution(candidate, level, species_pool, rng)
+        if evolved not in taken:
+            return evolved
+    return resolve_natural_evolution(order[0], level, species_pool, rng)
 
 
 class TeamShuffler:
@@ -118,7 +149,7 @@ class TeamShuffler:
         return max(1, min(100, boosted))
 
     def _apply_natural_evolution(self, species_id: int, level: int) -> int:
-        return resolve_natural_evolution(species_id, level, self.species_pool)
+        return resolve_natural_evolution(species_id, level, self.species_pool, self.rng)
 
     def _claim_shadow_species(self, evolved_species_id: int, level: int, candidates: list[int]) -> int:
         """Reserve `evolved_species_id` for this shadow slot, or find another candidate whose evolved form is
@@ -146,17 +177,23 @@ class TeamShuffler:
             return mon.item_id
         return self.rng.choice(choices)
 
-    def shuffle_pokemon_instance(self, mon: PokemonInstance) -> None:
+    def shuffle_pokemon_instance(self, mon: PokemonInstance, team_species: "set[int] | None" = None) -> None:
         original = self.species_pool.get(mon.species_id)
         if original is None:
             return  # unknown species id -- leave untouched rather than guess
         candidates = self._candidate_species_ids(original, mon.is_shadow)
-        new_species_id = self.rng.choice(candidates)
         new_level = self._boosted_level(mon)
-        # Shadows evolve too; the dedup keys on the evolved species, so shared final stages cannot collide.
-        new_species_id = self._apply_natural_evolution(new_species_id, new_level)
         if mon.is_shadow:
+            # Shadows evolve too; the dedup keys on the evolved species, so shared final stages cannot collide.
+            new_species_id = self._apply_natural_evolution(self.rng.choice(candidates), new_level)
             new_species_id = self._claim_shadow_species(new_species_id, new_level, candidates)
+        else:
+            # ADDENDUM 425: every slot is its own roll, and no species twice on one team -- the dedup is on the
+            # evolved species, so two picks that evolve into one cannot collide either.
+            new_species_id = pick_distinct_species(self.rng, candidates, new_level, self.species_pool,
+                                                   team_species if team_species is not None else set())
+            if team_species is not None:
+                team_species.add(new_species_id)
         mon.species_id = new_species_id
         mon.level = new_level
         mon.item_id = self._reassign_held_item(mon)
@@ -164,8 +201,9 @@ class TeamShuffler:
     def shuffle_trainer_pools(self, pools: list[TrainerPool]) -> None:
         for pool in pools:
             for trainer in pool.trainers:
+                team_species: "set[int]" = set()
                 for mon in trainer.team:
-                    self.shuffle_pokemon_instance(mon)
+                    self.shuffle_pokemon_instance(mon, team_species)
 
 
 def shuffle_teams(
@@ -221,9 +259,16 @@ def choose_moveset(
     (enhanced_difficulty._moveset_for, shadow_expansion._moveset_for). Returns up to `move_count` distinct ids,
     never 0-padded, or `[]` when the species has no usable learnset. Candidates legal at `level` split into
     damaging (non-`STATUS_MOVE_IDS`) and status, each taken highest-learn-level first and damaging exhausted
-    first, ties ordered by `rng`. At `level >= 30` the lowest-priority pick is swapped for a
-    `move_data.TM_ATTACKING_MOVES` move whose type is not already covered."""
-    from ..game_data.move_data import MOVE_TYPES, TM_ATTACKING_MOVES
+    first, ties ordered by `rng`.
+
+    ADDENDUM 426: then one move from outside the level-up list joins -- into an empty slot, or in place of the
+    lowest-priority pick -- but
+    only one this species can really have in Gen III, read off XD's own species data
+    (`data/species_move_compat.json`): at `level >= 30` a TM/HM it is compatible with, a tutor move it can be taught
+    or an egg move of its line, preferring 80+ power; below 30 a tutor or egg move of at most 70 power. Damaging,
+    of a type the set does not already cover. It was a TM from a fixed list offered to every species, which is
+    how a Pokemon that cannot learn Focus Punch came to use it."""
+    from ..game_data.move_data import MOVE_TYPES
 
     # ADDENDUM 75 also excluded every species' positionally-first learnset entry, after three real-hardware
     # freezes were all exactly that; ADDENDUM 131's FstGuard fixed the cause, so 217 dropped it. Pound stays.
@@ -242,6 +287,11 @@ def choose_moveset(
         return result
 
     candidate_levels = build_candidate_levels(respect_level=True)
+    if not candidate_levels:
+        # ADDENDUM 426: nothing legal at this level (the only level-1 move is the excluded Pound). Its tutor and
+        # egg moves are legal at any level, so they come before a level-up move it is too young for.
+        compat = species_move_compat().get(species_id) or {}
+        candidate_levels = {mv: 0 for mv in compat.get("tutor", []) + compat.get("egg", []) if mv not in exclude}
     if not candidate_levels:
         candidate_levels = build_candidate_levels(respect_level=False)
     if not candidate_levels:
@@ -269,17 +319,59 @@ def choose_moveset(
     if len(chosen) < move_count:
         chosen += take_latest_first(status, move_count - len(chosen))
 
-    if level >= 30 and chosen:
+    compat = species_move_compat().get(species_id)
+    if chosen and compat:
+        power = move_power()
         existing_types = {MOVE_TYPES[mv] for mv in chosen if mv in MOVE_TYPES}
-        tm_options = [
-            mv for mv in TM_ATTACKING_MOVES
-            if mv not in chosen and MOVE_TYPES.get(mv) not in existing_types
-        ]
-        if tm_options:
-            # Replace the lowest-priority pick rather than exceed move_count: the slot count is an LZSS budget.
-            chosen[-1] = rng.choice(tm_options)
+        sources = compat["tutor"] + compat["egg"] + (compat["tm"] if level >= 30 else [])
+        options = sorted({
+            mv for mv in sources
+            if mv not in chosen and mv not in exclude and mv not in STATUS_MOVE_IDS
+            and power.get(mv, 0) > 1                      # 1 is the table's "varies" (OHKO, Return...)
+            and MOVE_TYPES.get(mv) not in existing_types
+            and (level >= 30 or power[mv] <= 70)
+        })
+        strong = [mv for mv in options if power[mv] >= 80]
+        pick_from = strong if level >= 30 and strong else options
+        if pick_from:
+            # Into an empty slot when there is one; otherwise in place of the lowest-priority pick, never past
+            # move_count (the slot count is an LZSS budget).
+            if len(chosen) < move_count:
+                chosen.append(rng.choice(pick_from))
+            else:
+                chosen[-1] = rng.choice(pick_from)
 
     return sorted(set(chosen))
+
+
+_MOVE_COMPAT_CACHE: "dict | None" = None
+
+
+def _move_compat_file() -> dict:
+    global _MOVE_COMPAT_CACHE
+    if _MOVE_COMPAT_CACHE is None:
+        from ..game_data import load_json_data_file
+
+        _MOVE_COMPAT_CACHE = load_json_data_file("species_move_compat.json") or {}
+    return _MOVE_COMPAT_CACHE
+
+
+def species_move_compat() -> "dict[int, dict[str, list[int]]]":
+    """ADDENDUM 426: {internal species: {"tm": [...], "tutor": [...], "egg": [...]}} -- the moves outside its
+    level-up list a species can have in Gen III, per XD's own species table (egg moves include every
+    pre-evolution's). Empty when the data file is missing from this build, which turns the extra slot off."""
+    file = _move_compat_file()
+    if "_by_species" not in file:
+        file["_by_species"] = {int(k): v for k, v in (file.get("species") or {}).items()}
+    return file["_by_species"]
+
+
+def move_power() -> "dict[int, int]":
+    """ADDENDUM 426: {move id: base power} from XD's move table, damaging moves only."""
+    file = _move_compat_file()
+    if "_by_move" not in file:
+        file["_by_move"] = {int(k): int(v) for k, v in (file.get("move_power") or {}).items()}
+    return file["_by_move"]
 
 
 def assign_movesets(

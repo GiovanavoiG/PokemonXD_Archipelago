@@ -81,7 +81,8 @@ class TestTheFalsePositive(unittest.TestCase):
 
     def test_every_any_defeat_anchor_is_in_the_filler_only_set(self) -> None:
         for row in RT.REPEATABLE_TRAINERS:
-            self.assertIn(row["anchor_index"], MT.FILLER_ONLY_TRAINER_INDICES, row["location"])
+            # ADDENDUM 407: the un-redoable set; a few anchors are now mandatory rematches the player unfenced.
+            self.assertIn(row["anchor_index"], MT.UNREDOABLE_TRAINER_INDICES, row["location"])
 
     def test_and_most_of_those_anchors_are_census_safe(self) -> None:
         """Which is what proves the previous test carries no information: if membership meant "missable",
@@ -102,7 +103,7 @@ class TestTheOrderingThatMakesTheExclusionCountable(unittest.TestCase):
 
 
 class TestInARealWorld(PokemonXDTestBase):
-    options = {"shuffle_trainer_defeats": True, "progression_locations": 2}
+    options = {"shuffle_trainer_defeats": True}
 
     def _aferd(self):
         return self.multiworld.get_location(AFERD_ANY, self.player)
@@ -126,7 +127,7 @@ class TestInARealWorld(PokemonXDTestBase):
 class TestFillReallyLeavesItAlone(PokemonXDTestBase):
     """The claim the player actually made -- not "it is flagged", but "nothing good lands on it"."""
 
-    options = {"shuffle_trainer_defeats": True, "progression_locations": 2}
+    options = {"shuffle_trainer_defeats": True}
 
     def test_fill_places_only_filler_there(self) -> None:
         from Fill import distribute_items_restrictive

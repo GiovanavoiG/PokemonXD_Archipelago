@@ -89,8 +89,8 @@ class TestTheRampAsksTheRegion(PokemonXDTestBase):
         by_index = pls.level_by_trainer_index()
         regions = self._trainer_regions()
         tiers = pls.path_tiers(regions)
-        snagem = pls.level_for_tier(pls.tier_index("Snagem Hideout", tiers, regions), len(tiers))
-        lair = pls.level_for_tier(pls.tier_index("Cipher Key Lair", tiers, regions), len(tiers))
+        snagem = pls.tier_level(pls.tier_index("Snagem Hideout", tiers, regions), tiers)
+        lair = pls.tier_level(pls.tier_index("Cipher Key Lair", tiers, regions), tiers)
         self.assertLess(snagem, lair, "the hideout comes before the inside of the Lair")
 
         for index in (143, 148):

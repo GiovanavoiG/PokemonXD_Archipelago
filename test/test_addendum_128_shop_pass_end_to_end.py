@@ -96,7 +96,9 @@ class TestShopPassEndToEnd(unittest.TestCase):
                 "shop_excluded_item_ids": [21],
                 "known_item_id_names": {"4": "Poke Ball", "13": "Potion", "17": "Antidote", "1": "Master Ball"},
             }))
-            summary = iso_patcher.apply_patch(src, out, seed)
+            # ADDENDUM 399: this fixture is a hand-made minimal ISO -- real FSYS, no disc header, none of
+            # the census's trainers -- so the pre-flight correctly refuses it. Skipped here and nowhere else.
+            summary = iso_patcher.apply_patch(src, out, seed, _skip_preflight=True)
             self.assertIsNone(summary["shop_randomization_error"])
             self.assertEqual(summary["shop_slots_patched"], 4)  # 4,13,17,1 (21 excluded)
             self.assertEqual(summary["shop_rel_structure"]["header"]["id"], 0x33)

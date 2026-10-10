@@ -1,6 +1,8 @@
 from BaseClasses import Tutorial
 from worlds.AutoWorld import WebWorld
 
+from .options import OPTION_GROUPS
+
 
 class PokemonXDWebWorld(WebWorld):
     game = "Pokemon XD Gale of Darkness"
@@ -19,3 +21,6 @@ class PokemonXDWebWorld(WebWorld):
     )
 
     tutorials = [setup_en]
+
+    # ADDENDUM 447: the template and options page in sections -- see options.OPTION_GROUPS.
+    option_groups = OPTION_GROUPS

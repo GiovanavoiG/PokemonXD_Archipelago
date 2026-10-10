@@ -46,22 +46,25 @@ def real_species_pool() -> dict[int, Species]:
     Excludes the 25 reserved/unused 252-276 slots and `PERMANENTLY_EXCLUDED_SPECIES_INDICES`.
 
     `evolves_into`/`evolves_at_level` come from `evolution_data`; before ADDENDUM 100 this never set them,
-    which made `_apply_forced_evolution` a silent no-op. Level-up, single-target evolutions only."""
-    from .evolution_data import national_dex_to_internal_level_evolutions
+    which made `_apply_forced_evolution` a silent no-op. ADDENDUM 425 adds the trainer thresholds for every
+    other method, branches included."""
+    from .evolution_data import national_dex_to_internal_trainer_evolutions
 
-    level_evolutions = national_dex_to_internal_level_evolutions()
+    # ADDENDUM 425: the level-up table plus the trainer thresholds for stone, trade, friendship and branches.
+    trainer_evolutions = national_dex_to_internal_trainer_evolutions()
     pool: dict[int, Species] = {}
     for internal_index, (national_dex, name) in INTERNAL_INDEX_TO_NATIONAL_DEX.items():
         if name is None:
             continue  # reserved/unused slot -- not a real species, never a valid replacement
         if internal_index in PERMANENTLY_EXCLUDED_SPECIES_INDICES:
             continue  # ADDENDUM 101 -- player-requested permanent exclusion, see that set's own comment
-        evolves_into, evolves_at_level = level_evolutions.get(internal_index, (None, None))
+        options = trainer_evolutions.get(internal_index) or [(None, None)]
         pool[internal_index] = Species(
             species_id=internal_index,
             is_legendary=national_dex in LEGENDARY_NATIONAL_DEX,
-            evolves_into=evolves_into,
-            evolves_at_level=evolves_at_level,
+            evolves_into=options[0][0],
+            evolves_at_level=options[0][1],
+            other_evolutions=tuple(options[1:]),
         )
     return pool
 

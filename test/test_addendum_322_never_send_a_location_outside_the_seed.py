@@ -69,9 +69,10 @@ class TestTheFunnel(unittest.TestCase):
 
     def test_it_is_reported_once_and_then_held(self):
         ctx = _Ctx(missing={GATEON})
+        ctx.verbose_logging = True   # ADDENDUM 445: `!verbose` only now
         for _ in range(5):
             _send(ctx, ["Agate Village Shop AP Item 1"])
-        said = [line for line in self.logged if "no such location" in line]
+        said = [line for line in self.logged if "not in this seed" in line]
         self.assertEqual(1, len(said), said)
         self.assertIn("Agate Village Shop AP Item 1", said[0])
 

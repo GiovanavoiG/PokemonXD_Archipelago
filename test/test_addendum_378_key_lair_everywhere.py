@@ -95,7 +95,7 @@ class TestEveryIdSurvived(unittest.TestCase):
         """`items._table` numbers by index, so a reorder here silently renumbers every travel unlock."""
         self.assertEqual(
             ["Snagem Hideout", "Outskirt Stand", "Poke Spots", "Pyrite Town", "Phenac City", "Realgam Tower",
-             "Cipher Key Lair", "Cipher Lab", "Mt. Battle", "SS Libra", "Orre Colosseum"],
+             "Cipher Key Lair", "Cipher Lab", "Mt. Battle", "SS Libra"],   # ADDENDUM 446: Orre removed
             list(tl.TRAVEL_LOCATION_NAMES),
         )
 

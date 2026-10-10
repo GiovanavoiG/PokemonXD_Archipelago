@@ -126,8 +126,8 @@ class TestTheComparison(unittest.TestCase):
         self.check(ctx, {})
         blob = " ".join(_FakeContext.sink)
         self.assertIn("3 of this seed's", blob)
-        self.assertIn("NEVER fire", blob)
-        self.assertIn("version mismatch, not a logic error", blob)
+        self.assertIn("can never be sent", blob)     # ADDENDUM 445: one line
+        self.assertIn("Version mismatch", blob)
         self.assertEqual([9_999_001, 9_999_002, 9_999_003], ctx._seed_only_location_ids)
 
     def test_ids_the_seed_does_not_have_are_silent(self) -> None:
@@ -144,15 +144,15 @@ class TestTheComparison(unittest.TestCase):
         ctx = _FakeContext(self.ids)
         self.check(ctx, {"location_table_fingerprint": "0000000000000000"})
         blob = " ".join(_FakeContext.sink)
-        self.assertIn("different build", blob)
-        self.assertIn("RENAME", blob)
+        self.assertIn("different apworld build", blob)   # ADDENDUM 445: one line
+        self.assertIn("fails to register", blob)
 
     def test_a_seed_with_no_fingerprint_still_gets_the_id_comparison(self) -> None:
         """Seeds rolled before this addendum carry no fingerprint. They are the ones that most need the
         check, so the id comparison may never depend on it."""
         ctx = _FakeContext(self.ids + [9_999_001])
         self.check(ctx, {})
-        self.assertIn("do not exist in the installed apworld", " ".join(_FakeContext.sink))
+        self.assertIn("don't exist in the", " ".join(_FakeContext.sink))
 
     def test_seedcheck_reports_even_when_nothing_is_wrong(self) -> None:
         ctx = _FakeContext(self.ids)

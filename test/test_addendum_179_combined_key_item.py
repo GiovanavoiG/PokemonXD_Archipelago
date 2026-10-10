@@ -82,9 +82,11 @@ class TestTheDataTablesStillDescribeTheGame(unittest.TestCase):
     """The point of translating at rule-build time rather than rewriting the tables: every table keeps saying
     what the GAME requires, which stays true, and exactly one place knows about the packaging."""
 
-    def test_the_region_edges_still_name_the_data_rom(self) -> None:
+    def test_the_region_edges_name_neither(self) -> None:
+        """ADDENDUM 406: no region is behind the ROM any more -- it gates Lovrina, her defeat item, chest 23 and
+        Naps #2, all of them by name. The packaged name still never appears in a game-describing table."""
         named = {name for _src, _dst, required in regions.REGION_EDGES for name in required}
-        self.assertIn("Data ROM", named)
+        self.assertNotIn("Data ROM", named)
         self.assertNotIn(items.COMBINED_KEY_ITEM_NAME, named)
 
     def test_the_chest_gate_still_names_the_id_card(self) -> None:
@@ -111,13 +113,18 @@ class TestOneItemOpensEverythingBothUsedTo(PokemonXDTestBase):
         edge INTO Pyrite Town and stayed on the edge out of it, so the town opens with the story chain and
         everything past it -- the Poke Spots, Pyrite Town (ONBS), and every Cipher battle filed there -- still
         needs the item. The Poke Spots assertion below is the one that was really testing this feature."""
+        # ADDENDUM 406 reversed the rest: the Poke Spots and ONBS open with Pyrite, and the item opens what is
+        # inside the Cipher Lab instead.
+        # ADDENDUM 418: with travel shuffle off, Pyrite and everything past it are behind the same one item again.
         self.collect_key_item_chain(1)   # the Machine Part
-        self.assertTrue(self.multiworld.state.can_reach("Pyrite Town", player=self.player))
-        self.assertFalse(self.multiworld.state.can_reach("Poke Spots", player=self.player))
-        self.assertFalse(self.multiworld.state.can_reach("Pyrite Town (ONBS)", player=self.player))
+        self.assertTrue(self.multiworld.state.can_reach("Cipher Lab", player=self.player))
+        for region in ("Pyrite Town", "Poke Spots", "Pyrite Town (ONBS)"):
+            self.assertFalse(self.multiworld.state.can_reach(region, player=self.player), region)
+        self.assertFalse(self.can_reach_location("Cipher Lab Krane Chest"))
         self.collect_by_name(items.COMBINED_KEY_ITEM_NAME)
-        self.assertTrue(self.multiworld.state.can_reach("Poke Spots", player=self.player))
-        self.assertTrue(self.multiworld.state.can_reach("Pyrite Town (ONBS)", player=self.player))
+        self.assertTrue(self.can_reach_location("Cipher Lab Krane Chest"))
+        for region in ("Pyrite Town", "Poke Spots", "Pyrite Town (ONBS)"):
+            self.assertTrue(self.multiworld.state.can_reach(region, player=self.player), region)
 
     def test_the_same_one_item_opens_the_id_card_chest(self) -> None:
         """Chest 27 was behind the ID Card. One item now satisfies both gates, which is the whole feature."""
@@ -205,8 +212,9 @@ class TestCompanionDelivery(unittest.TestCase):
         self.assertIn("_delivery_companion_pending.pop(idx, None)", body)
 
     def test_a_missing_companion_is_warned_about_not_swallowed(self) -> None:
-        self.assertIn("have not shown", self.source)
-        self.assertIn("strand you in the Cipher Lab", self.source)
+        # ADDENDUM 445: one line now, still unconditional, still naming the fix.
+        self.assertIn("has not landed yet", self.source)
+        self.assertIn("`!getitem {item_name}` forces it", self.source)
 
 
 if __name__ == "__main__":

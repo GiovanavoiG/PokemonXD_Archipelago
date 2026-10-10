@@ -65,10 +65,10 @@ class TestTheMountainHasItsOwnCeiling(unittest.TestCase):
         """Mt. Battle is later content than Citadark, so a census that somehow topped out lower must not
         drag the mountain under the story's ending level."""
         gentle = [{"trainer_index": 1, "member_levels": {0: 5}}]
-        self.assertEqual(pls.LAST_TIER_LEVEL, pls.mt_battle_ramp_top(gentle))
+        self.assertEqual(pls.CITADARK_LEVEL, pls.mt_battle_ramp_top(gentle))   # ADDENDUM 455: Citadark is 53
 
     def test_an_empty_census_falls_back_rather_than_raising(self) -> None:
-        self.assertEqual(pls.LAST_TIER_LEVEL, pls.mt_battle_ramp_top([]))
+        self.assertEqual(pls.CITADARK_LEVEL, pls.mt_battle_ramp_top([]))
 
     def test_it_is_clamped_to_the_level_cap(self) -> None:
         absurd = [{"trainer_index": 1, "member_levels": {0: 500}}]

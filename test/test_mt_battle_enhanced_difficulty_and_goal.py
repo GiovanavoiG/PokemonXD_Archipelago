@@ -83,6 +83,9 @@ class TestMtBattleEnhancedDifficultyExcluded(PokemonXDTestBase):
         "enhanced_difficulty": "fill_enemy_team",
         "enhanced_difficulty_level_scaling": True,
         "exclude_mt_battle_trainers": True,
+        # Path Level Scaling became default-on with the player's options.py (2026-10-10); this test is about
+        # Enhanced Difficulty alone and its docstring says "with path scaling off", so it says so explicitly.
+        "path_level_scaling": False,
     }
 
     def test_nothing_from_enhanced_difficulty_reaches_mt_battle_when_excluded(self) -> None:

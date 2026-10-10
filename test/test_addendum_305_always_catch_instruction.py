@@ -161,10 +161,10 @@ class TestItIsGatedOnTheOption(unittest.TestCase):
         self.assertEqual(1, source.count("write_always_catch_code_patch(output_path)"))
 
     def test_the_option_still_exists_and_is_off_by_default(self) -> None:
-        from ..options import MaxCatchRate, PokemonXDOptions
+        from ..options import CatchRateScaling, PokemonXDOptions   # ADDENDUM 447: folded, 100 = max
 
-        self.assertEqual(0, MaxCatchRate.default)
-        self.assertIn("max_catch_rate", PokemonXDOptions.__annotations__)
+        self.assertEqual(0, CatchRateScaling.default)
+        self.assertIn("catch_rate_scaling", PokemonXDOptions.__annotations__)
 
 
 if __name__ == "__main__":

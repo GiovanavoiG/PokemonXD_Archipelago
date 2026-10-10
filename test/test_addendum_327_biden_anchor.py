@@ -75,5 +75,6 @@ class TestInARealSeed(PokemonXDTestBase):
     def test_both_any_defeats_hold_filler_only(self) -> None:
         from BaseClasses import LocationProgressType
 
-        for name in ("Defeat Biden (Any)", "Defeat Zook (Any)"):
-            self.assertEqual(LocationProgressType.EXCLUDED, self._location(name).progress_type, name)
+        # ADDENDUM 436: Zook's ruling stands; Biden's Snagem fight is not missable, so his check is an ordinary one.
+        self.assertEqual(LocationProgressType.EXCLUDED, self._location("Defeat Zook (Any)").progress_type)
+        self.assertNotEqual(LocationProgressType.EXCLUDED, self._location("Defeat Biden (Any)").progress_type)

@@ -440,6 +440,28 @@ def apply_mart_fixed_stock(
     return count
 
 
+def apply_mart_pool_items(
+    rel_bytes: bytearray,
+    rel: RelFile,
+    mart_index: int,
+    items: "dict[int, tuple[int, int]]",
+) -> int:
+    """ADDENDUM 427: {pool index: (the vanilla item it must hold, the item to sell)}. Every pool index must be
+    one of `mart_index`'s own slots and still hold its vanilla item on disc, or this raises before writing."""
+    slots = set(mart_item_slots(rel, mart_index))
+    plan = []
+    for pool_index, (vanilla, new_item) in items.items():
+        if pool_index not in slots:
+            raise ValueError(f"pool slot {pool_index} is not one of mart {mart_index}'s slots")
+        off = mart_item_slot_offset(rel, pool_index)
+        if struct.unpack_from(">H", rel.data, off)[0] != vanilla:
+            raise ValueError(f"pool slot {pool_index} does not hold item {vanilla} on this disc")
+        plan.append((off, int(new_item)))
+    for off, new_item in plan:
+        struct.pack_into(">H", rel_bytes, off, new_item)
+    return len(plan)
+
+
 def byte_diff_offsets(original: bytes, patched: bytes) -> list[int]:
     """ADDENDUM 128: every offset at which `patched` differs from `original` (same length required)."""
     if len(original) != len(patched):
@@ -947,6 +969,29 @@ def apply_catch_rate(rel_bytes: bytearray, rel: RelFile, plan: dict) -> "dict[st
     return {"catch_rate_written": written}
 
 
+def apply_evolution_edits(rel_bytes: bytearray, rel: RelFile,
+                          edits: "tuple | list") -> "dict[str, int]":
+    """ADDENDUM 429: rewrite species evolution entries (+0xA6 + slot*6: method u8, pad u8, condition u16, target
+    u16). All or nothing: every entry must hold its vanilla (method, condition, target) or nothing is written."""
+    base = pokemon_stats_base(rel)
+    count = pokemon_stats_count(rel)
+    plan = []
+    for species, slot, old, new in edits:
+        if not 0 <= species < count or not 0 <= slot < 5:
+            raise ValueError(f"evolution edit for species {species} slot {slot} is outside the table")
+        off = base + species * POKEMON_STATS_ENTRY_SIZE + 0xA6 + slot * 6
+        method, _pad, condition, target = struct.unpack_from(">BBHH", rel_bytes, off)
+        if (method, condition, target) == tuple(new):
+            continue
+        if (method, condition, target) != tuple(old):
+            raise ValueError(f"species {species} evolution slot {slot} is {(method, condition, target)}, "
+                             f"not the vanilla {tuple(old)} -- a different build")
+        plan.append((off, new))
+    for off, (method, condition, target) in plan:
+        struct.pack_into(">BBHH", rel_bytes, off, method, 0, condition, target)
+    return {"evolutions_written": len(plan)}
+
+
 def verify_species_stats_table(rel: RelFile, expected_base_hp: "dict[int, int]",
                                national_dex_for: "dict[int, int]", minimum_agreement: int = 20) -> bool:
     """True when this ISO's stats table is where the pointer says: the base-HP byte is checked against this
@@ -1181,6 +1226,18 @@ def assert_pokespot_levels_unchanged(before: bytes, after: bytes) -> None:
     )
 
 
+def pokespot_species_indices(rel_bytes: bytes, rel: RelFile) -> "frozenset[int]":
+    """ADDENDUM 446: every internal species index the Poke Spot table holds in `rel_bytes` -- read after any
+    reassignment, so a randomized pool answers with its new species. Zero (an unused slot) is left out."""
+    out = set()
+    for pool in sorted(POKESPOT_POOL_POINTERS):
+        for index in range(pokespot_pool_count(rel, pool)):
+            species = struct.unpack_from(">H", rel_bytes, pokespot_species_offset(rel, pool, index))[0]
+            if species:
+                out.add(species)
+    return frozenset(out)
+
+
 def apply_pokespot_species(rel_bytes: bytearray, rel: RelFile, assignment: dict[str, int]) -> int:
     """Overwrites each keyed slot's Species field in `rel_bytes`. Keys are "{pool}:{slot_index}" strings,
     matching seed_data['pokespot_species_by_slot'] -- strings because that survives the JSON round-trip.
@@ -1405,6 +1462,29 @@ def item_name_id(rel: RelFile, item_id: int) -> int:
     off = item_table_base(rel) + index * ITEM_ENTRY_SIZE + ITEM_NAME_ID_OFFSET
     raw = struct.unpack_from(">I", rel.data, off)[0]
     return raw & STRING_TABLE_ID_MASK
+
+
+def apply_item_row_bytes(rel_bytes: bytearray, rel: RelFile, item_id: int, expected_name_id: int,
+                         edits: "dict[int, bytes]") -> bool:
+    """ADDENDUM 427: overwrite fields of one Items-table row. Refuses (returns False, writes nothing) unless the
+    row's NameID is `expected_name_id` -- the proof the row is the item meant -- and every edit stays inside
+    the row and clear of its NameID, description id and the two REL-relocated function pointers."""
+    protected = set(range(ITEM_NAME_ID_OFFSET, ITEM_NAME_ID_OFFSET + 8)) | set(range(0x1C, 0x24))
+    for offset, value in edits.items():
+        span = set(range(offset, offset + len(value)))
+        if offset < 0 or offset + len(value) > ITEM_ENTRY_SIZE or span & protected:
+            raise ValueError(f"item row edit at +0x{offset:X} ({len(value)} bytes) is outside the fields it may touch")
+    try:
+        if item_name_id(rel, item_id) != expected_name_id:
+            return False
+        row = item_table_base(rel) + item_table_index(rel, item_id) * ITEM_ENTRY_SIZE
+    except Exception:
+        return False
+    if row < 0 or row + ITEM_ENTRY_SIZE > len(rel_bytes):
+        return False
+    for offset, value in edits.items():
+        rel_bytes[row + offset:row + offset + len(value)] = value
+    return True
 
 
 # ADDENDUM 124: pointer 116 does resolve at least one real item name ("Krane Memo 4"), so the mechanism is not

@@ -112,6 +112,11 @@ class TestEveryDefeatIsBehindItsTravelUnlock(_TravelShuffleBase):
         # defeats is left entirely ungated except the ones documented as always-open.
         always_open = {"Pokemon HQ Lab", "Kaminko's House", "Gateon Port", "Agate Village",
                        "Unique Trainer Defeats"}
+        # ADDENDUM 433: Citadark Isle has no map icon. With the Parts gate on (the default) it is the Robo
+        # Kyogre ride from always-open Gateon, gated by the Parts, not by any travel unlock -- player: "Citadark
+        # is not gated behind key lair in location shuffle."
+        if self.multiworld.worlds[self.player].options.robo_kyogre_parts_unlock_citadark:
+            always_open.add("Citadark Isle")
         gated_regions = set().union(*gated_by.values()) if gated_by else set()
         regions_with_defeats = {l.parent_region.name for l in defeats}
         ungated = regions_with_defeats - gated_regions - always_open
@@ -136,7 +141,7 @@ class TestEveryDefeatIsBehindItsTravelUnlock(_TravelShuffleBase):
         # three and the only one that was a plain mistake rather than a decision -- an always-open region
         # behind a progression item. Its item is retired, so it cannot be idle; it is not there at all.
         self.assertEqual(
-            {f"{prefix}Orre Colosseum", f"{prefix}Realgam Tower"},
+            {f"{prefix}Realgam Tower"},   # ADDENDUM 446 removed Orre Colosseum's item
             idle,
             "Orre Colosseum opens a region that gates nothing by decision (ADDENDUM 185), and the 232-row "
             "roster has no Realgam trainer at all. A THIRD name here means a trainer lost its region.")
@@ -167,14 +172,24 @@ class TestTheUngatedDefeatsAreAllFillerOnly(_TravelShuffleBase):
         of that sentence living in different files is how one of them gets changed alone."""
         from ..game_data import trainer_placements
 
+        from ..game_data import trainer_roster
+
         parked = [l for l in self.defeats() if l.parent_region.name == "Unique Trainer Defeats"]
-        self.assertTrue(parked)
-        self.assertEqual(
-            sum(1 for p in trainer_placements.PLACEMENTS.values() if p.region is None),
-            len(parked),
-            "every region-less placement should be parked in the catch-all region, and nothing else should")
-        for location in parked:
-            self.assertIs(LocationProgressType.EXCLUDED, location.progress_type, location.name)
+        # ADDENDUM 401: a region-less placement whose numbered fight was removed has no location to park.
+        # ADDENDUM 409: "Hordel is not a check, so remove him", the rematch trim, and Miror B. #2's placement
+        # ("outskirt stand or cave spot") leave NO region-less placement with a live location. The invariant is
+        # now the stronger one: nothing is parked, and every region-less row is a removed label, absent here.
+        region_less = {
+            trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[index])
+            for index, p in trainer_placements.PLACEMENTS.items() if p.region is None
+        }
+        self.assertTrue(region_less)
+        self.assertEqual([], [l.name for l in parked],
+                         "a live defeat check is parked in the catch-all region with no census region")
+        created = {l.name for l in self.defeats()}
+        for name in region_less:
+            self.assertIn(name, trainer_roster.REMOVED_DEFEAT_LOCATIONS, name)
+            self.assertNotIn(name, created, name)
 
 
 if __name__ == "__main__":

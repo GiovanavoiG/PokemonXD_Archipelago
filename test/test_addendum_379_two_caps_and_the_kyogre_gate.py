@@ -150,7 +150,7 @@ class TestNeitherChangeMovedTheLevelRamp(unittest.TestCase):
         self.assertEqual(0x3E, sb.region_floor(PHENAC))
         known = {r for r in pls.region_by_trainer_index().values() if r}
         tiers = pls.path_tiers(known)
-        self.assertEqual(13, len(tiers))
+        self.assertEqual(12, len(tiers)) # ADDENDUM 407: Pyrite visits 1 and 2 are one rung
         self.assertIsNone(pls.tier_index(GATEON, tiers, known))
 
 

@@ -79,7 +79,7 @@ class TestTheKeyLairsFloor(unittest.TestCase):
         the area's first tier (0x5D, the exterior). ADDENDUM 371 raised the value from 0x64 to 0x67 on the
         player's instruction; the property this addendum established is that the override is what
         `area_entry_floor` returns, so it is asserted that way rather than against a literal in two places."""
-        self.assertEqual(0x67, sb.AREA_ENTRY_FLOOR_OVERRIDES["Cipher Key Lair"])
+        self.assertEqual(0x64, sb.AREA_ENTRY_FLOOR_OVERRIDES["Cipher Key Lair"])   # ADDENDUM 439: this addendum's 0x64 again
         self.assertEqual(sb.AREA_ENTRY_FLOOR_OVERRIDES["Cipher Key Lair"],
                          sb.area_entry_floor("Cipher Key Lair"))
         self.assertGreater(sb.area_entry_floor("Cipher Key Lair"),

@@ -252,7 +252,15 @@ class TestEveryWriteSiteIsLogged(unittest.TestCase):
         # and sets `last_written_target`, which is this writer's own ownership channel because it IS the area
         # memory -- see the `test_it_claims_the_write_so_the_mark_is_not_banked_back` test in
         # test_addendum_365.
-        self.assertEqual(sites, 16,
+        # 18 since ADDENDUM 419: MusicDiscStoryHold's hold (Phenac capped at 0x41 without the Music Disc) and its
+        # grant (the held step given back when the disc lands). Both call `record()` and set
+        # `last_written_value`; both only run with key items shuffled.
+        # 19 since ADDENDUM 435: `StoryByteOverride._return_story` (vanilla travel, after an early Citadark ride).
+        # It calls `record()` and sets `last_written_value`.
+        # 20 since ADDENDUM 441: `MusicDiscStoryHold._write`, the disc room's one-step-lower hold and its undo.
+        # 22 since ADDENDUM 452: `LabMemoStoryHold`'s hold (the HQ Lab pinned at 0x16) and its grant. Both call
+        # `record()` and set `last_written_value`, which the client claims.
+        self.assertEqual(sites, 22,
                          "a story-byte write site was added or removed -- if added, it must also call "
                          "write_log.record(), and this count must be updated deliberately")
 
@@ -345,7 +353,9 @@ class TestTheCommandExists(unittest.TestCase):
         # ADDENDUM 365 added the eighth: the poisoned-byte clamp persists the log right after it writes, for
         # the same reason every other site does -- a write nobody can see afterwards is a write nobody can
         # question.
-        self.assertEqual(self.source.count("_save_story_write_log(ctx)"), 8,
+        # ADDENDUM 419 added the ninth: the Music Disc hold persists the log after a hold or a grant.
+        # ADDENDUM 452 added the tenth: the HQ Lab memo hold persists the log after a hold or a grant.
+        self.assertEqual(self.source.count("_save_story_write_log(ctx)"), 10,
                          "the area-memory poll and the parts-override poll must each persist the log")
 
 

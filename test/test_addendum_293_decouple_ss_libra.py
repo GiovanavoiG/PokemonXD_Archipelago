@@ -306,7 +306,8 @@ class TestVanillaTravelIsUntouched(PokemonXDTestBase):
             if item.advancement and item.name != _items.SCOOTER_ITEM_NAME:
                 state.collect(item, True)
         state.sweep_for_advancements()
-        for region in ("SS Libra", "Cipher Key Lair (exterior)", "Snagem Hideout", "Citadark Isle"):
+        # ADDENDUM 435: Citadark Isle is the Parts-only ride from Gateon in vanilla travel too, so it is not here.
+        for region in ("SS Libra", "Cipher Key Lair (exterior)", "Snagem Hideout"):
             self.assertFalse(state.can_reach(region, player=self.player),
                              f"{region} must stay behind the Scooter with travel randomization off")
 
