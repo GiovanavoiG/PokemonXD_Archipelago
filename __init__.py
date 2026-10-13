@@ -1437,8 +1437,13 @@ class PokemonXDWorld(World):
 
     def extend_hint_information(self, hint_data: "dict[int, dict[int, str]]") -> None:
         """Every "Catch - {species}" hint names who holds that species this seed and where. The per-seed
-        half a location name cannot carry; see catch_sources.py."""
+        half a location name cannot carry; see catch_sources.py. Every trainer-defeat hint names the area(s) it is
+        fought in (defeat_hints.py, ADDENDUM 489)."""
         texts = catch_sources.sources_by_location(self)
+        # ADDENDUM 489: the trainer-defeat checks name where they are fought, the same way.
+        from .defeat_hints import defeat_hint_texts
+        for name, text in defeat_hint_texts(self).items():
+            texts.setdefault(name, text)
         if not texts:
             return
         by_id: "dict[int, str]" = {}
