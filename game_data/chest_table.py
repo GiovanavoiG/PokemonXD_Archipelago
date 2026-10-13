@@ -1,7 +1,7 @@
 """GENERATED -- do not hand-edit the table; edit `DESCRIPTORS` only.
 
 Every real chest in `common_rel`'s treasure table (`XDTreasureBoxData`), keyed by room id in the same
-numbering the live `!room` readout reports, so "which chests are in the room I am standing in" is a direct
+numbering the live `/room` readout reports, so "which chests are in the room I am standing in" is a direct
 lookup.
 
 Extracted from the real ISO via `xd_rel_format.read_chest_entry`. Fields per chest:
@@ -15,7 +15,7 @@ Extracted from the real ISO via `xd_rel_format.read_chest_entry`. Fields per che
     x/y/z  -- world coordinates, which is what actually separates two chests in the same room.
 
 `DESCRIPTORS` is the hand-written half: a short human label per chest index, filled in by playing with
-`!chests` open. Nothing depends on it being complete."""
+`/chests` open. Nothing depends on it being complete."""
 from __future__ import annotations
 
 CHESTS: list[dict] = [
@@ -140,7 +140,7 @@ CHESTS_BY_ROOM: "dict[int, list[dict]]" = {}
 for _c in CHESTS:
     CHESTS_BY_ROOM.setdefault(_c["room"], []).append(_c)
 
-# Hand-written labels, chest index -> description. Add entries as rooms get explored with `!chests`.
+# Hand-written labels, chest index -> description. Add entries as rooms get explored with `/chests`.
 DESCRIPTORS: "dict[int, str]" = {
     18: "Cipher Lab -- holds the ID Card (item 506) in the unpatched game",
 }

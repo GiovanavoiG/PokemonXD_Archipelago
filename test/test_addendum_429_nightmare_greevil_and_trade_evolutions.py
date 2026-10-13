@@ -66,7 +66,7 @@ class TestNightmareGreevil(PokemonXDTestBase):
         self.assertIn(world._nightmare_teams[NC.GREEVIL_FINAL_TRAINER], NC.TEAM_KEYS)
         self.assertEqual([], world._nightmare_relocations)
         self.assertEqual(frozenset(), world._nightmare_removed_dpkm)
-        self.assertEqual(83, world._vanilla_shadow_count)
+        self.assertEqual(75, world._vanilla_shadow_count)   # RETARGETED BY ADDENDUM 479 (was 83)
         seed = _seed(world)
         self.assertEqual([str(NC.GREEVIL_FINAL_TRAINER)], list(seed["nightmare_citadark_teams"]))
         self.assertFalse(seed.get("nightmare_shadow_relocations"))

@@ -391,8 +391,14 @@ TRAVEL_LOCATION_ADJACENCY: dict[str, AdjacencyRequirement] = {
 # Mayor's House tier stops half way through. That is what the vanilla chain says too, so travel shuffle stops
 # being looser than the unmodified game, and the Disc and Note land on every path to the ship. With travel
 # randomization off none of this applies -- `ScooterStoryHold` keeps the ship before Snagem there.
+#
+# ADDENDUM 481 relaxed it to the town itself. Player: "Gate SS Libra's items logically JUST behind the phenac unlock -
+# we don't need the phenac clear at all. SS Libra can be just logically behind phenac unlock and scooter upgrade if
+# it's enabled." With travel shuffle the "Phenac City" region's one entrance is its own gateway, so this is exactly
+# "hold Travel Unlock - Phenac City"; the Scooter Upgrade stays where ADDENDUM 273 put it, on the SS Libra region.
+# REVERT: `("Phenac City (Post-Sixes)",)`.
 TRAVEL_LOCATION_REQUIRED_REGIONS: dict[str, tuple[str, ...]] = {
-    "SS Libra": ("Phenac City (Post-Sixes)",),
+    "SS Libra": ("Phenac City",),
 }
 
 

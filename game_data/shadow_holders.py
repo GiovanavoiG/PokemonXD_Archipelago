@@ -97,7 +97,7 @@ def shadows_held_more_than_once() -> "dict[int, tuple[int, ...]]":
 
 
 def describe_resolution(effective_levels: "dict[int, int] | None" = None) -> "list[str]":
-    """One line per Shadow whose holder was ambiguous, for the seed notes and `!shadowdex`-style output.
+    """One line per Shadow whose holder was ambiguous, for the seed notes and `/shadowdex`-style output.
 
     A ShadowHolder only knows the VANILLA team average, so on a re-levelled team these lines used to describe
     a level nobody was writing. Pass `{ddpk_index: the level actually assigned}` as `effective_levels` and the

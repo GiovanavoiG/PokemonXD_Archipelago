@@ -20,30 +20,23 @@ class TestTheFence(unittest.TestCase):
                          [tr.TRAINERS_BY_INDEX[i]["name"] for i in (24, 25, 26, 27)])
         self.assertTrue(all(tp.PLACEMENTS[i].region == "Agate Village" for i in (24, 25, 26, 27)))
 
-    def test_excluded_from_every_shadow_host(self) -> None:
-        self.assertTrue(mt.SAME_TEAM_REMATCH_TRAINER_INDICES <= mt.shadow_expansion_excluded_trainer_indices())
+    def test_reopened_by_addendum_466(self) -> None:
+        """ADDENDUM 466: the fence is lifted -- a snagged Shadow is no longer rebuilt on a rematch (465). The set
+        stays defined, and `SHADOW_REMATCH_FENCES_RELAXED = False` puts it back."""
+        self.assertFalse(mt.SAME_TEAM_REMATCH_TRAINER_INDICES & mt.shadow_expansion_excluded_trainer_indices())
+        with __import__("unittest").mock.patch.object(mt, "SHADOW_REMATCH_FENCES_RELAXED", False):
+            self.assertTrue(mt.SAME_TEAM_REMATCH_TRAINER_INDICES <= mt.shadow_expansion_excluded_trainer_indices())
 
 
-class TestTheExpansionNeverPicksThem(PokemonXDTestBase):
+class TestTheExpansionMayPickThem(PokemonXDTestBase):
+    """ADDENDUM 466: hosts are drawn from the ordinary pool again; nothing forbids or forces these four."""
     options = {"shadow_pokemon_expansion": 44}
 
-    def test_no_plan_targets_them(self) -> None:
+    def test_hosts_are_inside_the_new_fence(self) -> None:
         world = self.multiworld.worlds[self.player]
         hosts = {int(plan["trainer_index"]) for plan in (world._shadow_expansion_plans or [])}
         self.assertTrue(hosts)
-        self.assertFalse(hosts & mt.SAME_TEAM_REMATCH_TRAINER_INDICES)
-        for dex_hosts in (world._shadow_catch_expansion_hosts or {}).values():
-            self.assertFalse(set(dex_hosts) & mt.SAME_TEAM_REMATCH_TRAINER_INDICES)
-
-
-class TestRelocationsNeverPickThem(PokemonXDTestBase):
-    options = {"remove_citadark_shadows": True}
-
-    def test_no_relocation_targets_them(self) -> None:
-        world = self.multiworld.worlds[self.player]
-        hosts = {int(plan["trainer_index"]) for plan in (getattr(world, "_nightmare_relocations", None) or [])}
-        self.assertTrue(hosts)
-        self.assertFalse(hosts & mt.SAME_TEAM_REMATCH_TRAINER_INDICES)
+        self.assertFalse(hosts & mt.shadow_expansion_excluded_trainer_indices())
 
 
 if __name__ == "__main__":

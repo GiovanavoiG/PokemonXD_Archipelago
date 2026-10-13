@@ -17,7 +17,7 @@ from dataclasses import dataclass
 class KeyItem:
     name: str                        # must match items.py's own spelling exactly
     game_item_id: int
-    gates: "tuple[str, ...]" = ()    # human-readable, for documentation and `!keyitems`
+    gates: "tuple[str, ...]" = ()    # human-readable, for documentation and `/keyitems`
     in_pool: bool = True             # False = left vanilla, never shuffled
     shuffled: bool = True            # False = stays in its vanilla location even with key-item shuffle on
     note: str = ""

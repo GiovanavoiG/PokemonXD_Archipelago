@@ -10,6 +10,8 @@ against the player's own ISO -- no census is built in.
 
 from __future__ import annotations
 
+from ..game_data.evolution_data import family_of_internal
+
 import itertools
 import random
 from dataclasses import dataclass, field
@@ -119,6 +121,9 @@ class TeamShuffler:
         self.rng = rng
         self.species_pool = species_pool
         self._picked_shadow_species: set[int] = set()
+        # ADDENDUM 486, player: "can we make it so shadow pokemon will never be the same evolution line?" The
+        # evolution families already taken by a Shadow -- a candidate from one of them is never offered again.
+        self._picked_shadow_families: set[int] = set()
         self._leveled_slot_indices: set[int] = set()
         # ADDENDUM 363: the list depends only on `legendary_safe` (fixed here) and `original.is_legendary`, so
         # building it per instance meant 808 walks of all 386 species per seed, 22% of a world generation, for
@@ -135,7 +140,10 @@ class TeamShuffler:
         # Precomputed in __init__; returned read-only, and copied only on the shadow path, which filters it.
         candidates = self._base_candidates[original.is_legendary]
         if is_shadow:
-            candidates = [sid for sid in candidates if sid not in self._picked_shadow_species]
+            # ADDENDUM 486: one Shadow per evolution line. A candidate's family is its evolved form's too, so the
+            # natural evolution applied after the pick cannot walk into a taken line.
+            by_line = [sid for sid in candidates if family_of_internal(sid) not in self._picked_shadow_families]
+            candidates = by_line or [sid for sid in candidates if sid not in self._picked_shadow_species]
             if not candidates:
                 # More shadow slots than species. Dedup is a nicety, not correctness, so allow reuse.
                 candidates = list(self.species_pool.keys())
@@ -156,18 +164,24 @@ class TeamShuffler:
         free. The dedup set holds POST-evolution species, so two pre-evolutions sharing a final stage cannot
         both claim it; candidates are tried in `self.rng`'s shuffled order, and if all are taken the first pick
         is reused."""
-        if evolved_species_id not in self._picked_shadow_species:
-            self._picked_shadow_species.add(evolved_species_id)
-            return evolved_species_id
+        def free(species_id: int) -> bool:
+            return (species_id not in self._picked_shadow_species
+                    and family_of_internal(species_id) not in self._picked_shadow_families)
+
+        def take(species_id: int) -> int:
+            self._picked_shadow_species.add(species_id)
+            self._picked_shadow_families.add(family_of_internal(species_id))
+            return species_id
+
+        if free(evolved_species_id):
+            return take(evolved_species_id)
         retry = list(candidates)
         self.rng.shuffle(retry)
         for candidate in retry:
             evolved = self._apply_natural_evolution(candidate, level)
-            if evolved not in self._picked_shadow_species:
-                self._picked_shadow_species.add(evolved)
-                return evolved
-        self._picked_shadow_species.add(evolved_species_id)
-        return evolved_species_id
+            if free(evolved):
+                return take(evolved)
+        return take(evolved_species_id)
 
     def _reassign_held_item(self, mon: PokemonInstance) -> int | None:
         if not self.options.shuffle_held_items or not self.options.held_item_pool:

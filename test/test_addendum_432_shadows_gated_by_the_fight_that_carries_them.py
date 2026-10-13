@@ -56,7 +56,7 @@ class TestTheGates(unittest.TestCase):
                     self.assertTrue(all(trainer_placements.region_for(i) is None or i in SR.NO_SNAG_TRAINER_INDICES
                                         for i in rows), ddpk)
                     continue
-                index = int(gate.source.split("#")[1])
+                index = int(gate.source.split("#")[1].split(",")[0])   # ", after the goal" (ADDENDUM 473/479)
                 self.assertIn(index, rows)
                 self.assertNotIn(index, SR.NO_SNAG_TRAINER_INDICES)
                 self.assertEqual(trainer_placements.region_for(index), gate.region)
@@ -147,7 +147,8 @@ class TestRemovalCounts(_Counted):
         self.assertFalse(state.can_reach("Citadark Isle", player=self.player))
         total = self.multiworld.worlds[self.player]._purification_location_count
         # Only Miror B.'s post-game Dragonite still waits on the end game; the island's own 36 moved away.
-        self.assertEqual(total - 1, self._assert_boundary(state))
+        # RETARGETED BY ADDENDUM 479: and the Dragonite has no rung, so every rung is had without the island.
+        self.assertEqual(total, self._assert_boundary(state))
 
 
 if __name__ == "__main__":

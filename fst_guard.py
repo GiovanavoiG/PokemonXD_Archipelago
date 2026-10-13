@@ -43,7 +43,7 @@ MAX_REPAIRABLE_BYTES = 8192
 
 
 class FstStatus:
-    """Stable strings for logging / the `!fst` command."""
+    """Stable strings for logging / the `/fst` command."""
     NO_POINTERS = "no FST published in RAM yet"
     UNREADABLE = "could not read the FST out of RAM"
     INVALID = "the FST in RAM is not structurally valid yet"
@@ -236,7 +236,7 @@ class FstGuard:
     invalid_polls: int = 0
     _invalid_logged: bool = False
     # The "armed, snapshot taken" lines are startup narration, so they go to a sink Client.py gates behind
-    # `!verbose`; `log` above carries every repair unconditionally, since a repair means the game was about to
+    # `/verbose`; `log` above carries every repair unconditionally, since a repair means the game was about to
     # softlock. Declared last so no positional FstGuard(...) construction shifts.
     log_verbose: Callable[[str], None] = lambda message: None
 
@@ -321,7 +321,7 @@ class FstGuard:
             reason = validate_fst(current)
             if reason is not None:
                 # Boot-time zeros or already-damaged: either way it must not become what we repair towards.
-                # Normal for the first few ticks; if it persists, `!fstiso` is what unblocks it.
+                # Normal for the first few ticks; if it persists, `/fstiso` is what unblocks it.
                 self.status = f"{FstStatus.INVALID} ({reason})"
                 self.invalid_polls += 1
                 return {"status": self.status, "repaired": 0, "needs_disc_baseline": self.invalid_polls}
@@ -386,7 +386,7 @@ class FstGuard:
             extra = ""
             if self.disc_baseline is None and self.invalid_polls > 2:
                 extra = (" The file table in RAM has not looked intact yet, so there is nothing to repair "
-                         "towards -- point the client at your patched ISO with `!fstiso <path>` and it can "
+                         "towards -- point the client at your patched ISO with `/fstiso <path>` and it can "
                          "repair it from the disc instead.")
             return f"FST guard: {self.status}.{extra}"
         source = self.disc_source if self.baseline is self.disc_baseline else "a validated RAM snapshot"

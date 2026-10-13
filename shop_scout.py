@@ -3,7 +3,7 @@
 `args["locations"]` does not hold dicts: `NetUtils.allowlist` includes `NetworkItem`, so the JSON decoder's
 object hook makes every entry a `NetworkItem` namedtuple before any client sees it. Indexing one by string
 raises on the first entry and throws away the whole reply, which is how every shelf line came to read "Not
-scouted yet" with nothing logged -- the failure went to `_note_warn`, which sits behind `!verbose`.
+scouted yet" with nothing logged -- the failure went to `_note_warn`, which sits behind `/verbose`.
 
 The parsing lives here rather than in Client.py because Client.py cannot be imported in this project's test
 environment (`CommonClient` -> `MultiServer` -> `websockets.extensions`), so its contents can only be checked
@@ -67,7 +67,7 @@ def scouted_shop_items(
     """Return `({shop location name: (item name, other player's name or None)}, [problems])`.
 
     Each record is handled on its own so one unreadable entry cannot discard the other fifty, and anything
-    that fails is described in `problems` rather than dropped -- `!shops` can then say "scouted 47 of 52
+    that fails is described in `problems` rather than dropped -- `/shops` can then say "scouted 47 of 52
     lines, 5 unreadable" instead of the shelf silently reading "Not scouted yet."
 
     `classifications`, when given, is filled in alongside from each record's `flags`. Kept out of the return

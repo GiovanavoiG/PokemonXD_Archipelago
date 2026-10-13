@@ -383,16 +383,13 @@ class TestTravelLocationAdjacency(PokemonXDTestBase):
         self.collect_by_name("Travel Unlock - SS Libra")
         self.assertFalse(self.multiworld.state.can_reach("SS Libra", player=self.player),
                          "the item alone must not be enough")
+        # RETARGETED BY ADDENDUM 481. Player: "Gate SS Libra's items logically JUST behind the phenac unlock - we
+        # don't need the phenac clear at all." With travel shuffle, plain "Phenac City" is behind its own unlock.
         self.collect_by_name("Travel Unlock - Phenac City")
         self.assertTrue(self.multiworld.state.can_reach("Phenac City", player=self.player))
-        self.assertFalse(self.multiworld.state.can_reach("SS Libra", player=self.player),
-                         "standing in Phenac is not clearing Phenac")
-        self.collect_by_name("Music Disc")
-        self.assertFalse(self.multiworld.state.can_reach("SS Libra", player=self.player),
-                         "half the town is not the town")
-        self.collect_by_name("Mayor's Note")
-        self.assertTrue(self.multiworld.state.can_reach("Phenac City (Post-Sixes)", player=self.player))
-        self.assertTrue(self.multiworld.state.can_reach("SS Libra", player=self.player))
+        self.assertFalse(self.multiworld.state.can_reach("Phenac City (Post-Sixes)", player=self.player))
+        self.assertTrue(self.multiworld.state.can_reach("SS Libra", player=self.player),
+                        "the Phenac unlock is enough")
 
 
 class TestCatchPokemonAreaGating(PokemonXDTestBase):

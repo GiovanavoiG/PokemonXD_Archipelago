@@ -10,6 +10,7 @@
 """
 import random
 import unittest
+from unittest import mock
 
 from .. import ram_client as rc
 from ..game_data import shadow_move_slots as sms
@@ -19,13 +20,24 @@ class TestPurificationsAreCountedOncePerSpecies(unittest.TestCase):
     class _Fake:
         def __init__(self, queue):
             self.queue = list(queue)
+            self.last = None
 
         def poll(self, *args, **kwargs):
-            return self.queue.pop(0) if self.queue else []
+            batch = self.queue.pop(0) if self.queue else []
+            if batch:
+                self.last = batch[-1][0]
+            return batch
 
     def tracker(self, queue):
+        """ADDENDUM 478: a flip counts only off the slot's purified Shadow record, by its id. The fake hands back
+        that record for the species it just flipped -- one Pokemon per species, its id the species number."""
         t = rc.PurificationCountTracker()
-        t.tracker = self._Fake(queue)
+        fake = self._Fake(queue)
+        t.tracker = fake
+        patch = mock.patch.object(rc, "_read_shadow_record", side_effect=lambda *a: rc.ShadowRecord(
+            "party", 0, fake.last, fake.last, rc.PURIFIED_FLAG_VALUE, 30, 1, fake.last, 20, 40))
+        patch.start()
+        self.addCleanup(patch.stop)
         return t
 
     def test_the_same_species_is_never_counted_twice(self):

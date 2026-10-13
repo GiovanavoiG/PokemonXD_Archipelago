@@ -93,6 +93,15 @@ def _build_zip(destination: str) -> str:
                 if filename.endswith(".pyc"):
                     continue
                 full = os.path.join(root, filename)
+                if filename == "archipelago.json" and os.path.samefile(root, _PACKAGE_ROOT):
+                    # ADDENDUM 470: the packaged manifest gains the container fields, as BUILD.md's recipe and
+                    # AP's "Build APWorlds" add them; the source copy must not carry them.
+                    import json
+                    with open(full, encoding="utf-8") as handle:
+                        manifest = {**json.load(handle), "version": 7, "compatible_version": 7}
+                    archive.writestr(os.path.relpath(full, _WORLD_PARENT).replace(os.sep, "/"),
+                                     json.dumps(manifest, indent=2))
+                    continue
                 archive.write(full, os.path.relpath(full, _WORLD_PARENT))
     return path
 

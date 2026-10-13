@@ -16,7 +16,8 @@ from ..game_data import story_bytes as sb
 
 class TestTheShipIsBehindTheClearedTown(unittest.TestCase):
     def test_it_is_a_hard_prerequisite_now(self) -> None:
-        self.assertEqual(("Phenac City (Post-Sixes)",), tl.required_regions_for("SS Libra"))
+        # RETARGETED BY ADDENDUM 481: the town, not the cleared town ("we don't need the phenac clear at all").
+        self.assertEqual(("Phenac City",), tl.required_regions_for("SS Libra"))
 
     def test_the_toothless_adjacency_is_gone(self) -> None:
         """It named plain "Phenac City", which is open from turn one -- the clause could never fail."""
@@ -39,12 +40,13 @@ class TestInARealTravelSeed(PokemonXDTestBase):
     def _reach(self, region):
         return self.multiworld.state.can_reach(region, player=self.player)
 
-    def test_the_ship_needs_phenac_cleared(self) -> None:
-        self.collect_by_name(["Travel Unlock - SS Libra", "Travel Unlock - Phenac City"])
+    def test_the_ship_needs_phenac_unlocked(self) -> None:
+        """RETARGETED BY ADDENDUM 481 (was: needs Phenac cleared -- the Music Disc and Mayor's Note)."""
+        self.collect_by_name(["Travel Unlock - SS Libra"])
+        self.assertFalse(self._reach("SS Libra"))
+        self.collect_by_name(["Travel Unlock - Phenac City"])
         self.assertTrue(self._reach("Phenac City"))
-        self.assertFalse(self._reach("SS Libra"), "the town being open is not the town being done")
-        self.collect_by_name(["Music Disc", "Mayor's Note"])
-        self.assertTrue(self._reach("SS Libra"))
+        self.assertTrue(self._reach("SS Libra"), "the Phenac unlock is all it needs")
 
     def test_everything_past_the_ship_inherits_it(self) -> None:
         """The player's second sentence: Phenac leads to the ship, so it leads to what the ship leads to."""
@@ -114,7 +116,8 @@ class TestTheKeyLairsFloor(unittest.TestCase):
         # ADDENDUM 334 added Cipher Lab; ADDENDUM 350 removed it again, once the ladder itself was corrected
         # to the value the lab's own script tests for -- an override that equals what it overrides is a no-op
         # this table should not carry.
-        self.assertEqual({"Cipher Key Lair", "Phenac City"}, set(sb.AREA_ENTRY_FLOOR_OVERRIDES))
+        # ADDENDUM 473 added Poke Spots: 0x37, the Duking news seen, so the Rock spot's tray scene can play.
+        self.assertEqual({"Cipher Key Lair", "Phenac City", "Poke Spots"}, set(sb.AREA_ENTRY_FLOOR_OVERRIDES))
 
     def test_an_override_must_name_a_real_byte(self) -> None:
         for value in sb.AREA_ENTRY_FLOOR_OVERRIDES.values():

@@ -117,7 +117,8 @@ class TestZookAndBiden(unittest.TestCase):
         self.assertEqual(snagem, self.levels[143])
         self.assertEqual(snagem, self.levels[148])
         self.assertEqual("Snagem Hideout", tp.PLACEMENTS[143].region)
-        self.assertEqual({148}, set(pls.RAMP_REGION_OVERRIDES))
+        # + ADDENDUM 485: the Sixes' rows levelled by where each is really fought.
+        self.assertEqual({148} | set(range(39, 45)) | set(range(112, 124)), set(pls.RAMP_REGION_OVERRIDES))
 
     def test_bidens_placement_is_untouched(self) -> None:
         """The narrow point of ADDENDUM 369. Biden #2 still STANDS at the Lair doorway -- that row drives the
@@ -131,7 +132,8 @@ class TestZookAndBiden(unittest.TestCase):
         with mock.patch.object(pls, "RAMP_REGION_OVERRIDES", {}):
             before = pls.level_by_trainer_index()
         moved = {index for index in before if before[index] != self.levels.get(index)}
-        self.assertEqual({148}, moved)
+        # + ADDENDUM 485: the Sixes' Phenac rows and the snagged copy of their Cipher Lab fight -- and no one else.
+        self.assertEqual({148} | set(range(39, 45)) | set(range(112, 124)), moved)
 
     def test_no_trainer_is_at_fifty_outside_citadark(self) -> None:
         """The player's symptom, stated as the thing they would notice. ADDENDUM 455: the 8..50 ramp now ends at

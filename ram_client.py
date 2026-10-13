@@ -689,7 +689,7 @@ def clear_item_verified(pocket_base: int, max_slots: int, item_id: int) -> "bool
 
     The third answer exists because `clear_item` reports True the moment it issues the write. Its only
     repeating caller, `KeyItemReconciler`, is stateless and re-clears next poll anyway, so the cost was never
-    a stuck state -- it was `!keyitems` showing a clear count climbing beside an item still in the Bag."""
+    a stuck state -- it was `/keyitems` showing a clear count climbing beside an item still in the Bag."""
     before = find_item_quantity(pocket_base, max_slots, item_id)
     if before <= 0:
         return None
@@ -721,7 +721,7 @@ def key_item_search_windows(block_base: int, item_id: int) -> "tuple[tuple[int, 
 
 
 def pocket_label(block_base: int, pocket_base: int) -> str:
-    """A human name for a pocket base, for `!keyitems`. Unknown bases print their address rather than a
+    """A human name for a pocket base, for `/keyitems`. Unknown bases print their address rather than a
     guess -- the whole point of the readout is to say where something really is."""
     known = {
         block_base + ITEMS_POCKET_OFFSET: "Items",
@@ -1036,7 +1036,7 @@ def write_money(block_base: int, value: int) -> None:
 # plausible ceiling". Exactly one u32 survived -- 1094 -> 2369 over the session, rising at ten of eleven steps, the
 # exception being the Eevee-stone-to-evolution cutscene, so it counts player actions rather than time. Flat across
 # two reboots while money was flat too, which is what a save-resident value looks like. Not yet confirmed in play
-# and deliberately not load-bearing: `!progress` prints it, nothing decides on it.
+# and deliberately not load-bearing: `/progress` prints it, nothing decides on it.
 PROGRESS_COUNTER_OFFSET = 0x908       # u32BE; the high half is zero in every dump examined
 PROGRESS_COUNTER_MAX_PLAUSIBLE = 0x00FFFFFF
 
@@ -1267,7 +1267,7 @@ class SpeciesCatchTracker:
     _last_box: set = None                # type: ignore[assignment]  # last TRUSTED box snapshot; None until primed
     _pending_streak: dict = None         # type: ignore[assignment]  # box-only dex number -> consecutive trusted polls
     primed: bool = False
-    distrusted_polls: int = 0            # diagnostics only -- surfaced by !catches
+    distrusted_polls: int = 0            # diagnostics only -- surfaced by /catches
 
     # Consecutive trusted polls a box-only candidate must survive, matching the other trackers. ClassVar, not a
     # dataclass field: `set_poll_interval()` re-derives it at startup, and a field default is captured at class
@@ -1291,7 +1291,7 @@ class SpeciesCatchTracker:
 
     #: Species introduced by a multi-gain poll and not yet confirmed -- they owe the long streak.
     _slow_candidates: set = None         # type: ignore[assignment]
-    multi_gain_polls: int = 0            # diagnostics only -- surfaced by !catches
+    multi_gain_polls: int = 0            # diagnostics only -- surfaced by /catches
 
     # Guard 2 used to be ABSORBING, and a flaky read was the key that locked it. Two defects, both needed:
     # `get_box_species_snapshot` returns a set and silently drops slots it could not read, so a transient failure
@@ -1642,7 +1642,7 @@ class NamedPurificationTracker:
     `renamed_slots` (party_index -> recap's current name) after each poll lists slots where the recap name disagrees
     with PARTY_BASE's -- "just renamed, PARTY_BASE hasn't caught up", not an error."""
 
-    # Nonzero values that are NOT the measured purified value, with counts. Never fired on; `!purifications`
+    # Nonzero values that are NOT the measured purified value, with counts. Never fired on; `/purifications`
     # prints them so the field can be characterised from real play.
     unrecognised_flag_values: "dict[int, int]" = field(default_factory=dict)
     # Recap records skipped because their own name named a different species than the slot they paired with.
@@ -1755,7 +1755,7 @@ class NamedPurificationTracker:
             flag = record.purified_flag
             # Only the MEASURED value counts. `flag != 0` fired on any nonzero, so a field that is not a clean
             # boolean produced purifications for Pokemon that had not been purified. A non-64 nonzero is recorded and
-            # printed by `!purifications` rather than fired on, and `last_seen_flags` is not advanced for it, so the
+            # printed by `/purifications` rather than fired on, and `last_seen_flags` is not advanced for it, so the
             # species still fires when it reaches 64. Strict on purpose: a false purification releases someone
             # else's item unrecoverably AND banks the species so the real one never counts.
             if flag != 0 and flag != PURIFIED_FLAG_VALUE and previous == 0:
@@ -1998,6 +1998,15 @@ def dominant_trainer_id(records: "list[ShadowRecord]") -> "int | None":
     return best if seen >= 2 else None
 
 
+def evolution_family(dex: "int | None") -> "int | None":
+    """ADDENDUM 478: the lowest National Dex number in `dex`'s evolution family (Quilava and Typhlosion -> 155), so a
+    Pokemon is the same family before and after it evolves. Unknown species are their own family. ADDENDUM 486 moved
+    the table to `game_data.evolution_data.family_root`, which the Shadow species pickers read too."""
+    from .game_data.evolution_data import family_root
+
+    return family_root(dex)
+
+
 @dataclass
 class PurificationCountTracker:
     """Turns individual purification EVENTS (from NamedPurificationTracker) into the cumulative
@@ -2028,7 +2037,7 @@ class PurificationCountTracker:
     total_purified: int = 0
     # Species ids this tracker has already counted. The ledger, not the count.
     purified_species: "set[int]" = field(default_factory=set)
-    # Re-observations rejected because the species was already counted -- what `!purifications` shows to say the
+    # Re-observations rejected because the species was already counted -- what `/purifications` shows to say the
     # deduplication is doing something.
     duplicate_species_rejected: int = 0
     dirty: bool = False
@@ -2036,7 +2045,7 @@ class PurificationCountTracker:
     scan_counted: int = 0
     scan_reasons: "dict[str, int]" = field(default_factory=dict)
     # The Shadow-id ledger (survives evolution), the PID each id was first seen with, the pending second look, and
-    # what each guard rejected. Every counter here is a CLAIM about live data that `!purifications` prints.
+    # what each guard rejected. Every counter here is a CLAIM about live data that `/purifications` prints.
     purified_shadow_ids: "set[int]" = field(default_factory=set)
     # ADDENDUM 325: what the LAST call to observe_records actually counted, as text, so the client can say it
     # out loud. A count that surprises the player has to be traceable to the record that caused it.
@@ -2046,10 +2055,24 @@ class PurificationCountTracker:
     # is caught and reported instead of guessed at. Diagnostic only -- it never decides a count. Persisted, because
     # a Shadow is usually snagged in one session and purified in another.
     snag_pids: "dict[int, int]" = field(default_factory=dict)
-    pid_changes: "list[str]" = field(default_factory=list)       # every change seen, for `!purifications`
+    pid_changes: "list[str]" = field(default_factory=list)       # every change seen, for `/purifications`
     new_pid_changes: "list[str]" = field(default_factory=list)   # this scan's, for the client to announce
     pending_confirmations: "dict[str, int]" = field(default_factory=dict)
     guard_rejections: "dict[str, int]" = field(default_factory=dict)
+    # ADDENDUM 471: purifications counted from the id ledger after a species match had set them aside. Since 478
+    # this only ever repairs a state saved by an older client -- see `_catch_up_to_shadow_ids`.
+    caught_up: int = 0
+    # ADDENDUM 478 -- ONE COUNT PER POKEMON. Every count belongs to exactly one Pokemon: to its Shadow id, or, for a
+    # count made without one (rule 2 below), to an entry here holding that Pokemon's evolution family. When that
+    # Pokemon's id turns up later, it CLAIMS the entry instead of counting again. So
+    #     total_purified == len(purified_shadow_ids) + len(species_only_families)   (below the caps)
+    # and no purification can be counted twice, however it evolves or wherever it is stored.
+    species_only_families: "list[int]" = field(default_factory=list)
+    # A state saved before 478 never recorded which counts lacked an id: `total - len(ids)` of them, at most, of
+    # whatever families its species ledger holds. Each may be claimed once, like an entry above.
+    legacy_unclaimed: int = 0
+    claimed_species_only: int = 0                   # ids matched to an earlier count of theirs (no new check)
+    flip_deferred: int = 0                          # flips the scan was left to count (no readable purified record)
 
     def __post_init__(self) -> None:
         if self.tracker is None:
@@ -2061,40 +2084,80 @@ class PurificationCountTracker:
         can only delay a real purification, never drop one."""
         newly_purified = self.tracker.poll(block_base, party_base, max_slots, in_battle=in_battle)
         newly_crossed: list[str] = []
-        for species, party_index in newly_purified:
+        for _species, party_index in newly_purified:
             # Ask the SHADOW LEDGER before counting. This watcher takes its species from PARTY_BASE, which does
             # not populate until the party screen has drawn it and whose slot can still hold the previous
-            # occupant right after a purification reorders the party; the scan takes its identity from the
-            # record's shadow id. When the two disagree about one Pokemon, each ledger sees something it has not
-            # counted and the purification counts twice. So read the record for the slot the flip was seen in.
-            # An unreadable record falls through to species-only behaviour, which can duplicate but never drop.
+            # occupant right after a purification reorders the party. So the count is made only off the record
+            # for the slot the flip was seen in, by its Shadow id. ADDENDUM 478: a flip whose record cannot be
+            # read, or is not a purified Shadow, counts NOTHING here -- it used to count by species, which could
+            # duplicate. The party/PC scan reads that same Pokemon by its id on its next pass, so this delays the
+            # check by a few seconds at most and never drops it.
             record = _read_shadow_record(party_record_address(block_base, party_index), "party", party_index)
-            if record is not None and record.was_snagged_as_shadow:
-                if record.shadow_id in self.purified_shadow_ids:
-                    self.duplicate_species_rejected += 1
-                    continue
-                if record.dex is not None and record.dex in self.purified_species:
-                    self.purified_shadow_ids.add(record.shadow_id)
-                    self.shadow_pids.setdefault(record.shadow_id, record.pid)
-                    self.duplicate_species_rejected += 1
-                    self.dirty = True
-                    continue
-                self.purified_shadow_ids.add(record.shadow_id)
-                if record.pid:
-                    self.shadow_pids[record.shadow_id] = record.pid
-                if record.dex is not None:
-                    self.purified_species.add(record.dex)
-            elif species in self.purified_species:
-                # Already counted. This is the save-menu re-observation the player kept seeing.
-                self.duplicate_species_rejected += 1
+            if record is None or not record.was_snagged_as_shadow or not record.is_purified:
+                self.flip_deferred += 1
                 continue
-            self.purified_species.add(species)
-            self.dirty = True
+            verdict = self._admit_id(record)
+            if verdict != "new":
+                continue
             if self.total_purified >= PURIFICATION_LOCATION_COUNT:
-                continue  # capped -- the species is still recorded, so it can never be counted later either
+                continue  # capped -- the id is still recorded, so it can never be counted later either
             self.total_purified += 1
             newly_crossed.append(purification_location_name(self.total_purified))
+        newly_crossed += self._catch_up_to_shadow_ids()
         return newly_crossed
+
+    def _admit_id(self, record: "ShadowRecord") -> str:
+        """ADDENDUM 478: the one place a Shadow id enters the ledger. Returns
+          "dup"     -- this id was already counted (a re-observation; nothing happens),
+          "claimed" -- this Pokemon was already counted WITHOUT its id (rule 2, or an older client's species
+                       count); the id now owns that count, and nothing new is counted,
+          "new"     -- a Pokemon never counted before: the caller counts it, once.
+        A species match is never "already counted" any more: two Shadows can share a species once one evolves
+        (InfernoXD's Quilava -> Typhlosion beside the seed's own Typhlosion), and only the id tells them apart."""
+        if record.shadow_id in self.purified_shadow_ids:
+            self.duplicate_species_rejected += 1
+            return "dup"
+        self.purified_shadow_ids.add(record.shadow_id)
+        if record.pid:
+            self.shadow_pids.setdefault(record.shadow_id, record.pid)
+        family = evolution_family(record.dex)
+        verdict = "new"
+        if family is not None and family in self.species_only_families:
+            self.species_only_families.remove(family)
+            verdict = "claimed"
+        elif self.legacy_unclaimed > 0 and family is not None and family in {
+                evolution_family(s) for s in self.purified_species}:
+            self.legacy_unclaimed -= 1
+            verdict = "claimed"
+        if verdict == "claimed":
+            self.claimed_species_only += 1
+        if record.dex is not None:
+            self.purified_species.add(record.dex)
+        self.dirty = True
+        return verdict
+
+    # ADDENDUM 471, narrowed by 478. Before 478 an id whose species was already in the species ledger was filed
+    # without being counted -- which is how InfernoXD's seed lost purifications: a purified Shadow Quilava evolved
+    # into a Typhlosion, and the seed's own Shadow Typhlosion was then "already counted". A state saved by that
+    # client holds more purified ids than counts; every id is a distinct purified Pokemon, so that gap is purifications
+    # never sent, and this sends them once. Since 478 every id either counts or claims an existing count, so the
+    # count is never below the id ledger and this does nothing on new data. It can only fill a hole: it never
+    # counts a Pokemon that already has a count.
+    def _catch_up_to_shadow_ids(self, shadow_count_cap: "int | None" = None) -> "list[str]":
+        target = len(self.purified_shadow_ids)
+        if shadow_count_cap is not None:
+            target = min(target, shadow_count_cap)
+        target = min(target, PURIFICATION_LOCATION_COUNT)
+        crossed: "list[str]" = []
+        while self.total_purified < target:
+            self.total_purified += 1
+            self.caught_up += 1
+            self.dirty = True
+            crossed.append(purification_location_name(self.total_purified))
+            self.last_counts.append(
+                f"the Shadow-id ledger ({len(self.purified_shadow_ids)} purified Shadows) -- one a species match "
+                "had set aside (ADDENDUM 471)")
+        return crossed
 
     # The scan-based half. The flip-watcher above is the fastest signal, but it structurally cannot see a
     # purification that happened in the chamber or before the client connected. This reads the STATE of every
@@ -2171,17 +2234,16 @@ class PurificationCountTracker:
                     reject("PID disagrees with this Shadow id")
                     continue
 
-            # Already counted? Both ledgers, because the species one may carry an older client's state.
-            if key.startswith("shadow:") and record.shadow_id in self.purified_shadow_ids:
-                self.duplicate_species_rejected += 1
-                continue
-            if record.dex is not None and record.dex in self.purified_species:
-                # Counted under the species key (ADDENDUM 318, or the flip-watcher). Record the id so the
-                # ledgers agree from here on, but do not count it twice.
-                if record.was_snagged_as_shadow:
-                    self.purified_shadow_ids.add(record.shadow_id)
-                    self.shadow_pids.setdefault(record.shadow_id, record.pid)
-                    self.dirty = True
+            # Already counted? ADDENDUM 478: an id is asked only of the id ledger (a species can be shared once a
+            # purified Shadow evolves); a rule-2 record, which has no id, is asked of its whole evolution FAMILY --
+            # one counted Quilava means an id-less Typhlosion may be that same Pokemon, evolved, and it is not
+            # counted again. That can under-count only when two Shadows of one family BOTH lose their ids, which
+            # is the side this ledger is built to err on.
+            if key.startswith("shadow:"):
+                if record.shadow_id in self.purified_shadow_ids:
+                    self.duplicate_species_rejected += 1
+                    continue
+            elif evolution_family(record.dex) in {evolution_family(s) for s in self.purified_species}:
                 self.duplicate_species_rejected += 1
                 continue
 
@@ -2194,11 +2256,13 @@ class PurificationCountTracker:
 
             # ---- counted -------------------------------------------------------------------------------
             self.pending_confirmations.pop(key, None)
-            if record.was_snagged_as_shadow:
-                self.purified_shadow_ids.add(record.shadow_id)
+            species_only = not key.startswith("shadow:")
+            if not species_only:
                 if record.pid:
                     self.shadow_pids[record.shadow_id] = record.pid
-            if record.dex is not None:
+                if self._admit_id(record) != "new":
+                    continue                   # its count was already made without its id: claimed, not recounted
+            elif record.dex is not None:
                 self.purified_species.add(record.dex)
             self.scan_counted += 1
             self.scan_reasons[reason] = self.scan_reasons.get(reason, 0) + 1
@@ -2214,6 +2278,10 @@ class PurificationCountTracker:
             if self.total_purified >= PURIFICATION_LOCATION_COUNT:
                 continue
             self.total_purified += 1
+            if species_only:
+                family = evolution_family(record.dex)
+                if family is not None:
+                    self.species_only_families.append(family)
             newly_crossed.append(purification_location_name(self.total_purified))
 
         # A pending key that did NOT show up this scan loses its streak -- one flicker should not accumulate
@@ -2221,6 +2289,7 @@ class PurificationCountTracker:
         # a genuine one nothing.
         for key in [k for k in self.pending_confirmations if k not in seen_keys]:
             self.pending_confirmations.pop(key, None)
+        newly_crossed += self._catch_up_to_shadow_ids(shadow_count_cap)
         return newly_crossed
 
     def _watch_pid(self, record: "ShadowRecord") -> None:
@@ -2269,6 +2338,17 @@ class PurificationCountTracker:
             lines.append(f"  counted by the party/PC scan: {self.scan_counted} ("
                          + ", ".join(f"{reason}: {count}" for reason, count in sorted(self.scan_reasons.items()))
                          + ") -- purifications the party flag-watcher alone would have missed (ADDENDUM 318)")
+        if self.caught_up:
+            lines.append(f"  repaired from an older client's saved state: {self.caught_up} "
+                         "(ADDENDUM 471 -- purified Shadows it had filed without counting; each is sent once)")
+        if self.claimed_species_only:
+            lines.append(f"  ids matched to a count already made without them: {self.claimed_species_only} "
+                         "(ADDENDUM 478 -- the same Pokemon, never counted twice)")
+        if self.species_only_families or self.legacy_unclaimed:
+            lines.append(f"  counts still waiting for their Shadow id: {len(self.species_only_families) + self.legacy_unclaimed}")
+        if self.flip_deferred:
+            lines.append(f"  party flips left to the scan (no readable purified record): {self.flip_deferred} "
+                         "(ADDENDUM 478 -- counted by id on the next scan instead of by species)")
         if self.duplicate_species_rejected:
             lines.append(f"  re-observations rejected as already-counted: {self.duplicate_species_rejected} "
                          f"(this is the ADDENDUM 220 fix working -- each would have been a duplicate check)")
@@ -2309,7 +2389,10 @@ class PurificationCountTracker:
                 "purified_shadow_ids": sorted(self.purified_shadow_ids),
                 "shadow_pids": {str(k): v for k, v in sorted(self.shadow_pids.items())},
                 "snag_pids": {str(k): v for k, v in sorted(self.snag_pids.items())},
-                "pid_changes": list(self.pid_changes)}
+                "pid_changes": list(self.pid_changes),
+                # ADDENDUM 478. Its presence is also what marks a state as kept by the one-count-per-Pokemon ledger.
+                "species_only_families": list(self.species_only_families),
+                "legacy_unclaimed": self.legacy_unclaimed}
 
     def load_json(self, data: dict) -> None:
         """Tolerant, like every other loader here: a corrupt file degrades to 'nothing counted yet' rather
@@ -2321,9 +2404,18 @@ class PurificationCountTracker:
             self.shadow_pids = {int(k): int(v) for k, v in (data.get("shadow_pids") or {}).items()}
             self.snag_pids = {int(k): int(v) for k, v in (data.get("snag_pids") or {}).items()}
             self.pid_changes = [str(x) for x in (data.get("pid_changes") or [])]
+            if "species_only_families" in data:
+                self.species_only_families = [int(f) for f in (data.get("species_only_families") or [])]
+                self.legacy_unclaimed = max(int(data.get("legacy_unclaimed") or 0), 0)
+            else:
+                # Saved before 478: the counts made without an id were never written down. At most this many.
+                self.species_only_families = []
+                self.legacy_unclaimed = max(self.total_purified - len(self.purified_shadow_ids), 0)
             self.pending_confirmations = {}
             self.dirty = False
         except Exception:
+            self.species_only_families = []
+            self.legacy_unclaimed = 0
             self.purified_species = set()
             self.total_purified = 0
             self.purified_shadow_ids = set()
@@ -3069,7 +3161,7 @@ class ShopPurchaseTracker:
                 # is still cleared below, because "counted stock vs fresh purchase" needs the slot to empty.
                 #
                 # ADDENDUM 394: remember WHERE. Eight of the ten shop rooms are `source="player"` rather than a
-                # live `!room` reading, and shops.py says in as many words that a shop going silent is where to
+                # live `/room` reading, and shops.py says in as many words that a shop going silent is where to
                 # look. A wrong id makes every live writer fall back AND every purchase there credit nothing,
                 # which is what the Outskirt Stand report looked like.
                 self.purchases_outside_a_shop += delta
@@ -4293,7 +4385,7 @@ class TrainerBattleDefeatTracker:
     # ADDENDUM 157: (surname, species) -> the highest HP ever observed for that slot, i.e. its MaxHP.
     _max_hp_seen: dict[tuple[str, str], int] = field(default_factory=dict)
     fingerprint_matches: int = 0
-    # Wins thrown away because the team had already been beaten. Reported by `!teams`, and the first number to
+    # Wins thrown away because the team had already been beaten. Reported by `/teams`, and the first number to
     # look at if a player says a defeat check did not fire.
     rematches_ignored: int = 0
     _defeat_count: int = 0
@@ -4321,7 +4413,7 @@ class TrainerBattleDefeatTracker:
     # reads it ("just having ever defeated greevil twice should send the victory"). Persisted with the team ledger.
     wins_by_surname: "dict[str, int]" = field(default_factory=dict)
     # {surname: stray records dropped as out-of-cluster on the last poll}. Diagnostic only, surfaced by
-    # !trainers so a future miss of this shape is recognisable on sight.
+    # /trainers so a future miss of this shape is recognisable on sight.
     last_strays_dropped: dict[str, int] = field(default_factory=dict)
 
     @property
@@ -4681,7 +4773,7 @@ class TrainerBattleDefeatTracker:
                 self._beaten_team_ids[surname.upper()] = clean
 
     def beaten_team_counts(self) -> "dict[str, int]":
-        """{SURNAME: how many distinct teams of theirs have been beaten}. For `!teams`."""
+        """{SURNAME: how many distinct teams of theirs have been beaten}. For `/teams`."""
         return {k: len(v) for k, v in self._beaten_team_ids.items() if v}
 
     # --- The axes a team is recognised by. ---
@@ -4791,7 +4883,7 @@ class TrainerBattleDefeatTracker:
     def describe_blocking(self) -> "list[str]":
         """Why `has_unresolved_battle()` is answering what it is answering, key by key.
 
-        `!battle` could tell a player "free -- items can deliver" while this signal held every delivery for ten
+        `/battle` could tell a player "free -- items can deliver" while this signal held every delivery for ten
         minutes: the command printed the UI flag and the debounce and never the corroborating input that overrides
         both."""
         blocking: "list[str]" = []
@@ -4822,7 +4914,7 @@ class TrainerBattleDefeatTracker:
 
 BATTLE_STRUCT_ANCHOR_ADDRESS = 0x80874F54  # RETIRED 2026-09-14 (ADDENDUM 202) -- read 0 DURING a real
                                             # battle on the player's own live game. See below. Kept only so
-                                            # `!battle` can show it next to the replacement.
+                                            # `/battle` can show it next to the replacement.
 
 # --- The battle gate, measured across eleven states. ---
 # BATTLE_STRUCT_ANCHOR_ADDRESS is retired: it read 0x00000000 in all four live dumps taken, two from inside real
@@ -5146,7 +5238,7 @@ class BattleActivityHold:
 # The address is RESOLVED rather than assumed, from two candidates in order: `block_base -
 # AREA_ID_BLOCK_BASE_DELTA`, which tracks automatically if the game-state region relocates as one piece, then the
 # absolute `AREA_ID_ADDRESS`. Both are validated the same way and a failed validation means unknown, never a guess.
-# Which is correct is unestablished and needs one observation from a second boot; `!area` reports which it used. A
+# Which is correct is unestablished and needs one observation from a second boot; `/area` reports which it used. A
 # pure signature scan was rejected: the shape (small id + MEM1 pointer + an identical copy 0xD0 later) matches
 # 679-1517 places in a real 24 MB dump.
 
@@ -5272,7 +5364,7 @@ class AreaTracker:
 
 # --- The global story-progress byte, read live. ---
 # `+0x00` of the travel-control record (BLOCK_BASE + 0x10720). Polled, every change logged with its time, and
-# `!story` reports the current value plus the whole 20-byte record. Only `+0x00` is tracked as the story byte:
+# `/story` reports the current value plus the whole 20-byte record. Only `+0x00` is tracked as the story byte:
 # `+0x04`..`+0x07` drift on their own with no player action.
 #
 # `+0x01`'s top three bits are NOT a drifting neighbour -- they are the bottom three bits of the story value. GS
@@ -5366,7 +5458,7 @@ def krane_memo_location_name(memo_number: int) -> str:
 class KeyItemReconciler:
     """Makes the Bag's key items match what Archipelago says the player owns. See the section comment above.
 
-    Counters are cumulative and per id, so `!keyitems` can show an id being fought over -- a write and a clear
+    Counters are cumulative and per id, so `/keyitems` can show an id being fought over -- a write and a clear
     both climbing on one id means the should-have set disagrees with itself, a bug in the caller."""
 
     writes: "dict[int, int]" = field(default_factory=dict)
@@ -5681,6 +5773,8 @@ class LiveStoryByteBumper:
     #: Location names the bump that just fired declares it skipped past. Set on every successful write (to () when
     #: the bump awards nothing), so a caller reading it after a None poll cannot resend the previous bump's list.
     last_awarded_locations: "tuple[str, ...]" = ()
+    last_bump: "Any" = None                  # ADDENDUM 476
+    last_trigger_byte: "int | None" = None   # ADDENDUM 476
 
     def poll(self, block_base: int, current_region: "str | None", story_byte: "int | None",
              travel_shuffle: bool, scooter_shuffle: bool) -> "tuple[int, str] | None":
@@ -5698,6 +5792,12 @@ class LiveStoryByteBumper:
         bump = story_bytes.live_bump_for(current_region, story_byte, travel_shuffle, scooter_shuffle)
         self.last_region = current_region
         if bump is None:
+            # ADDENDUM 480: our last write was SEEN to take (the area reads at or past it). The "the game put the old
+            # value straight back" fence below is for a write that never lands; once one has, a later fall back into
+            # the window -- a reloaded save, another writer -- is a fresh break, and is repaired like the first.
+            if (self._last_written is not None and current_region == self._last_written[0]
+                    and story_byte is not None and story_byte >= self._last_written[1]):
+                self._last_written = None
             return None
         if self._last_written == (bump.region, bump.becomes) and story_byte == bump.when_byte_is:
             # We already wrote this and the game put the old value straight back. Something else owns this byte;
@@ -5710,6 +5810,8 @@ class LiveStoryByteBumper:
             return None
         self.applications += 1
         self._last_written = (bump.region, bump.becomes)
+        self.last_bump = bump                     # ADDENDUM 476 -- the client reads `banks_trigger` off it
+        self.last_trigger_byte = story_byte
         self.last_written_value = bump.becomes   # ADDENDUM 293 -- claimed by Client._claim_story_write
         self.last_awarded_locations = tuple(bump.awards_locations)   # ADDENDUM 304
         if self.write_log is not None:
@@ -6982,6 +7084,16 @@ class MachinePartStoryHold(ItemStoryHold):
 LAB_MEMO_HOLD_BYTE = 0x16
 LAB_MEMO_HOLD_AREA = "Pokemon HQ Lab"
 LAB_MEMO_HOLD_MEMOS: "tuple[int, ...]" = (3, 4, 5)
+# ADDENDUM 464, player: "Our clamp for machine part activates too early. ONLY clamp to 16 when we've already reached
+# 0x0F on the HQ lab story byte and we have the machine part." Then: "How about just if it's at 0x0F at all, and we've
+# received both memo 1 and 2?" With the Machine Part arriving early from the multiworld the hold armed on the item
+# alone and pulled a lab still at 0x0D UP to 0x16, past the Snag Machine tier and the Krane Memo 1-2 handover. Now it
+# also needs (a) the lab to have been at 0x0F or above at any point -- the live byte in an HQ Lab room, whoever wrote
+# it (the arrival bump's 0x0F included), the lab's high-water mark, or with travel shuffle off the story's -- latched
+# and persisted; and (b) Krane Memos 1 and 2 received, so the handover that follows 0x0F has always played first.
+LAB_MEMO_ARM_FLOOR = 0x0F
+LAB_MEMO_ARM_MEMOS: "tuple[int, ...]" = (1, 2)
+assert LAB_MEMO_ARM_FLOOR < LAB_MEMO_HOLD_BYTE
 
 
 @dataclass
@@ -6998,6 +7110,21 @@ class LabMemoStoryHold:
     # ADDENDUM 458: armed once, armed until the memos come -- a tick that cannot see the Machine Part does not disarm
     # it (persisted with `declined_value`).
     latched: bool = False
+    # ADDENDUM 464: the HQ Lab has reached 0x0F at least once. The hold never arms before this (persisted).
+    lab_reached: bool = False
+
+    def note_lab_progress(self, room_id: "int | None", story_byte: "int | None", lab_mark: "int | None") -> bool:
+        """Latch `lab_reached` the first time the lab is seen at `LAB_MEMO_ARM_FLOOR` or above: the live byte while
+        standing in an HQ Lab room (any writer), or `lab_mark`. True when it just latched. The memo 1-2 half of the
+        gate is the client's, read from the server every tick."""
+        if self.lab_reached:
+            return False
+        live = story_byte if (story_byte is not None and self.in_place(room_id)) else None
+        best = max(live if live is not None else -1, lab_mark if lab_mark is not None else -1)
+        if best < LAB_MEMO_ARM_FLOOR:
+            return False
+        self.lab_reached = True
+        return True
 
     def in_place(self, room_id: "int | None") -> bool:
         return _room_in_areas(room_id, frozenset({LAB_MEMO_HOLD_AREA}))
@@ -7049,7 +7176,8 @@ class LabMemoStoryHold:
         if not self.enabled:
             return "HQ Lab memo hold: off."
         state = (f"holding the HQ Lab at 0x{LAB_MEMO_HOLD_BYTE:02X}" if self.armed
-                 else "not holding (no Machine Part yet, or Krane Memos 3-5 received)")
+                 else (f"not holding (the HQ Lab has not reached 0x{LAB_MEMO_ARM_FLOOR:02X} yet)" if not self.lab_reached
+                       else "not holding (no Machine Part yet, or Krane Memos 3-5 received)"))
         line = f"HQ Lab memo hold: {state}. {self.holds} hold write(s), {self.grants} grant(s)"
         if self.declined_value is not None:
             line += f", waiting to give back 0x{self.declined_value:02X}"
@@ -7091,7 +7219,7 @@ class StoryByteOverride:
     citadark_floor_writes: int = 0     # ADDENDUM 313
     citadark_arrival_room: "int | None" = None   # ADDENDUM 313: the room the ride landed in, for the table
     declined_clamp_won: int = 0        # ADDENDUM 272: refused to clamp a byte at or past victory
-    # ADDENDUM 412: unlisted rooms reached from Gateon without the map, held as Gateon. Reported by `!parts` so the
+    # ADDENDUM 412: unlisted rooms reached from Gateon without the map, held as Gateon. Reported by `/parts` so the
     # room table can learn them (the Robo Kyogre dock among them, if it is one).
     unlisted_gateon_rooms: "set[int]" = field(default_factory=set)
     # ADDENDUM 435: with location shuffle OFF there is one story byte for the whole game, so an early ride would
@@ -7480,7 +7608,7 @@ def read_story_value(block_base: int) -> "int | None":
     except Exception:
         return None
     # A short read is "cannot be read" too. Only the read was guarded, so two bytes that came back as fewer
-    # raised `struct.error` out of a function documented to return None -- and `!storybyte` with it. Hidden
+    # raised `struct.error` out of a function documented to return None -- and `/storybyte` with it. Hidden
     # until 2026-10-02 because its test module never ran: it died importing `websockets` in every environment
     # this project had tested in.
     if raw is None or len(raw) < 2:
@@ -7527,7 +7655,7 @@ def read_story_byte(block_base: int) -> "int | None":
 
 def write_story_byte(block_base: int, value: int,
                      write_log: "StoryByteWriteLog | None" = None,
-                     why: str = "!storybyte") -> "tuple[bool, int | None]":
+                     why: str = "/storybyte") -> "tuple[bool, int | None]":
     """Set the story byte outright. Returns `(written, previous value)`.
 
     The debug command's write, and the only one here a player asks for directly. Deliberately the plainest: no
@@ -7687,7 +7815,7 @@ def chest_is_open_in_block(block: bytes, chest_id: int) -> "bool | None":
 
 def undetectable_chest_ids() -> "tuple[int, ...]":
     """Chests whose open/closed state this client cannot read -- the unvalidated clusters plus the two chests the
-    game records nothing for. Exposed so the connect banner and `!chests` can say so out loud."""
+    game records nothing for. Exposed so the connect banner and `/chests` can say so out loud."""
     from .game_data import chest_flags
 
     return tuple(sorted(
@@ -7790,7 +7918,7 @@ class ChestBerryTracker:
     # is briefly unreadable, walk to a DIFFERENT room holding a chest with that berry, and that room's chest is
     # credited while the one actually opened never is. Both shapes are "credit the wrong chest", the one outcome that
     # cannot be taken back, so a pickup that cannot be placed is ABANDONED rather than left to drift -- a missed check
-    # can be re-sent with `!checked`, a wrong one has already released another player's item.
+    # can be re-sent with `/checked`, a wrong one has already released another player's item.
     pending: "list[dict]" = field(default_factory=list)
 
     # A chest opened before the client's first poll cannot be backfilled automatically. The first sighting of a berry
@@ -7798,7 +7926,7 @@ class ChestBerryTracker:
     # but open a chest before connecting (the Pokemon HQ Lab's three chests are exactly there) and that check can
     # never fire. Seven berries cover 115 chests, 17 each, and identity is (room, berry), so a berry in the Bag at
     # connect carries no room and crediting one would be a 1-in-17 guess at a check that cannot be taken back. So the
-    # tracker says what it saw, names the candidates, and points at `!checked`.
+    # tracker says what it saw, names the candidates, and points at `/checked`.
     #
     baseline_carried: "dict[int, int]" = field(default_factory=dict)
     # Set by the client once it has told the player, so the notice survives a reconnect without being repeated.
@@ -8187,7 +8315,7 @@ class ChestBerryTracker:
                 berry_name = chest_berries.CHEST_BERRY_ID_TO_NAME.get(berry_id, str(berry_id))
                 self.unplaceable_notices.append(
                     f"A {berry_name} reached the Bag but no nearby chest holds it -- no check sent "
-                    f"(`!checked` if you just opened one).")
+                    f"(`/checked` if you just opened one).")
                 continue
 
             name = CHEST_ID_TO_LOCATION.get(chest)
@@ -8272,10 +8400,10 @@ class ChestBerryTracker:
             for b, q in sorted(self.baseline_carried.items())
         )
         candidates = self.backfill_candidates(already_checked)
-        # ADDENDUM 445: one line by default; the candidates are `!chests`.
+        # ADDENDUM 445: one line by default; the candidates are `/chests`.
         more = f" -- maybe: {', '.join(candidates[:4])}" + (" ..." if len(candidates) > 4 else "") if candidates else ""
         return [f"{len(self.baseline_carried)} chest berry/berries ({carried}) were already in the Bag at connect; "
-                f"send their chests with `!checked <name>`{more}."]
+                f"send their chests with `/checked <name>`{more}."]
 
     def describe(self) -> "list[str]":
         from .game_data import chest_berries
@@ -8285,7 +8413,7 @@ class ChestBerryTracker:
             carried = ", ".join(f"{chest_berries.CHEST_BERRY_ID_TO_NAME.get(b, b)} x{q}"
                                 for b, q in sorted(self.baseline_carried.items()))
             lines.append(f"  berries already held at first poll (ADDENDUM 246): {carried} "
-                         f"-- {len(self.backfill_candidates())} candidate chest(s), use `!checked`")
+                         f"-- {len(self.backfill_candidates())} candidate chest(s), use `/checked`")
         rooms = ", ".join(f"{room_name(r)}={n}" for r, n in sorted(self.credited_by_room.items()))
         lines.append(f"  by room: {rooms or 'none yet'}")
         if self.pending:
@@ -8344,7 +8472,7 @@ class ChestBerryTracker:
 
 def chest_locations_in_room(room_id: int, already_checked: "frozenset[str]" = frozenset()) -> "list[str]":
     """AP chest location names in `room_id` that have not been checked yet, lowest chest id first. Built from the
-    same chest table `!chests` prints -- the ROOM data was never what was wrong here, only the flags."""
+    same chest table `/chests` prints -- the ROOM data was never what was wrong here, only the flags."""
     from .game_data import chest_table
 
     names: "list[str]" = []
@@ -8464,6 +8592,8 @@ class AreaStoryByteMemory:
     declined_poison_busy: int = 0
     last_poison_clamp: "tuple[str, int, int] | None" = None   # (region, found, restored)
     declined_above_ceiling: int = 0
+    declined_landed_byte: int = 0     # ADDENDUM 474 -- `story_bytes.AREA_BANK_CEILINGS`
+    clamped_landed_marks: int = 0     # ADDENDUM 474 -- marks an older client banked above that, clamped on load
 
     # Optional for the same reason StoryByteOverride's is.
     write_log: "StoryByteWriteLog | None" = None
@@ -8526,6 +8656,14 @@ class AreaStoryByteMemory:
         _ceiling = _story_bytes.AREA_GUARD_CEILINGS.get(region)
         if _ceiling is not None and story_byte > _ceiling:
             self.declined_above_ceiling += 1
+            return False
+        # ADDENDUM 474: some areas are LANDED in carrying a byte another area's cutscene earned. Player: "SS Libra
+        # moving to Phenac made Phenac inherit SS Libra's byte" -- the stranded ship ends with 0x4E -> 0x50 and puts the
+        # player in Phenac, whose guard ceiling admits 0x50 for exactly that arrival, so 0x50 became Phenac's mark: the
+        # town counted as finished and every Phenac missable was auto-sent. Never banked, never a mark.
+        _bank_ceiling = _story_bytes.AREA_BANK_CEILINGS.get(region)
+        if _bank_ceiling is not None and story_byte > _bank_ceiling:
+            self.declined_landed_byte += 1
             return False
         self._last_observed_region = region
         self._last_observed_byte = story_byte
@@ -8784,6 +8922,10 @@ class AreaStoryByteMemory:
         if self.declined_inherited_byte:
             lines.append(f"  Declined {self.declined_inherited_byte} byte(s) carried in from another area "
                          f"(ADDENDUM 279) -- a mark only rises from a byte that MOVED while you were here.")
+        if self.declined_landed_byte or self.clamped_landed_marks:
+            lines.append(f"  ADDENDUM 474: {self.declined_landed_byte} byte(s) not banked because they were earned "
+                         f"elsewhere and landed in with you (Phenac after the stranded SS Libra); "
+                         f"{self.clamped_landed_marks} saved mark(s) clamped on load.")
         if self.declined_foreign_commit:
             # Visible on purpose: this counter going up means the bug is being caught, and a player who reported
             # it should be able to watch it happen rather than take it on faith.
@@ -8809,7 +8951,7 @@ class AreaStoryByteMemory:
                 lines.append(f"    {rule.target} >= 0x{rule.floor:02X} -- {rule.what}")
         if self.declined_floor_paused:
             # Named per area rather than as a bare count, so "we are deliberately not writing Kaminko's floor"
-            # reads off `!areas` as the feature it is rather than as something broken.
+            # reads off `/areas` as the feature it is rather than as something broken.
             paused = ", ".join(f"{area} (>= 0x{byte:02X})"
                                for area, byte in sorted(story_bytes.FLOOR_WRITES_PAUSE_ABOVE.items()))
             lines.append(f"  declined (floor writes paused until a rule applies -- {paused}): "
@@ -8858,10 +9000,19 @@ class AreaStoryByteMemory:
             self.visited = {str(name) for name in (data.get("visited") or [])}
             # Anything with a remembered value has necessarily been visited, even if the lists disagree.
             self.visited |= set(self.highest_by_region)
+            # ADDENDUM 474: a mark banked above its area's bank ceiling by an older client (Phenac at 0x50, landed in
+            # from the stranded ship) is clamped to that ceiling -- the most the area itself can have reached.
+            from .game_data import story_bytes as _story_bytes
+
+            for _region, _ceiling in _story_bytes.AREA_BANK_CEILINGS.items():
+                if self.highest_by_region.get(_region, -1) > _ceiling:
+                    self.highest_by_region[_region] = _ceiling
+                    self.dirty = True
+                    self.clamped_landed_marks += 1
         except Exception:
             self.highest_by_region = {}
             self.visited = set()
-        self.dirty = False
+        self.dirty = bool(self.clamped_landed_marks)   # ADDENDUM 474: a clamp must reach the file
 
 
 @dataclass
@@ -8972,7 +9123,7 @@ ROOM_ID_ADDRESS = 0x80446F32
 ROOM_ID_MIRRORS = (0x80814AB6, 0x8083352E, 0x8083357E)
 ROOM_ID_MAX_PLAUSIBLE = 0x400
 
-# Every id below 200 was observed in play with `!room`. The six that predate the player's own compilation were
+# Every id below 200 was observed in play with `/room`. The six that predate the player's own compilation were
 # validated four ways and are unchanged except where the newer data is more specific (140 was "Pokemon HQ Lab
 # (interior)" and is really the downstairs-right room -- the lab has four distinct interior rooms, 138-141).
 # Chest numbers in a name are the player's own labelling against `game_data/chest_table.py`'s indices.
@@ -9013,7 +9164,7 @@ def room_name(room_id: "int | None") -> str:
     `KNOWN_ROOM_IDS` wins when it has an entry -- it is hand-recorded and most specific, and several of its names
     carry detail no other table has. Otherwise the name is DERIVED from `shops.SHOPS` and
     `chest_regions.ROOM_TO_REGION`, which between them already describe rooms this table does not: eight of the ten
-    shop rooms had no entry here, so `!room` in the Phenac City shop said "room 103 (unnamed)" while both other
+    shop rooms had no entry here, so `/room` in the Phenac City shop said "room 103 (unnamed)" while both other
     tables knew exactly what it was. Typing the eight names in would have fixed the instance and left the class."""
     if room_id is None:
         return "unknown"
@@ -9070,7 +9221,7 @@ class RoomTracker:
     # "Could not read it" and "it did not change" are not the same answer. Keeping the stale value IS correct here,
     # unlike the story byte: `current` is documented as the last trustworthy room id, and half the poll loop uses it
     # as the fallback when a fresh `read_room_id()` comes back None, so dropping it on an unreadable poll would turn
-    # a one-tick hiccup into a lost chest check. What was missing is that nothing could TELL -- `!room` printed the
+    # a one-tick hiccup into a lost chest check. What was missing is that nothing could TELL -- `/room` printed the
     # cached room with the same confidence whether it was read this second or two minutes ago.
     unknown_polls: int = 0            # unreadable reads this session, in total
     consecutive_unknown: int = 0      # ...and in a row right now, which is the one that means something
@@ -9148,7 +9299,7 @@ class RoomTracker:
 # TWO ID SPACES, AND NEITHER IS PICKED HERE. The cursor index (1/9/6) may be a position in the list of currently
 # UNLOCKED destinations, which would shift as more unlock and be worthless as a key; the location id (3/15/8) has
 # the sparse look of a fixed table id. Cipher Lab's location id is 8, which is also its room id, so the location id
-# may simply BE the room id -- but one coincidence is not evidence. `!map` prints both plus the coordinates, so the
+# may simply BE the room id -- but one coincidence is not evidence. `/map` prints both plus the coordinates, so the
 # table can be compiled from real data by hovering each destination once.
 
 MAP_SCREEN_ROOM_ID = 910  # KNOWN_ROOM_IDS[910] == "map screen"
@@ -9282,7 +9433,7 @@ def scan_map_cursor() -> "list[MapCursorReading]":
 def map_destination_region(reading: "MapCursorReading | None") -> "str | None":
     """The regions.py region a live cursor reading points at, or None when it cannot be resolved.
 
-    Keyed on `location_id`, NEVER on `cursor_index`. A second `!map` sweep disagreed with the first in exactly one
+    Keyed on `location_id`, NEVER on `cursor_index`. A second `/map` sweep disagreed with the first in exactly one
     column -- Phenac City read cursor 1 then cursor 3, the Rock Poke Spot 9 then 13 -- while both kept their
     location id. The cursor index is a position in the list of currently-unlocked destinations, so it shifts as more
     unlock, and that sweep even contains an internal collision (SS Libra and Realgam Tower both at 10).
@@ -9313,7 +9464,7 @@ class MapCursorTracker:
     """Resolves and caches the map-screen cursor object. Read-only: nothing here writes to memory.
 
     The poll loop calls `resolve()` only while the player is on the map screen, which keeps the full-MEM1 fallback
-    scan to about one per map open rather than one per tick. `!map` is the other caller."""
+    scan to about one per map open rather than one per tick. `/map` is the other caller."""
 
     cached_tag_address: "int | None" = None
     last: "MapCursorReading | None" = None
@@ -9346,7 +9497,7 @@ class MapCursorTracker:
         return reading
 
     def describe(self, room_id: "int | None" = None) -> "list[str]":
-        """The `!map` readout, as a list of log lines."""
+        """The `/map` readout, as a list of log lines."""
         lines: list[str] = []
         on_map = room_id == MAP_SCREEN_ROOM_ID
         if room_id is None:
@@ -9581,7 +9732,7 @@ def describe_live_party(block_base: int) -> "list[str]":
     so a level-0 Pokemon is invisible to every live-party reader in this project -- which is very likely why
     nobody has ever managed to inspect one. The instrument that would see the bug was refusing to.
 
-    Catch the level-0 Pokemon, run `!party`, and one line decides it:
+    Catch the level-0 Pokemon, run `/party`, and one line decides it:
 
       * level sane, experience sane  -> the battle HUD was lying. Cosmetic, and nothing this project writes.
       * level 0, experience sane     -> the level field is derived wrongly from experience.
@@ -9763,14 +9914,41 @@ class BattlePartyWatch:
     locates: int = 0
     _locate_cooldown: int = 0
     LOCATE_EVERY: ClassVar[int] = 5          # polls between attempts when the records cannot be found
+    #: ADDENDUM 472: the species each located record held, the polls in a row that read all-zero, how many
+    #: located records turned out to be gone, and whether this battle already had its one full-MEM1 locate.
+    species: "list[bytes]" = field(default_factory=list)
+    zero_polls: int = 0
+    stale_resets: int = 0
+    full_locates: int = 0
+    _full_locate_done: bool = False
+    #: A wipe has to read on this many polls in a row. The records hold zero through the white-out's end screens,
+    #: which take seconds, so a real loss is seen twice; a record caught mid-rebuild is not.
+    CONFIRM_POLLS: ClassVar[int] = 2
 
     def reset(self) -> None:
         self.addresses = []
+        self.species = []
         self.seen_alive = False
+        self.zero_polls = 0
         self._locate_cooldown = 0
+        self._full_locate_done = False
+
+    def _forget_records(self) -> None:
+        """ADDENDUM 472: the located records are not this battle's any more. Locate again from scratch."""
+        self.stale_resets += 1
+        self.addresses = []
+        self.species = []
+        self.seen_alive = False
+        self.zero_polls = 0
 
     def poll(self, block_base: "int | None", in_battle: bool) -> "bool | None":
-        """True: every party Pokemon in this battle is at 0 HP. False: someone is conscious. None: no answer."""
+        """True: every party Pokemon in this battle is at 0 HP. False: someone is conscious. None: no answer.
+
+        ADDENDUM 472 -- Death Links sent at full HP ("when entering the first fight in the Snagem hideout"). The
+        battle flag also reads 1 in menus, so the records were sometimes located on a PREVIOUS battle's leftovers;
+        when the next battle rebuilt or cleared that memory the cached addresses read 0 HP and a wipe was sent.
+        Now each read checks the record is still the one located (same species, a max HP, HP not above it) and
+        forgets it otherwise, and a wipe must hold for `CONFIRM_POLLS` polls in a row."""
         if not in_battle or block_base is None:
             self.reset()
             return None
@@ -9786,19 +9964,95 @@ class BattlePartyWatch:
                 found = find_battle_party_records(window, block_base, members)
             except Exception:
                 found = []
+            if len(found) != len(members) and not self._full_locate_done:
+                # ADDENDUM 472: a boot whose heap put the records outside the window never answered, so its wipes
+                # were never sent. One full MEM1 pass per battle, as `wipe_battle_party` already does.
+                self._full_locate_done = True
+                self.full_locates += 1
+                try:
+                    found = find_battle_party_records(dump_mem1(), MEM1_START, members)
+                except Exception:
+                    found = []
             self.locates += 1
             if len(found) != len(members):        # all or nothing: a partial team cannot say "all fainted"
                 self._locate_cooldown = self.LOCATE_EVERY
                 return None
             self.addresses = found
+            self.species = [member.raw[0:2] for member in members]
         try:
-            hps = [struct.unpack(">H", read_bytes(a + POKEMON_HP_OFFSET, 2))[0] for a in self.addresses]
+            hps = []
+            for address, species in zip(self.addresses, self.species):
+                head = read_bytes(address, POKEMON_HP_OFFSET + 2)
+                max_hp = struct.unpack(">H", read_bytes(address + POKEMON_MAXHP_OFFSET, 2))[0]
+                hp = struct.unpack_from(">H", head, POKEMON_HP_OFFSET)[0]
+                if head[0:2] != species or max_hp == 0 or hp > max_hp:
+                    self._forget_records()
+                    return None
+                hps.append(hp)
         except Exception:
             return None
         if any(hps):
             self.seen_alive = True
+            self.zero_polls = 0
             return False
-        return True if self.seen_alive else None
+        if not self.seen_alive:
+            return None
+        self.zero_polls += 1
+        return True if self.zero_polls >= self.CONFIRM_POLLS else None
+
+
+@dataclass
+class WhiteoutCounterWatch:
+    """ADDENDUM 475: the game's own white-out count (`game_data/whiteout_counter.py`), read once a poll.
+
+    `poll()` returns how many white-outs happened since the last poll, 0 for none, or None when the patched ISO does
+    not have the hook (or the words cannot be read) -- the caller then falls back to watching the party. The counter
+    is RAM and starts at 0 every boot, so the first read and any value LOWER than the last are a new baseline, never
+    a death."""
+
+    baseline: "int | None" = None
+    installed: "bool | None" = None
+    seen: int = 0
+    rebaselines: int = 0
+
+    def poll(self) -> "int | None":
+        from .game_data import whiteout_counter as _wc
+
+        try:
+            # ADDENDUM 484: the hook moved to the top of each white-out; an ISO patched with ADDENDUM 475's layout (the
+            # recovery calls) counts into the same word, so either one installed means the counter is live.
+            hooked = any(all(struct.unpack(">I", read_bytes(site, 4))[0] == word for site, word in layout.items())
+                         for layout in _wc.installed_layouts())
+            value = struct.unpack(">I", read_bytes(_wc.COUNTER_ADDRESS, 4))[0] if hooked else None
+        except Exception:
+            return None
+        if not hooked or value is None:
+            self.installed = False
+            self.baseline = None
+            return None
+        self.installed = True
+        if self.baseline is None or value < self.baseline:
+            if self.baseline is not None:
+                self.rebaselines += 1
+            self.baseline = value
+            return 0
+        new = value - self.baseline
+        if new > 8:                     # not a plausible number of white-outs in one second -- a stray write
+            self.baseline = value
+            self.rebaselines += 1
+            return 0
+        self.baseline = value
+        self.seen += new
+        return new
+
+    def describe(self) -> str:
+        if self.installed is None:
+            return "White-out counter: not read yet."
+        if not self.installed:
+            return ("White-out counter: NOT in this ISO (patched before ADDENDUM 475) -- Death Link watches the "
+                    "party instead.")
+        return (f"White-out counter: installed (the game counts its own white-outs); {self.seen} seen this session, "
+                f"now {self.baseline}.")
 
 
 @dataclass
@@ -9818,14 +10072,18 @@ class DeathLinkBridge:
     _was_wiped: bool = False
     _was_annihilated: bool = False
     _ours: bool = False
+    _hp_zero_polls: int = 0      # ADDENDUM 472
+    _release_polls: int = 0      # ADDENDUM 484: consecutive conscious polls while our own death is fenced
+    FENCE_RELEASE_POLLS: ClassVar[int] = 2
     receipts: int = 0            # deaths taken from the pool
     sends: int = 0               # deaths sent to it
     suppressed: int = 0          # wipes not sent, because they were ours
     battle_wipes: int = 0        # ADDENDUM 417: deaths that landed mid-battle, on the battle's own records
-    #: ADDENDUM 390: which signal fired each send, so `!deathlink` can say whether the HP edge is working.
+    #: ADDENDUM 390: which signal fired each send, so `/deathlink` can say whether the HP edge is working.
     sends_by_hp: int = 0
     sends_by_flag: int = 0
     sends_by_battle: int = 0     # ADDENDUM 417: sends off the battle's own records
+    sends_by_game: int = 0       # ADDENDUM 475: sends off the game's own white-out counter
     flag_readable: bool = False
     last_cause: str = ""
     #: ADDENDUM 400. When wired, the latch's armed state IS the annihilation signal -- it is sampled at 20 Hz
@@ -9855,6 +10113,7 @@ class DeathLinkBridge:
             self.receipts += 1
             self.last_cause = cause
             self._ours = True
+            self._release_polls = 0      # ADDENDUM 484
             return (f"your party fainted{f' -- {cause}' if cause else ''}. "
                     f"{battle_written} Pokemon in this battle set to 0 HP -- you white out now.")
         self.receipts += 1
@@ -9870,10 +10129,12 @@ class DeathLinkBridge:
             # suppressed. Nothing was wiped, so there is nothing of ours to fence.
             return None
         self._ours = True
+        self._release_polls = 0          # ADDENDUM 484
         return (f"your party fainted{f' -- {cause}' if cause else ''}. "
                 f"{written} Pokemon set to 0 HP; the white-out lands when the game next resolves a battle.")
 
-    def poll(self, block_base: "int | None", battle_wiped: "bool | None" = None) -> "tuple[bool, str | None]":
+    def poll(self, block_base: "int | None", battle_wiped: "bool | None" = None,
+             whiteouts: "int | None" = None) -> "tuple[bool, str | None]":
         """One tick. Returns `(should_send_death, note)`.
 
         TWO INDEPENDENT SIGNALS (ADDENDUM 390), because the original one was never measured.
@@ -9889,12 +10150,27 @@ class DeathLinkBridge:
         Either one fires a death, and both are edge-triggered and both go through the same loop fence. Keeping
         the HP edge costs one party read it was doing anyway, and if the flag turns out to be wrong on some
         build the feature degrades to what it was rather than to nothing."""
-        if not self.enabled or block_base is None:
+        if not self.enabled:
+            return (False, None)
+        if whiteouts is not None:
+            # ADDENDUM 484: before the block-base check. The counter is read at a fixed address and has already been
+            # consumed by the time it gets here, so a poll with no block base (a floor change -- the white-out's own
+            # warp) must still act on it rather than drop it.
+            return self._poll_game_counter(block_base, whiteouts)
+        if block_base is None:
             return (False, None)
         try:
             wiped = party_is_wiped(block_base)
         except Exception:
             wiped = None
+        # ADDENDUM 472: the save-side party at 0 HP must also hold for two polls. A party read caught mid-rewrite
+        # (a load, a box move) can show every slot at 0 for one read; a real faint outside battle stays down.
+        if wiped is True:
+            self._hp_zero_polls += 1
+            if self._hp_zero_polls < 2 and not self._ours:
+                wiped = None
+        else:
+            self._hp_zero_polls = 0
         # ADDENDUM 417: the battle's own records are the reliable "you lost" signal; the save-side party is healed
         # before it ever reads zero. Either one says wiped.
         from_battle = battle_wiped is True and wiped is not True
@@ -9931,6 +10207,9 @@ class DeathLinkBridge:
             self._was_annihilated = True
         if not (fresh_hp or fresh_flag):
             return (False, None)        # already accounted for this one
+        # ADDENDUM 472: whichever signal fired, it was this white-out. The HP edge now needs two polls, so it can
+        # confirm a poll AFTER the flag already sent -- the same death, which must not go out twice.
+        self._was_wiped = True
         if self._ours:
             self.suppressed += 1
             return (False, None)
@@ -9945,13 +10224,51 @@ class DeathLinkBridge:
                else "your team fainted in battle" if from_battle else "your party at 0 HP")
         return (True, f"you whited out ({how}) -- sending a death to everyone linked.")
 
+    def _poll_game_counter(self, block_base: "int | None", whiteouts: int) -> "tuple[bool, str | None]":
+        """ADDENDUM 475: the game counted a white-out -- that, and only that, is a death to send. Player: "Can we base
+        SENDING a deathlink off of the code instead of reading party?" The party is still read for ONE thing: a
+        received death that never turned into a white-out (the player healed first) must not leave the loop fence up,
+        and a conscious party is how that is known.
+
+        ADDENDUM 484, player: "Ensure that we don't send a duped one even if we receive a deathlink out of battle and
+        white out at the start of a battle." The white-out heals the party in the same instant it counts, and the
+        client reads the counter BEFORE the party: a poll could read the counter just before the white-out and the
+        party just after it -- conscious -- and drop the fence, so the next poll sent our own death back out. The
+        fence now comes down only after the party has read conscious on `FENCE_RELEASE_POLLS` polls in a row with no
+        white-out among them, and a white-out seen while it is still up -- releasing or not -- is ours."""
+        if not whiteouts:
+            if self._ours and block_base is not None:
+                try:
+                    conscious = party_is_wiped(block_base) is False
+                except Exception:
+                    conscious = False
+                if not conscious:
+                    self._release_polls = 0
+                else:
+                    self._release_polls += 1
+                    if self._release_polls >= self.FENCE_RELEASE_POLLS:
+                        self._ours = False      # they recovered without whiting out; the fence comes down
+                        self._release_polls = 0
+            return (False, None)
+        if self._ours:
+            self._ours = False                  # that white-out was the death we were sent
+            self._release_polls = 0
+            self.suppressed += 1
+            whiteouts -= 1
+            if whiteouts <= 0:
+                return (False, None)
+        self.sends += 1
+        self.sends_by_game += 1
+        return (True, "you whited out (the game's own white-out) -- sending a death to everyone linked.")
+
     def describe(self) -> str:
         """ADDENDUM 390: reachable now. This existed and nothing called it, so `sends` sat at zero with no way
         for a player to see that -- which is why this arrived as "we weren't sending at all" rather than a
         number. The per-signal split is here so the next report says WHICH trigger is doing the work."""
         if not self.enabled:
             return "Death Link: off for this seed."
-        return (f"Death Link: on. Sent {self.sends} ({self.sends_by_battle} from your team fainting in battle, "
+        return (f"Death Link: on. Sent {self.sends} ({self.sends_by_game} from the game's own white-out, "
+                f"{self.sends_by_battle} from your team fainting in battle, "
                 f"{self.sends_by_flag} from the game's annihilation flag, "
                 f"{self.sends_by_hp} from the party at 0 HP), received {self.receipts}, "
                 f"{self.suppressed} wipe(s) not re-sent because they were ours, "
@@ -10305,7 +10622,7 @@ MIROR_FLAG_OFFS = {"start": 0x0C, "accumulator": 0x10, "signal": 0x14,
                    "place": 0x18, "timer": 0x1C, "suppress": 0x20}
 MIROR_PLACE_TABLE_OFF, MIROR_PLACE_STRIDE, MIROR_PLACE_COUNT = 0x34, 8, 7
 
-# The names `!mirorforce` accepts. Gateon Port is deliberately absent: its weight is 0, so the game itself can never
+# The names `/mirorforce` accepts. Gateon Port is deliberately absent: its weight is 0, so the game itself can never
 # pick it, and offering it would be offering something that cannot work.
 MIROR_PLACE_IDS: "dict[str, tuple[int, str]]" = {
     "pyrite": (119, "Pyrite Colosseum"),
@@ -10388,7 +10705,7 @@ def miror_config_base() -> "int | None":
 
 
 def miror_state() -> "dict | None":
-    """Everything `!mirorforce` and `!miror` need, or None when the engine is not resolvable."""
+    """Everything `/mirorforce` needs, or None when the engine is not resolvable."""
     cfg = miror_config_base()
     if cfg is None:
         return None
@@ -10497,29 +10814,29 @@ class MirorForce:
                 spawn_at = consts[MIROR_SIGNAL_MAX_OFF] - 1
                 self.restore()
                 if values["suppress"]:
-                    return ("!mirorforce gave up: the suppress flag is set, which is gate 2 -- the game "
+                    return ("/mirorforce gave up: the suppress flag is set, which is gate 2 -- the game "
                             "sets it while you are AT an encounter, and it stops the callback dead. "
                             "Everything has been put back.")
                 if not values["start"]:
-                    return ("!mirorforce gave up: the first-fight flag went clear, so the callback returns "
+                    return ("/mirorforce gave up: the first-fight flag went clear, so the callback returns "
                             "on its first instruction. Everything has been put back.")
                 if values["signal"] >= spawn_at:
-                    return (f"!mirorforce gave up: the signal reached {values['signal']} of {spawn_at} and "
+                    return (f"/mirorforce gave up: the signal reached {values['signal']} of {spawn_at} and "
                             f"the SPAWN was refused, not the roll. Either the story window, or nothing was "
                             f"eligible -- a Poke Spot only counts while nothing is there, and a colosseum "
                             f"needs its map flag AND you must not be standing in it. Everything has been "
                             f"put back.")
                 if values["signal"] <= consts[MIROR_SIGNAL_MAX_OFF] - 2:
-                    return (f"!mirorforce gave up: the signal never moved off {values['signal']}, so the "
+                    return (f"/mirorforce gave up: the signal never moved off {values['signal']}, so the "
                             f"callback never rolled. Gates 1 and 2 are open, so it is the third: NO SHADOW "
                             f"IS QUEUED FOR HIM. A Shadow joins his queue only by ESCAPING a battle "
                             f"(status 2); snagging it removes it (status 3). There is no cooldown to wait "
                             f"out -- let one get away and he comes back. (If you were standing still, walk "
                             f"and try again: the engine is step-driven.) Everything has been put back.")
-                return "!mirorforce gave up. Everything has been put back."
+                return "/mirorforce gave up. Everything has been put back."
         except Exception:                              # pragma: no cover - live-Dolphin failure path
             self.restore()
-            return "!mirorforce aborted on a read failure. Everything has been put back."
+            return "/mirorforce aborted on a read failure. Everything has been put back."
         return None
 
     def restore(self) -> None:
@@ -10551,6 +10868,6 @@ class MirorForce:
 
     def describe(self) -> str:
         if not self.active:
-            return "!mirorforce: not armed."
-        return (f"!mirorforce: armed for {self.target}, {time.time() - self.armed_at:.0f}s ago, "
+            return "/mirorforce: not armed."
+        return (f"/mirorforce: armed for {self.target}, {time.time() - self.armed_at:.0f}s ago, "
                 f"{len(self.saved)} config value(s) held.")

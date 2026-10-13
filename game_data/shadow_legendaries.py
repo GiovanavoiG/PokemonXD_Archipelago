@@ -42,8 +42,12 @@ def _shadow_mons(pool: TrainerPool):
 def remove_legendary_shadows(pool: TrainerPool, species_pool: "dict[int, Species]", rng: random.Random,
                              exempt: "frozenset[int]" = frozenset()) -> int:
     """Replace every legendary Shadow (except species in `exempt`) with a distinct non-legendary. Returns how many."""
+    from .evolution_data import family_of_internal
+
     mons = _shadow_mons(pool)
     used = {mon.species_id for mon in mons}
+    # ADDENDUM 486: one Shadow per evolution line -- the replacement must not share a line with any other Shadow.
+    lines = {family_of_internal(mon.species_id) for mon in mons}
     candidates = [sid for sid, sp in species_pool.items()
                   if not sp.is_legendary and not is_legendary_species(sid)
                   and INTERNAL_INDEX_TO_NATIONAL_DEX.get(sid, (None, None))[0] not in _GIFT_LINE_DEX]
@@ -55,14 +59,16 @@ def remove_legendary_shadows(pool: TrainerPool, species_pool: "dict[int, Species
         rng.shuffle(order)
         for candidate in order:
             evolved = resolve_natural_evolution(candidate, mon.level, species_pool, rng)
-            if evolved in used or is_legendary_species(evolved):
+            if evolved in used or is_legendary_species(evolved) or family_of_internal(evolved) in lines:
                 continue
             dex = INTERNAL_INDEX_TO_NATIONAL_DEX.get(evolved, (None, None))[0]
             if dex in _GIFT_LINE_DEX:
                 continue
             used.discard(mon.species_id)
+            lines.discard(family_of_internal(mon.species_id))
             mon.species_id = evolved
             used.add(evolved)
+            lines.add(family_of_internal(evolved))
             replaced += 1
             break
     return replaced
@@ -77,7 +83,7 @@ def vanilla_lugia_index(original_species_by_index: "dict[int, int]") -> "int | N
 
 
 def place_shadow_lugia(pool: TrainerPool, original_species_by_index: "dict[int, int]", rng: random.Random,
-                       randomized: bool) -> "int | None":
+                       randomized: bool, exclude_indices: "frozenset[int]" = frozenset()) -> "int | None":
     """Put Lugia on a Shadow slot other than its vanilla one. Returns the DPKM index it landed on, or None when
     there is no Lugia slot to move from (a build without the Shadow data).
 
@@ -90,7 +96,9 @@ def place_shadow_lugia(pool: TrainerPool, original_species_by_index: "dict[int, 
         return None
     mons = _shadow_mons(pool)
     by_index = {mon.index: mon for mon in mons}
-    others = [mon for mon in mons if mon.index != home]
+    # ADDENDUM 479: never onto a slot with no checks (Greevil's six, Miror B.'s post-game Dragonite) -- Lugia moved
+    # there would be a Shadow nobody can be asked to purify.
+    others = [mon for mon in mons if mon.index != home and mon.index not in exclude_indices]
     if not others or home not in by_index:
         return None
     for mon in others:

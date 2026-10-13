@@ -13,10 +13,23 @@ from Options import Choice, DeathLink, DefaultOnToggle, OptionGroup, PerGameComm
 class RandomizeShadowSpecies(DefaultOnToggle):
     """
     Shuffles all of the shadow pokemon in the game into different pokemon - can be any in the game.
-    Use !shadowdex to check what they were shuffled into/check locations.
+    Use /shadowdex to check what they were shuffled into/check locations.
     """
 
     display_name = "Randomize Shadow Species"
+
+
+class ShadowInheritedMoves(Toggle):
+    """
+    Shadow Pokemon keep the four normal moves of the Shadow Pokemon they replaced, instead of moves their new
+    species can really learn. With Randomize Shadow Species on, that means a few illegal moves for fun -- moves
+    the new species could never learn, which it keeps after you snag and purify it.
+
+    Shadow moves are not affected either way, and the extra Shadows from Shadow Pokemon Expansion replace
+    nothing, so they always get legal moves. Off gives every Shadow legal moves.
+    """
+
+    display_name = "Shadow Pokemon Inherit Replaced Moves"
 
 
 
@@ -91,6 +104,10 @@ class TrainerDefeatCheckCount(Range):
     Only meaningful when Shuffle Trainer Defeats is on with setting Cumulative. Defaults to 100.
 
     If you choose 114, you will need to battle nearly every trainer the moment they are accessible.
+
+    Logic counts each trainer once (a rematch is not a second defeat) and never counts a trainer you can miss, so
+    the higher counts expect Citadark Isle's trainers. Your real tally counts every win, so in play you usually
+    reach a count well before logic expects it. A count higher than logic can ever be sure of is filler-only.
     """
 
     display_name = "Trainer Defeat Check Count"
@@ -116,8 +133,7 @@ class ShadowPokemonExpansion(Range):
     this off entirely and leaves every trainer's team exactly as vanilla/however other options left it.
 
     Each new Shadow Pokemon's level matches its trainer's own team (their average level, rounded),
-    and its moves are drawn from that species' real level-up learnset at that level,
-    same as Shuffle Trainer Movesets already does for ordinary Pokemon.
+    and its moves are drawn from that species' real level-up learnset at that level.
 
     Highly recommended to turn on! Miror B rematching also works to catch these if you defeat them.
     """
@@ -519,9 +535,8 @@ class RoboKyogrePartsRequired(Range):
     """
     How many Robo Kyogre Parts are needed to reach Citadark Isle.
 
-    Only meaningful when "Robo Kyogre Parts Unlock Citadark Isle" is on. Must be no greater than
-    "Robo Kyogre Parts Available" below -- generation fails if it is, rather than producing a seed that
-    cannot be finished.
+    Only meaningful when "Robo Kyogre Parts Unlock Citadark Isle" is on. If it is greater than
+    "Robo Kyogre Parts Available" below, Available is raised to match, so the seed can always be finished.
     """
 
     display_name = "Robo Kyogre Parts Required"
@@ -547,6 +562,7 @@ class Goal(Choice):
     """
     Defeat Greevil: Goal is complete upon defeating Greevil (the second time) on Citadark Isle.
     Win Mt Battle: Defeat the final trainer on Mt Battle. Recommended with Enhanced Difficulty ON and Exclude Mt Battle OFF.
+    Logic follows the goal: with Win Mt Battle, generation makes sure Mt. Battle is reachable.
     """
 
     display_name = "Goal"
@@ -759,6 +775,14 @@ class ReduceCitadarkGrind(Choice):
     default = 0
 
 
+class InfiniteTMs(Toggle):
+    """
+    TMs are never used up: teaching a move from a TM keeps the TM in your Bag, the way HMs already work.
+    """
+
+    display_name = "Infinite TMs"
+
+
 @dataclass
 class PokemonXDOptions(PerGameCommonOptions):
     # ORDER MATTERS: Options.generate_yaml_templates emits the template in exactly this order (group by group,
@@ -793,6 +817,7 @@ class PokemonXDOptions(PerGameCommonOptions):
     purification_progression_cap: PurificationProgressionCap
     shadow_pokemon_expansion: ShadowPokemonExpansion
     randomize_shadow_species: RandomizeShadowSpecies
+    shadow_inherited_moves: ShadowInheritedMoves
     no_legendary_shadows: NoLegendaryShadows
     shuffle_shadow_lugia: ShuffleShadowLugia
     remove_citadark_shadows: RemoveCitadarkShadows
@@ -815,6 +840,7 @@ class PokemonXDOptions(PerGameCommonOptions):
     experience_rate: ExperienceRate
     trade_evolutions_by_level: TradeEvolutionsByLevel
     reduce_citadark_grind: ReduceCitadarkGrind
+    infinite_tms: InfiniteTMs
 
     # -- Speed --
     text_speed: TextSpeed
@@ -868,6 +894,7 @@ OPTION_GROUPS: "list[OptionGroup]" = [
         PurificationProgressionCap,
         ShadowPokemonExpansion,
         RandomizeShadowSpecies,
+        ShadowInheritedMoves,
         NoLegendaryShadows,
         ShuffleShadowLugia,
         RemoveCitadarkShadows,
@@ -890,6 +917,7 @@ OPTION_GROUPS: "list[OptionGroup]" = [
         ExperienceRate,
         TradeEvolutionsByLevel,
         ReduceCitadarkGrind,
+        InfiniteTMs,
     ]),
     OptionGroup("Speed", [
         TextSpeed,

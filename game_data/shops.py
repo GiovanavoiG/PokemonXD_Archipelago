@@ -28,7 +28,7 @@ class Shop:
                               # berries ("GATEON #3"). The budget is the shortest shop berry's own name
                               # length, 10 characters, because the rename overwrites a packed string-table
                               # entry. See item_name_strings.py.
-    source: str = ""          # why it is trusted -- "live" (a `!room` reading) or "player" (they vouched)
+    source: str = ""          # why it is trusted -- "live" (a `/room` reading) or "player" (they vouched)
     note: str = ""
     # ADDENDUM 395: other room ids that ARE this shop. `room_id` stays the canonical one -- every per-room
     # piece of state keys off it -- and an alias only has to make the live writers and the purchase credit
@@ -52,7 +52,7 @@ class Shop:
 # crediting purchases; neither breaks a seed, since a purchase past the count still completes in
 # ShopPurchaseTracker and just creates no check.
 
-# WHICH ROOMS CREATE CHECKS. "Confirmed" has two sources: a live `!room` reading (rooms 21 and 156) or the
+# WHICH ROOMS CREATE CHECKS. "Confirmed" has two sources: a live `/room` reading (rooms 21 and 156) or the
 # player vouching from their `RoomAndStoryByteData` compilation (the other eight). Both create checks;
 # `source` records which, so if a shop stays silent in play the eight "player" rooms are where to look and
 # 21/156 are the control. A wrong room id leaves EXCLUDED locations in a real region, so the seed spends
@@ -90,7 +90,7 @@ SHOPS: "tuple[Shop, ...]" = (
               "513/514/515, which the player confirmed correct in ADDENDUM 177"),
     Shop(156, "Gateon Port Shop", "Gateon Port", slot_count=15, short_label="GATEON", confirmed=True, source="live",
          note="ram_client.KNOWN_ROOM_IDS: 'Gateon Port shop'"),
-    # ADDENDUM 394. WAS 164, and 164 is the EXTERIOR. Player, with a live `!room` reading: "Inside outskirt
+    # ADDENDUM 394. WAS 164, and 164 is the EXTERIOR. Player, with a live `/room` reading: "Inside outskirt
     # stand is showing as room 163." The counter is inside, so 163 is the shop.
     #
     # The symptom was the one the section comment above predicted for a `source="player"` id, plus one nobody

@@ -230,37 +230,23 @@ class TestPathScalingKeepsIt(PokemonXDTestBase):
         self.assertGreaterEqual(entry["win_rate"], fb.MIN_WIN_RATE)
 
 
-class TestOnlySnagemAndWillieHostShadows(unittest.TestCase):
-    """Same turn, player: "Remove everyone here as shadow candidates except the Snagem trainers and Willie." """
+class TestTheRefusalsAreReopened(unittest.TestCase):
+    """ADDENDUM 461's ruling ("Remove everyone here as shadow candidates except the Snagem trainers and Willie") was
+    reopened by ADDENDUM 466 once a snagged Shadow stopped respawning (465). The list stays defined for a revert."""
 
     def test_the_fence(self):
+        from unittest import mock
+
         from ..game_data import missable_indices as mi
         from ..game_data import missable_trainers as mt
 
-        excluded = mt.shadow_expansion_excluded_trainer_indices()
         refused = {13, 21, 22, 66, 67, 68}
         self.assertEqual(refused, set(mt.SHADOW_HOST_REFUSED))
         self.assertEqual(["BOST", "CIDA", "DOSK", "RALING", "LABET", "DOBY"],
                          [TRAINERS_BY_INDEX[i]["name"] for i in (13, 21, 22, 66, 67, 68)])
-        self.assertLessEqual(refused, excluded)
-        allowed = mi.PLAYER_RULED_UNMISSABLE - refused
-        self.assertEqual({135, 136, 137, 138, 141, 142, 143}, set(allowed))
-        self.assertFalse(allowed & excluded, "Snagem and Willie stay Shadow candidates")
-        self.assertEqual({"WILLIE"}, {TRAINERS_BY_INDEX[i]["name"] for i in allowed} - {
-            TRAINERS_BY_INDEX[i]["name"] for i in (136, 137, 138, 141, 142, 143)})
-
-
-class TestTheRefusedNeverHost(PokemonXDTestBase):
-    options = {"shadow_pokemon_expansion": 44, "remove_citadark_shadows": True}
-
-    def test_no_plan_or_relocation_targets_them(self):
-        from ..game_data import missable_trainers as mt
-
-        world = self.multiworld.worlds[self.player]
-        hosts = {int(plan["trainer_index"]) for plan in (world._shadow_expansion_plans or [])}
-        hosts |= {int(plan["trainer_index"]) for plan in (getattr(world, "_nightmare_relocations", None) or [])}
-        self.assertTrue(hosts)
-        self.assertFalse(hosts & mt.SHADOW_HOST_REFUSED)
+        self.assertFalse(mi.PLAYER_RULED_UNMISSABLE & mt.shadow_expansion_excluded_trainer_indices())
+        with mock.patch.object(mt, "SHADOW_REMATCH_FENCES_RELAXED", False):   # the revert switch restores 461
+            self.assertLessEqual(refused, mt.shadow_expansion_excluded_trainer_indices())
 
 
 class TestOffLeavesItAlone(PokemonXDTestBase):

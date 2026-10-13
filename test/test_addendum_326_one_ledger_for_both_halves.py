@@ -95,18 +95,21 @@ class TestTheDoubleCount(unittest.TestCase):
         self.assertEqual([rc.purification_location_name(2)], crossed)
         self.assertEqual({SHADOW_ID, 85}, self.tracker.purified_shadow_ids)
 
-    def test_an_unreadable_record_falls_back_to_the_old_behaviour(self) -> None:
-        """Species-only counting can duplicate; dropping a purification cannot be undone. The fallback keeps
-        the recoverable direction."""
+    def test_an_unreadable_record_is_left_to_the_scan(self) -> None:
+        """ADDENDUM 478 (was: "falls back to the old behaviour", a species-only count that could duplicate).
+        Nothing is counted off a flip without its record; the party/PC scan counts that Pokemon by id instead."""
         _Fixture(self, None)
-        self.assertEqual([rc.purification_location_name(2)], self._flip(999))
+        self.assertEqual([], self._flip(999))
+        self.assertEqual(1, self.tracker.flip_deferred)
+        self.assertEqual(1, self.tracker.total_purified)
 
     def test_the_watcher_adopts_the_id_when_the_species_was_counted_first(self) -> None:
-        """The reverse order: the species ledger already has it, so the count is refused AND the ledgers are
-        brought into agreement, so the scan cannot count it later either."""
+        """The reverse order: an older client counted it by species, so the count is refused AND the ledgers are
+        brought into agreement, so the scan cannot count it later either. (ADDENDUM 478: the saved state is
+        loaded, which is what tells the tracker one count is still waiting for its id.)"""
         tracker = rc.PurificationCountTracker()
-        tracker.purified_species.add(RECORD_DEX)
-        tracker.total_purified = 1
+        tracker.load_json({"total_purified": 1, "purified_species": [RECORD_DEX]})
+        self.assertEqual(1, tracker.legacy_unclaimed)
         _Fixture(self, _record_bytes(RECORD_INTERNAL, SHADOW_ID, rc.PURIFIED_FLAG_VALUE))
         with mock.patch.object(rc.NamedPurificationTracker, "poll", return_value=[(RECORD_DEX, 1)]):
             self.assertEqual([], tracker.poll(BLOCK))

@@ -61,6 +61,11 @@ class _ShadowHostBase(PokemonXDTestBase):
             self.assertNotIn(host, MT.POST_GOAL_TRAINER_INDICES, host)
             if host in PLAYER_RULED_UNMISSABLE:
                 continue   # ADDENDUM 460: the player ruled these one-time fights unmissable -- allowed hosts
+            if host in MT.REFIGHTABLE_FINAL_SHADOW_HOSTS:
+                continue   # ADDENDUM 466: re-fightable, never missable -- a snagged Shadow no longer respawns (465)
+            from ..game_data.shadow_mirrors import MIRRORED_SHADOW_HOSTS
+            if host in MIRRORED_SHADOW_HOSTS:
+                continue   # ADDENDUM 487: a first fight whose second fight always carries the mirror
             self.assertNotIn(host, MT.FILLER_ONLY_TRAINER_INDICES, host)
             self.assertFalse(C.CENSUS_REPEAT_AND_MISSABLE.get(host, (None, False))[1], host)
             placement = TP.PLACEMENTS.get(host)
@@ -152,7 +157,7 @@ class TestTheItemIsRequestable(unittest.TestCase):
     def test_the_ordinary_master_ball_is_untouched(self) -> None:
         master = I.ITEM_TABLE["Master Ball"]
         self.assertEqual(1, master.quantity)
-        self.assertEqual("progression", master.classification.name)
+        self.assertEqual("useful", master.classification.name)   # ADDENDUM 483 (issue #5): was progression
 
     def test_the_ordinary_rare_candy_is_untouched(self) -> None:
         """ADDENDUM 336. The single Rare Candy is ordinary filler and IS drawn from the pool -- sharing an id

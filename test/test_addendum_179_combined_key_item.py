@@ -214,7 +214,7 @@ class TestCompanionDelivery(unittest.TestCase):
     def test_a_missing_companion_is_warned_about_not_swallowed(self) -> None:
         # ADDENDUM 445: one line now, still unconditional, still naming the fix.
         self.assertIn("has not landed yet", self.source)
-        self.assertIn("`!getitem {item_name}` forces it", self.source)
+        self.assertIn("`/getitem {item_name}` forces it", self.source)
 
 
 if __name__ == "__main__":

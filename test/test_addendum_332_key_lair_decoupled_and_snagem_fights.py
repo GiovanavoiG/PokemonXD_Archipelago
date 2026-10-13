@@ -61,7 +61,8 @@ class TestTheKeyLairIsDecoupled(PokemonXDTestBase):
         self.assertGreaterEqual(story_bytes.area_entry_floor("Cipher Key Lair"), 0x64)
 
     def test_the_ship_gate_is_untouched(self) -> None:
-        self.assertEqual(("Phenac City (Post-Sixes)",), tl.TRAVEL_LOCATION_REQUIRED_REGIONS["SS Libra"])
+        # RETARGETED BY ADDENDUM 481: the Phenac unlock, not the cleared town.
+        self.assertEqual(("Phenac City",), tl.TRAVEL_LOCATION_REQUIRED_REGIONS["SS Libra"])
 
 
 class TestVanillaTravelStillChainsThroughSnagem(PokemonXDTestBase):

@@ -192,8 +192,11 @@ class TestSecondVisitFloorRules(unittest.TestCase):
         Kept as an inverted assertion both times, the shape ADDENDUM 273 used when the SS Libra rule went away:
         the Lair's floor must be a value, not a condition. A conditional rule reappearing here would mean the
         Lair can be entered BELOW its floor again, and this fails loudly if one comes back."""
-        marks = {"Cipher Key Lair (exterior)": 0x5D, "Snagem Hideout": 0x63, "Cipher Key Lair": 0x65}
+        marks = {"Cipher Key Lair (exterior)": 0x5D, "Snagem Hideout": 0x63, "Cipher Key Lair": 0x64}
         self.assertIsNone(story_bytes.dynamic_region_floor("Cipher Key Lair", marks))
+        # ADDENDUM 476: Zook beaten at the Lair (its own mark 0x65) raises it two story steps, to 0x66 (820).
+        marks["Cipher Key Lair"] = 0x65
+        self.assertEqual(0x66, story_bytes.dynamic_region_floor("Cipher Key Lair", marks))
         # ADDENDUM 410: one story step lower, 830 -> 820 ("reduce key lair's default floor by one step").
         self.assertEqual(0x64, story_bytes.area_entry_floor("Cipher Key Lair"))   # ADDENDUM 439: 800
 

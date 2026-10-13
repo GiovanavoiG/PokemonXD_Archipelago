@@ -23,7 +23,7 @@ What changed in the merge (nothing that covers a safety property of the guard wa
 * "a damaged FST at startup is never snapshotted" (131) was folded into the disc-baseline repair test (133),
   which exercises the same refusal and then goes on to repair from the ISO.
 * The three ``describe()`` tests became two: one for the normal armed/repaired/reference-in-use progression,
-  and one (kept separate, different state) for the ``!fstiso`` hint a guard that *cannot* arm must print.
+  and one (kept separate, different state) for the ``/fstiso`` hint a guard that *cannot* arm must print.
 * The two ``repair()`` tests and the two ``describe_range()`` tests in the live-check tool were each merged
   into one test that runs both phases.
 * Dropped outright: ``test_ram_client_exposes_availability_and_a_safe_is_hooked`` -- ``hasattr`` plus
@@ -111,7 +111,7 @@ class _GuardCase(unittest.TestCase):
 
     def _guard_split(self, ram: _FakeRam) -> tuple[fg.FstGuard, list[str], list[str]]:
         """ADDENDUM 181: `log` and `log_verbose` are two separate sinks -- the client prints the first
-        unconditionally and gates the second behind `!verbose`. Returns both so a test can assert WHICH sink a
+        unconditionally and gates the second behind `/verbose`. Returns both so a test can assert WHICH sink a
         message went to, not merely that it was emitted somewhere."""
         logs: list[str] = []
         verbose: list[str] = []
@@ -257,7 +257,7 @@ class TestFstGuard(_GuardCase):
                          ["wzx_hataku_damage.fsys", "wzx_hiduki_look_f.fsys"])
 
     def test_describe_reports_armed_state_repair_counts_and_the_reference_in_use(self) -> None:
-        """`!fst` is the only window the player has into the guard, so it has to say which of the two
+        """`/fst` is the only window the player has into the guard, so it has to say which of the two
         references is actually in force -- the validated RAM snapshot or a named ISO -- as well as how much
         it has repaired and what it repaired."""
         fst = _build_fst(["wzx_hataku_damage.fsys"])
@@ -378,7 +378,7 @@ class TestDiscBaseline(_GuardCase):
         guard, _ = self._guard(ram)
         for _ in range(4):
             guard.poll()
-        self.assertIn("!fstiso", guard.describe())
+        self.assertIn("/fstiso", guard.describe())
 
 
 class TestReadDiscFst(unittest.TestCase):

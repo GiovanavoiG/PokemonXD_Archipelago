@@ -10,20 +10,26 @@ AP client talks to a Dolphin process over its
 memory -- see the setup guide for what it can and can't do automatically. Several kinds of check are shuffled:
 
 - **Overworld items** -- chests, NPC gifts, and found items in the field.
-- **Shadow Pokemon defeats** -- defeating one of the game's 83 real Shadow Pokemon in battle (the full roster,
-  not a sample), live-detected off the battle's own HP data the moment it hits 0.
-- **Trainer defeats** -- defeating a unique trainer.
-- **Catching a species** -- one check per National Dex entry (1-386) the first time that species is seen owned,
-  live-detected off the game's own memory.
-- **Purifying a Shadow Pokemon** -- Cumulative checks, "Purify 1 Shadow Pokemon" through "Purify X Shadow
-  Pokemon", live-detected the same way.
 - **Opening a chest** -- unique per chest location.
+- **Trainer defeats** -- defeating a unique trainer, or, in Cumulative mode, "Defeat 1 Trainers" through "Defeat
+  X Trainers".
+- **Catching a species** -- one check per species you can actually obtain in your seed (its Shadow Pokemon, its
+  Poke Spot species and your starter), the first time that species is seen owned, live-detected off the game's
+  own memory.
+- **Purifying a Shadow Pokemon** -- Cumulative checks, "Purify 1 Shadow Pokemon" through "Purify X Shadow
+  Pokemon", one per Shadow Pokemon your seed holds that can be had before the goal. Greevil's Shadow Pokemon and
+  Miror B.'s post-game Dragonite have no checks.
+- **Shop purchases** -- shelf slots in the shops, when shop randomization is on.
 
 Every check grants an ordinary shuffled item from the multiworld.
 
 ## What is the goal of Pokemon XD?
 
-Reach Citadark Isle and defeat Cipher's boss, having gathered the key items needed to get there.
+Chosen with the Goal option:
+
+- **Defeat Greevil** (default) -- reach Citadark Isle and defeat Cipher's boss, Greevil, having gathered the key
+  items (or Robo Kyogre Parts) needed to get there.
+- **Win Mt. Battle** -- defeat the final trainer on Mt. Battle.
 
 ## What does another world's item look like in this game?
 

@@ -76,8 +76,13 @@ def _region_for_sphere_count(thresholds: list[tuple[int, str]], count: int) -> s
 
 
 def _set_sphere_rules(world) -> None:
-    """The TRAINER cumulative-count rules. Silently skips a threshold this seed did not create -- they are
-    EXCLUDED either way, so a missing one is never a generation-safety concern."""
+    """The TRAINER cumulative-count rules. Silently skips a threshold this seed did not create.
+
+    ADDENDUM 483 (issue #2): a threshold above what logic can honestly count -- one defeat per trainer the player
+    cannot miss (`_trainer_count_groups`) -- is EXCLUDED: it still exists and still sends, but holds nothing anyone
+    needs. The docstring used to claim every threshold was excluded; none was."""
+    from BaseClasses import LocationProgressType
+
     # With ExcludeMtBattleTrainers on a Mt. Battle win no longer advances the counter, so fall back to the
     # Mt. Battle-free table. A no-op against today's census, but the options are independent.
     excluding_mt_battle = bool(getattr(world.options, "exclude_mt_battle_trainers", False))
@@ -85,6 +90,7 @@ def _set_sphere_rules(world) -> None:
                        else _TRAINER_WEIGHT_BY_REGION)
     del trainer_weights  # ADDENDUM 432: the ladder is retired; the tally below counts real fights
     groups = _trainer_count_groups(world)
+    countable = sum(many for _ways, many in groups)
     player = world.player
     for count in range(1, locations.TRAINER_DEFEAT_COUNT_LOCATION_COUNT + 1):
         try:
@@ -93,6 +99,8 @@ def _set_sphere_rules(world) -> None:
             )
         except KeyError:
             continue
+        if count > countable:
+            location.progress_type = LocationProgressType.EXCLUDED
         set_rule(location, lambda state, need=count, g=groups: _count_reachable(state, player, g, need))
 
 
@@ -112,23 +120,35 @@ def _count_reachable(state, player: int, groups, need: int) -> bool:
 
 
 def _trainer_count_groups(world) -> "list[tuple[tuple[tuple[tuple[str, ...], tuple[str, ...]], ...], int]]":
-    """ADDENDUM 432: the cumulative "Defeat N Trainers" tally, counted fight by fight. Each census row supplies one
-    defeat behind its own region, extra regions and items; a row with no census region is counted at Citadark
-    Isle, as the retired ladder did. The ladder gated threshold N on the ONE region where the Nth trainer of a
-    story-order list stood, which with Location Shuffle said nothing about the regions listed before it."""
-    from . import items
+    """ADDENDUM 432: the cumulative "Defeat N Trainers" tally, counted fight by fight, each behind its own region,
+    extra regions and items.
 
-    counts: "dict[tuple, int]" = {}
-    last = _SPHERE_REGION_ORDER[-1]
+    ADDENDUM 483 (issue #2) counts only what the player is sure to be able to fight, and each trainer ONCE:
+      * a row with no census region is left out (it used to be counted at Citadark Isle -- an area it is not in);
+      * a row on the missable list (`missable_trainers.MISSABLE_TRAINER_INDICES`) is left out -- it may already be
+        gone for good when logic counts it;
+      * the goal fight (`POST_GOAL_TRAINER_INDICES`) is left out;
+      * a trainer's several rows (a rematch, a second team) are ONE defeat, reachable by any of them: a player who
+        arrives late can meet only the later team, and the tally then rises by one, not two.
+    Logic can only under-count against the client's real tally, never over-count."""
+    from . import items
+    from .game_data.missable_trainers import MISSABLE_TRAINER_INDICES, POST_GOAL_TRAINER_INDICES
+
+    skip = frozenset(MISSABLE_TRAINER_INDICES) | frozenset(POST_GOAL_TRAINER_INDICES)
+    by_trainer: "dict[str, set[tuple[tuple[str, ...], tuple[str, ...]]]]" = {}
     for index in sorted(trainer_placements.PLACEMENTS):
         placement = trainer_placements.PLACEMENTS[index]
-        if placement.region is None:
-            way = ((last,), ())
-        else:
-            regions_needed = tuple(dict.fromkeys([placement.region, *placement.required_regions]))
-            names = [items.requirement_to_pool_item(name) for name in placement.required_items]
-            way = (regions_needed, tuple(n for n in dict.fromkeys(names) if _requirement_is_in_the_pool(world, n)))
-        key = (way,)
+        if placement.region is None or index in skip:
+            continue
+        regions_needed = tuple(dict.fromkeys([placement.region, *placement.required_regions]))
+        names = [items.requirement_to_pool_item(name) for name in placement.required_items]
+        way = (regions_needed, tuple(n for n in dict.fromkeys(names) if _requirement_is_in_the_pool(world, n)))
+        trainer = trainer_roster.TRAINERS_BY_INDEX.get(index)
+        identity = str(trainer["name"]).upper() if trainer and trainer.get("name") else f"#{index}"
+        by_trainer.setdefault(identity, set()).add(way)
+    counts: "dict[tuple, int]" = {}
+    for ways in by_trainer.values():
+        key = tuple(sorted(ways))
         counts[key] = counts.get(key, 0) + 1
     return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
 
@@ -306,6 +326,12 @@ def _set_catch_rules(world) -> None:
             location.progress_type = LocationProgressType.EXCLUDED
             continue
 
+        # ADDENDUM 473: a species reachable only after the goal (every source needs the goal's event) is
+        # filler-only -- it is still a location, reachable once the goal is, but nothing anyone needs is on it.
+        from .game_data.shadow_regions import POST_GOAL_EVENT_ITEM
+        if all(gate != "pokespot" and POST_GOAL_EVENT_ITEM in gate.required_items for gate in gates[dex]):
+            location.progress_type = LocationProgressType.EXCLUDED
+
         # Each source becomes a closed-over tuple of plain requirements, so the rule does no lookups at
         # evaluation time; item names are dropped when this seed's pool does not hold them.
         compiled: "list[tuple[tuple[str, ...], tuple[str, ...], bool, tuple[str, ...]]]" = []
@@ -383,18 +409,11 @@ assert sum(_UNIQUE_TRAINER_WEIGHT_BY_REGION.values()) == locations.TRAINER_DEFEA
 # _SHOP_OCCURRENCE_REGIONS is retired (ADDENDUM 176): shop locations are named after shops and filed in their
 # room's own region, so the region IS the rule. Nothing models money any more.
 
-def _has_snag_machine(state, world) -> bool:
-    """Snagging needs the Snag Machine, which comes out of the Pokemon HQ Lab, which the player says the
-    Machine Part is what progresses. With key_item_shuffle off the Part sits in its vanilla home and is never
-    created, so there is nothing to ask for and this is trivially true (ADDENDUM 168)."""
-    from . import items  # lazy, like the other item-aware rules in this module
-
-    part = items.requirement_to_pool_item("Machine Part")
-    if part not in items.GATING_KEY_ITEM_NAMES:
-        return True
-    if not bool(getattr(world.options, "key_item_shuffle", 1)):
-        return True
-    return state.has(part, world.player)
+# ADDENDUM 483 (issue #6) removed `_has_snag_machine`. It required the Machine Part on the reasoning that the HQ Lab
+# needs it before handing over the Snag Machine. Player: "You get snag machine without machine part, therefore that
+# logic is wrong." The ladder agrees: the lab's 0x0F is the Snag Machine tier, the Machine Part is Gateon's 0x16,
+# after it. Snagging -- Shadow catches and the purification ladder -- needs no item. With travel shuffle off the
+# Machine Part still gates Agate Village (`regions.REGION_EDGES`), and so the Purify Chamber and everything past it.
 
 
 def _purification_weights_for(world) -> "dict[str, int]":
@@ -406,7 +425,8 @@ def _purification_weights_for(world) -> "dict[str, int]":
         return _PURIFICATION_WEIGHT_BY_REGION
     from .game_data import shadow_regions
 
-    return shadow_regions.purification_weights(_vanilla_shadow_count_for(world), removed)
+    # ADDENDUM 479: the world's own count already leaves out the post-goal Shadows; so does its ladder.
+    return shadow_regions.purification_weights(_vanilla_shadow_count_for(world), removed, include_post_goal=False)
 
 
 def _vanilla_shadow_count_for(world) -> int:
@@ -451,6 +471,8 @@ def _purification_shadow_groups(world) -> "list[tuple[tuple[tuple[tuple[str, ...
     for entry in load_json_data_file("deckdata_dark_pokemon.json") or []:
         if int(entry["dpkm_index"]) in removed:
             continue
+        if shadow_regions.is_post_goal_ddpk(int(entry["ddpk_index"])):
+            continue   # ADDENDUM 479: no Purify rung for a Shadow only purifiable after the goal
         gates = shadow_regions.gates_for_ddpk(int(entry["ddpk_index"]))
         if gates:
             shadows.append(tuple(sorted({compile_gate(g) for g in gates})))
@@ -470,7 +492,7 @@ def _purification_shadow_groups(world) -> "list[tuple[tuple[tuple[tuple[str, ...
 
 def _set_remaining_sphere_rules(world) -> None:
     """The purification checks. ADDENDUM 432: `Purify N` is in logic when Agate Village (the Purify Chamber) is
-    reachable, the Snag Machine is held, and AT LEAST N of this seed's Shadows can be snagged with what is held --
+    reachable and AT LEAST N of this seed's Shadows can be snagged with what is held --
     counted Shadow by Shadow from the fights that really carry them.
 
     It used to be a ladder: threshold N gated on the ONE region where the Nth Shadow of a fixed story-order list
@@ -479,17 +501,27 @@ def _set_remaining_sphere_rules(world) -> None:
     every multi-appearance trainer's Shadows at their FIRST appearance. Player: "if agate, gateon and the lab only
     give us 13 shadow pokemon, any purifications past 13 should be logically gated behind other areas. Otherwise
     we can get softlocked." """
+    from BaseClasses import LocationProgressType
+
+    from .game_data.shadow_regions import POST_GOAL_EVENT_ITEM
+
     groups = _purification_shadow_groups(world)
     player = world.player
     floor = shadow_regions_floor()
+    # ADDENDUM 473: how many Shadows can be had BEFORE the goal. A threshold past that needs a post-goal Shadow
+    # (Miror B.'s Dragonite), so it is filler-only; its rule still lets it count once the goal is reached.
+    before_goal = sum(many for ways, many in groups
+                      if any(POST_GOAL_EVENT_ITEM not in items_needed for _regions, items_needed in ways))
     for count in range(1, locations.PURIFICATION_LOCATION_COUNT + 1):
         try:
             location = world.multiworld.get_location(locations.purification_location_name(count), player)
         except KeyError:
             continue
+        if count > before_goal:
+            location.progress_type = LocationProgressType.EXCLUDED
 
         def rule(state, need=count, groups=tuple(groups)):
-            if not state.can_reach(floor, player=player) or not _has_snag_machine(state, world):
+            if not state.can_reach(floor, player=player):   # ADDENDUM 483: no Snag Machine item to hold
                 return False
             return _count_reachable(state, player, groups, need)
 
@@ -739,14 +771,8 @@ def _set_shop_tier_rules(world) -> None:
 
 
 def set_all_rules(world) -> None:
-    # Illustrative example only -- not necessarily true of the real game.
-    try:
-        location = world.multiworld.get_location("Realgam Tower - Colosseum Clear Reward", world.player)
-    except KeyError:
-        pass  # location wasn't created this seed -- fine, nothing else in this function depends on it
-    else:
-        set_rule(location, lambda state: state.has("Master Ball", world.player))
-
+    # ADDENDUM 483 (issue #5): the template's "illustrative" Master Ball rule is gone. Its location was retired long
+    # ago, so it never attached, and it was the only reason the Master Ball looked like progression.
     _set_sphere_rules(world)
     _set_chest_rules(world)
     _set_trainer_census_rules(world)

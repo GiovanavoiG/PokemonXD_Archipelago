@@ -38,10 +38,12 @@ class TestShadowExpansionPlacement(unittest.TestCase):
 
     def test_no_generated_shadow_lands_on_a_refightable_trainer(self) -> None:
         """The reported bug: the game lets you re-fight a `final` trainer, so its Shadow can be snagged again
-        and again."""
+        and again. ADDENDUM 466: ADDENDUM 465 stopped the engine rebuilding a snagged Shadow, so the four regioned,
+        safe `final` rows (`REFIGHTABLE_FINAL_SHADOW_HOSTS`) may host one now; every other `final` row may not."""
+        allowed = missable_trainers.REFIGHTABLE_FINAL_SHADOW_HOSTS
         for seed in (3, 11, 42, 101):
             targets = {plan["trainer_index"] for plan in self._plan(seed)}
-            self.assertEqual(set(), targets & self.refightable, f"seed {seed}")
+            self.assertEqual(set(), targets & (self.refightable - allowed), f"seed {seed}")
 
     def test_no_generated_shadow_lands_on_a_missable_trainer(self) -> None:
         """Found in the same pass: a Shadow on a missable fight is a catch that can be lost for the seed."""
@@ -58,7 +60,9 @@ class TestShadowExpansionPlacement(unittest.TestCase):
     def test_the_refightable_rows_were_already_inside_the_filler_only_set(self) -> None:
         """Why this is an existing fence applied, not a new one invented."""
         self.assertTrue(self.refightable)
-        self.assertTrue(self.refightable <= self.excluded)
+        self.assertTrue(self.refightable - missable_trainers.REFIGHTABLE_FINAL_SHADOW_HOSTS <= self.excluded)   # 466
+        self.assertTrue(self.refightable <= missable_trainers.FILLER_ONLY_TRAINER_INDICES
+                        | missable_trainers.MANDATORY_REMATCH_INDICES)
 
 
 class _Rec:

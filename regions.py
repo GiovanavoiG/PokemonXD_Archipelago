@@ -12,7 +12,8 @@ from BaseClasses import Region
 from . import travel_locations
 from . import items
 from .items import PokemonXDItem, ItemClassification
-from .locations import PokemonXDLocation, LOCATIONS_BY_REGION, EVENT_LOCATION_NAME, create_regions_and_locations
+from .locations import (PokemonXDLocation, LOCATIONS_BY_REGION, EVENT_LOCATION_NAME, MT_BATTLE_EVENT_LOCATION_NAME,
+                        create_regions_and_locations)
 
 # The gates are the key items and the story order (game_data/story_bytes.py, game_data/key_items.py).
 REGION_EDGES: "tuple[tuple[str, str, tuple[str, ...]], ...]" = (
@@ -337,7 +338,16 @@ def create_and_connect_regions(world) -> None:
 
     # The win condition is an event: capture/defeat the Cipher Boss.
     boss_region = citadark
-    victory_location = PokemonXDLocation(world.player, EVENT_LOCATION_NAME, None, boss_region)
+    event_name = EVENT_LOCATION_NAME
+    # ADDENDUM 483 (issue #1): with the Mt. Battle goal the win is Mt. Battle's final trainer (the client's
+    # `goal == 1` detection), so the event sits there and logic must reach Mt. Battle -- behind Agate Village (the
+    # Machine Part) with vanilla travel, behind `Travel Unlock - Mt. Battle` with it shuffled. Citadark Isle is then
+    # an ordinary area. It used to stay at Citadark whatever the option said, so a minimal-accessibility seed could
+    # leave the chosen goal unreachable.
+    if int(getattr(world.options, "goal", 0)) == 1:
+        boss_region = regions["Mt. Battle"]
+        event_name = MT_BATTLE_EVENT_LOCATION_NAME
+    victory_location = PokemonXDLocation(world.player, event_name, None, boss_region)
     victory_location.place_locked_item(
         PokemonXDItem("Victory", ItemClassification.progression, None, world.player)
     )

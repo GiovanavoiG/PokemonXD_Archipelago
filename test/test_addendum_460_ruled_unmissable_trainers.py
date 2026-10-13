@@ -44,10 +44,9 @@ class TestTheRulings(unittest.TestCase):
 
     def test_shadow_hosts(self) -> None:
         excluded = mt.shadow_expansion_excluded_trainer_indices()
-        # ADDENDUM 461: only Snagem and Willie host; Bost, Cida, Dosk, Raling, Labet and Doby no longer do.
-        self.assertFalse((mi.PLAYER_RULED_UNMISSABLE - mt.SHADOW_HOST_REFUSED) & excluded)
-        self.assertLessEqual(mt.SHADOW_HOST_REFUSED, excluded)
-        self.assertIn(13, excluded, "Bost: one row, like Agate's same-team rematches -- not confirmed")
+        # ADDENDUM 466 reopened ADDENDUM 461's refusals: every ruled row may host a Shadow again, Bost included -- a
+        # same-team rematch no longer rebuilds a snagged Shadow (ADDENDUM 465).
+        self.assertFalse(mi.PLAYER_RULED_UNMISSABLE & excluded)
         for later in (29, 227, 82, 230, 109, 218, 110, 219, 111, 220, 226):
             self.assertIn(later, excluded, f"rematch row {later} stays off the host list")
 
@@ -82,11 +81,11 @@ class TestProgressionInAUniqueSeed(PokemonXDTestBase):
 class TestShadowExpansionMayUseThem(PokemonXDTestBase):
     options = {"shadow_pokemon_expansion": 44}
 
-    def test_hosts_never_include_bost_or_a_rematch_row(self) -> None:
+    def test_hosts_never_include_an_excluded_row(self) -> None:
+        """ADDENDUM 466: Bost may host now; the rows still excluded never do."""
         world = self.multiworld.worlds[self.player]
         hosts = {int(plan["trainer_index"]) for plan in (world._shadow_expansion_plans or [])}
         self.assertTrue(hosts)
-        self.assertNotIn(13, hosts)
         self.assertFalse(hosts & mt.shadow_expansion_excluded_trainer_indices())
 
 

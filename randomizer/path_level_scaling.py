@@ -182,6 +182,17 @@ def _round_half_up(value: float) -> int:
 # 327's anchor derivation read. Only his LEVEL is wrong, so the override is scoped to the ramp.
 RAMP_REGION_OVERRIDES: "dict[int, str]" = {
     148: "Snagem Hideout",   # Defeat - Biden #2 -- player ruling, 2026-09-26
+    # ADDENDUM 485. Player: "user reported sixes being mostly the same level at cipher lab vs phenac. Can we make
+    # their fights in each area levelled to the area, separately?" Each Six has four deck rows, two per place: the
+    # Cipher Lab fight (33-38, carrying the Shadow; 39-44 the same team once that Shadow is snagged, vanilla 9-14)
+    # and the Mayor's House fight (112-117 with the Shadow; 118-123 without, vanilla 18-20 -- the census's "Phenac
+    # Area Cipher Peons" teams, member for member). The placements (ADDENDUM 409) file them by the DEFEAT LABEL --
+    # "#2" is the second distinct team met, which is Phenac's -- so the Phenac rows sat in Cipher Lab and were
+    # levelled with it. Levels go by the row the game really fields: Phenac's rows join the Post-Sixes band (the
+    # fight is the one that walks the player out of the Mayor's House, so no new tier), the snagged-Shadow copy of
+    # the Cipher Lab fight joins Cipher Lab's. Logic is untouched.
+    **{index: "Phenac City (Post-Sixes)" for index in range(112, 124)},
+    **{index: "Cipher Lab" for index in range(39, 45)},
 }
 
 

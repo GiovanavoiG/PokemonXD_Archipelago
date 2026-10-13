@@ -145,6 +145,8 @@ class TestTheSendSide(unittest.TestCase):
     def test_a_loss_in_battle_sends_once(self) -> None:
         self.assertEqual((False, None), self._tick())
         self._faint_all()
+        # ADDENDUM 472: a wipe must hold for two polls -- the first all-zero read is "no answer yet".
+        self.assertEqual((False, None), self._tick())
         sent, note = self._tick()
         self.assertTrue(sent)
         self.assertIn("fainted in battle", note)
@@ -173,7 +175,8 @@ class TestTheSendSide(unittest.TestCase):
 class TestTheClient(unittest.TestCase):
     def test_the_send_side_reads_the_battle_records(self) -> None:
         self.assertIn("ctx.battle_party_watch.poll(ctx.block_base, in_battle)", CLIENT)
-        self.assertIn("ctx.death_link_bridge.poll(ctx.block_base, battle_wiped)", CLIENT)
+        # ADDENDUM 475: the game's white-out counter rides alongside, as the primary signal when the ISO has it.
+        self.assertIn("ctx.death_link_bridge.poll(ctx.block_base, battle_wiped,", CLIENT)
 
     def test_on_deathlink_passes_the_battle_flag(self) -> None:
         body = CLIENT.split("def on_deathlink", 1)[1].split("\n    def ", 1)[0]

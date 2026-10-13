@@ -217,6 +217,7 @@ class TestTheBridge(unittest.TestCase):
         for index in range(2):
             start = index * rc.POKEMON_STRIDE + rc.POKEMON_HP_OFFSET
             struct.pack_into(">H", self.party.cells, start, 0)
+        self.assertEqual((False, None), self.bridge.poll(BLOCK))   # ADDENDUM 472: two polls at 0 HP
         should_send, note = self.bridge.poll(BLOCK)
         self.assertTrue(should_send)
         self.assertIn("whited out", note)
@@ -234,6 +235,7 @@ class TestTheBridge(unittest.TestCase):
         for index in range(2):                                          # and now a real, own wipe
             start = index * rc.POKEMON_STRIDE + rc.POKEMON_HP_OFFSET
             struct.pack_into(">H", self.party.cells, start, 0)
+        self.assertEqual((False, None), self.bridge.poll(BLOCK))   # ADDENDUM 472: two polls at 0 HP
         should_send, _ = self.bridge.poll(BLOCK)
         self.assertTrue(should_send)
         self.assertEqual(1, self.bridge.sends)
@@ -301,6 +303,7 @@ class TestTheBridge(unittest.TestCase):
         for index in range(2):
             start = index * rc.POKEMON_STRIDE + rc.POKEMON_HP_OFFSET
             struct.pack_into(">H", self.party.cells, start, 0)
+        self.assertEqual((False, None), self.bridge.poll(BLOCK))   # ADDENDUM 472: two polls at 0 HP
         should_send, _note = self.bridge.poll(BLOCK)
         self.assertTrue(should_send)
         self.assertEqual(1, self.bridge.sends)

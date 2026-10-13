@@ -97,14 +97,12 @@ class TestTheManifestIsPresentAndValid(unittest.TestCase):
 
         self.assertEqual("Pokemon XD Gale of Darkness", self.manifest["game"])
 
-    def test_its_compatible_version_is_readable_by_the_core_that_ships_it(self) -> None:
-        """`APContainer.read_contents` refuses a manifest whose `compatible_version` exceeds the running
-        core's `container_version`. 7 is what AP's own `APWorldContainer.get_manifest` writes; on an older
-        core it degrades to exactly the pre-manifest behaviour (logged, loads anyway), so it can never be
-        worse than having no manifest at all."""
-        from worlds.Files import container_version
-
-        self.assertLessEqual(self.manifest["compatible_version"], container_version)
+    def test_the_source_manifest_has_no_container_fields(self) -> None:
+        """ADDENDUM 470: Archipelago's own `test_no_container_version` -- "archipelago.json ... must not define
+        'version' / 'compatible_version', see apworld specification.md". Those two describe the ZIP and are added
+        when it is packaged (AP's "Build APWorlds", or BUILD.md's recipe); the built zip is checked below."""
+        self.assertNotIn("version", self.manifest)
+        self.assertNotIn("compatible_version", self.manifest)
 
     def test_the_declared_minimum_core_version_is_not_above_the_core_we_test_against(self) -> None:
         """A minimum above the running core is a silent refusal to load -- `fail_world`, one log line, no
@@ -158,6 +156,17 @@ class TestTheBuiltApworldIsDropInInstallable(unittest.TestCase):
         self.assertIn(f"{_MODULE_NAME}/archipelago.json", self.names)
         manifest = json.loads(self.zip.read(f"{_MODULE_NAME}/archipelago.json"))
         self.assertEqual("Pokemon XD Gale of Darkness", manifest["game"])
+
+    def test_the_packaged_manifest_carries_the_container_fields(self) -> None:
+        """ADDENDUM 470: the zip's copy gets `version` and `compatible_version` at build time, as AP's own
+        `APWorldContainer.get_manifest` writes them. `APContainer.read_contents` refuses a `compatible_version`
+        above the running core's `container_version`."""
+        from worlds.Files import container_version
+
+        manifest = json.loads(self.zip.read(f"{_MODULE_NAME}/archipelago.json"))
+        self.assertEqual(7, manifest["compatible_version"])
+        self.assertIn("version", manifest)
+        self.assertLessEqual(manifest["compatible_version"], container_version)
 
     def test_no_compiled_or_cache_files_were_packaged(self) -> None:
         """A stale `.pyc` in the zip is imported in preference to nothing at all and can shadow a source file

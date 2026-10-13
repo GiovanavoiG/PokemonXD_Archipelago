@@ -1,0 +1,3 @@
+# ADDENDUM 483 (issue #12): compiled Python never belongs in the repository.
+__pycache__/
+*.py[cod]

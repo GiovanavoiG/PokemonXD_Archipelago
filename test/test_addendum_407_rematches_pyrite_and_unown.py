@@ -34,9 +34,11 @@ class TestTheAllowlist(unittest.TestCase):
     def test_the_progression_fence_is_the_old_one_minus_them(self) -> None:
         self.assertEqual(mt.FILLER_ONLY_TRAINER_INDICES, mt.UNREDOABLE_TRAINER_INDICES - mt.MANDATORY_REMATCH_INDICES)
 
-    def test_shadow_expansion_still_avoids_them(self) -> None:
-        """A Shadow on a re-fightable fight is the infinite catch (ADDENDUM 236) -- unchanged by this."""
-        self.assertTrue(mt.MANDATORY_REMATCH_INDICES <= mt.shadow_expansion_excluded_trainer_indices())
+    def test_shadow_expansion_may_use_them_now(self) -> None:
+        """A Shadow on a re-fightable fight WAS the infinite catch (ADDENDUM 236); ADDENDUM 465 stopped the engine
+        rebuilding a snagged Shadow, and ADDENDUM 466 lets Naps #2 host one."""
+        self.assertFalse(mt.MANDATORY_REMATCH_INDICES & mt.shadow_expansion_excluded_trainer_indices())
+        self.assertTrue(mt.MANDATORY_REMATCH_INDICES <= mt.REFIGHTABLE_FINAL_SHADOW_HOSTS)
 
 
 class TestInAGeneratedWorld(PokemonXDTestBase):

@@ -332,6 +332,16 @@ Pokemon XD Gale of Darkness:
     'false': 0
     'true': 50
 
+  shadow_inherited_moves:
+    # Shadow Pokemon keep the four normal moves of the Shadow Pokemon they replaced, instead of moves their new
+    # species can really learn. With Randomize Shadow Species on, that means a few illegal moves for fun -- moves
+    # the new species could never learn, which it keeps after you snag and purify it.
+    # 
+    # Shadow moves are not affected either way, and the extra Shadows from Shadow Pokemon Expansion replace
+    # nothing, so they always get legal moves. Off gives every Shadow legal moves.
+    'false': 50
+    'true': 0
+
   no_legendary_shadows:
     # No Shadow Pokemon is a legendary. With "Randomize Shadow Species" on, Shadows are never randomized into one;
     # with it off, the vanilla legendary Shadows (Shadow Lugia and the three birds) become random non-legendary
@@ -532,6 +542,11 @@ Pokemon XD Gale of Darkness:
     'off': 50
     'on': 0
     equal_to_citadark_entry: 0
+
+  infinite_tms:
+    # TMs are never used up: teaching a move from a TM keeps the TM in your Bag, the way HMs already work.
+    'false': 50
+    'true': 0
 
   #########
   # Speed #

@@ -113,7 +113,9 @@ _STONE_SPECS: list[tuple[str, ItemClassification, int | None, bool]] = [
     ("Leaf Stone", F, 98, True),
 ]
 _MASTER_BALL_SPEC: list[tuple[str, ItemClassification, int | None, bool]] = [
-    ("Master Ball", P, 1, True),
+    # ADDENDUM 483 (issue #5): useful, not progression -- no rule has ever needed it. Still exactly one per seed
+    # (`GUARANTEED_USEFUL_ITEM_NAMES`), never one of the repeating useful draws.
+    ("Master Ball", U, 1, True),
 ]
 # ADDENDUM 104: one progression item per travel_locations.TRAVEL_LOCATION_BITS entry. Receiving one
 # live-writes that destination's map-unlock bit, which is what regions.py's graph requires to consider the
@@ -441,6 +443,10 @@ ITEMS_REMOVED_FROM_POOL: "frozenset[str]" = frozenset({
 # game_data/key_items.py by a test. Declared here rather than beside its table, because a name has to exist
 # before it can be referenced.
 SCOOTER_ITEM_NAME = "Scooter Upgrade"
+
+# ADDENDUM 483 (issue #5): useful items placed exactly once in every seed, ahead of the repeating useful draw. The
+# Master Ball was progression only to get this "always one" behaviour; it gates nothing.
+GUARANTEED_USEFUL_ITEM_NAMES: "tuple[str, ...]" = ("Master Ball",)
 
 GATING_KEY_ITEM_NAMES: "frozenset[str]" = frozenset({
     # ADDENDUM 179: after the packaging there is one item to place rather than two.
@@ -924,8 +930,9 @@ ITEM_TABLE = _freeze_offsets(ITEM_TABLE, _FROZEN_ITEM_OFFSETS)
 
 
 ITEM_NAME_GROUPS: dict[str, set[str]] = {
-    "Krane Memos": set(KEY_ITEMS.keys()),
-    "Voice Cases": {n for n in KEY_ITEMS if n.startswith("Voice Case")},
+    # ADDENDUM 483 (issue #4): "Krane Memos" held every key item (KEY_ITEMS), so a hint for it could name the Machine
+    # Part; the memos and Voice Cases are never in a pool anyway. One honest group instead: the key items that are.
+    "Key Items": set(GATING_KEY_ITEM_NAMES),
     "Evolution Stones": set(STONE_ITEMS.keys()),
     "Balls": {"Master Ball", *FILLER_BALL_ITEMS.keys()},
     "Currency": set(POKECOUPON_ITEMS.keys()),   # ADDENDUM 361
@@ -947,6 +954,11 @@ ITEM_NAME_GROUPS: dict[str, set[str]] = {
 # halves leave the WORLD's datapackage and come back as groups naming the combined item. Their ids (13, 19) stay
 # reserved in ITEM_TABLE and the client still resolves them (`include_retired=True`), so nothing can inherit them.
 RETIRED_DATAPACKAGE_ITEMS: "frozenset[str]" = frozenset(COMBINED_KEY_ITEM_PARTS)
+
+# ADDENDUM 470: a group may only name items in the datapackage (Archipelago's `test_item_name_group_has_valid_item`).
+# "Krane Memos" is built from KEY_ITEMS, which still holds the two retired halves -- drop them from every group.
+ITEM_NAME_GROUPS = {group: {name for name in members if name not in RETIRED_DATAPACKAGE_ITEMS}
+                    for group, members in ITEM_NAME_GROUPS.items()}
 
 
 def get_item_name_to_id(base_id: int, include_retired: bool = False) -> dict[str, int]:

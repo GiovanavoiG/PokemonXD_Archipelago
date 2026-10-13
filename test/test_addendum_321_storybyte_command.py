@@ -1,6 +1,6 @@
-"""ADDENDUM 321 -- `!storybyte`, the manual story-byte write.
+"""ADDENDUM 321 -- `/storybyte`, the manual story-byte write.
 
-Player: "can you add a debug command to edit story byte? for example '!storybyte 27' would set it to 0x27"."""
+Player: "can you add a debug command to edit story byte? for example '/storybyte 27' would set it to 0x27"."""
 import unittest
 from unittest import mock
 
@@ -49,7 +49,7 @@ class TestTheWriter(unittest.TestCase):
 
     def test_it_is_logged_like_every_other_write_site(self):
         log = rc.StoryByteWriteLog()
-        rc.write_story_byte(BLOCK, 0x71, write_log=log, why="!storybyte (manual)")
+        rc.write_story_byte(BLOCK, 0x71, write_log=log, why="/storybyte (manual)")
         self.assertIn("manual", [entry.source for entry in log.entries])
 
     def test_it_holds_no_opinion_about_the_number(self):
@@ -128,4 +128,4 @@ class TestItIsDiscoverable(unittest.TestCase):
     def test_the_command_exists_with_a_docstring(self):
         command = Client.PokemonXDCommandProcessor._cmd_storybyte
         self.assertTrue(command.__doc__)
-        self.assertIn("!storybyte 27", command.__doc__)
+        self.assertIn("/storybyte 27", command.__doc__)

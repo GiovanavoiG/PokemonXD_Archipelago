@@ -46,7 +46,7 @@ MT_BATTLE_PERMANENTLY_EXCLUDED_FROM_SHADOW_EXPANSION: bool = True
 # so this stays their identity whatever the YAML says. Client.py arms a defeat count on it: MIRU plus 99
 # more ordinary-trainer defeats is the 100th fight, the facility's 100 being sequential and back-to-back.
 # No live "inside Mt. Battle" signal exists, so it assumes nothing else is battled in between and that MIRU
-# is fought fresh this client session; `!goal` is the manual fallback.
+# is fought fresh this client session; `/goal` is the manual fallback.
 MT_BATTLE_FIRST_TRAINER_SURNAME: str = "MIRU"
 MT_BATTLE_TOTAL_TRAINER_COUNT: int = 100
 

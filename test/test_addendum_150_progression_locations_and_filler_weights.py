@@ -387,8 +387,9 @@ class TestSpheresAreRealNotFlat(_ScopeBase):
         self.assertFalse(self.can_reach_location(DEEPEST_CHEST))
 
     def test_the_last_purification_is_not_reachable_from_the_start(self) -> None:
-        self.assertFalse(self.can_reach_location(
-            locations.purification_location_name(locations.PURIFICATION_LOCATION_COUNT)))
+        # ADDENDUM 479: this seed's own last rung (the post-goal Shadows have none).
+        last = self.multiworld.worlds[self.player]._purification_location_count
+        self.assertFalse(self.can_reach_location(locations.purification_location_name(last)))
 
 
 if __name__ == "__main__":
@@ -416,13 +417,14 @@ class TestPurificationProgressionCap(_ScopeBase):
             self.assert_default(locations.purification_location_name(count))
 
     def test_thresholds_above_the_cap_are_filler_only(self) -> None:
-        for count in (13, 24, locations.PURIFICATION_LOCATION_COUNT):
+        for count in (13, 24, self.multiworld.worlds[self.player]._purification_location_count):   # ADDENDUM 479
             self.assert_excluded(locations.purification_location_name(count))
 
     def test_the_locations_still_exist_and_still_send(self) -> None:
         """Capped means "no progression or useful item", not "removed" -- crossing the threshold still fires."""
         all_names = {loc.name for loc in self.multiworld.get_locations(self.player)}
-        for count in range(1, locations.PURIFICATION_LOCATION_COUNT + 1):
+        last = self.multiworld.worlds[self.player]._purification_location_count   # ADDENDUM 479
+        for count in range(1, last + 1):
             self.assertIn(locations.purification_location_name(count), all_names)
 
     def test_it_does_not_touch_the_other_categories(self) -> None:
@@ -440,7 +442,7 @@ class TestPurificationCapAtZero(_ScopeBase):
     }
 
     def test_no_purification_check_is_load_bearing(self) -> None:
-        for count in (1, locations.PURIFICATION_LOCATION_COUNT):
+        for count in (1, self.multiworld.worlds[self.player]._purification_location_count):   # ADDENDUM 479
             self.assert_excluded(locations.purification_location_name(count))
 
 

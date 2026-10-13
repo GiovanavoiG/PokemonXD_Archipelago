@@ -133,7 +133,7 @@ class TestOff(PokemonXDTestBase):
     def test_nothing_changes(self) -> None:
         world = self.multiworld.worlds[self.player]
         self.assertIsNone(world._nightmare_teams)
-        self.assertEqual(83, world._vanilla_shadow_count)
+        self.assertEqual(75, world._vanilla_shadow_count)   # RETARGETED BY ADDENDUM 479 (was 83)
         self.assertNotIn("nightmare_removed_shadow_dex", world.fill_slot_data())
         self.assertIsNone(_seed_data(world)["nightmare_citadark_teams"])
 
@@ -151,9 +151,10 @@ class TestOn(PokemonXDTestBase):
     def test_every_shadow_still_counts(self) -> None:
         """ADDENDUM 424: 48 stay put (47 off Citadark, plus Lugia), 35 move, and the expansion adds its own."""
         world = self.multiworld.worlds[self.player]
-        self.assertEqual(48, world._vanilla_shadow_count)
+        # RETARGETED BY ADDENDUM 479: 46 -- Lugia and the post-game Dragonite stay put but have no rungs.
+        self.assertEqual(46, world._vanilla_shadow_count)
         purify = [loc for loc in self.multiworld.get_locations(self.player) if loc.name.startswith("Purify ")]
-        self.assertEqual(48 + 35 + 30, len(purify))
+        self.assertEqual(46 + 35 + 30, len(purify))
         self.assertNotIn("nightmare_removed_shadow_dex", world.fill_slot_data())
 
     def test_catch_exclusions_kept_for_lugia(self) -> None:
@@ -170,10 +171,10 @@ class TestOn(PokemonXDTestBase):
     def test_only_lugia_waits_on_citadark(self) -> None:
         from .. import rules
         weights = rules._purification_weights_for(self.multiworld.worlds[self.player])
-        self.assertEqual(48, sum(weights.values()))
+        self.assertEqual(46, sum(weights.values()))
         # RETARGETED BY ADDENDUM 432: Lugia, and Miror B.'s post-game Dragonite, which was filed at the Poke Spots by
-        # name and is now held to the end game.
-        self.assertEqual(2, weights.get("Citadark Isle"))
+        # name and is now held to the end game. RETARGETED AGAIN BY ADDENDUM 479: neither has a rung any more.
+        self.assertIsNone(weights.get("Citadark Isle"))
 
     def test_seed_data(self) -> None:
         world = self.multiworld.worlds[self.player]

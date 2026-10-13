@@ -2331,6 +2331,7 @@ def apply_nightmare_relocation_edit(story_decompressed: bytes, ddpk_decompressed
                 referenced.setdefault(member["ddpk_index"], []).append(trainer["index"])
     buf = bytearray(story_decompressed)
     levels: "dict[int, int]" = {}
+    mirror_queue: "list[tuple[int, list]]" = []   # ADDENDUM 467: written after every host has its slot
     for plan in relocations:
         host_index = int(plan["trainer_index"])
         host = deck.trainer(host_index)
@@ -2359,6 +2360,13 @@ def apply_nightmare_relocation_edit(story_decompressed: bytes, ddpk_decompressed
             buf[deck.dpkm_data + dpkm_index * 0x20 + 0x02] = max(1, min(100, level))
             referenced[ddpk_index] = [host_index]
             levels[ddpk_index] = max(1, min(100, level))
+            if shadow.get("mirror_trainer_indices"):
+                mirror_queue.append((ddpk_index, list(shadow["mirror_trainer_indices"])))
+    if mirror_queue:
+        after = deck_format.DeckFile(bytes(buf))
+        used: "dict[int, set[int]]" = {}
+        for ddpk_index, mirrors in mirror_queue:
+            _write_mirror_slots(buf, after, used, ddpk_index, mirrors)
     return bytes(buf), levels
 
 
@@ -2407,6 +2415,60 @@ def apply_shadow_vacate_edit(story_decompressed: bytes, ddpk_decompressed: bytes
             raise ValueError(f"Shadow removal: trainer {entry['trainer_index']} slot {entry['slot']} did not read "
                              "back as an ordinary Pokemon")
     return out, len(records)
+
+
+def read_final_shadow_species(output_path: Path) -> "dict[int, int]":
+    """ADDENDUM 465: {DDPK index: internal species} for every in-use Shadow record on the PATCHED disc -- the
+    record list from common.fsys's DeckData_DarkPokemon.bin (the copy the game reads), each record's species from
+    deck_archive.fsys's DeckData_Story.bin at its `story_deck_index`. Read after every deck pass, so the expansion's
+    new records, relocations and the species shuffle are all included."""
+    output_path = Path(output_path).resolve()
+    reader = open_reader(output_path)
+    try:
+        fst = parse_fst(reader)
+        deck_off, deck_len, _rec = find_by_basename(fst, "deck_archive.fsys")
+        deck_fsys = reader.read(deck_off, deck_len)
+        story_entry = parse_fsys(deck_fsys)["DeckData_Story.bin"]
+        story_raw = deck_fsys[story_entry["data_off"]: story_entry["data_off"] + 0x10 + story_entry["comp_size"]]
+        common_off, common_len, _rec2 = find_by_basename(fst, "common.fsys")
+        common_fsys = reader.read(common_off, common_len)
+        dark_entry = parse_fsys(common_fsys)["DeckData_DarkPokemon.bin"]
+        dark_raw = common_fsys[dark_entry["data_off"]: dark_entry["data_off"] + 0x10 + dark_entry["comp_size"]]
+    finally:
+        reader.close()
+    return shadow_species_from_decks(deck_format.lzss_decode(story_raw), deck_format.lzss_decode(dark_raw))
+
+
+def shadow_species_from_decks(story_decompressed: bytes, dark_decompressed: bytes) -> "dict[int, int]":
+    """The pure half of `read_final_shadow_species`: {in-use DDPK index: its DPKM record's species}."""
+    story = deck_format.DeckFile(story_decompressed)
+    dark = deck_format.DarkPokemonFile(dark_decompressed)
+    out: "dict[int, int]" = {}
+    for index in range(1, dark.ddpk_entries):
+        record = dark.ddpk_full(index)
+        dpkm = int(record["story_deck_index"])
+        if record["in_use"] and 0 < dpkm < story.dpkm_entries:
+            out[index] = int(story.dpkm_full(dpkm)["species"])
+    return out
+
+
+def apply_relocated_shadow_worth(ddpk_decompressed: bytes, ddpk_indices,
+                                 worth: int = 128) -> "tuple[bytes, list[int]]":
+    """ADDENDUM 468: set the +0x00 "worth" byte to `worth` on each listed in-use DDPK record that holds 0 there. A
+    record with worth 0 never flees to Miror B. when beaten (`_darkPokemonSetUnderTaker`) and Miror B. never lists it
+    (`_fightTrainer_GetUnderTakerDarkPoke`); Greevil's six relocated Shadows (74-79) are such records. Returns the
+    new bytes and the indices changed."""
+    dark = deck_format.DarkPokemonFile(ddpk_decompressed)
+    buf = bytearray(ddpk_decompressed)
+    changed: "list[int]" = []
+    for index in sorted({int(i) for i in ddpk_indices}):
+        if not 0 < index < dark.ddpk_entries or not dark.ddpk_full(index)["in_use"]:
+            continue
+        off = dark.ddpk_data + index * 0x18
+        if buf[off] == 0:
+            buf[off] = max(1, min(255, int(worth)))
+            changed.append(index)
+    return bytes(buf), changed
 
 
 def write_nightmare_citadark_patch(output_path: Path, teams: "dict[int, dict]",
@@ -2463,6 +2525,11 @@ def write_nightmare_citadark_patch(output_path: Path, teams: "dict[int, dict]",
     dark_decompressed = deck_format.lzss_decode(dark_raw)
     new_decompressed, levels = apply_nightmare_relocation_edit(new_decompressed, dark_decompressed, relocations)
     new_dark = apply_shadow_level_boost(dark_decompressed, deck_format.DarkPokemonFile(dark_decompressed), levels)
+    _engine = _game_data_module("shadow_engine")
+    give_worth = bool(getattr(_engine, "RELOCATED_SHADOW_WORTH_ENABLED", False))
+    if give_worth:   # ADDENDUM 468: a beaten relocated Shadow flees to Miror B. like every other
+        new_dark, result["shadow_worth_given"] = apply_relocated_shadow_worth(
+            new_dark, levels, _engine.RELOCATED_SHADOW_WORTH)
     patch_result = write_fsys_multi_entry_patch(
         output_path, deck_off, deck_len, deck_record_off, deck_fsys_bytes,
         [
@@ -2491,9 +2558,11 @@ def write_nightmare_citadark_patch(output_path: Path, teams: "dict[int, dict]",
     updates = []
     for name, raw in raws.items():
         decompressed = deck_format.lzss_decode(raw)
+        boosted = apply_shadow_level_boost(decompressed, deck_format.DarkPokemonFile(decompressed), levels)
+        if give_worth:
+            boosted, _ = apply_relocated_shadow_worth(boosted, levels, _engine.RELOCATED_SHADOW_WORTH)
         updates.append({"name": name, "entry_raw": raw, "allow_decomp_resize": False,
-                        "new_decompressed": apply_shadow_level_boost(
-                            decompressed, deck_format.DarkPokemonFile(decompressed), levels)})
+                        "new_decompressed": boosted})
     write_fsys_multi_entry_patch(output_path, common_off, common_len, common_record_off, common_fsys_bytes,
                                  updates, container_name="common.fsys")
     result["shadows_relocated"] = len(levels)
@@ -3286,6 +3355,14 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
         summary["shadow_pokemon_added"] = sum(len(p["new_pokemon"]) for p in shadow_expansion_plans)
         summary["shadow_expansion_per_trainer"] = shadow_result["per_trainer"]
         print(f"Applied {summary['shadow_pokemon_added']} new Shadow Pokemon across {len(shadow_expansion_plans)} trainers into {output_path}.")
+        # ADDENDUM 467: the copies on each host's other occurrences.
+        _mirrored = shadow_result.get("mirrors_written") or {}
+        _missed = shadow_result.get("mirrors_skipped") or {}
+        summary["shadow_mirror_slots"] = sum(len(v) for v in _mirrored.values())
+        summary["shadow_mirror_skipped"] = sum(len(v) for v in _missed.values())
+        if _mirrored or _missed:
+            print(f"Shadow copies: {summary['shadow_mirror_slots']} slot(s) on other occurrences of their trainers"
+                  + (f"; {summary['shadow_mirror_skipped']} skipped (that row was full)." if _missed else "."))
     else:
         print(
             "This seed has no new_shadow_pokemon_plans data (shadow_pokemon_expansion was 0/off, or the "
@@ -3947,6 +4024,69 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
         else:
             print(f"Starter: NOT applied -- {starter_result['reason']}. You start with Eevee.")
         summary["starter_applied"] = starter_result["applied"]
+
+    # ADDENDUM 463: Infinite TMs -- menuUseItemSkill's TM branch reports "not consumed", as its HM branch does.
+    if seed.get("infinite_tms"):
+        tm_result = write_dol_words_patch(output_path, _game_data_module("infinite_tms").dol_patch_words())
+        if tm_result["applied"]:
+            print("Infinite TMs: a TM now stays in the Bag after teaching its move"
+                  + (" (already present)." if tm_result["reason"] else "."))
+        else:
+            print(f"Infinite TMs: NOT applied -- {tm_result['reason']}. TMs are used up as normal.")
+        summary["infinite_tms_applied"] = tm_result["applied"]
+        summary["infinite_tms_reason"] = tm_result["reason"]
+
+    # ADDENDUM 465: a snagged Shadow is not rebuilt on a rematch, and the save's Shadow list knows each Shadow's real
+    # species. Both read or follow the FINAL decks, so this runs after every deck pass above. Unconditional: each is
+    # a fix, and on an unmodified Shadow roster the list write is empty.
+    if seed.get("shadow_engine_fixes", True):
+        _engine = _game_data_module("shadow_engine")
+        respawn_result = write_dol_words_patch(output_path, _engine.RESPAWN_FIX_WORDS)
+        summary["shadow_respawn_fix_applied"] = respawn_result["applied"]
+        summary["shadow_respawn_fix_reason"] = respawn_result["reason"]
+        print("Shadow rematches: a snagged or purified Shadow is no longer rebuilt when its trainer is fought again"
+              if respawn_result["applied"] else
+              f"Shadow rematches: fix NOT applied -- {respawn_result['reason']}.")
+        # ADDENDUM 468: one that fled to Miror B. is no longer rebuilt on an ordinary trainer either. Needs 465's
+        # words (it rewrites one of them), so it only runs when those went in.
+        summary["shadow_fled_skip_applied"] = False
+        if respawn_result["applied"] and getattr(_engine, "FLED_SHADOW_SKIP_ENABLED", False):
+            fled_result = write_dol_words_patch(output_path, _engine.FLED_SHADOW_SKIP_WORDS)
+            summary["shadow_fled_skip_applied"] = fled_result["applied"]
+            summary["shadow_fled_skip_reason"] = fled_result["reason"]
+            print("Shadows that fled: a beaten Shadow is with Miror B. only -- no ordinary trainer fields it again"
+                  if fled_result["applied"] else
+                  f"Shadows that fled: fix NOT applied -- {fled_result['reason']}.")
+        try:
+            list_words = _engine.dark_pokemon_list_words(read_final_shadow_species(output_path))
+            list_result = (write_dol_words_patch(output_path, list_words) if list_words
+                           else {"applied": True, "reason": "no change"})
+        except Exception as exc:   # never fail a whole patch over the Shadow Monitor's labels
+            list_words, list_result = (), {"applied": False, "reason": f"{type(exc).__name__}: {exc}"}
+        summary["shadow_list_words"] = len(list_words)
+        summary["shadow_list_applied"] = list_result["applied"]
+        print(f"Shadow list: {len(list_words)} main.dol word(s) give the Shadow Monitor each Shadow's real species."
+              if list_result["applied"] else f"Shadow list: NOT updated -- {list_result['reason']}.")
+
+    # ADDENDUM 475: the game counts its own white-outs, so Death Link sends off the game rather than a party read.
+    if seed.get("whiteout_counter", True):
+        _whiteout = _game_data_module("whiteout_counter")
+        whiteout_result = write_dol_words_patch(output_path, _whiteout.dol_patch_words())
+        summary["whiteout_counter_applied"] = whiteout_result["applied"]
+        summary["whiteout_counter_reason"] = whiteout_result["reason"]
+        print("White-outs: the game now counts each one for Death Link (a word at "
+              f"0x{_whiteout.COUNTER_ADDRESS:08X})." if whiteout_result["applied"] else
+              f"White-outs: counter NOT installed -- {whiteout_result['reason']}. Death Link falls back to watching "
+              "the party.")
+
+    # ADDENDUM 488: the Agate move tutor never marks a move as taught, so she teaches each one as often as asked.
+    if seed.get("repeatable_move_tutor", True):
+        _tutor = _game_data_module("move_tutor")
+        tutor_result = write_dol_words_patch(output_path, _tutor.dol_patch_words())
+        summary["repeatable_move_tutor_applied"] = tutor_result["applied"]
+        summary["repeatable_move_tutor_reason"] = tutor_result["reason"]
+        print("Move tutor: every move can be taught again." if tutor_result["applied"] else
+              f"Move tutor: NOT patched -- {tutor_result['reason']}. She keeps the one-lesson-per-move rule.")
 
     # ADDENDUM 454: one description per world-map place, so a story-byte write can't flip the hovered text.
     if seed.get("map_descriptions_constant"):
@@ -6593,6 +6733,34 @@ def apply_team_padding_shadow_multi_trainer_test(
     return write_shadow_multi_trainer_patch(output_path, trainer_plans)
 
 
+def _write_mirror_slots(buf: bytearray, deck, used_slots: "dict[int, set[int]]", ddpk_index: int,
+                        mirror_trainers) -> "tuple[list[int], list[int]]":
+    """ADDENDUM 467: put `ddpk_index` into the lowest free slot of each mirror trainer (Shadow-mask bit set), the same
+    convention the host write uses. `used_slots` is {trainer index: slots taken so far this pass}, filled lazily from
+    the deck and updated here. A trainer with no free slot, or no row, is skipped and reported -- never forced.
+    Returns (written trainer indices, skipped trainer indices)."""
+    written: "list[int]" = []
+    skipped: "list[int]" = []
+    for raw in mirror_trainers or ():
+        t_idx = int(raw)
+        if t_idx not in used_slots:
+            trainer = deck.trainer(t_idx)
+            if trainer is None:
+                skipped.append(t_idx)
+                continue
+            used_slots[t_idx] = {m["slot"] for m in trainer["team"]}
+        free = [slot for slot in range(6) if slot not in used_slots[t_idx]]
+        if not free:
+            skipped.append(t_idx)
+            continue
+        base = deck.dtnr_data + t_idx * 0x38
+        struct.pack_into(">H", buf, base + 0x1C + free[0] * 2, int(ddpk_index))
+        buf[base + 0x04] |= 1 << free[0]
+        used_slots[t_idx].add(free[0])
+        written.append(t_idx)
+    return written, skipped
+
+
 def write_shadow_multi_trainer_patch(output_path: Path, trainer_plans: list[dict]) -> dict:
     """The multi-trainer Shadow patch, without the copy step, so the per-seed pipeline can apply it to an ISO
     that has already been copied and partly patched.
@@ -6688,6 +6856,22 @@ def write_shadow_multi_trainer_patch(output_path: Path, trainer_plans: list[dict
             struct.pack_into(">H", new_story_buf, dtnr_base + 0x1C + slot * 2, ddpk_index)
             new_story_buf[dtnr_base + 0x04] |= (1 << slot)
         cursor += count
+    # ADDENDUM 467: the same Shadow on the host's other occurrences, after every host has its own slots.
+    mirror_used: "dict[int, set[int]]" = {}
+    for plan in trainer_plans:
+        t_idx = plan["trainer_index"]
+        host_team = deck.trainer(t_idx)
+        mirror_used[t_idx] = ({m["slot"] for m in host_team["team"]}
+                              | set(per_trainer_free_slots[t_idx][:len(plan["new_pokemon"])]))
+    mirrors_written: "dict[int, list[int]]" = {}
+    mirrors_skipped: "dict[int, list[int]]" = {}
+    for p, ddpk_index in zip(flat_new_pokemon, ddpk_indices):
+        done, missed = _write_mirror_slots(new_story_buf, deck, mirror_used, ddpk_index,
+                                           p.get("mirror_trainer_indices"))
+        if done:
+            mirrors_written[ddpk_index] = done
+        if missed:
+            mirrors_skipped[ddpk_index] = missed
     new_story_decompressed = bytes(new_story_buf)
 
     new_dark_decompressed = dark_decompressed
@@ -6799,6 +6983,9 @@ def write_shadow_multi_trainer_patch(output_path: Path, trainer_plans: list[dict
         "common_fsys_grew": common_patch_result["grew"],
         "deck_archive_per_entry": deck_patch_result["per_entry"],
         "common_fsys_per_entry": common_patch_result["per_entry"],
+        # ADDENDUM 467: {ddpk index: trainers that got the same Shadow / were full and did not}.
+        "mirrors_written": mirrors_written,
+        "mirrors_skipped": mirrors_skipped,
     }
 
 

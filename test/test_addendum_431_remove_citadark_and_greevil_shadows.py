@@ -65,6 +65,7 @@ class _Base(PokemonXDTestBase):
     expected_trainers: frozenset = frozenset()
     expected_moved = 0
     expected_vacated = 0
+    expected_purifiable = 82            # all but Miror B.'s post-game Dragonite (ADDENDUM 479)
 
     def test_moved_off_and_redistributed(self):
         if type(self) is _Base:
@@ -82,8 +83,9 @@ class _Base(PokemonXDTestBase):
         self.assertEqual(self.expected_vacated, len(seed.get("shadow_vacated_slots") or []))
         expansion_hosts = {int(p["trainer_index"]) for p in seed.get("new_shadow_pokemon_plans") or ()}
         self.assertFalse(expansion_hosts & self.expected_trainers)
-        # Every Shadow still counts: 83 purifiable plus the expansion.
-        self.assertEqual(83 + sum(len(p["new_pokemon"]) for p in seed.get("new_shadow_pokemon_plans") or ()),
+        # Every Shadow still counts: 83 purifiable plus the expansion. RETARGETED BY ADDENDUM 479: less the post-goal
+        # Shadows still at Greevil / Miror B.'s post-game rematch, which have no rungs.
+        self.assertEqual(self.expected_purifiable + sum(len(p["new_pokemon"]) for p in seed.get("new_shadow_pokemon_plans") or ()),
                          world._purification_location_count)
 
 
@@ -92,6 +94,7 @@ class TestRemoveCitadark(_Base):
     expected_trainers = citadark_trainer_indices() - {199, 200, 201}
     expected_moved = 29
     expected_vacated = 29
+    expected_purifiable = 75            # Greevil keeps his seven, which have no rungs (ADDENDUM 479)
 
 
 class TestRemoveGreevil(_Base):

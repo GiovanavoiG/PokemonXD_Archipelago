@@ -182,6 +182,7 @@ class TestTheFlagSendsADeath(_Bridge):
         than to nothing."""
         self.flag = False
         self.wiped = True
+        self.assertFalse(self.poll()[0])             # ADDENDUM 472: the HP edge needs two polls
         should_send, note = self.poll()
         self.assertTrue(should_send)
         self.assertEqual(1, self.bridge.sends_by_hp)
@@ -192,6 +193,7 @@ class TestTheFlagSendsADeath(_Bridge):
         self.flag = True
         self.assertTrue(self.poll()[0])
         self.assertFalse(self.poll()[0])
+        self.assertFalse(self.poll()[0])             # ADDENDUM 472: the HP edge confirming later is the same death
         self.assertEqual(1, self.bridge.sends)
 
     def test_no_answer_from_either_sends_nothing(self) -> None:

@@ -265,7 +265,8 @@ class TestTheKeyLairFloor(unittest.TestCase):
         self.assertEqual(0x64, sb.AREA_ENTRY_FLOOR_OVERRIDES[LAIR])   # ADDENDUM 439: 800, Gonzap's rung
         self.assertEqual(0x64, sb.area_entry_floor(LAIR))
         self.assertEqual(0x64, rc.AreaStoryByteMemory().target_for(LAIR))
-        self.assertEqual([], [r for r in sb.AREA_FLOOR_RULES if r.target == LAIR])
+        # ADDENDUM 476: the only rule is Zook's, which needs the Lair's own 0x65 mark; with none, 0x64 stands.
+        self.assertEqual([0x66], [r.floor for r in sb.AREA_FLOOR_RULES if r.target == LAIR])
 
     def test_it_is_a_rung_inside_the_lairs_own_window(self) -> None:
         window = sb.REGION_STORY_WINDOW[LAIR]

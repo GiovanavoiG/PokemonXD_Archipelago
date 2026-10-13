@@ -9,7 +9,7 @@ class PokemonXDWebWorld(WebWorld):
 
     theme = "ice"
 
-    bug_report_page = "https://github.com/ArchipelagoMW/Archipelago/issues"
+    bug_report_page = "https://github.com/GiovanavoiG/PokemonXD_Archipelago/issues"
 
     setup_en = Tutorial(
         "Setup Guide",
@@ -17,7 +17,7 @@ class PokemonXDWebWorld(WebWorld):
         "English",
         "setup_en.md",
         "setup/en",
-        ["Your Name Here"],
+        ["GiovanavoiG"],
     )
 
     tutorials = [setup_en]

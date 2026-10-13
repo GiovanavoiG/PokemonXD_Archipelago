@@ -49,7 +49,8 @@ class TestVanilla(PokemonXDTestBase):
     options = {"shadow_pokemon_expansion": 0}
 
     def test_eighty_three(self) -> None:
-        self.assertEqual(list(range(1, 84)), _purifies(self))
+        # RETARGETED BY ADDENDUM 479: 75 -- Greevil's seven and Miror B.'s post-game Dragonite have no rungs.
+        self.assertEqual(list(range(1, 76)), _purifies(self))
 
 
 class TestFullExpansion(PokemonXDTestBase):

@@ -111,10 +111,14 @@ class TestSphereZeroTravelOn(PokemonXDTestBase):
         """Filler-only locations are exempt and have to be: AP requires every location to be reachable so it
         has somewhere to put filler. What must not be reachable is anything the seed can DEPEND on."""
         empty = CollectionState(self.multiworld)
+        # ADDENDUM 483 (issue #6): the first purifications are sphere zero now. They happen at Agate Village's Purify
+        # Chamber -- one of the four -- on Shadows snagged in the four, and the Snag Machine needs no item (the lab
+        # hands it over before the Machine Part). Their synthetic region is not an area the player travels to.
+        exempt_regions = set(ALWAYS_OPEN_AREAS) | {"Shadow Pokemon Purification"}
         offenders = sorted(
             f"{location.name} ({location.parent_region.name})"
             for location in self.multiworld.get_locations(self.player)
-            if location.parent_region.name not in ALWAYS_OPEN_AREAS
+            if location.parent_region.name not in exempt_regions
             and location.progress_type.name != "EXCLUDED"
             and location.can_reach(empty)
         )

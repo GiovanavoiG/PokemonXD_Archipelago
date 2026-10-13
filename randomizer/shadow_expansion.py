@@ -12,6 +12,8 @@ all 44 slots at once. Mt. Battle is out of scope permanently, and already out st
 
 from __future__ import annotations
 
+from ..game_data.evolution_data import family_of_internal
+
 import random
 
 from ..game_data.real_trainer_data import PERMANENTLY_EXCLUDED_TRAINER_INDICES
@@ -47,6 +49,7 @@ def build_shadow_expansion_plans(
     max_new_pokemon: int = SHADOW_EXPANSION_MAX_NEW_POKEMON,
     excluded_trainer_indices: frozenset[int] = frozenset(),
     level_multiplier: float = 1.0,
+    line_reserved_species: "set[int] | None" = None,
 ) -> list[dict]:
     """Picks `target_count` brand-new Shadow Pokemon -- clamped to `max_new_pokemon` and to the real free-slot
     capacity in `free_slot_census` (`real_trainer_free_slot_census()`'s output) -- and returns
@@ -71,9 +74,15 @@ def build_shadow_expansion_plans(
     if target_count == 0:
         return []
 
+    # ADDENDUM 486: one Shadow per evolution line. `excluded_species` is every Shadow already in the seed (and the
+    # gift line), so whole LINES go, not just those species -- and the picks below take a line each.
+    # `line_reserved_species` names the species whose LINES are taken -- the Shadows really in this seed -- when that is
+    # narrower than `excluded_species` (with Randomize Shadow Species on, the vanilla 83 are excluded as species only).
+    taken_lines = {family_of_internal(sid)
+                   for sid in (excluded_species if line_reserved_species is None else line_reserved_species)}
     candidate_species = [
         sid for sid, sp in species_pool.items()
-        if not sp.is_legendary and sid not in excluded_species
+        if not sp.is_legendary and sid not in excluded_species and family_of_internal(sid) not in taken_lines
     ]
     target_count = min(target_count, len(candidate_species))
     if target_count == 0:
@@ -108,19 +117,25 @@ def build_shadow_expansion_plans(
     # that, a new Shadow could evolve into a species a vanilla Shadow already is (ADDENDUM 198).
     claimed: set[int] = set(excluded_species)
 
+    def _free(species_id: int) -> bool:
+        return species_id not in claimed and family_of_internal(species_id) not in taken_lines
+
+    def _take(species_id: int) -> int:
+        claimed.add(species_id)
+        taken_lines.add(family_of_internal(species_id))
+        return species_id
+
     def _claim(pick: int, at_level: int) -> int:
-        """Evolve `pick` to `at_level` and reserve the result, trying other candidates on a collision."""
+        """Evolve `pick` to `at_level` and reserve the result, trying other candidates on a collision -- of species,
+        or (ADDENDUM 486) of evolution line."""
         evolved = resolve_natural_evolution(pick, at_level, species_pool)
-        if evolved not in claimed:
-            claimed.add(evolved)
-            return evolved
+        if _free(evolved):
+            return _take(evolved)
         for alternative in chosen_species[species_cursor:] + candidate_species:
             evolved = resolve_natural_evolution(alternative, at_level, species_pool)
-            if evolved not in claimed:
-                claimed.add(evolved)
-                return evolved
-        claimed.add(pick)
-        return pick  # pool exhausted -- an unevolved duplicate beats failing generation
+            if _free(evolved):
+                return _take(evolved)
+        return _take(pick)  # pool exhausted -- an unevolved duplicate beats failing generation
 
     for idx in sorted(assigned_counts):
         # `level_multiplier` is what carries Enhanced Difficulty's scaling into the trainer average; it

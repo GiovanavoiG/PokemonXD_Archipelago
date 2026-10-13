@@ -23,7 +23,7 @@ class MapDestination:
 
 
 # Measured live 2026-09-12 across two laps and re-confirmed after a reboot (the object moved 0x810ED690 ->
-# 0x810EF4D0, every value bit-identical), then completed by the player's `!map` sweep. The two disagree only
+# 0x810EF4D0, every value bit-identical), then completed by the player's `/map` sweep. The two disagree only
 # in the cursor column -- Phenac City read cursor 1 then 3, Rock Poke Spot 9 then 13, locations 3 and 15 both
 # times -- and the sweep lists cursor 10 for both SS Libra and Realgam Tower. The ids run 0..17 with one gap,
 # 13, genuinely unassigned; Citadark is not a missing row, it is reached by Robo Kyogre from Gateon Port.
@@ -40,7 +40,7 @@ CONFIRMED: "tuple[MapDestination, ...]" = (
                         "key (ADDENDUM 172), and this row moving 6 -> 4 while the location id held is one more "
                         "measurement of exactly why"),
 
-    # From the player's `!map` sweep, 2026-09-13. Coordinates were not captured, so they carry 0.0.
+    # From the player's `/map` sweep, 2026-09-13. Coordinates were not captured, so they carry 0.0.
     MapDestination("Outskirt Stand", cursor_index=0, location_id=0, x=0.0, y=0.0, region="Outskirt Stand",
                    note="corrected by the player 2026-09-13: cursor 0, location 0 -- the sweep's '0 3' was a slip"),
     MapDestination("Snagem Hideout", cursor_index=1, location_id=1, x=0.0, y=0.0, region="Snagem Hideout"),
@@ -85,7 +85,7 @@ def region_for_location_id(location_id: "int | None") -> "str | None":
 
 
 def coverage() -> "tuple[int, int]":
-    """(measured, total) -- what `!map` has pinned down so far."""
+    """(measured, total) -- what `/map` has pinned down so far."""
     return len(CONFIRMED), len(CONFIRMED) + len(AWAITING_MEASUREMENT)
 
 

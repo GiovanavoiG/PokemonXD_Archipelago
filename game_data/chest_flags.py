@@ -296,7 +296,7 @@ def chest_byte_offset_and_mask(chest_id: int) -> "tuple[int, int] | None":
 
 def flag_at_byte_bit(byte_offset: int, bit_in_byte: int) -> int:
     """Inverse of `flag_byte_offset_and_mask`: which flag id a set bit at this byte/bit means. Used by the
-    `!chestflags` diagnostic, where naming the set bits is how a disagreement with the model shows up."""
+    `/chestflags` diagnostic, where naming the set bits is how a disagreement with the model shows up."""
     word = byte_offset & ~0x3
     bit = (3 - (byte_offset - word)) * 8 + bit_in_byte
     # Measured clusters first, so the diagnostic names a bit the way the forward mapping placed it. Their

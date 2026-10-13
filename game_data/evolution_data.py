@@ -204,3 +204,47 @@ def national_dex_to_internal_trainer_evolutions() -> "dict[int, list[tuple[int, 
         if mapped:
             result[from_internal] = mapped
     return result
+
+
+# ADDENDUM 486: evolution FAMILIES, one root per line -- Quilava and Typhlosion share Cyndaquil's, every Eeveelution
+# shares Eevee's, Hitmonlee/Hitmonchan/Hitmontop share Tyrogue's line. Built from both tables above, so a branch or
+# a stone/trade step counts the same as a level-up. The purification ledger (ram_client, ADDENDUM 478) and the
+# Shadow species pickers (one Shadow per line, ADDENDUM 486) read the same answer.
+_FAMILY_ROOT: "dict[int, int] | None" = None
+
+
+def family_root(national_dex: "int | None") -> "int | None":
+    """The lowest National Dex number in `national_dex`'s evolution family. Unknown species are their own family."""
+    global _FAMILY_ROOT
+    if national_dex is None:
+        return None
+    if _FAMILY_ROOT is None:
+        parent: "dict[int, int]" = {}
+
+        def find(x: int) -> int:
+            while parent.get(x, x) != x:
+                x = parent[x]
+            return x
+
+        def union(a: int, b: int) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[max(ra, rb)] = min(ra, rb)
+
+        for src, (dst, _lvl) in NATIONAL_DEX_LEVEL_EVOLUTIONS.items():
+            union(src, dst)
+        for src, options in TRAINER_EVOLUTIONS.items():
+            for dst, _lvl in options:
+                union(src, dst)
+        union(290, 292)                       # Nincada -> Shedinja, which neither table carries
+        _FAMILY_ROOT = {x: find(x) for x in set(parent) | set(parent.values())}
+    return _FAMILY_ROOT.get(national_dex, national_dex)
+
+
+def family_of_internal(species_index: int) -> int:
+    """`family_root` keyed by this game's INTERNAL species index (what deck records and `Species` pools use). An index
+    with no National Dex mapping is its own family, negated so it can never collide with a real root."""
+    from ..tools.xd_species_index import INTERNAL_INDEX_TO_NATIONAL_DEX
+
+    dex = INTERNAL_INDEX_TO_NATIONAL_DEX.get(species_index, (None, None))[0]
+    return family_root(dex) if dex is not None else -int(species_index)

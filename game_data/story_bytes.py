@@ -1,7 +1,7 @@
 """
 Pokemon XD: Gale of Darkness -- the global story byte, as data (ADDENDUM 167, 2026-09-13).
 
-Every `(before, after)` pair here was observed live with `!story` open in the player's own run (compiled
+Every `(before, after)` pair here was observed live with `/story` open in the player's own run (compiled
 2026-09-12, corrected across three review rounds 2026-09-13); nothing is inferred from a walkthrough.
 
 The byte lives at `BLOCK_BASE + STORY_RECORD_OFFSET + STORY_BYTE_OFFSET` (ram_client) and is a monotonic
@@ -305,7 +305,7 @@ AREA_GROUPS: "dict[str, tuple[str, ...]]" = {
 }
 
 
-# TRANSITIONS begins at 0x10, where the player's `!story` compilation begins, so ADDENDUM 184's fence has nothing
+# TRANSITIONS begins at 0x10, where the player's `/story` compilation begins, so ADDENDUM 184's fence has nothing
 # to check below it and would reject the three HQ Lab rules. Allowlisted rather than invented into TRANSITIONS,
 # one value at a time so the fence keeps its teeth -- a typo'd 0x0C still fails.
 EARLY_FLOORS_NOT_YET_IN_TRANSITIONS: "frozenset[int]" = frozenset({
@@ -413,6 +413,11 @@ AREA_FLOOR_RULES: "tuple[AreaFloorRule, ...]" = (
     # this one is coming back later. Without it the mark 0x5B is the entry value and the bump fires again on every
     # arrival, so the game rebuilds the deck at 0x5B and we overwrite it a tick later. Still capped without the
     # Scooter, because `_cap_ss_libra` runs on the RESULT.
+    # ADDENDUM 476, the paired half of the Key Lair's Zook bump: his fight (0x64 -> 0x65) is behind the player, so
+    # every later visit enters at 820 (0x66) instead of the 800 entry floor that stages him again.
+    AreaFloorRule("Cipher Key Lair", 0x66,
+                  (("Cipher Key Lair", 0x65),),
+                  "Zook beaten at the Key Lair -- entered two steps past the courtyard fight"),
     AreaFloorRule("SS Libra", 0x5D,
                   (("SS Libra", 0x5B),),
                   "the ship's own 0x5B is a pass-through now -- a return visit belongs at 0x5D"),
@@ -451,7 +456,7 @@ class OptionGate:
 #: What every bump in this table did before ADDENDUM 293, written down rather than left implicit.
 TRAVEL_SHUFFLE_ONLY = OptionGate(with_travel_shuffle=True, with_vanilla_travel=False)
 
-#: The player's ADDENDUM 293 sentence, as data.
+#: The player's ADDENDUM 293 sentence, as data. No bump uses it since ADDENDUM 469; kept for a revert.
 ALWAYS_SHUFFLED_SCOOTER_ONLY_IN_VANILLA = OptionGate(
     with_travel_shuffle=True, with_vanilla_travel=True, vanilla_needs_scooter_shuffle=True,
 )
@@ -474,6 +479,10 @@ class LiveStoryByteBump:
     # not a `locations` import, because `ram_client` reads this table and cannot load anything with Archipelago
     # dependencies; `test_addendum_304` pins them against the real `krane_memo_location_name`.
     awards_locations: "tuple[str, ...]" = ()
+    #: ADDENDUM 476. The byte that triggered the bump was the GAME's, earned standing here -- bank it as this area's
+    #: mark before the bump overwrites it, so the paired AREA_FLOOR_RULES entry (keyed on that byte) binds on
+    #: every later visit even though the poll that saw it also bumped it.
+    banks_trigger: bool = False
 
     def applies(self, region: str, live: int) -> bool:
         return region == self.region and self.when_byte_is <= live < self.becomes
@@ -489,12 +498,17 @@ LIVE_STORY_BYTE_BUMPS: "tuple[LiveStoryByteBump, ...]" = (
                       gate=TRAVEL_SHUFFLE_ONLY),
     # ADDENDUM 293. 0x5B exists only to be climbed on the deck; 0x5D is the Snag Machine theft that
     # `opens_regions=("Cipher Key Lair (exterior)",)` hangs off, and the ladder then runs 0x5F -> 0x62 without
-    # touching the ship again. Skipping 0x5B makes the ship a place holding its own checks. Vanilla travel gates
-    # it on the Scooter being shuffled -- the only vanilla case where reaching the ship is an AP question.
+    # touching the ship again. Skipping 0x5B makes the ship a place holding its own checks.
+    #
+    # ADDENDUM 469: location shuffle only. Player: "On vanilla locations, remove our SS Libra story bump that skips
+    # the snagem steal. Players by then can respawn miror b when they want for the shadows." In vanilla travel the
+    # ship plays as written -- Smarton, the theft, the walk to the Outskirt Stand -- with or without the Scooter
+    # shuffled. Logic never counted on the skip there (ADDENDUM 293's own "vanilla travel: NOTHING CHANGES").
+    # REVERT: `gate=ALWAYS_SHUFFLED_SCOOTER_ONLY_IN_VANILLA`.
     LiveStoryByteBump("SS Libra", 0x5B, 0x5D,
                       "the ship's 0x5B goes straight to the Snag-Machine byte -- Snagem and the Key Lair stop "
-                      "hanging off the SS Libra (player, ADDENDUM 293)",
-                      gate=ALWAYS_SHUFFLED_SCOOTER_ONLY_IN_VANILLA),
+                      "hanging off the SS Libra (player, ADDENDUM 293; location shuffle only, ADDENDUM 469)",
+                      gate=TRAVEL_SHUFFLE_ONLY),
     # ADDENDA 294/331. At 0x3F Phenac is in lockdown -- items, trainers and shops shut until Realgam is seen,
     # which with travel shuffled can be a long wait. The window starts at 0x3E, not 0x3F, which is why ADDENDUM
     # 294's version never fired: the icon enters at 0x3E, and 0x3F is only reached by the first-visit beat that
@@ -504,6 +518,25 @@ LIVE_STORY_BYTE_BUMPS: "tuple[LiveStoryByteBump, ...]" = (
     # ADDENDUM 350 deleted the Cipher Lab's 0x25 -> 0x26 bump: its arrival scene fires on storyvar 310, which IS
     # 0x26, so the icon can now drop the player there directly. The bump had only worked by luck -- a byte-only
     # write made "0x26" mean 304..311, and only a save whose low three bits were 6 landed on 310.
+    # ADDENDUM 476. Player: "when zook is defeated at Cipher Key Lair, can we move the story byte and floor up two steps
+    # so that we don't have to fight him again". The Lair is entered at 800 (0x64, `AREA_ENTRY_FLOOR_OVERRIDES`) so
+    # his courtyard fight is still ahead; beating him moves the game to 810 (0x65). Two steps above the floor is 820
+    # (0x66, the passthrough of 0x65 -> 0x67, "Blocked the way") -- written on the spot, and the paired floor rule
+    # enters the Lair there from then on.
+    LiveStoryByteBump("Cipher Key Lair", 0x65, 0x66,
+                      "Zook beaten at the Key Lair -- moved past his fight so it never comes back (player, ADDENDUM 476)",
+                      gate=TRAVEL_SHUFFLE_ONLY, banks_trigger=True),
+    # ADDENDUM 480. Player: "For rock spot, let us load in at the news point - it progresses naturally to a usable
+    # point - but i want a guard in place to ensure the area doesn't break afterwards - just make sure we're watching
+    # to repair that story byte." The spots are entered at 0x37 (`AREA_ENTRY_FLOOR_OVERRIDES`, ADDENDUM 473); the
+    # broken tray is 0x35/0x36, Rock open with the Duking news unseen. Whatever puts the byte back in that window
+    # while the player stands at a spot -- an old save, a write that did not take, another writer -- it is lifted to
+    # the news point on the next poll. Never lowers anything: at 0x37 and above (the tray placed, 0x38, and every
+    # rung after it) the window does not apply.
+    LiveStoryByteBump("Poke Spots", 0x35, 0x37,
+                      "the Poke Spot tray needs the Duking news -- a byte below it is repaired on the spot "
+                      "(player, ADDENDUM 480)",
+                      gate=TRAVEL_SHUFFLE_ONLY),
     LiveStoryByteBump("Phenac City", 0x3E, 0x41,
                       "Phenac's lockdown lifts the moment you land -- the town stops waiting on Realgam "
                       "(player, ADDENDA 294/331)",
@@ -666,6 +699,13 @@ AREA_ENTRY_FLOOR_OVERRIDES: "dict[str, int]" = {
     # at 0x3E (`area_unlock_floor` does not read this table), so `Unlock - Phenac City` still credits at the byte
     # the unmodified game reveals the icon at.
     "Phenac City": 0x41,
+    # ADDENDUM 473. Player: the Rock Poke Spot showed "a large tray for holding something" and could never be used.
+    # The ladder runs 0x35 (430, "Poke Spot (Rock) opens" -- the Data ROM handed over in Pyrite) -> 0x37 (440, "Saw
+    # Duking news") -> 0x38 (450, "Put Poke Snacks on the tray", AT the spot). The tray scene needs the Duking news,
+    # which is not seen at the spot, and this client writes a destination's own byte on arrival -- so a player who
+    # had watched the news in Pyrite still landed at the spot on 0x35, and a spot mark of 0x35 kept them there on
+    # every visit after. 0x37 is the state the unmodified game reaches the tray in. The UNLOCK floor stays 0x35.
+    "Poke Spots": 0x37,
     # ADDENDUM 350 removed the Cipher Lab's override: with the arrival's real value (storyvar 310 = 0x26) in the
     # ladder, the window floor IS where a first visit belongs, and an override equal to what it overrides is the
     # quiet no-op ADDENDUM 247's fence keeps out.
@@ -953,6 +993,16 @@ SPECIAL_AREA_WRITES: "dict[str, int]" = {
 
 AREA_GUARD_CEILINGS: "dict[str, int]" = _build_area_guard_ceilings()
 """{live region name -> the highest byte that region can legitimately hold}. See the block above."""
+
+# ADDENDUM 474: the highest byte an area may BANK as its own mark, where that is lower than what it can hold. Phenac
+# can hold 0x50 -- the stranded SS Libra's 0x4E -> 0x50 ends by dropping the player in the town -- but that byte
+# was earned on the ship. Phenac's own story ends at 0x4E (the Post-Sixes ceiling, ADDENDUM 391), so nothing above
+# it is ever Phenac's mark.
+AREA_BANK_CEILINGS: "dict[str, int]" = {
+    region: REGION_STORY_WINDOW["Phenac City (Post-Sixes)"].ceiling
+    for region in ("Phenac City", "Phenac City (Mayor's House)", "Phenac City (Post-Sixes)")
+}
+assert all(value == 0x4E for value in AREA_BANK_CEILINGS.values())
 
 
 # What makes a byte FOREIGN rather than merely high -- read this first. The mod holds the story byte at "what the

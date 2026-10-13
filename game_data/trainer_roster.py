@@ -476,7 +476,7 @@ for _surname in list(UNIQUE_SURNAME_TO_LOCATION_QUEUE):
         and _label not in REMOVED_DEFEAT_LOCATIONS
     ]
 
-# How many distinct teams each surname fields, for the tracker's fence and for `!teams`.
+# How many distinct teams each surname fields, for the tracker's fence and for `/teams`.
 DISTINCT_TEAM_COUNTS: "dict[str, int]" = {
     _surname: len({team_signature(_row) for _row in _rows})
     for _surname, _rows in ((_n.upper(), _v) for _n, _v in TRAINERS_BY_NAME.items())

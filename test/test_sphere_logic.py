@@ -167,8 +167,11 @@ class TestSphereLogicDefaultOptions(PokemonXDTestBase):
         return n
 
     def test_the_top_trainer_threshold_stops_short_of_the_final_sphere(self) -> None:
-        """The highest count the option can ask for opens before Citadark Isle does, while the deepest chest still
-        waits for the whole chain."""
+        """RETARGETED BY ADDENDUM 483 (issue #2). Was: the highest count the option can ask for opens before Citadark
+        Isle does. That held only because the tally counted missable fights, region-less rows (filed at Citadark) and
+        every rematch separately. Counted honestly -- each trainer once, never a missable one -- only 88 trainers
+        stand outside Citadark Isle, so the top thresholds now need it. What stays true: the threshold opens on the
+        key-item chain, with every boundary on the way exact."""
         top_trainer = trainer_defeat_count_location_name(TRAINER_CEILING)
         opened_at = None
         for links in range(1, len(self.KEY_ITEM_CHAIN) + 1):
@@ -178,8 +181,6 @@ class TestSphereLogicDefaultOptions(PokemonXDTestBase):
                 opened_at = links
                 break
         self.assertIsNotNone(opened_at)
-        self.assertFalse(self.multiworld.state.can_reach("Citadark Isle", player=self.player))
-        self.assertFalse(self.can_reach_location(DEEPEST_CHEST))
 
     def test_a_count_past_agate_villages_capacity_requires_mt_battle(self) -> None:
         """Each key item opens exactly as many counts as the fights it makes reachable: nothing collected opens

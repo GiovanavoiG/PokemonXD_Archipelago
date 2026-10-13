@@ -13,7 +13,7 @@ menu row that reads all-zero until the party screen has drawn. Trainer defeats k
 ordinary trainer's species are not globally unique, and are only confirmed live for teams of <=2.
 
 The ~67 Overworld Item (chest/box/NPC-gift) locations have no known RAM or ISO-patch signal, so they are
-manual: `!checked <name>`, with `!remaining` for what is left. See patch.py for why the ISO patch stalled.
+manual: `/checked <name>`, with `/remaining` for what is left. See patch.py for why the ISO patch stalled.
 
 This project does not patch the ISO, so there is no embedded slot name -- the player types it.
 `CommonContext.server_auth()` only handles the PASSWORD prompt, so `get_username()` and `send_connect()` must
@@ -87,10 +87,10 @@ CONNECTION_REFUSED_SAVE_STATUS = (
 CONNECTION_CONNECTED_STATUS = "Dolphin connected successfully."
 
 # Verbose logging. Unconditional output is the connection lifecycle, items received, checks sent, errors,
-# warnings needing player action, and one-shot guidance. Narration of normal progress is gated behind `!verbose`.
+# warnings needing player action, and one-shot guidance. Narration of normal progress is gated behind `/verbose`.
 
 def _note(ctx: "PokemonXDContext", message: str) -> None:
-    """Progress narration: only printed when `!verbose` is on. Never use this for a failure the player has to
+    """Progress narration: only printed when `/verbose` is on. Never use this for a failure the player has to
     do something about -- those stay on `logger.warning`/`logger.error` unconditionally."""
     if getattr(ctx, "verbose_logging", False):
         logger.info(message)
@@ -137,7 +137,7 @@ def _give_item_or_pc_overflow(ctx: "PokemonXDContext", idx: int, item_name: str,
 
 def _note_warn(ctx: "PokemonXDContext", message: str) -> None:
     """A transient, self-healing hiccup (a read that failed this tick, a bit that will be re-applied next
-    poll). Only printed when `!verbose` is on."""
+    poll). Only printed when `/verbose` is on."""
     if getattr(ctx, "verbose_logging", False):
         logger.warning(message)
 
@@ -206,7 +206,7 @@ def _normalize_for_match(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
 
-# Where the player's patched ISO is, for the FST guard's baseline. First hit wins: `!fstiso` (which persists the
+# Where the player's patched ISO is, for the FST guard's baseline. First hit wins: `/fstiso` (which persists the
 # path), POKEMON_XD_ISO, a previously stored path. Optional -- without it the guard works from a validated RAM
 # snapshot, and the ISO only adds repair of damage present before the client connected.
 
@@ -266,12 +266,12 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
         elif word == "":
             self.ctx.verbose_logging = not self.ctx.verbose_logging
         else:
-            logger.info(f"!verbose: don't understand {state!r}. Usage: !verbose [on|off]")
+            logger.info(f"/verbose: don't understand {state!r}. Usage: /verbose [on|off]")
             return
         if self.ctx.verbose_logging:
             logger.info("Verbose logging ON -- progress narration (room changes, story bytes, travel bits, "
                         "key-item reconciliation, save-block pauses) will be printed until you run "
-                        "`!verbose off`.")
+                        "`/verbose off`.")
         else:
             logger.info("Verbose logging OFF -- only connection status, received items, sent checks and real "
                         "failures will be printed.")
@@ -283,7 +283,7 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
         path = " ".join(path_words).strip().strip('"')
         if not path:
             current = self.ctx.fst_guard.disc_source or resolve_fst_iso() or "(none set)"
-            logger.info(f"FST repair reference ISO: {current}. Set one with: !fstiso <path to your .iso/.ciso>")
+            logger.info(f"FST repair reference ISO: {current}. Set one with: /fstiso <path to your .iso/.ciso>")
             return
         self.ctx.apply_fst_iso(path, remember=True)
 
@@ -303,7 +303,7 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
         key = place.strip().lower()
         if not key:
             state = ram_client.miror_state()
-            logger.info("!mirorforce <place>: " + " | ".join(sorted(ram_client.MIROR_PLACE_IDS)))
+            logger.info("/mirorforce <place>: " + " | ".join(sorted(ram_client.MIROR_PLACE_IDS)))
             if state is None:
                 logger.info("  The engine is not readable right now (no save loaded?).")
                 return
@@ -315,14 +315,14 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
             logger.info("  %s", ctx.miror_force.describe())
             return
         if key not in ram_client.MIROR_PLACE_IDS:
-            logger.info("!mirorforce: don't know %r. One of: %s",
+            logger.info("/mirorforce: don't know %r. One of: %s",
                         place, ", ".join(sorted(ram_client.MIROR_PLACE_IDS)))
             return
         try:
             ok, message = ctx.miror_force.arm(key)
         except Exception:
-            logger.debug("Pokemon XD: !mirorforce failed", exc_info=True)
-            logger.info("!mirorforce failed -- see the log with `!verbose on`.")
+            logger.debug("Pokemon XD: /mirorforce failed", exc_info=True)
+            logger.info("/mirorforce failed -- see the log with `/verbose on`.")
             return
         logger.info("%s", message)
 
@@ -332,7 +332,7 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
             return
         ctx = self.ctx
         if not ctx.randomize_travel_locations:
-            logger.info("!unlocks: travel shuffle is off in this seed, so there are no `Unlock -` checks.")
+            logger.info("/unlocks: travel shuffle is off in this seed, so there are no `Unlock -` checks.")
             return
         # ADDENDUM 434: an `Unlock -` check goes out when the GAME sets one of the destination's map bits -- any bit
         # while the destination is locked, its partial bit once it is granted -- not off the story byte.
@@ -371,7 +371,7 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
             logger.info(f"  {waiting} waiting. A reveal is recorded the poll it happens and survives a restart.")
 
     def _cmd_storybyte(self, value: str = "") -> None:
-        """DEBUG: Read or set the global story byte, in hex. `!storybyte` reads it; `!storybyte 27` sets it."""
+        """DEBUG: Read or set the global story byte, in hex. `/storybyte` reads it; `/storybyte 27` sets it."""
         if not isinstance(self.ctx, PokemonXDContext):
             return
         ctx = self.ctx
@@ -386,18 +386,18 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
             shown += f" (story variable {live})"
         text = value.strip().lower()
         if not text:
-            logger.info(f"Story byte is {shown}. Set it with `!storybyte 27` (hex).")
+            logger.info(f"Story byte is {shown}. Set it with `/storybyte 27` (hex).")
             return
         try:
             parsed = int(text[1:], 10) if text.startswith("d") else int(text, 16)
         except ValueError:
-            logger.info(f"`{value}` is not a number. Use hex (`!storybyte 6e`) or decimal (`!storybyte d110`).")
+            logger.info(f"`{value}` is not a number. Use hex (`/storybyte 6e`) or decimal (`/storybyte d110`).")
             return
         if not 0 <= parsed <= 0xFF:
             logger.info(f"0x{parsed:X} is outside a byte (0x00-0xFF).")
             return
         written, previous = ram_client.write_story_byte(
-            ctx.block_base, parsed, write_log=ctx.story_write_log, why="!storybyte (manual)",
+            ctx.block_base, parsed, write_log=ctx.story_write_log, why="/storybyte (manual)",
         )
         if not written:
             logger.info("The write failed -- the game may not be running, or the save block moved.")
@@ -432,7 +432,7 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
         if not query:
             total = len(trainer_roster.TRAINERS)
             logger.info(f"{total} trainers in the roster, {len(trainer_roster.UNIQUELY_NAMED)} of them with a "
-                        f"name no other trainer shares. Try `!trainers miror` or `!trainers 32`.")
+                        f"name no other trainer shares. Try `/trainers miror` or `/trainers 32`.")
             return
         if query.isdigit():
             found = [t for t in trainer_roster.TRAINERS if t["index"] == int(query)]
@@ -463,6 +463,38 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
         for line in self.ctx.missable_autosender.describe(in_seed, checked, _missable_area_progress(self.ctx)):
             logger.info(line)
 
+    def _cmd_toggledeathlink(self, *args: str) -> None:
+        """Turn Death Link on or off for this slot (ADDENDUM 477). `/toggledeathlink on|off`, or no argument to flip it.
+        Remembered for this seed and slot across reconnects; it overrides the YAML's `death_link`."""
+        if not isinstance(self.ctx, PokemonXDContext):
+            return
+        ctx = self.ctx
+        choice = (args[0].strip().lower() if args else "")
+        if choice in ("on", "true", "1", "yes"):
+            enabled = True
+        elif choice in ("off", "false", "0", "no"):
+            enabled = False
+        elif choice:
+            logger.info("Usage: /toggledeathlink [on|off] -- no argument flips it.")
+            return
+        else:
+            enabled = not ctx.death_link_bridge.enabled
+        ctx.death_link_bridge.enabled = enabled
+        # A fence or a half-seen white-out from before the switch must not fire the moment it comes back on.
+        ctx.death_link_bridge._ours = False
+        ctx.death_link_bridge._was_wiped = False
+        ctx.death_link_bridge._was_annihilated = False
+        ctx.death_link_override = enabled
+        Utils.async_start(ctx.update_death_link(enabled))
+        try:
+            if ctx.slot is not None:
+                ctx._save_local_state()
+        except Exception:
+            pass
+        logger.info(f"Death Link is now {'ON' if enabled else 'OFF'} for this slot"
+                    + (" -- deaths are sent and received." if enabled else " -- nothing is sent or received.")
+                    + ("" if ctx.slot is not None else " (Not connected yet: it applies when you connect.)"))
+
     def _cmd_deathlink(self, *args: str) -> None:
         """DEBUG: Death Link status -- what has been sent, received, and which signal is doing the work."""
         if not isinstance(self.ctx, PokemonXDContext):
@@ -471,8 +503,14 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
         # Death Link was silently sending nothing had no way to say so with a number. This is that way.
         logger.info(self.ctx.death_link_bridge.describe())
         logger.info(self.ctx.whiteout_latch.describe())   # ADDENDUM 400
+        logger.info(self.ctx.whiteout_counter.describe())  # ADDENDUM 475
+        watch = self.ctx.battle_party_watch                # ADDENDUM 472
+        logger.info(f"Battle watch: {watch.locates} locate(s), {watch.full_locates} full-memory locate(s), "
+                    f"{watch.stale_resets} stale record set(s) dropped, "
+                    + (f"watching {len(watch.addresses)} record(s) now." if watch.addresses else "not in a battle."))
         if not self.ctx.death_link_bridge.enabled:
-            logger.info("  Turn it on with `death_link: true` in your YAML; it takes effect on a new seed.")
+            logger.info("  Turn it on with /toggledeathlink (this slot, remembered), or `death_link: true` in your YAML "
+                        "for a new seed.")
             return
         flag = ram_client.read_annihilation_flag()
         logger.info(
@@ -506,7 +544,7 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
             room_id = self.ctx.room_tracker.current
             if room_id is None:
                 logger.info("Don't know which room you're in yet -- walk through a doorway and try again, "
-                            "or use `!chests <room id>`.")
+                            "or use `/chests <room id>`.")
                 return
         found = chest_table.chests_in_room(room_id)
         header = f"{ram_client.room_name(room_id)} [room {room_id}]"
@@ -539,7 +577,7 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
         if tracker.flag_disagreed_with_room:
             logger.info(f"  [!] {tracker.flag_disagreed_with_room} pickup(s) this session had a chest FLAG "
                         f"naming a different chest than the room did. The room won, so nothing was "
-                        f"mis-credited -- but a chest's measured open-flag is wrong. `!chestflags` in the room "
+                        f"mis-credited -- but a chest's measured open-flag is wrong. `/chestflags` in the room "
                         f"where it happened will show which bit really moved.")
         if tracker.flag_corroborated or tracker.flag_transitions_expired:
             logger.info(f"  flag fast path: {tracker.flag_corroborated} pickup(s) credited on the flag+berry "
@@ -737,6 +775,9 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
                         + ", Krane Memos 3-5 " + ("handed over" if lab_memos_received(ctx) else "not handed over")
                         + ", server items " + ("synced" if _lab_hold_inputs_ready(ctx) else "NOT synced yet")
                         + (", latched" if ctx.lab_memo_hold.latched else "")
+                        + ", lab reached 0x0F " + ("yes" if ctx.lab_memo_hold.lab_reached else "NOT yet")   # ADDENDUM 464
+                        + ", Krane Memos 1-2 " + ("received" if lab_memos_received(ctx, ram_client.LAB_MEMO_ARM_MEMOS)
+                                                  else "NOT received")
                         + f", room {ctx.room_tracker.current}"
                         + (" (an HQ Lab room)" if ctx.lab_memo_hold.in_place(ctx.room_tracker.current) else "") + ".")
         except Exception:
@@ -782,8 +823,8 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
         ctx.area_story_memory.visited = set()
         ctx.area_story_memory.dirty = True
         _save_area_memory(ctx)
-        logger.info(f"!forgetareas: cleared {had} remembered area mark(s). Every area will now enter at its "
-                    f"floor and re-earn its mark as you play. Use !areas to confirm.")
+        logger.info(f"/forgetareas: cleared {had} remembered area mark(s). Every area will now enter at its "
+                    f"floor and re-earn its mark as you play. Use /areas to confirm.")
 
     def _cmd_bag(self) -> None:
         """DEBUG: Every Bag tab's raw item ids and quantities, with anything in the wrong tab flagged."""
@@ -828,13 +869,13 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
         elif word == "":
             self.ctx.story_byte_watch = not self.ctx.story_byte_watch
         else:
-            logger.info(f"!storywatch: don't understand {state!r}. Usage: !storywatch [on|off]")
+            logger.info(f"/storywatch: don't understand {state!r}. Usage: /storywatch [on|off]")
             return
         if self.ctx.story_byte_watch:
             current = self.ctx.story_tracker.current
             where = "not read yet" if current is None else f"currently 0x{current:02X}"
             logger.info(f"Story-byte watch ON -- every change will be printed ({where}). "
-                        f"`!storylog` shows the changes the CLIENT made; this shows all of them.")
+                        f"`/storylog` shows the changes the CLIENT made; this shows all of them.")
         else:
             logger.info("Story-byte watch OFF.")
 
@@ -846,8 +887,8 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
             try:
                 limit = max(1, int(args[0]))
             except ValueError:
-                logger.info(f"`{args[0]}` is not a number -- `!storylog 20` shows the last 20 entries, "
-                            f"`!storylog` shows all of them.")
+                logger.info(f"`{args[0]}` is not a number -- `/storylog 20` shows the last 20 entries, "
+                            f"`/storylog` shows all of them.")
                 return
         for line in ctx.story_write_log.describe(limit):
             logger.info(line)
@@ -864,8 +905,9 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
         for line in self.ctx.map_cursor_tracker.describe(self.ctx.room_tracker.current):
             logger.info(line)
 
-    def _cmd_catches(self) -> None:
-        """DEBUG: Detect catch scans/rejections."""
+    def _cmd_catchscan(self) -> None:
+        """DEBUG: Detect catch scans/rejections. (ADDENDUM 483, issue #8: was a second `/catches`, which the
+        where-to-catch command below silently replaced.)"""
         if isinstance(self.ctx, PokemonXDContext):
             logger.info(self.ctx.species_catch_tracker.describe())
 
@@ -1021,7 +1063,7 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
 
     def _cmd_remaining(self) -> None:
         """DEBUG: List this seed's Overworld Item (chest/box/NPC-gift) locations that haven't been checked yet -
-        the ones '!checked' can mark.
+        the ones '/checked' can mark.
         """
         if not isinstance(self.ctx, PokemonXDContext):
             return
@@ -1032,15 +1074,15 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
         randomized into (and where to find it), so you always know where a given species ended up or what a
         given Cipher trainer's Shadow Pokemon actually is now. With no arguments, prints the full map; with
         words, fuzzy-matches them against location, original species, or new species names, e.g.
-        '!shadowdex miror b' or '!shadowdex charizard'. Only meaningful if Randomize Shadow Species is on."""
+        '/shadowdex miror b' or '/shadowdex charizard'. Only meaningful if Randomize Shadow Species is on."""
         if not isinstance(self.ctx, PokemonXDContext):
             return
         self.ctx.print_shadow_species_map(" ".join(name_words))
 
     def _cmd_catches(self, *name_words: str) -> None:
         """Where each "Catch - {species}" check is caught this seed -- which trainer holds that Shadow and
-        where, or which Poke Spot has it wild. Unchecked ones only; add words to filter, e.g. '!catches luvdisc'
-        or '!catches phenac'."""
+        where, or which Poke Spot has it wild. Unchecked ones only; add words to filter, e.g. '/catches luvdisc'
+        or '/catches phenac'."""
         if not isinstance(self.ctx, PokemonXDContext):
             return
         self.ctx.print_catch_sources(" ".join(name_words))
@@ -1075,7 +1117,7 @@ class PokemonXDContext(CommonContext):
         # Its own flag, not `verbose_logging`: watching the story byte should not also mean the room-change,
         # travel-bit and key-item firehose.
         self.story_byte_watch: bool = False
-        # Map screen's highlighted destination. Read-only; `!map` is its only caller.
+        # Map screen's highlighted destination. Read-only; `/map` is its only caller.
         self.map_cursor_tracker = ram_client.MapCursorTracker()
         self.chest_berry_tracker = ram_client.ChestBerryTracker()
         # The room the map was opened FROM. Returning to it is the only thing that tells a back-out from a trip.
@@ -1085,7 +1127,7 @@ class PokemonXDContext(CommonContext):
         # Did the last box scan read every slot? An incomplete scan may add a species but must never be read as
         # one having left -- see SpeciesCatchTracker.poll.
         self._last_box_complete: bool = True
-        # ONE log shared by every story-byte writer, so `!storylog` is one chronological list. Constructed
+        # ONE log shared by every story-byte writer, so `/storylog` is one chronological list. Constructed
         # before its consumers, which take it by reference.
         self.story_write_log = ram_client.StoryByteWriteLog()
         self.area_story_memory = ram_client.AreaStoryByteMemory(write_log=self.story_write_log)
@@ -1104,7 +1146,7 @@ class PokemonXDContext(CommonContext):
         self.battle_hold = ram_client.BattleActivityHold()
         self._battle_hold_ceiling_logged = False
 
-        # Default-off narration: everything through _note/_note_warn is silent until `!verbose`. Set BEFORE
+        # Default-off narration: everything through _note/_note_warn is silent until `/verbose`. Set BEFORE
         # the FstGuard below, whose arming message is gated on it.
         self.verbose_logging: bool = False
 
@@ -1114,7 +1156,7 @@ class PokemonXDContext(CommonContext):
             read=ram_client.read_bytes, write=ram_client.write_bytes, log=logger.info,
             log_verbose=lambda message: _note(self, message),
         )
-        # If the ISO path is already known (env var, or a previous !fstiso), load its file table now so the
+        # If the ISO path is already known (env var, or a previous /fstiso), load its file table now so the
         # guard is authoritative from the first poll.
         startup_iso = resolve_fst_iso()
         if startup_iso:
@@ -1152,14 +1194,14 @@ class PokemonXDContext(CommonContext):
         self.item_name_renamer = ram_client.ItemNameRenamer()
         # The description half of the same idea. Reads `scouted_shop_items`.
         self.item_description_writer = ram_client.ItemDescriptionWriter()
-        # Holds nothing until `!mirorforce` arms it, and puts back what it changed.
+        # Holds nothing until `/mirorforce` arms it, and puts back what it changed.
         self.miror_force = ram_client.MirorForce()
         # Live roster-HP tracking for the defeat checks: surname-keyed, per-surname rematch queue, and a count.
         self.trainer_defeat_tracker = ram_client.TrainerBattleDefeatTracker()
         # Debounced in/out-of-battle detection for give_items(), behind a hard timeout: a scripted battle loss in
         # Gateon once got this gate stuck for a whole run, and write-revert detection alone let items through.
         self.battle_state_tracker = ram_client.BattleStateTracker()
-        # Counters for the "party struct not populated yet this boot" state, reported by `!dolphin`.
+        # Counters for the "party struct not populated yet this boot" state, reported by `/dolphin`.
         self._not_ingame_consecutive_polls: int = 0
         self._not_ingame_hint_logged: bool = False
 
@@ -1174,7 +1216,7 @@ class PokemonXDContext(CommonContext):
         # {shop location name: (AP item name, receiving player name or None for ours)}, from the LocationScouts
         # reply. Read ONLY by the cosmetic description writer -- see on_package's LocationInfo branch for why.
         self.scouted_shop_items: "dict[str, tuple[str, str | None]]" = {}
-        # Why the dict above is empty, when it is. Read by `!shops`, so a silently-failed scout is visible.
+        # Why the dict above is empty, when it is. Read by `/shops`, so a silently-failed scout is visible.
         self.shop_scout_problems: "list[str]" = []
         # {shop location name: "progression"/"useful"/"trap"/"filler"}, from each scout record's `flags` -- the
         # only place a client can learn the class of an item on someone else's location. Drives shop pricing.
@@ -1194,12 +1236,15 @@ class PokemonXDContext(CommonContext):
         self.randomize_travel_locations: bool = False
         # Death Link. The bridge is inert while `enabled` is False, so a seed without it never reads the party.
         self.death_link_bridge = ram_client.DeathLinkBridge()
+        self.death_link_from_seed: bool = False            # ADDENDUM 477 -- the seed's `death_link`
+        self.death_link_override: "bool | None" = None     # ADDENDUM 477 -- `/toggledeathlink`, persisted per slot
         # ADDENDUM 400. Wired into the area memory so one object answers "did we just white out" for
         # both the Death Link send and the HQ Lab floor hold.
         self.whiteout_latch = ram_client.WhiteoutLatch()
         self.missable_autosender = ram_client.MissableAutoSender()   # ADDENDUM 402
         self.death_link_bridge.whiteout_latch = self.whiteout_latch
         self.battle_party_watch = ram_client.BattlePartyWatch()   # ADDENDUM 417
+        self.whiteout_counter = ram_client.WhiteoutCounterWatch()   # ADDENDUM 475
         self.area_story_memory.whiteout_latch = self.whiteout_latch
         # Key-item reconciliation owns the gating key items outright; give_items() does not write them. Needs
         # key_item_shuffle: with it off the player is supposed to hold whatever the story hands them.
@@ -1218,13 +1263,13 @@ class PokemonXDContext(CommonContext):
         self.disable_move_animations = False
         self._animation_guard_due = 0.0
 
-        # 0 = Defeat Greevil, 1 = Win Mt. Battle (its 100th trainer). `!goal` is the manual fallback.
+        # 0 = Defeat Greevil, 1 = Win Mt. Battle (its 100th trainer). `/goal` is the manual fallback.
         self.goal: int = 0
         # Once armed, the defeat-count target meaning "Mt. Battle's 100th trainer is defeated". None until "MIRU"
         # (trainer_index 1) is confirmed defeated THIS session: there is no live "inside Mt. Battle" signal.
         self.mt_battle_target_defeat_count: Optional[int] = None
 
-        # Per-seed Shadow Pokemon species map from slot_data; only `!shadowdex` reads it.
+        # Per-seed Shadow Pokemon species map from slot_data; only `/shadowdex` reads it.
         self.shadow_species_map: list[dict[str, Any]] = []
         # The dex numbers this seed makes Shadow Pokemon, for the purification scan's second rule ("a Shadow
         # species owned as an ordinary Pokemon has been purified"). Vanilla ones come from `shadow_species_map`
@@ -1236,7 +1281,7 @@ class PokemonXDContext(CommonContext):
         self._last_purification_scan: float = 0.0
         # Ids a detector named that this seed does not contain. Reported once each, then held.
         self._locations_not_in_seed: "set[int]" = set()
-        # "Catch - {species}" -> this seed's source text, for `!catches`. See catch_sources.py.
+        # "Catch - {species}" -> this seed's source text, for `/catches`. See catch_sources.py.
         self.catch_sources: "dict[str, str]" = {}
         # {location name -> the species that trainer has this seed}, for surnames more than one trainer shares:
         # attributes a defeat by who was on the field, not by how many of that name have been beaten. Empty for
@@ -1308,7 +1353,7 @@ class PokemonXDContext(CommonContext):
         self._delivery_pc_announced: set[int] = set()
 
         # Filled on Connected by `_warn_about_a_seed_from_another_build`. None means "not connected yet", which
-        # `!seedcheck` reports differently from "connected and nothing is wrong".
+        # `/seedcheck` reports differently from "connected and nothing is wrong".
         self._seed_only_location_ids: "list[int] | None" = None
         self._build_only_location_count: int = 0
         self._seed_fingerprint: "str | None" = None
@@ -1389,7 +1434,7 @@ class PokemonXDContext(CommonContext):
         never modified. Returns True on success and logs either way."""
         try:
             blob = fst_guard.read_disc_fst(path)
-            # `!fstiso` is a command and must answer; the startup auto-load is narration. A genuine failure
+            # `/fstiso` is a command and must answer; the startup auto-load is narration. A genuine failure
             # prints either way -- a silently ignored ISO path is a trap.
             line = self.fst_guard.set_disc_baseline(blob, path)
             if remember:
@@ -1472,9 +1517,9 @@ class PokemonXDContext(CommonContext):
                     _note(self, f"Scouted {len(self.scouted_shop_items)} shop line(s) -- shop descriptions "
                                 "will name the item each line sends.")
                 elif problems:
-                    # Louder than `_note_warn`: nothing is broken for the run, but a feature is off. `!shops`
+                    # Louder than `_note_warn`: nothing is broken for the run, but a feature is off. `/shops`
                     # has the detail.
-                    logger.warning("Shop scouting failed -- shelves will say \"Not scouted yet.\" (`!shops` for detail).")
+                    logger.warning("Shop scouting failed -- shelves will say \"Not scouted yet.\" (`/shops` for detail).")
                     _note(self, f"  {len(problems)} problem(s); first: {problems[0]}")
             except Exception as exc:  # noqa: BLE001 -- cosmetic data; never worth a disconnect
                 self.shop_scout_problems = [str(exc)]
@@ -1538,7 +1583,8 @@ class PokemonXDContext(CommonContext):
             self.goal = int(slot_data.get("goal", 0))
             self.randomize_travel_locations = bool(slot_data.get("randomize_travel_locations", False))
             # Defaults FALSE: an older seed had no Death Link, and turning it on would start wiping a party.
-            self.death_link_bridge.enabled = bool(slot_data.get("death_link", False))
+            self.death_link_from_seed = bool(slot_data.get("death_link", False))
+            self.death_link_bridge.enabled = self.death_link_from_seed
             Utils.async_start(self.update_death_link(self.death_link_bridge.enabled))
             # Defaults TRUE to match options.KeyItemShuffle: a seed from before this slot_data key had the option
             # on, so assuming False would silently stop reconciling for it.
@@ -1556,13 +1602,13 @@ class PokemonXDContext(CommonContext):
                 # the next map selection sends the player to an area's FLOOR and undoes their progress there.
                 _load_area_memory(self)
             # Loaded unconditionally, unlike the area memory above: nothing is recorded with travel
-            # randomization off, but `!storylog` should still be able to read and name the file.
+            # randomization off, but `/storylog` should still be able to read and name the file.
             _load_story_write_log(self)
             self._overworld_location_names = sorted(
                 LOCATION_NAME_GROUPS["Overworld Items"] if self.shuffle_overworld_items else []
             )
 
-            # Used only by the `!shadowdex` spoiler command.
+            # Used only by the `/shadowdex` spoiler command.
             self.shadow_species_map = list(slot_data.get("shadow_species_map") or [])
             self.generated_shadow_dex = {int(d) for d in (slot_data.get("generated_shadow_dex") or [])}
             self.pokespot_dex = {
@@ -1576,6 +1622,13 @@ class PokemonXDContext(CommonContext):
             self._warn_about_a_seed_from_another_build(slot_data)
 
             self._load_local_state()
+            # ADDENDUM 477: `/toggledeathlink`'s choice outranks the seed's, and survives a reconnect.
+            if self.death_link_override is not None and self.death_link_override != self.death_link_bridge.enabled:
+                self.death_link_bridge.enabled = self.death_link_override
+                Utils.async_start(self.update_death_link(self.death_link_bridge.enabled))
+                logger.info(f"Death Link: {'ON' if self.death_link_override else 'OFF'} for this slot "
+                            "(set with /toggledeathlink; the seed says "
+                            f"{'on' if self.death_link_from_seed else 'off'}).")
 
             # A scout is the only way to learn what a location holds without checking it, and create_as_hint 0
             # creates no hint, so this is invisible to the rest of the multiworld. Shop locations only, and only
@@ -1611,18 +1664,18 @@ class PokemonXDContext(CommonContext):
         )
         logger.info(f"Declared the game complete ({goal_description}) -- goal sent to the server.")
 
-    # Manual "!checked" handling for Overworld Item locations -- see module docstring.
+    # Manual "/checked" handling for Overworld Item locations -- see module docstring.
 
     def queue_manual_check(self, text: str) -> None:
         if not text.strip():
-            logger.info("Usage: !checked <part of the chest/item location's name> (see !remaining for the list)")
+            logger.info("Usage: /checked <part of the chest/item location's name> (see /remaining for the list)")
             return
         if not self.shuffle_overworld_items and not self._undetectable_chest_location_names():
             logger.info("This seed doesn't have Overworld Items shuffled -- nothing to manually check.")
             return
         match = self._fuzzy_match_overworld_location(text)
         if match is None:
-            logger.info(f"No unchecked Overworld Item location matches {text!r} -- try !remaining for the list.")
+            logger.info(f"No unchecked Overworld Item location matches {text!r} -- try /remaining for the list.")
             return
         self._manual_check_queue.append(match)
         logger.info(f"Queued check: {match}")
@@ -1650,7 +1703,7 @@ class PokemonXDContext(CommonContext):
     #
     # Only one direction is dangerous: ids in the SEED this build lacks can never fire (one reported unwinnable
     # seed had 63 of 685 rows naming retired locations, five of them progression). Ids this BUILD has that the
-    # seed lacks are harmless, so they go to `!seedcheck` and stay silent. It warns, it does not refuse.
+    # seed lacks are harmless, so they go to `/seedcheck` and stay silent. It warns, it does not refuse.
     def _warn_about_a_seed_from_another_build(self, slot_data: dict) -> None:
         seed_ids = set(self.missing_locations) | set(self.checked_locations)
         if not seed_ids:
@@ -1674,10 +1727,10 @@ class PokemonXDContext(CommonContext):
 
         logger.warning(f"Version mismatch: {len(unknown)} of this seed's {len(seed_ids)} locations don't exist in the "
                        f"installed apworld and can never be sent. Install the build the seed was generated with "
-                       f"(`!seedcheck` for detail).")
+                       f"(`/seedcheck` for detail).")
 
     def print_seed_location_check(self) -> None:
-        """`!seedcheck` -- the seed/build location comparison, on demand."""
+        """`/seedcheck` -- the seed/build location comparison, on demand."""
         if self._seed_only_location_ids is None:
             logger.info("Not connected yet, so there is no seed to compare against.")
             return
@@ -1697,7 +1750,7 @@ class PokemonXDContext(CommonContext):
                         f"Harmless -- options differ, or the build gained locations since.")
 
     def _undetectable_chest_location_names(self) -> list[str]:
-        """Always empty. This used to offer `!checked` the chests whose flag position was never measured; chest
+        """Always empty. This used to offer `/checked` the chests whose flag position was never measured; chest
         identity is now the berry plus the room, so there is no such category. Kept because
         `_remaining_overworld_locations` calls it, and because offering chests the client will send itself is
         worse than useless -- a fuzzy match on a nearby name marks the WRONG location, and that cannot be taken
@@ -1723,7 +1776,7 @@ class PokemonXDContext(CommonContext):
         for name in remaining:
             logger.info(f"  {name}")
 
-    # `!shadowdex` -- this seed's Shadow Pokemon species map, so "where do I find X now" is answerable without
+    # `/shadowdex` -- this seed's Shadow Pokemon species map, so "where do I find X now" is answerable without
     # the spoiler log.
 
     def print_catch_sources(self, filter_text: str = "") -> None:
@@ -1807,6 +1860,8 @@ class PokemonXDContext(CommonContext):
         self.given_item_indices = set()
         self.received_travel_locations = set()
         self.travel_revealed = set()
+        self.scooter_upgrade_seen = False   # ADDENDUM 474
+        self.death_link_override = None     # ADDENDUM 477
         path = self._state_file_path()
         try:
             if os.path.isfile(path):
@@ -1826,6 +1881,9 @@ class PokemonXDContext(CommonContext):
                     str(name) for name in slot_state.get("received_travel_locations", [])
                 }
                 self.travel_revealed = {str(name) for name in slot_state.get("travel_revealed", [])}   # ADDENDUM 434
+                self.scooter_upgrade_seen = bool(slot_state.get("scooter_upgrade_seen", False))   # ADDENDUM 474
+                _override = slot_state.get("death_link_override")   # ADDENDUM 477
+                self.death_link_override = None if _override is None else bool(_override)
                 # The purified-species ledger records what the game cannot be re-read for: a species purified in
                 # an earlier session leaves a flag that looks brand new to a fresh client.
                 if "purification" in slot_state:
@@ -1848,6 +1906,7 @@ class PokemonXDContext(CommonContext):
                 if isinstance(lab_held, int):
                     self.lab_memo_hold.declined_value = lab_held
                 self.lab_memo_hold.latched = bool(slot_state.get("lab_memo_hold_latched", False))   # ADDENDUM 458
+                self.lab_memo_hold.lab_reached = bool(slot_state.get("lab_memo_lab_reached", False))   # ADDENDUM 464
                 # ADDENDUM 435: an early Citadark ride's story to give back, and the island's own progress.
                 for key, attr in (("citadark_pre_ride_byte", "pre_ride_byte"), ("citadark_mark", "citadark_mark")):
                     value = slot_state.get(key)
@@ -1875,6 +1934,8 @@ class PokemonXDContext(CommonContext):
             "given_item_indices": sorted(self.given_item_indices),
             "received_travel_locations": sorted(self.received_travel_locations),
             "travel_revealed": sorted(self.travel_revealed),   # ADDENDUM 434
+            "scooter_upgrade_seen": bool(getattr(self, "scooter_upgrade_seen", False)),   # ADDENDUM 474
+            "death_link_override": getattr(self, "death_link_override", None),   # ADDENDUM 477
             "purification": self.purification_tracker.to_json(),
             "trainer_teams": self.trainer_defeat_tracker.to_json(),
             # The value the Gateon ceiling is holding back, or None -- the only write this client makes that can
@@ -1894,6 +1955,7 @@ class PokemonXDContext(CommonContext):
             # ADDENDUM 452: what the HQ Lab memo hold is waiting to give back.
             "lab_memo_hold_declined": self.lab_memo_hold.declined_value,
             "lab_memo_hold_latched": self.lab_memo_hold.latched,   # ADDENDUM 458
+            "lab_memo_lab_reached": self.lab_memo_hold.lab_reached,   # ADDENDUM 464
         }
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -2075,7 +2137,7 @@ async def give_items(ctx: PokemonXDContext) -> None:
                 if managed_ids and game_item_id in managed_ids:
                     if idx not in ctx._delivery_warned_indices:
                         logger.info(f"Received {item_name} -- the key-item reconciler keeps this one in your "
-                                    f"Bag from now on (see !keyitems).")
+                                    f"Bag from now on (see /keyitems).")
                         ctx._delivery_warned_indices.add(idx)
                     ctx.given_item_indices.add(idx)
                     continue
@@ -2107,7 +2169,7 @@ async def give_items(ctx: PokemonXDContext) -> None:
                                                f"{ITEM_DELIVERY_MAX_BATTLE_WAIT_SECONDS:.0f}s -- written anyway.")
                                 else:
                                     logger.warning(f"{item_name} waited out the full battle hold -- written anyway "
-                                                   f"(`!battle` shows what held it).")
+                                                   f"(`/battle` shows what held it).")
                             # First poll for this item: fix the baseline once, then write, confirming later. The
                             # baseline is READ across the full pocket array, not the narrow window this client
                             # WRITES into -- the game's own item-add code puts a berry wherever the Bag fills
@@ -2176,7 +2238,7 @@ async def give_items(ctx: PokemonXDContext) -> None:
                                 if still_missing:
                                     ids = ", ".join(str(i) for i in sorted(still_missing))
                                     logger.warning(f"{item_name}: part of it (id {ids}) has not landed yet -- "
-                                                   f"retrying; `!getitem {item_name}` forces it.")
+                                                   f"retrying; `/getitem {item_name}` forces it.")
                                 delivered = True
                             else:
                                 ctx._delivery_confirm_streak[idx] = streak
@@ -2219,7 +2281,7 @@ async def give_items(ctx: PokemonXDContext) -> None:
             # Never let one bad item take down the rest of the queue, or the rest of this poll's checks: log
             # once, leave it un-given so a transient failure is retried next poll, and keep going.
             if idx not in ctx._delivery_warned_indices:
-                # ADDENDUM 445: one line by default; the traceback is `!verbose` only.
+                # ADDENDUM 445: one line by default; the traceback is `/verbose` only.
                 logger.warning(f"Couldn't deliver {item_name} yet ({sys.exc_info()[0].__name__}) -- retrying.")
                 _note(ctx, traceback.format_exc())
                 ctx._delivery_warned_indices.add(idx)
@@ -2239,14 +2301,14 @@ async def give_items(ctx: PokemonXDContext) -> None:
 
 
 def force_deliver_pending_items(ctx: PokemonXDContext, name_filter: str = "") -> None:
-    """Backs `!getitem`: a manual escape hatch that skips both of give_items()' safety holds on purpose. It
+    """Backs `/getitem`: a manual escape hatch that skips both of give_items()' safety holds on purpose. It
     never consults the battle/step gate, and it issues exactly ONE write per item and marks it delivered with no
-    baseline, re-read or confirm streak. Same kind of opt-in override as `!checked` and `!goal`.
+    baseline, re-read or confirm streak. Same kind of opt-in override as `/checked` and `/goal`.
 
     Targets every pending item, or only those whose name fuzzy-matches `name_filter`. Each is attempted in its
     own try/except, and once written its give_items()-side pending state is cleared so a later poll does not pick
     up a half-finished baseline. With no confirmation re-read, a write reverted afterwards (most likely because
-    the player really is mid-battle) is never noticed or retried -- run `!getitem` again."""
+    the player really is mid-battle) is never noticed or retried -- run `/getitem` again."""
     if ctx.block_base is None:
         logger.info("Not connected to a running game yet -- nothing to force-deliver.")
         return
@@ -2281,7 +2343,7 @@ def force_deliver_pending_items(ctx: PokemonXDContext, name_filter: str = "") ->
                 if managed_ids and game_item_id in managed_ids:
                     if idx not in ctx._delivery_warned_indices:
                         logger.info(f"Received {item_name} -- the key-item reconciler keeps this one in your "
-                                    f"Bag from now on (see !keyitems).")
+                                    f"Bag from now on (see /keyitems).")
                         ctx._delivery_warned_indices.add(idx)
                     ctx.given_item_indices.add(idx)
                     continue
@@ -2291,16 +2353,16 @@ def force_deliver_pending_items(ctx: PokemonXDContext, name_filter: str = "") ->
                     pocket_base, max_slots = pocket
                     # Single write, no verify/confirm-streak -- see this function's docstring. "No verify" is
                     # still not "no answer": `give_item` returns False when every slot in the write window is
-                    # taken, having touched no memory, and a silent `!getitem` reads as success.
+                    # taken, having touched no memory, and a silent `/getitem` reads as success.
                     if not _give_item_or_pc_overflow(ctx, idx, item_name, pocket_base, game_item_id, quantity,
                                                   max_slots, True):
                         logger.warning(
-                            f"!getitem: {item_name} could not be written to your Bag -- every slot this "
+                            f"/getitem: {item_name} could not be written to your Bag -- every slot this "
                             f"client may write to in that pocket is already in use by a different item. "
-                            f"Make room and run !getitem again."
+                            f"Make room and run /getitem again."
                         )
                     # A packaged item's extra ids go through the same hatch, written once each with no re-read.
-                    # Without this, `!getitem` on the Data ROM & ID Card hands over half of it.
+                    # Without this, `/getitem` on the Data ROM & ID Card hands over half of it.
                     for companion_id in (data.companion_game_item_ids if data is not None else ()):
                         companion_pocket = ram_client.resolve_item_pocket(ctx.block_base, companion_id)
                         if companion_pocket is None:
@@ -2310,8 +2372,8 @@ def force_deliver_pending_items(ctx: PokemonXDContext, name_filter: str = "") ->
                 # pocket is None (Ein File S / the unresolved key items / the trap already handled above) --
                 # nothing to write, same as give_items()'s own handling; still counts as delivered below.
         except Exception:
-            logger.warning(f"!getitem: couldn't force {item_name} ({sys.exc_info()[0].__name__}) -- still pending.")
-            _note(ctx, traceback.format_exc())   # ADDENDUM 445: the traceback is `!verbose` only
+            logger.warning(f"/getitem: couldn't force {item_name} ({sys.exc_info()[0].__name__}) -- still pending.")
+            _note(ctx, traceback.format_exc())   # ADDENDUM 445: the traceback is `/verbose` only
             continue
         ctx.given_item_indices.add(idx)
         ctx._delivery_warned_indices.discard(idx)
@@ -2320,7 +2382,7 @@ def force_deliver_pending_items(ctx: PokemonXDContext, name_filter: str = "") ->
         ctx._delivery_confirm_streak.pop(idx, None)
         ctx._delivery_first_seen.pop(idx, None)
         ctx._delivery_companion_pending.pop(idx, None)   # written above, so stop retrying it
-        logger.info(f"!getitem: force-delivered {item_name} immediately (bypassed the battle-safety wait and "
+        logger.info(f"/getitem: force-delivered {item_name} immediately (bypassed the battle-safety wait and "
                     "the normal confirm-streak check).")
         changed = True
     if changed:
@@ -2364,6 +2426,42 @@ def _always_open_gate_is_open(ctx: PokemonXDContext) -> bool:
     return True
 
 
+#: ADDENDUM 474. Player: "a user was able to use SS Libra to get to phenac again. Can we ensure that SS Libra is never
+#: accessible unless we have Phenac, either logically or hard coded?" Logic requires Phenac
+#: (`travel_locations.TRAVEL_LOCATION_REQUIRED_REGIONS`); this is the hard half. The stranded ship's own cutscene ends
+#: by putting the player in Phenac, so an SS Libra icon usable without Phenac was a way INTO Phenac.
+#: ADDENDUM 481: "we don't need the phenac clear at all" -- the icon now waits for the Phenac UNLOCK, not the Sixes.
+SS_LIBRA_TRAVEL_NAME = "SS Libra"
+PHENAC_TRAVEL_NAME = "Phenac City"
+PHENAC_CLEARED_REGION = "Phenac City (Post-Sixes)"     # ADDENDUM 474's condition, kept for `_phenac_cleared`
+
+
+def _phenac_unlocked(ctx: PokemonXDContext) -> bool:
+    """ADDENDUM 481: the multiworld has sent Travel Unlock - Phenac City. The delivered set is persisted, so a reconnect
+    that has not been resent `items_received` yet still answers yes; `items_received` is read too, for the poll that
+    delivers it."""
+    if PHENAC_TRAVEL_NAME in (getattr(ctx, "received_travel_locations", None) or ()):
+        return True
+    wanted = travel_locations.travel_unlock_item_name(PHENAC_TRAVEL_NAME)
+    return any(ITEM_ID_TO_NAME.get(network_item.item) == wanted
+               for network_item in (getattr(ctx, "items_received", None) or ()))
+
+
+def _phenac_cleared(ctx: PokemonXDContext) -> bool:
+    """The Sixes are behind the player in Phenac: its own area progress reached the Post-Sixes floor."""
+    from .game_data import story_bytes as _story_bytes
+
+    floor = _story_bytes.region_floor(PHENAC_CLEARED_REGION)
+    progress = _story_bytes.area_progress(PHENAC_CLEARED_REGION, ctx.area_story_memory.highest_by_region)
+    return floor is not None and progress is not None and progress >= floor
+
+
+def _travel_held_closed(ctx: PokemonXDContext, name: str) -> bool:
+    """ADDENDUM 474: a destination whose item has arrived but whose map bit stays clear for now. ADDENDUM 481: the SS
+    Libra waits for the Phenac unlock (was: Phenac cleared -- REVERT `not _phenac_cleared(ctx)`)."""
+    return name == SS_LIBRA_TRAVEL_NAME and not _phenac_unlocked(ctx)
+
+
 async def sync_travel_locations(ctx: PokemonXDContext) -> None:
     """Delivers "Travel Unlock - {name}" items. Not routed through give_items(): these occupy no Bag slot, and
     the live memory record they write has never been confirmed to survive a Dolphin reboot or save-state reload
@@ -2403,6 +2501,8 @@ async def sync_travel_locations(ctx: PokemonXDContext) -> None:
     # three), so at most eleven; `_or_write_bit` writes only on a real change.
     try:
         for name in ctx.received_travel_locations:
+            if _travel_held_closed(ctx, name):
+                continue        # ADDENDUM 474 -- `enforce_travel_locks` keeps it clear until Phenac is cleared
             travel_locations.write_travel_location_bit(record_base, name)
     except Exception:
         _note_warn(ctx, "Couldn't apply the always-open/previously-received travel unlocks yet (still "
@@ -2424,6 +2524,12 @@ async def sync_travel_locations(ctx: PokemonXDContext) -> None:
         location_name = travel_locations.travel_location_name_from_item(item_name)
         if location_name is None or location_name in ctx.received_travel_locations:
             continue
+        if _travel_held_closed(ctx, location_name):
+            ctx.received_travel_locations.add(location_name)
+            logger.info(f"Received {item_name} -- {location_name} opens on the map once Phenac City is "
+                        "unlocked too.")
+            changed = True
+            continue
         try:
             travel_locations.write_travel_location_bit(record_base, location_name)
         except Exception:
@@ -2443,7 +2549,7 @@ async def check_species_catches(ctx: PokemonXDContext) -> None:
 
     Three sources, unioned: PARTY_BASE (a 0x30-byte menu row -- fast, but it does not populate a slot until the
     party screen has drawn), the save block's own party records (BLOCK_BASE + PARTY_RECAP_OFFSET, the 0xC4 format
-    the boxes use), and a full PC-box scan so a catch routed straight into the PC registers on its own. `!party`
+    the boxes use), and a full PC-box scan so a catch routed straight into the PC registers on its own. `/party`
     prints the first two side by side.
 
     The box half goes through `ram_client.SpeciesCatchTracker`, which discards a box poll whose snapshot gains and
@@ -2571,8 +2677,21 @@ def scooter_upgrade_held(ctx: PokemonXDContext) -> bool:
     cutscene, so it has its own toggle covering both travel modes."""
     if not ctx.shuffle_scooter_upgrade:
         return True
-    return any(ITEM_ID_TO_NAME.get(network_item.item) == items.SCOOTER_ITEM_NAME
+    # ADDENDUM 474: LATCHED and persisted. Player: "SS Libra not letting them in even with scooter upgrade
+    # sometimes -- guard that story byte floor hard". `items_received` is empty for the first ticks after a
+    # (re)connect, and in that window this said False: the SS Libra icon wrote the STRANDED tier (0x4E) and the story
+    # hold pulled a byte on the real ship (0x58-0x5B) back to 0x57. Once the item has been seen, it is held for good.
+    if getattr(ctx, "scooter_upgrade_seen", False):
+        return True
+    held = any(ITEM_ID_TO_NAME.get(network_item.item) == items.SCOOTER_ITEM_NAME
                for network_item in ctx.items_received)
+    if held:
+        ctx.scooter_upgrade_seen = True
+        try:
+            ctx._save_local_state()
+        except Exception:
+            pass
+    return held
 
 
 # Per-area story-byte memory: the file and the wiring. The rule itself lives in
@@ -2834,6 +2953,15 @@ async def check_area_story_memory(ctx: PokemonXDContext) -> None:
     bumped = ctx.live_story_bumper.poll(ctx.block_base, current_region, story_byte,
                                         travel_shuffle=True, scooter_shuffle=ctx.shuffle_scooter_upgrade)
     if bumped is not None:
+        # ADDENDUM 476: a bump that says so banks the byte that triggered it -- the GAME's, earned here -- as this
+        # area's mark before the bump replaces it, so its paired floor rule binds on later visits.
+        _bump = ctx.live_story_bumper.last_bump
+        if getattr(_bump, "banks_trigger", False) and ctx.live_story_bumper.last_trigger_byte is not None:
+            _mark = ctx.area_story_memory.highest_by_region.get(current_region, -1)
+            if ctx.live_story_bumper.last_trigger_byte > _mark:
+                ctx.area_story_memory.highest_by_region[current_region] = ctx.live_story_bumper.last_trigger_byte
+                ctx.area_story_memory.visited.add(current_region)
+                ctx.area_story_memory.dirty = True
         story_byte, bump_note = bumped
         # The bump is a CLIENT WRITE and must not become the area's mark: 0x0D -> 0x0F fires on arrival, so
         # without this the lab "reached" the Snag Machine tier because WE put it there, and
@@ -2986,11 +3114,11 @@ def machine_part_obtained(ctx: PokemonXDContext) -> bool:
     return max(gateon if gateon is not None else -1, high if high is not None else -1) >= ram_client.LAB_MEMO_HOLD_BYTE
 
 
-def lab_memos_received(ctx: PokemonXDContext) -> bool:
-    """ADDENDUM 452. Krane Memos 3, 4 and 5 handed over: each one's check sent (the server's record) or taken out of
-    the Bag this session (`KraneMemoTracker.awarded`)."""
+def lab_memos_received(ctx: PokemonXDContext, numbers: "tuple[int, ...] | None" = None) -> bool:
+    """ADDENDUM 452. Krane Memos 3, 4 and 5 (or `numbers`) handed over: each one's check sent (the server's record) or
+    taken out of the Bag this session (`KraneMemoTracker.awarded`)."""
     awarded = ctx.krane_memo_tracker.awarded or set()
-    for number in ram_client.LAB_MEMO_HOLD_MEMOS:
+    for number in (ram_client.LAB_MEMO_HOLD_MEMOS if numbers is None else numbers):
         if number in awarded:
             continue
         location_id = LOCATION_NAME_TO_ID.get(ram_client.krane_memo_location_name(number))
@@ -3026,7 +3154,25 @@ async def check_lab_memo_hold(ctx: PokemonXDContext) -> None:
     if not _lab_hold_inputs_ready(ctx):
         return
     memos = lab_memos_received(ctx)
-    armed = ctx.block_base is not None and not memos and (
+    # ADDENDUM 464: "ONLY clamp to 16 when we've already reached 0x0F on the HQ lab story byte and we have the machine
+    # part", then "just if it's at 0x0F at all, and we've received both memo 1 and 2". The lab's 0x0F is latched;
+    # memos 1-2 are the server's record. Without both nothing below arms, whatever the Machine Part says.
+    if ctx.block_base is not None and not hold.lab_reached:
+        try:
+            from .game_data import story_bytes as _sb
+
+            lab_mark = _sb.highest_in_area(ram_client.LAB_MEMO_HOLD_AREA, ctx.area_story_memory.highest_by_region)
+            if not ctx.randomize_travel_locations:
+                # One story byte for the whole game: its high-water mark is the lab's.
+                high = getattr(ctx.story_progress, "high_water", None)
+                if high is not None:
+                    lab_mark = max(lab_mark if lab_mark is not None else -1, high)
+            if hold.note_lab_progress(ctx.room_tracker.current, ram_client.read_story_byte(ctx.block_base), lab_mark):
+                ctx._save_local_state()
+        except Exception:
+            pass
+    first_memos = lab_memos_received(ctx, ram_client.LAB_MEMO_ARM_MEMOS)
+    armed = ctx.block_base is not None and not memos and hold.lab_reached and first_memos and (
         machine_part_obtained(ctx) or hold.declined_value is not None or hold.latched)
     was_latched = hold.latched
     if armed:
@@ -3050,7 +3196,7 @@ async def check_lab_memo_hold(ctx: PokemonXDContext) -> None:
     if hold.declined_value != before:
         ctx._save_local_state()
     if note:
-        _note(ctx, note)   # ADDENDUM 445: quiet by default; `!keyitems` shows the hold's state
+        _note(ctx, note)   # ADDENDUM 445: quiet by default; `/keyitems` shows the hold's state
         _save_story_write_log(ctx)
 
 
@@ -3288,7 +3434,7 @@ async def check_chests(ctx: PokemonXDContext) -> None:
         ctx.chest_berry_tracker.unplaceable_notices.clear()
 
     # The guard and its counter stay; only the per-occurrence warning is gone. Drained rather than left to grow,
-    # since an unread list appended to on every disagreement leaks. `!chests` still reports the count.
+    # since an unread list appended to on every disagreement leaks. `/chests` still reports the count.
     if ctx.chest_berry_tracker.flag_room_disagreements:
         ctx.chest_berry_tracker.flag_room_disagreements.clear()
 
@@ -3346,7 +3492,7 @@ async def check_shops(ctx: PokemonXDContext) -> None:
 
     A berry that goes up in a room that is NOT a shop credits nothing: a dummy berry can arrive from a gift or a
     field pickup, and crediting a guess sends a check for a purchase that never happened. The tracker counts
-    those separately so `!shops` can say so. No-ops when randomize_shops is off -- except for the Candy Box's
+    those separately so `/shops` can say so. No-ops when randomize_shops is off -- except for the Candy Box's
     description at Gateon when Reduce Citadark Grind is on (ADDENDUM 437)."""
     if ctx.block_base is None:
         return
@@ -3408,7 +3554,7 @@ async def check_shops(ctx: PokemonXDContext) -> None:
             if renamer.verify(ram_client.USELESS_BERRY_IDS):
                 logger.debug("Pokemon XD: live item renaming is on")
             else:
-                # Not a connection log, a check or a real failure, so `!verbose` decides whether the player
+                # Not a connection log, a check or a real failure, so `/verbose` decides whether the player
                 # sees it. Nothing is broken when this fires -- one cosmetic feature is off.
                 _note_warn(ctx, (
                     "live item renaming is off for this session (%s) -- the shop berries keep their vanilla "
@@ -3594,7 +3740,7 @@ async def check_trainer_defeats(ctx: PokemonXDContext) -> None:
     decodes out of the ISO as BATTLUS). ADDENDUM 406 removed the running-count backstop -- MIRU plus 99 more
     defeats -- because MIRU is also story trainer 30, so it armed in the story and fired on the 100th defeat of
     anything; and Battlus is watched through the Mt. Battle exclusion, which used to hide him from this check
-    entirely. `!goal` stays the manual fallback."""
+    entirely. `/goal` stays the manual fallback."""
     if ctx.block_base is None:
         return
     # ADDENDUM 406: the Mt. Battle goal needs this scan even in a seed with no trainer-defeat checks. Such a seed
@@ -3649,6 +3795,7 @@ async def check_trainer_defeats(ctx: PokemonXDContext) -> None:
         watched_here=ram_client.watched_fight_surnames(
             ctx.room_tracker.current if ctx.room_tracker.current is not None else ctx.room_tracker.previous),
     )
+    _bank_key_lair_zook(ctx)   # ADDENDUM 487
     if goal_watch_only:
         newly_completed = []   # no defeat checks exist in this seed; the scan ran for the goal only
     elif ctx.unique_trainer_defeats and newly_completed:
@@ -3697,6 +3844,42 @@ async def check_trainer_defeats(ctx: PokemonXDContext) -> None:
                     f"completing this seed's goal."
                 )
                 await ctx.declare_goal_complete()
+
+
+#: ADDENDUM 487. Player: "Zook is still rematching us - are we writing the byte AND the floor at key lair, or just the
+#: byte? ... Beating him puts it from 64 to 65, but returning put me back at 64." Only the byte, and only sometimes:
+#: ADDENDUM 476's bump (0x65 -> 0x66, banking 0x65 as the Lair's mark so its floor rule enters later visits at 0x66)
+#: fires while the player stands in a room `region_for_room` calls "Cipher Key Lair" -- the 1F-4F and roof rooms.
+#: Zook is fought in the courtyard outside them, which resolves to no region, so leaving from there banked nothing and
+#: the next arrival wrote the 0x64 entry floor: Zook again. The floor is now banked off the DEFEAT itself, wherever it
+#: is fought -- his win is the one thing that is certain -- and the live bump still lifts the byte on entering 1F.
+KEY_LAIR_REGION = "Cipher Key Lair"
+KEY_LAIR_ZOOK_SURNAME = "ZOOK"
+KEY_LAIR_ZOOK_WINDOW = (0x64, 0x66)     # staged at 0x64, his win writes 0x65; 0x66 if our bump already ran
+KEY_LAIR_ZOOK_MARK = 0x65               # the trigger byte `AreaFloorRule("Cipher Key Lair", 0x66, ...)` keys on
+
+
+def _bank_key_lair_zook(ctx: PokemonXDContext) -> None:
+    """ADDENDUM 487: Zook beaten at the Key Lair -> the Lair's mark is at least 0x65, so every later visit enters at
+    0x66, past his fight. Zook's only other fight is the watched Gateon one (Ardos vs Zook, story ~0x10s), far outside
+    the window. Location shuffle only, like the bump it backs up; never lowers a mark."""
+    if not getattr(ctx, "randomize_travel_locations", False) or ctx.block_base is None:
+        return
+    confirmed = {s.strip().upper() for s in (ctx.trainer_defeat_tracker.last_confirmed_surnames or ())}
+    if KEY_LAIR_ZOOK_SURNAME not in confirmed:
+        return
+    live = ram_client.read_story_byte(ctx.block_base)
+    low, high = KEY_LAIR_ZOOK_WINDOW
+    if live is None or not low <= live <= high:
+        return
+    memory = ctx.area_story_memory
+    if memory.highest_by_region.get(KEY_LAIR_REGION, -1) >= KEY_LAIR_ZOOK_MARK:
+        return
+    memory.highest_by_region[KEY_LAIR_REGION] = KEY_LAIR_ZOOK_MARK
+    memory.visited.add(KEY_LAIR_REGION)
+    memory.dirty = True
+    _save_area_memory(ctx)
+    _note(ctx, "Zook beaten at the Cipher Key Lair -- your next visits enter past his fight (0x66).")
 
 
 # The roster holds THREE Greevil encounters (indices 199, 200, 201) and the win is the second of the two
@@ -3797,7 +3980,7 @@ def _unlock_is_earned(ctx: PokemonXDContext, destination: str, threshold: int) -
     predecessor rule cannot self-credit, because the witness is never D. The retired `_story_byte_was_earned_here`
     asked the global byte's provenance instead; `Unlock -` checks no longer consult it at all.
 
-    Never raises; anything unexpected answers False, which defers rather than sends. `!unlocks` prints the held
+    Never raises; anything unexpected answers False, which defers rather than sends. `/unlocks` prints the held
     table, because a check waiting on a mark that never arrives would otherwise be silent."""
     mark = _unlock_mark_for(ctx, destination)
     return mark is not None and mark >= threshold
@@ -3888,6 +4071,15 @@ async def enforce_travel_locks(ctx: PokemonXDContext) -> None:
             continue
         # Access. The item is the ONLY way in; the game's own unlock is taken back every tick until it arrives.
         # Re-clearing an already-clear bit is a no-op, so this is cheap and idempotent.
+        # ADDENDUM 474: SS Libra also stays shut, item or not, until Phenac City is unlocked (ADDENDUM 481: was cleared).
+        if name in received and _travel_held_closed(ctx, name):
+            try:
+                if travel_locations.clear_travel_location_bit(record_base, name):
+                    _note(ctx, "Travel: SS Libra stays closed until Travel Unlock - Phenac City arrives -- its "
+                               "stranded visit would otherwise drop you into Phenac.")
+            except Exception:
+                pass
+            continue
         if name not in received:
             try:
                 if travel_locations.clear_travel_location_bit(record_base, name):
@@ -4031,7 +4223,7 @@ def _looks_ingame() -> bool:
 
 
 async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
-    logger.info("Starting Dolphin connector. Use !dolphin for status information.")
+    logger.info("Starting Dolphin connector. Use /dolphin for status information.")
     sleep_time = 0.0
     while not ctx.exit_event.is_set():
         if sleep_time > 0.0:
@@ -4056,7 +4248,7 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                 # post-reboot test disproved it -- standing at the HQ Lab exterior it read 6 ("Gateon Port"), and
                 # no record in MEM1 held the correct id behind a live pointer. It is a cache of recently-loaded
                 # areas, which only looked like position because the player walked through them in order. Still
-                # polled so `!area` can report a best-effort value with its caveat.
+                # polled so `/area` can report a best-effort value with its caveat.
                 try:
                     ctx.area_tracker.poll(ctx.block_base)
                 except Exception:
@@ -4081,7 +4273,7 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                 # guard cannot arm. Said once, with the one action that fixes it.
                 if fst_result.get("needs_disc_baseline", 0) == 15 and not ctx._fst_iso_hint_logged:
                     ctx._fst_iso_hint_logged = True
-                    logger.info("Tip: run `!fstiso <path to your patched .iso>` once so the client can repair "
+                    logger.info("Tip: run `/fstiso <path to your patched .iso>` once so the client can repair "
                                 "'DVDOpen ... not found' freezes.")
 
                 # ADDENDUM 421: the game picks its save buffer's address at boot (OSGetTime-seeded), so a reset
@@ -4158,7 +4350,7 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                             line += (f" -- {value} is not a multiple of "
                                      f"{ram_client.STORY_VALUE_STEP}, so no script tests for it")
                         if ctx.story_byte_watch:
-                            logger.info(line)      # !storywatch is on -- always visible, never silenced
+                            logger.info(line)      # /storywatch is on -- always visible, never silenced
                         else:
                             _note(ctx, line)
                 except Exception:
@@ -4183,7 +4375,13 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                     battle_wiped = ctx.battle_party_watch.poll(ctx.block_base, in_battle)
                     if battle_wiped is True and ctx.whiteout_latch.arm_from_battle():
                         _note(ctx, "Your team fainted -- the HQ Lab's story byte is held until you walk out of it.")
-                    should_send, death_note = ctx.death_link_bridge.poll(ctx.block_base, battle_wiped)
+                    # ADDENDUM 475: the game's own white-out count, when the ISO has the hook. It is the send signal
+                    # whenever it reads; the party watch above is only the fallback for an older ISO.
+                    whiteouts = ctx.whiteout_counter.poll()
+                    if whiteouts and ctx.whiteout_latch.arm_from_battle():
+                        _note(ctx, "You whited out -- the HQ Lab's story byte is held until you walk out of it.")
+                    should_send, death_note = ctx.death_link_bridge.poll(ctx.block_base, battle_wiped,
+                                                                         whiteouts=whiteouts)
                     if death_note:
                         logger.info(f"Death Link: {death_note}")
                     if should_send:
@@ -4194,7 +4392,7 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                 # Nothing below is gated on `_looks_ingame()` any more. The whole poll body used to sit behind it,
                 # and PARTY_BASE initializes lazily -- all-zero until the Party/Status screen is opened once that
                 # boot -- so item delivery did not start until the player's first real battle. The counters below
-                # survive only because `!dolphin` reports them.
+                # survive only because `/dolphin` reports them.
                 if not _looks_ingame():
                     ctx._not_ingame_consecutive_polls += 1
                 else:
@@ -4217,14 +4415,14 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                     # win must never wait on a save-menu rewrite finishing.
                     await check_victory_story_byte(ctx)
                     await enforce_travel_locks(ctx)
-                    # Inert unless `!mirorforce` armed it. Read-only until the moment it resolves, wrapped like
+                    # Inert unless `/mirorforce` armed it. Read-only until the moment it resolves, wrapped like
                     # every other cosmetic, and it can never cost a check.
                     try:
                         _miror = ctx.miror_force.poll()
                         if _miror:
-                            # Unconditional, not `!verbose`: this is the second half of a command the player
-                            # typed -- !mirorforce arms and returns, and the outcome lands here seconds later.
-                            logger.info("!mirorforce: %s", _miror)
+                            # Unconditional, not `/verbose`: this is the second half of a command the player
+                            # typed -- /mirorforce arms and returns, and the outcome lands here seconds later.
+                            logger.info("/mirorforce: %s", _miror)
                     except Exception:
                         logger.debug("Pokemon XD: miror force poll failed", exc_info=True)
                     # Outside the block-stability gate and before anything needing `block_base`: the Items table
@@ -4288,7 +4486,7 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                 ctx.fst_guard.reset()
                 ctx.block_stability.reset()
                 # ADDENDUM 450: the attempt and the failure are said once per run of failures, then the retry is
-                # silent (`!verbose` still shows each one). Player: "Make this error retry silently instead of
+                # silent (`/verbose` still shows each one). Player: "Make this error retry silently instead of
                 # spamming."
                 if ctx._hook_failures == 0 and not ctx._dolphin_missing_logged:
                     logger.info("Attempting to connect to Dolphin...")
@@ -4321,7 +4519,7 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                         logger.warning(ram_client.DOLPHIN_MEMORY_OVERRIDE_HINT)
                     sleep_time = POLL_INTERVAL_RETRY
         except Exception as exc:
-            # ADDENDUM 445: one line by default; the traceback is `!verbose` only.
+            # ADDENDUM 445: one line by default; the traceback is `/verbose` only.
             logger.warning(f"Lost the game for a moment ({type(exc).__name__}: {exc}) -- reconnecting.")
             _note(ctx, traceback.format_exc())
             ctx.dolphin_status = CONNECTION_LOST_STATUS

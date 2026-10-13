@@ -55,9 +55,11 @@ class TestTheFloorItself(unittest.TestCase):
         the destination is entered at whatever any area's mark says."""
         self.assertEqual(FLOOR, sb.AREA_ENTRY_FLOOR_OVERRIDES[LAIR])
         self.assertEqual(FLOOR, sb.area_entry_floor(LAIR))
-        self.assertEqual([], [r for r in sb.AREA_FLOOR_RULES if r.target == LAIR],
-                         "the Lair's floor is a value now -- a rule here could only sit at or below it, which "
-                         "ADDENDUM 247's fence forbids because it can never bind")
+        # ADDENDUM 476: one rule now, and ABOVE the floor -- Zook beaten (mark 0x65) enters at 0x66. Still no rule
+        # at or below the floor, which is what this guarded (such a rule can never bind).
+        rules = [r for r in sb.AREA_FLOOR_RULES if r.target == LAIR]
+        self.assertEqual([(0x66, (("Cipher Key Lair", 0x65),))], [(r.floor, r.requires) for r in rules])
+        self.assertTrue(all(r.floor > sb.AREA_ENTRY_FLOOR_OVERRIDES[LAIR] for r in rules))
 
     def test_the_rule_it_replaced_could_not_have_survived(self) -> None:
         """Why ADDENDUM 371 is a deletion and not an edit, kept as the arithmetic rather than as a memory:

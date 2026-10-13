@@ -209,7 +209,7 @@ class TestTheBackfillNotice(unittest.TestCase):
         lines = tracker.backfill_notice()
         self.assertTrue(lines)
         blob = " ".join(lines)
-        self.assertIn("!checked", blob)
+        self.assertIn("/checked", blob)
         self.assertIn("maybe:", blob)          # ADDENDUM 445: one line, first four candidates
         self.assertEqual(1, len(lines))
         self.assertIn("Player's Room Chest", tracker.backfill_candidates())

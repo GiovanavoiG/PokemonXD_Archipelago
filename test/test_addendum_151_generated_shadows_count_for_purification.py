@@ -149,11 +149,17 @@ class _Party:
             i: (_Recap(self.flags_by_species[species]), "name_matches")
             for i, species in enumerate(order)
         }
+        # ADDENDUM 478: the count is made off the slot's own record, by its Shadow id (the species number here).
+        self._record = rc._read_shadow_record
+        rc._read_shadow_record = lambda _address, source, index: rc.ShadowRecord(
+            source, index, order[index], order[index], self.flags_by_species[order[index]], 30, 1, order[index],
+            20, 40)
         return self
 
     def __exit__(self, *exc):
         rc.read_party_members = self._members
         rc.correlate_party_with_recap = self._correlate
+        rc._read_shadow_record = self._record
 
 
 def _run(tracker, flags, polls=1):

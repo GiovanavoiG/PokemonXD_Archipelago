@@ -37,6 +37,7 @@ should not host progression, and this is the lever that decides that.
 """
 from __future__ import annotations
 
+import os
 import unittest
 
 from BaseClasses import ItemClassification, LocationProgressType
@@ -95,7 +96,7 @@ class TestTheOrderingThatMakesTheExclusionCountable(unittest.TestCase):
     def test_the_exclusion_is_applied_where_create_items_can_see_it(self) -> None:
         """Marked in create_regions_and_locations, not in set_rules. See this module's docstring for the
         FillError that the other order produces."""
-        source = open(RT.__file__.replace("game_data/repeatable_trainers.py", "locations.py"),
+        source = open(os.path.join(os.path.dirname(os.path.dirname(RT.__file__)), "locations.py"),
                       encoding="utf-8").read()
         self.assertIn("repeatable_trainers.ALWAYS_FILLER_LOCATIONS", source)
         marked = source.index("repeatable_trainers.ALWAYS_FILLER_LOCATIONS")

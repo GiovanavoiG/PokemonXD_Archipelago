@@ -33,23 +33,28 @@ class TestTheRefightFenceCoversTheWholeShape(unittest.TestCase):
         a repeated fight, so a Shadow there is walk-past-able once the story moves on. A missable row is
         losable outright. All three are catch locations that cannot be trusted, and all three are in."""
         from ..game_data.missable_indices import PLAYER_RULED_UNMISSABLE as ruled   # ADDENDUM 460
-        self.assertEqual(_FINAL - self.excluded, set(), "a re-fightable trainer can take a generated Shadow")
+        # ADDENDUM 466: the snag no longer respawns (465), so the four safe `final` rows may host a Shadow.
+        self.assertEqual(_FINAL - self.excluded, set(missable_trainers.REFIGHTABLE_FINAL_SHADOW_HOSTS),
+                         "a re-fightable trainer outside the ADDENDUM 466 allowlist can take a generated Shadow")
         self.assertFalse(ruled & _FINAL, "no ruled-unmissable row is a re-fightable one")
-        self.assertEqual(_EARLIER - self.excluded - ruled, set(), "an earlier occurrence can take a generated Shadow")
+        # ADDENDUM 487: minus the first fights whose second fight always carries the mirror.
+        from ..game_data.shadow_mirrors import MIRRORED_SHADOW_HOSTS
+        self.assertEqual(_EARLIER - self.excluded - ruled - set(MIRRORED_SHADOW_HOSTS), set(),
+                         "an earlier occurrence can take a generated Shadow")
         self.assertEqual(_MISSABLE - self.excluded - ruled, set(), "a missable trainer can take a generated Shadow")
-        # ADDENDUM 461: "Remove everyone here as shadow candidates except the Snagem trainers and Willie."
-        self.assertEqual({13, 21, 22, 66, 67, 68}, ruled & self.excluded,
-                         "only the Snagem fights and Willie of the ruled rows may host a Shadow")
+        # ADDENDUM 466 reopened ADDENDUM 461's refusals ("Reopen them"): every ruled row may host a Shadow.
+        self.assertEqual(set(), ruled & self.excluded, "a ruled-unmissable row is still refused")
 
     def test_the_set_is_big_enough_to_be_doing_something(self) -> None:
         """A fence that shrank to nothing would pass every test above. 150 of the 232 story trainers."""
-        self.assertEqual(len(self.excluded), 152)   # ADDENDUM 461: + Cida, Dosk, Raling, Labet, Doby; 460: -13 ruled unmissable, + Bost unconfirmed  # ADDENDUM 459: + Agate's same-team rematches 24-27; 440: + the four Phenac invasion trainers;   # ADDENDUM 341 lifted 337's +Wakin/+Gonzap
+        self.assertEqual(len(self.excluded), 134)   # ADDENDUM 487: -4 mirrored first fights (Clerr, Belish, Dert, Cail #1); 466: -4 Agate rematch rows, -6 461 refusals, -4 final rows; 461: + Cida, Dosk, Raling, Labet, Doby; 460: -13 ruled unmissable, + Bost unconfirmed  # ADDENDUM 459: + Agate's same-team rematches 24-27; 440: + the four Phenac invasion trainers;   # ADDENDUM 341 lifted 337's +Wakin/+Gonzap
         self.assertEqual(len(_FINAL), 35)
 
     def test_the_five_the_player_reported_and_the_two_brothers(self) -> None:
         """The rows ADDENDUM 236 named from the real plan that triggered the report."""
-        for index in (167, 215, 223, 226, 232):
+        for index in (215, 223, 226, 232):   # ADDENDUM 466: 167 (Chobin #7) is a safe final row and may host now
             self.assertIn(index, self.excluded, index)
+        self.assertNotIn(167, self.excluded)
         for index in (34, 35):
             self.assertIn(index, self.excluded, index)
 

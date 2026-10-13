@@ -89,7 +89,8 @@ class TestTheEntryHalfIsTheGamesNow(unittest.TestCase):
         self.assertEqual(320, story_bytes.story_value_for_byte(0x28))
 
     def test_the_other_bumps_are_untouched(self) -> None:
-        self.assertEqual({"Pokemon HQ Lab", "SS Libra", "Phenac City"},
+        self.assertEqual({"Pokemon HQ Lab", "SS Libra", "Phenac City", "Cipher Key Lair",   # + ADDENDUM 476
+                          "Poke Spots"},                                                  # + ADDENDUM 480
                          {b.region for b in story_bytes.LIVE_STORY_BYTE_BUMPS})
 
 

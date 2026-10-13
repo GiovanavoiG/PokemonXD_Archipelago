@@ -5,7 +5,7 @@ nothing except for the standard archipelago connection logs, and the checks rece
 
 Nothing was deleted -- every narration line is real diagnostic output this project has needed at least once,
 and several are the only evidence that would explain a bad run after the fact. They were routed through
-`_note`/`_note_warn`, which print only when `!verbose` is on.
+`_note`/`_note_warn`, which print only when `/verbose` is on.
 
 WHY THIS DOES NOT IMPORT `Client.py` DIRECTLY: the same documented sandbox limitation as
 test_addendum_109_getitem_command.py -- `Client.py` -> `CommonClient` -> `MultiServer` ->
@@ -73,22 +73,22 @@ ALLOWED_AUTOMATIC = {
     # the carried berry plus the server's checked list. In the same class as "Sent ... check(s)" and stronger:
     # these are locations the player earned in a previous session and is being told about now, at most once per
     # connect, and only on a seed where a chest was opened while the client was not running. Gating it behind
-    # `!verbose` would mean silently sending checks the player has no way to account for.
+    # `/verbose` would mean silently sending checks the player has no way to account for.
     "opened before the client connected",   # ADDENDUM 445
     # ADDENDUM 322: the other half of that funnel -- a location this SEED does not contain, named once and
     # then held. Same class as the one-shot guidance above: it is the diagnostic for an options mismatch that
     # used to disconnect the player, and a player who never hits one never sees it.
     "this seed has no such location(s)",
-    # ADDENDUM 359: the asynchronous half of `!mirorforce`. The command arms and returns immediately; the
+    # ADDENDUM 359: the asynchronous half of `/mirorforce`. The command arms and returns immediately; the
     # outcome -- he appeared, or which gate refused it -- arrives from the poll loop seconds later. It is
-    # not narration: it is the answer to something the player typed, and gating it behind `!verbose` would
+    # not narration: it is the answer to something the player typed, and gating it behind `/verbose` would
     # mean running a command and being told nothing. At most one line per invocation, and none at all
     # unless the player uses it.
-    "!mirorforce: ",
+    "/mirorforce: ",
     # ADDENDUM 351: Death Link, both directions. Same class as "Received {item_name}" and
     # "Sent {len(fresh)} check(s)" -- it is a multiworld event the player is part of, it is caused by
     # somebody else, and a party that faints with no explanation is the definition of a line you cannot
-    # gate behind `!verbose`. Only ever one line per death, and none at all on a seed without the option.
+    # gate behind `/verbose`. Only ever one line per death, and none at all on a seed without the option.
     "Death Link: ",
     # -- the goal, which is the one thing a player would never forgive being silent.
     "completing this seed's goal",
@@ -99,13 +99,13 @@ ALLOWED_AUTOMATIC = {
     "Couldn't apply {item_name}'s effect",
     "Couldn't deliver {item_name} yet",   # ADDENDUM 445: one line
     "failed forcing delivery",
-    "!getitem: couldn't force",          # ADDENDUM 445: one line
+    "/getitem: couldn't force",          # ADDENDUM 445: one line
     "Lost the game for a moment",        # ADDENDUM 445: the poll loop's catch-all, one line
     "Could not read a file table",
     "Could not read the area story-byte memory file",
     # -- one-shot actionable guidance: printed at most once per session, each with exactly one fix.
     # ADDENDUM 201: the chest locations this client cannot detect. Deliberately LOUD and automatic rather than
-    # behind `!verbose` -- a check that can never fire is not narration, it is a seed that may not be
+    # behind `/verbose` -- a check that can never fire is not narration, it is a seed that may not be
     # completable, and the player has to learn it at connect rather than by never finding the item.
     "have no measured open-flag position",
     # ADDENDUM 253: the Bag slot that cannot hold any more. This is a real failure being reported rather than
@@ -121,11 +121,11 @@ ALLOWED_AUTOMATIC = {
     # argument for the whole category. That branch was already wrapped and already reported through
     # `_note_warn` -- correctly, by the letter of this rule -- and the result was that a `TypeError` on the
     # very first record took the ENTIRE shop-description feature out for months, with the explanation sitting
-    # behind `!verbose` where nobody looked. The player reported it as "descriptions do not have the AP item
+    # behind `/verbose` where nobody looked. The player reported it as "descriptions do not have the AP item
     # listed at all", i.e. as never built.
     #
     # The distinction this rule actually wants is not cosmetic-vs-load-bearing. It is NARRATION vs "a feature
-    # you asked for is off and will stay off". The first belongs behind `!verbose`; the second has to be said
+    # you asked for is off and will stay off". The first belongs behind `/verbose`; the second has to be said
     # once, out loud, or it is not said at all. Fires only when the scout produced nothing AND had problems,
     # so a working seed never sees it.
     "Shop scouting failed",   # ADDENDUM 445
@@ -134,15 +134,15 @@ ALLOWED_AUTOMATIC = {
     # as the line above -- a check that cannot fire on its own is not narration, and this one is silent in
     # every other way. Printed at most once per session (`backfill_announced`) and it names the fix.
     "logger.warning(line)",
-    "Tip: run `!fstiso",   # ADDENDUM 445
+    "Tip: run `/fstiso",   # ADDENDUM 445
     "Still waiting to detect your party as loaded in-game",
     # -- the delivery-safety warning that names a real missing companion item (ADDENDUM 179). This one is
     #    the whole reason the Data ROM / ID Card softlock is recoverable, so it is never gated.
     "has not landed yet",   # ADDENDUM 445
     # -- ADDENDUM 215: the story-byte watch. This is the one automatic line the player asked for BY NAME
     #    ("Add a toggle to the client for printing out every time the story byte changes"), and it is
-    #    unreachable unless they turn `!storywatch` on -- so it is opt-in output rather than narration. It
-    #    deliberately does not go through `_note`: routing it there would let `!verbose off` silence a watch
+    #    unreachable unless they turn `/storywatch` on -- so it is opt-in output rather than narration. It
+    #    deliberately does not go through `_note`: routing it there would let `/verbose off` silence a watch
     #    the player switched on, which is the opposite of what was asked for.
     "logger.info(line)",
     # ADDENDUM 294: the ten-minute battle hold firing. The player asked to "double check our item delivery"
@@ -171,15 +171,15 @@ ALLOWED_AUTOMATIC = {
 # `logger.info`. Listed explicitly rather than inferred: a helper that starts ALSO being called from the poll
 # loop would otherwise silently inherit the exemption, which is how a narration line sneaks back in.
 COMMAND_ONLY_HELPERS = {
-    "declare_goal_complete",       # !goal
-    "queue_manual_check",          # !checked
-    "print_remaining_manual_checks",  # !remaining
-    "print_shadow_species_map",    # !shadowdex
-    "print_catch_sources",         # !catches (ADDENDUM 310)
-    "force_deliver_pending_items",  # !getitem
-    "_fuzzy_match_overworld_location",  # shared by !checked / !remaining, reached only from them
-    "print_seed_location_check",   # !seedcheck (ADDENDUM 251)
-    "apply_fst_iso",               # !fstiso (its startup auto-load path is separately gated on `remember`)
+    "declare_goal_complete",       # /goal
+    "queue_manual_check",          # /checked
+    "print_remaining_manual_checks",  # /remaining
+    "print_shadow_species_map",    # /shadowdex
+    "print_catch_sources",         # /catches (ADDENDUM 310)
+    "force_deliver_pending_items",  # /getitem
+    "_fuzzy_match_overworld_location",  # shared by /checked / /remaining, reached only from them
+    "print_seed_location_check",   # /seedcheck (ADDENDUM 251)
+    "apply_fst_iso",               # /fstiso (its startup auto-load path is separately gated on `remember`)
 }
 
 
@@ -231,7 +231,7 @@ class TestNothingNarratesByDefault(unittest.TestCase):
             [],
             "These automatic logger calls are neither a connection log, a received item, a sent check, the "
             "goal, a real failure, nor one-shot actionable guidance -- route them through _note()/_note_warn() "
-            "so `!verbose` controls them, or add them to ALLOWED_AUTOMATIC on purpose.",
+            "so `/verbose` controls them, or add them to ALLOWED_AUTOMATIC on purpose.",
         )
 
     def test_the_narration_actually_went_somewhere_rather_than_being_deleted(self) -> None:
@@ -249,21 +249,21 @@ class TestNothingNarratesByDefault(unittest.TestCase):
         """The two chattiest lines in the client (one per doorway, one per story advance) are the ones the
         player would have seen most, so they are pinned individually."""
         # UPDATED 2026-09-15 (ADDENDUM 215). The story-byte line is no longer a bare string: it is built
-        # once and then sent EITHER to logger.info (when !storywatch is on) or to _note (when it is not), and
+        # once and then sent EITHER to logger.info (when /storywatch is on) or to _note (when it is not), and
         # the wording now distinguishes an advance from a move backwards, since this client writes lower
         # values itself. The property being pinned is unchanged -- with the watch off, the line is gated.
         index = SOURCE.index("Room change:")
-        self.assertIn("_note(", SOURCE[max(0, index - 200):index], "'Room change:' is not gated behind !verbose")
+        self.assertIn("_note(", SOURCE[max(0, index - 200):index], "'Room change:' is not gated behind /verbose")
 
         # ADDENDUM 350 added two lines between the string and the gate -- the story variable itself, and the
         # not-a-multiple-of-ten note -- so the window widened. The property is unchanged: whatever the line
-        # ends up saying, it reaches logger.info only with !storywatch on.
+        # ends up saying, it reaches logger.info only with /storywatch on.
         index = SOURCE.index('f"Story byte {direction}')
         window = SOURCE[index:index + 1200]
         self.assertIn("if ctx.story_byte_watch:", window,
-                      "the story-byte line must only reach logger.info when !storywatch is on")
+                      "the story-byte line must only reach logger.info when /storywatch is on")
         self.assertIn("_note(ctx, line)", window,
-                      "with !storywatch off the story-byte line must still be gated behind !verbose")
+                      "with /storywatch off the story-byte line must still be gated behind /verbose")
 
 
 class TestTheGateItself(unittest.TestCase):
@@ -322,11 +322,11 @@ class TestTheGateItself(unittest.TestCase):
 class TestVerboseCommand(unittest.TestCase):
     def test_the_command_exists_and_accepts_on_off_and_a_bare_toggle(self) -> None:
         match = re.search(r"def _cmd_verbose\(.*?\n(?=    def |\n\nclass )", SOURCE, re.S)
-        self.assertIsNotNone(match, "!verbose command not found")
+        self.assertIsNotNone(match, "/verbose command not found")
         body = match.group(0)
         self.assertIn('"on"', body)
         self.assertIn('"off"', body)
-        self.assertIn("not self.ctx.verbose_logging", body, "no bare `!verbose` toggle")
+        self.assertIn("not self.ctx.verbose_logging", body, "no bare `/verbose` toggle")
 
     def test_the_context_defaults_it_off_before_the_fst_guard_that_reads_it(self) -> None:
         """FstGuard's `log_verbose` closes over the context, so the attribute has to exist first -- an

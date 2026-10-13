@@ -37,6 +37,11 @@ class LocationData:
 # shadow expansion setting purifications available". Player: "The purification checks should be raised, yes."
 # A seed creates `Purify 1..(83 + the Shadows its expansion really added)`; see `create_regions_and_locations`.
 VANILLA_SHADOW_COUNT = 83
+# ADDENDUM 479: the vanilla Shadows that can be had before the goal -- all but Greevil's seven (Lugia and his six)
+# and Miror B.'s post-game Dragonite. Only these get `Purify N` rungs; `PURIFICATION_LOCATION_COUNT` keeps the old
+# 127-name table so every location id stays where it was.
+POST_GOAL_VANILLA_SHADOW_COUNT = 8
+PRE_GOAL_VANILLA_SHADOW_COUNT = VANILLA_SHADOW_COUNT - POST_GOAL_VANILLA_SHADOW_COUNT
 PURIFICATION_LOCATION_COUNT = VANILLA_SHADOW_COUNT + 44
 
 
@@ -975,6 +980,9 @@ for _region, _names in LOCATIONS_BY_REGION.items():
 # The final "defeat the boss" location is an event: it has no numeric id and always holds the locked
 # "Victory" event item (see __init__.py). Keep it out of the real id table.
 EVENT_LOCATION_NAME = "Citadark Isle - Defeat Cipher Boss"
+# ADDENDUM 483 (issue #1): the Mt. Battle goal's own event, used instead of the one above when `goal` is Win Mt Battle.
+# Never in LOCATIONS_BY_REGION, so it has no id and touches no frozen numbering.
+MT_BATTLE_EVENT_LOCATION_NAME = "Mt. Battle - Defeat the Final Trainer"
 LOCATION_TABLE: dict[str, LocationData] = {
     name: data for name, data in _ALL_LOCATIONS.items() if name != EVENT_LOCATION_NAME
 }
@@ -2379,7 +2387,7 @@ _FROZEN_LOCATION_OFFSETS: dict[str, int] = {
     'Kaminko Crane Room Chest 2': 1656,  # was 'Chest 113 (Room 172)'
 # ADDENDUM 176: the 120 per-shop locations. Only 24 are LIVE; the other 96 belong to the eight shops whose
 # room id has never been read in game (game_data/shops.UNCONFIRMED_SHOPS) and are inert. LEFT HERE rather
-# than deleted: flipping a shop's `confirmed` flag after one `!room` reading must give it back the SAME ids.
+# than deleted: flipping a shop's `confirmed` flag after one `/room` reading must give it back the SAME ids.
 # ADDENDUM 111's berry occurrence names held 1073-1180 and are inert for the same reason.
 'Outskirt Stand Shop AP Item 1': 1521,
     'Outskirt Stand Shop AP Item 2': 1522,
@@ -2656,7 +2664,7 @@ def create_regions_and_locations(world) -> dict[str, Region]:
     # off as checks." And when on, one `Purify N` per Shadow this seed really holds.
     include_purifications = bool(getattr(world.options, "purification_checks", 1))
     purification_location_count = int(getattr(world, "_purification_location_count", None)
-                                       or VANILLA_SHADOW_COUNT + int(getattr(world.options,
+                                       or PRE_GOAL_VANILLA_SHADOW_COUNT + int(getattr(world.options,
                                                                              "shadow_pokemon_expansion", 0)))
     purification_location_count = min(purification_location_count, PURIFICATION_LOCATION_COUNT)
     # ADDENDUM 270: `Unlock - X` locations exist only when travel randomization does, because

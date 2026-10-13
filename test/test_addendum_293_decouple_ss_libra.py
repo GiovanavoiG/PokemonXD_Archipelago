@@ -37,7 +37,8 @@ gate and all it is supposed to gate.
    why the loosened graph is a promise the client can keep, and it is why `SNAGEM_BASE_FLOOR` is now fenced
    rather than merely derived -- the whole argument rests on that byte being 0x62.
 2. **In game, in a vanilla-travel seed:** the live bump, `SS Libra` 0x5B -> 0x5D. The ship stops being a rung
-   on the story ladder the moment the player stands on it.
+   on the story ladder the moment the player stands on it. (ADDENDUM 469 withdrew this: in vanilla travel the
+   ship plays the theft as written. The bump is location-shuffle only.)
 3. **In logic, with travel shuffle:** the Snagem prerequisite is withdrawn and the Key Lair exterior is
    re-sourced from `Kaminko's House (Robo Groudon)`, the ship's own predecessor.
 4. **In logic, in a vanilla-travel seed:** NOTHING CHANGES, and that is the safety argument rather than an
@@ -119,8 +120,10 @@ class TestTheSSLibraSkip(unittest.TestCase):
         for scooter in (False, True):
             self.assertIsNotNone(story_bytes.live_bump_for("SS Libra", 0x5B, True, scooter),
                                  "location shuffle: fires whatever the Scooter option says")
-        self.assertIsNotNone(story_bytes.live_bump_for("SS Libra", 0x5B, False, True),
-                             "vanilla travel WITH the Scooter shuffled: fires")
+        # ADDENDUM 469: "On vanilla locations, remove our SS Libra story bump" -- the Scooter option no longer
+        # matters; in vanilla travel the ship plays its theft as written.
+        self.assertIsNone(story_bytes.live_bump_for("SS Libra", 0x5B, False, True),
+                          "vanilla travel WITH the Scooter shuffled: no longer fires (ADDENDUM 469)")
         self.assertIsNone(story_bytes.live_bump_for("SS Libra", 0x5B, False, False),
                           "vanilla travel without it: the story walks this rung itself, so there is nothing "
                           "here to fix and we must not touch the byte")
@@ -157,6 +160,13 @@ class TestTheSkipWritesInBothModes(unittest.TestCase):
     def test_a_vanilla_seed_without_the_scooter_option_writes_nothing(self) -> None:
         bumper = ram_client.LiveStoryByteBumper()
         self.assertIsNone(bumper.poll(0x80479000, "SS Libra", 0x5B, False, False))
+        self.assertEqual(self.written, [])
+
+    def test_a_vanilla_seed_with_the_scooter_option_writes_nothing_either(self) -> None:
+        """ADDENDUM 469: vanilla travel never skips the Snag Machine theft."""
+        bumper = ram_client.LiveStoryByteBumper()
+        for live in (0x5B, 0x5C):
+            self.assertIsNone(bumper.poll(0x80479000, "SS Libra", live, False, True))
         self.assertEqual(self.written, [])
 
     def test_it_claims_the_write_so_nothing_credits_the_player_for_it(self) -> None:

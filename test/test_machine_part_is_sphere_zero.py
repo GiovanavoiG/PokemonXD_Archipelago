@@ -13,6 +13,11 @@ open and the Part gates literally nothing -- measured at 573 of 677 locations in
 in the on mode -- so the fill was free to bury it, and did.
 
 These tests assert the guarantee directly rather than trusting either accident.
+
+ADDENDUM 483 (issue #6) RETRACTS the Snag Machine half. Player: "You get snag machine without machine part, therefore
+that logic is wrong." The lab hands over the Snag Machine at 0x0F; the Machine Part is Gateon's 0x16, after it. The
+Part stays sphere zero -- with travel shuffle off it still opens Agate Village and everything past it -- but it no
+longer gates snagging or the purification ladder.
 """
 from __future__ import annotations
 
@@ -39,36 +44,28 @@ class _MachinePartIsReachableImmediately:
         self.assertTrue(
             placed[0].can_reach(empty),
             f"{part} is on {placed[0].name} in {placed[0].parent_region.name}, which is not reachable with "
-            f"nothing collected -- the Snag Machine is behind it, so the run is stuck before it starts",
+            f"nothing collected -- Agate Village is behind it with vanilla travel, so the run is stuck before it "
+            f"starts",
         )
 
     def test_it_is_declared_early_rather_than_left_to_luck(self) -> None:
         part = items.requirement_to_pool_item("Machine Part")
         self.assertEqual(1, self.multiworld.early_items[self.player].get(part))
 
-    def test_the_purification_ladder_is_behind_the_snag_machine(self) -> None:
-        """"Sphere zero" has to exclude the places that need the Part, or it means nothing.
-
-        The first cut of ADDENDUM 191 declared the Machine Part early and stopped there. The purification
-        ladder was gated on reaching Agate Village alone -- which with travel randomization on is sphere zero
-        -- so `Purify N` counted as a sphere-zero location and the fill put the Machine Part on `Purify 6`:
-        purify six Shadow Pokemon to obtain the Snag Machine you need to snag any. Purifying means snagging
-        first, so the ladder is ANDed with the Part.
-        """
-        empty = CollectionState(self.multiworld)
-        first = self.multiworld.get_location("Purify 1 Shadow Pokemon", self.player)
-        self.assertFalse(
-            first.can_reach(empty),
-            "the purification ladder is reachable with nothing collected, so the Machine Part can be hidden "
-            "on it -- behind the Snag Machine it is needed to obtain",
-        )
+    def test_the_purification_ladder_needs_the_part_only_through_agate(self) -> None:
+        """RETARGETED BY ADDENDUM 483. Was "the purification ladder is behind the Snag Machine": the ladder needed the
+        Machine Part outright. Now it needs Agate Village (the Purify Chamber), which needs the Part only with travel
+        shuffle off."""
         part = items.requirement_to_pool_item("Machine Part")
-        with_part = CollectionState(self.multiworld)
-        with_part.collect(self.get_item_by_name(part), True)
-        with_part.sweep_for_advancements()
-        self.assertTrue(first.can_reach(with_part),
-                        "and it must open on the Part alone once Agate Village is reachable")
-
+        first = self.multiworld.get_location("Purify 1 Shadow Pokemon", self.player)
+        without = CollectionState(self.multiworld)
+        for item in self.multiworld.itempool:
+            if item.player == self.player and item.name != part and item.advancement:
+                without.collect(item, True)
+        agate_needs_the_part = not self.multiworld.worlds[self.player].options.randomize_travel_locations
+        self.assertEqual(not agate_needs_the_part, first.can_reach(without))
+        without.collect(self.get_item_by_name(part), True)
+        self.assertTrue(first.can_reach(without))
 
 class TestMachinePartTravelOn(_MachinePartIsReachableImmediately, PokemonXDTestBase):
     options = {"randomize_travel_locations": True, "key_item_shuffle": True,

@@ -68,7 +68,9 @@ class TestEntryFloorIsTheAreasFirstTier(unittest.TestCase):
         overridden = {name for name, region in
                       ((d.name, getattr(d, "region", None)) for d in md.CONFIRMED)
                       if region and sb.area_entry_floor(region) != sb.area_unlock_floor(region)}
-        self.assertEqual({"Cipher Key Lair", "Phenac City"}, overridden)
+        # ADDENDUM 473 added the three Poke Spots (one region): entered at 0x37 so the Rock spot's tray works.
+        self.assertEqual({"Cipher Key Lair", "Phenac City", "Rock Poke Spot", "Oasis Poke Spot", "Cave Poke Spot"},
+                         overridden)
 
     def test_an_always_open_place_has_its_own_first_visit_floor(self) -> None:
         """RETARGETED by ADDENDUM 279. These asserted None -- "the rules are the only floor" -- which was an

@@ -315,13 +315,14 @@ class PokemonXDWorld(World):
 
         # The real bound is this seed's expansion setting (83 vanilla + the expansion's add), not the option's
         # 127 ceiling, so it is checked here rather than in the Range.
-        _vanilla_shadow_count = 83
+        _vanilla_shadow_count = locations.PRE_GOAL_VANILLA_SHADOW_COUNT
         try:
             from .game_data.shadow_regions import shadow_regions_in_graph_order
 
             # ADDENDUM 423/424: the Shadows still at their vanilla holders -- Nightmare Citadark's relocated ones are
-            # counted with the expansion's, on the ladder past this point.
-            _counted = len(shadow_regions_in_graph_order(self._nightmare_removed_dex))
+            # counted with the expansion's, on the ladder past this point. ADDENDUM 479: and only those that can be
+            # had before the goal -- Greevil's and Miror B.'s post-game Dragonite have no checks.
+            _counted = len(shadow_regions_in_graph_order(self._nightmare_removed_dex, include_post_goal=False))
             if _counted:
                 _vanilla_shadow_count = _counted
         except Exception:  # noqa: BLE001 -- a missing census must not take generation down over a bound check
@@ -343,9 +344,9 @@ class PokemonXDWorld(World):
                 + f"{int(self.options.shadow_pokemon_expansion)} from 'Shadow Pokemon Expansion')",
             )
 
-        # The Machine Part is sphere zero in every mode: it repairs the scooter AND progresses the HQ Lab,
-        # where the Snag Machine comes from. It gated 573 of 677 locations with travel randomization off and 0
-        # of 675 with it on (ADDENDUM 106 opens Agate), where fill put it in sphere 6-7.
+        # The Machine Part is sphere zero in every mode: it repairs the scooter and, with travel randomization off,
+        # opens Agate Village -- 573 of 677 locations sit behind it there. It has nothing to do with the Snag Machine,
+        # which the HQ Lab hands over first (0x0F, before Gateon's Machine Part at 0x16; ADDENDUM 483, issue #6).
         if items.requirement_to_pool_item("Machine Part") in items.GATING_KEY_ITEM_NAMES and \
                 bool(getattr(self.options, "key_item_shuffle", 1)):
             self.multiworld.early_items[self.player][
@@ -434,6 +435,10 @@ class PokemonXDWorld(World):
                         _mon.level = _relocated_level[_mon.index]
 
         shadow_obtainable_dex: set[int] = set()
+        # ADDENDUM 479: species at a post-goal Shadow slot, and species any other Shadow slot (or the expansion, or
+        # a relocation) hands out. A species ONLY at post-goal slots gets no `Catch - X`.
+        _post_goal_shadow_dex: set[int] = set()
+        _pre_goal_shadow_dex: set[int] = set()
         # ADDENDUM 183: recorded now because the shadow pool is shuffled IN PLACE -- re-loading it at
         # set_rules time returns vanilla species and gates the wrong ones. Labels, not regions.
         self._shadow_catch_labels: dict[int, list[str]] = {}
@@ -469,9 +474,15 @@ class PokemonXDWorld(World):
                                                                exempt=_exempt):
                     _species_changed = True
             if self.options.shuffle_shadow_lugia:
+                from .game_data.shadow_regions import ddpk_for_dpkm as _ddpk_for_dpkm, is_post_goal_ddpk
+
+                # ADDENDUM 479: the post-goal slots still at their own trainers -- no checks there.
+                _post_goal_dpkm = frozenset(dpkm for dpkm, ddpk in _ddpk_for_dpkm().items()
+                                            if is_post_goal_ddpk(ddpk) and dpkm not in _relocated_host)
                 if shadow_legendaries.place_shadow_lugia(
                         shadow_pool, {i: sp for i, (sp, _n) in original_by_index.items()}, self.random,
-                        randomized=bool(self.options.randomize_shadow_species)) is not None:
+                        randomized=bool(self.options.randomize_shadow_species),
+                        exclude_indices=_post_goal_dpkm) is not None:
                     _species_changed = True
             if _species_changed:
                 entries: list[dict[str, Any]] = []
@@ -505,11 +516,17 @@ class PokemonXDWorld(World):
                             # ADDENDUM 424: gated where it now is -- its host, keyed like a generated Shadow.
                             self._shadow_catch_expansion_hosts.setdefault(dex, []).append(_relocated_host[mon.index])
                             continue
-                        # This slot's fixed AP location name. A list, so callers take the earliest.
-                        self._shadow_catch_labels.setdefault(dex, []).append(trainer.name)
-                        from .game_data.shadow_regions import ddpk_for_dpkm
+                        from .game_data.shadow_regions import ddpk_for_dpkm, is_post_goal_ddpk
 
                         _ddpk = ddpk_for_dpkm().get(mon.index)
+                        if _ddpk is not None and is_post_goal_ddpk(_ddpk):
+                            # ADDENDUM 479: still a Shadow this seed holds (the Poke Spots keep away from its
+                            # species), but no check of its own -- only after the goal could it be purified.
+                            _post_goal_shadow_dex.add(dex)
+                            continue
+                        _pre_goal_shadow_dex.add(dex)
+                        # This slot's fixed AP location name. A list, so callers take the earliest.
+                        self._shadow_catch_labels.setdefault(dex, []).append(trainer.name)
                         if _ddpk is not None:
                             self._shadow_catch_ddpks.setdefault(dex, []).append(_ddpk)
 
@@ -523,7 +540,10 @@ class PokemonXDWorld(World):
             from .randomizer.shadow_expansion import build_shadow_expansion_plans
             from .randomizer.enhanced_difficulty import ENHANCED_DIFFICULTY_LEVEL_MULTIPLIER
 
-            expansion_free_slot_census = real_trainer_free_slot_census()
+            # ADDENDUM 487: a mirrored first fight hosts no more than its second fight has room to copy.
+            from .game_data.shadow_mirrors import cap_census_for_mirrored_hosts
+
+            expansion_free_slot_census = cap_census_for_mirrored_hosts(real_trainer_free_slot_census())
             # ADDENDUM 424: the relocated Shadows took their slots first.
             if expansion_free_slot_census and self._nightmare_relocations:
                 _taken = {int(p["trainer_index"]): len(p["shadows"]) for p in self._nightmare_relocations}
@@ -551,6 +571,18 @@ class PokemonXDWorld(World):
 
                 _gift_line = {133} | set(EEVEELUTION_DEX_NUMBERS) | set(self.starter_line_dex)   # ADDENDUM 443
                 expansion_excluded_species = expansion_excluded_species | {
+                    index for index in (internal_index_for_national_dex(dex) for dex in _gift_line)
+                    if index is not None
+                }
+            # ADDENDUM 486: the species whose evolution LINES are taken -- this seed's real Shadows (post-shuffle when
+            # Randomize Shadow Species ran) and the gift line. Not the vanilla 83 once shuffled: excluding their lines
+            # as well would leave too few lines for the expansion.
+            _line_reserved = None
+            if expansion_excluded_species is not None:
+                _current_shadows = ({entry["new_species_index"] for entry in self._shadow_species_assignment["entries"]
+                                     if entry.get("new_species_index") is not None}
+                                    if self._shadow_species_assignment else set(vanilla_shadow_species()))
+                _line_reserved = _current_shadows | {
                     index for index in (internal_index_for_national_dex(dex) for dex in _gift_line)
                     if index is not None
                 }
@@ -585,6 +617,7 @@ class PokemonXDWorld(World):
                         ENHANCED_DIFFICULTY_LEVEL_MULTIPLIER
                         if self.options.enhanced_difficulty_level_scaling else 1.0
                     ),
+                    line_reserved_species=_line_reserved,   # ADDENDUM 486
                 )
                 for plan in self._shadow_expansion_plans:
                     for mon in plan["new_pokemon"]:
@@ -595,6 +628,38 @@ class PokemonXDWorld(World):
                             self._shadow_catch_expansion_hosts.setdefault(dex, []).append(
                                 int(plan["trainer_index"])
                             )
+
+        # ADDENDUM 467: every other occurrence of a host trainer gets the same Shadow (same DDPK record), in a slot no
+        # host claimed. Planned last, so it only ever takes what is left; ED reserves these slots too.
+        self._shadow_mirror_slots: "dict[int, int]" = {}
+        try:
+            from .game_data import shadow_mirrors
+            from .game_data.real_trainer_data import real_trainer_free_slot_census as _free_census
+
+            _host_shadows: "list[tuple[int, dict]]" = []
+            _host_taken: "dict[int, int]" = {}
+            for _plan in self._nightmare_relocations:
+                for _shadow in _plan["shadows"]:
+                    _host_shadows.append((int(_plan["trainer_index"]), _shadow))
+                _host_taken[int(_plan["trainer_index"])] = (
+                    _host_taken.get(int(_plan["trainer_index"]), 0) + len(_plan["shadows"]))
+            for _plan in (self._shadow_expansion_plans or ()):
+                for _mon in _plan["new_pokemon"]:
+                    _host_shadows.append((int(_plan["trainer_index"]), _mon))
+                _host_taken[int(_plan["trainer_index"])] = (
+                    _host_taken.get(int(_plan["trainer_index"]), 0) + len(_plan["new_pokemon"]))
+            if _host_shadows:
+                self._shadow_mirror_slots = shadow_mirrors.plan_mirrors(
+                    _free_census(), _host_shadows, _host_taken,
+                    excluded=frozenset(self._shadow_removal_trainers) | frozenset(self._nightmare_teams or ()))
+        except Exception:
+            self._shadow_mirror_slots = {}
+            for _plan in self._nightmare_relocations:
+                for _shadow in _plan["shadows"]:
+                    _shadow["mirror_trainer_indices"] = []
+            for _plan in (self._shadow_expansion_plans or ()):
+                for _mon in _plan["new_pokemon"]:
+                    _mon["mirror_trainer_indices"] = []
 
         # ADDENDUM 415: one `Purify N` per Shadow this seed REALLY holds -- the vanilla count plus what the expansion
         # actually placed, which can fall short of the request when hosts run out. create_regions reads this.
@@ -611,9 +676,14 @@ class PokemonXDWorld(World):
 
         # What a player can catch this seed; locations.create_regions_and_locations decides the "Catch -
         # {species}" set from it. None means don't trim -- the 11 Poke Spot species alone would gut the list.
+        # ADDENDUM 479: minus the species only a post-goal Shadow carries -- no check for those.
+        self._post_goal_only_dex: "set[int]" = (
+            _post_goal_shadow_dex - _pre_goal_shadow_dex - set(self._shadow_catch_expansion_hosts)
+            - pokespot_obtainable_dex - {self.starter_dex})
         self._obtainable_species_dex: set[int] | None = (
             None if shadow_pool is None
-            else shadow_obtainable_dex | pokespot_obtainable_dex | {self.starter_dex}  # the starter, always guaranteed
+            else (shadow_obtainable_dex - self._post_goal_only_dex) | pokespot_obtainable_dex
+            | {self.starter_dex}  # the starter, always guaranteed
         )
 
     def _assign_shadow_movesets(self, seed_data: dict) -> None:
@@ -622,6 +692,12 @@ class PokemonXDWorld(World):
         level, else the level pass's final value for its DPKM record, else the pool's own."""
         assignment = getattr(self, "_shadow_species_assignment", None)
         if not assignment:
+            return
+        # ADDENDUM 462: Shadow Pokemon Inherit Replaced Moves -- the pre-427 behaviour, back as a choice. Every Shadow
+        # keeps its DPKM record's vanilla ordinary moves (the replaced Shadow's), so nothing is written here.
+        if bool(getattr(self.options, "shadow_inherited_moves", 0)):
+            seed_data["notes"].append("Shadow movesets: Shadow Pokemon keep the moves of the Shadows they replaced "
+                                      "(Shadow Pokemon Inherit Replaced Moves).")
             return
         # ADDENDUM 435: the assignment also exists for No Legendary Shadows / Shuffle Shadow Lugia alone; then only
         # the Shadows whose species actually moved get new moves.
@@ -674,7 +750,9 @@ class PokemonXDWorld(World):
         from .game_data.real_trainer_data import MT_BATTLE_TRAINER_INDICES, real_trainer_free_slot_census
         from .randomizer.enhanced_difficulty import ENHANCED_DIFFICULTY_LEVEL_MULTIPLIER
 
-        census = real_trainer_free_slot_census()
+        from .game_data.shadow_mirrors import cap_census_for_mirrored_hosts
+
+        census = cap_census_for_mirrored_hosts(real_trainer_free_slot_census())   # ADDENDUM 487
         if not census:
             return []
         excluded = (
@@ -911,17 +989,36 @@ class PokemonXDWorld(World):
         """`{region: the sphere it first becomes reachable in}`, walked over the filled multiworld.
 
         Regions are recorded BEFORE each sphere's items are collected, so a region opened BY sphere N's items
-        is N+1. Deterministic despite iterating sets: only `first[region]`, an integer, escapes."""
+        is N+1. Deterministic despite iterating sets: only `first[region]`, an integer, escapes.
+
+        ADDENDUM 483 (issue #13): the walk is a playthrough-style sweep of the WHOLE multiworld, so it is now done
+        once for every Pokemon XD slot together (cached on the multiworld) and stops as soon as every wanted region
+        of every such slot is placed. Neither changes an answer: the spheres do not depend on whose regions are
+        watched, and nothing after the last wanted region is recorded anyway."""
+        key = frozenset(wanted)
+        cache = getattr(self.multiworld, "_pokemon_xd_region_spheres", None)
+        if cache is None or cache[0] != key:
+            players = sorted(player for player, world in self.multiworld.worlds.items() if world.game == self.game)
+            cache = (key, self._walk_region_spheres(key, players))
+            self.multiworld._pokemon_xd_region_spheres = cache
+        return dict(cache[1].get(self.player, {}))
+
+    def _walk_region_spheres(self, wanted: "frozenset[str]", players: "list[int]") -> "dict[int, dict[str, int]]":
         from BaseClasses import CollectionState
 
         state = CollectionState(self.multiworld)
         locations = set(self.multiworld.get_filled_locations())
-        first: "dict[str, int]" = {}
+        first: "dict[int, dict[str, int]]" = {player: {} for player in players}
+        goal = len(wanted) * len(players)
         index = 0
         while True:
-            for region in wanted:
-                if region not in first and state.can_reach_region(region, self.player):
-                    first[region] = index
+            for player in players:
+                seen = first[player]
+                for region in wanted:
+                    if region not in seen and state.can_reach_region(region, player):
+                        seen[region] = index
+            if sum(len(seen) for seen in first.values()) >= goal:
+                break      # every wanted region of every slot is placed -- the rest of the sweep records nothing
             sphere = {location for location in locations if location.can_reach(state)}
             if not sphere:
                 break
@@ -1070,6 +1167,10 @@ class PokemonXDWorld(World):
                 if name in items.OPTION_GATED_PROGRESSION_ITEMS and not shuffle_scooter_upgrade:
                     continue
                 item_pool.append(self.create_item(name))
+        # ADDENDUM 483 (issue #5): the Master Ball, once, as a useful item. It used to ride the progression pass.
+        for name in items.GUARANTEED_USEFUL_ITEM_NAMES:
+            if name not in items.ITEMS_REMOVED_FROM_POOL:
+                item_pool.append(self.create_item(name))
 
         # ADDENDUM 150: useful items had never once been placed. Fill.py only puts them on DEFAULT or PRIORITY
         # locations, and with 19 non-EXCLUDED locations against 19 progression items there were none -- each
@@ -1096,6 +1197,7 @@ class PokemonXDWorld(World):
                 name for name, data in ITEM_TABLE.items()
                 if data.classification.name == "useful"
                 and name not in items.ITEMS_REMOVED_FROM_POOL
+                and name not in items.GUARANTEED_USEFUL_ITEM_NAMES
             )
             self.random.shuffle(useful_names)
             draws = (useful_names * items.USEFUL_ITEM_MAX_COPIES)[:useful_budget]
@@ -1106,7 +1208,34 @@ class PokemonXDWorld(World):
         while len(item_pool) < total_locations:
             item_pool.append(self.create_filler())
 
+        # ADDENDUM 470: the Citadark Story Weight Parts are decided HERE and held out of the pool, then placed by
+        # pre_fill. Archipelago's own test (`test_itempool_not_modified`) forbids changing the itempool after
+        # create_items, which is what pre_fill used to do. `get_pre_fill_items` hands them to every all-state.
+        self._story_bound_part_items = self._withhold_story_bound_parts(item_pool)
+        for item in self._story_bound_part_items:
+            item_pool.remove(item)
+
         self.multiworld.itempool += item_pool
+
+    def _withhold_story_bound_parts(self, item_pool: "list[PokemonXDItem]") -> "list[PokemonXDItem]":
+        """ADDENDUM 435's roll, made in create_items (ADDENDUM 470): on `citadark_story_weight` percent of
+        location-shuffle-off seeds, `available - required + 1` Parts are kept for the late story."""
+        if self.options.randomize_travel_locations or not self.options.robo_kyogre_parts_unlock_citadark:
+            return []
+        weight = int(self.options.citadark_story_weight)
+        if weight <= 0 or self.random.randrange(100) >= weight:
+            return []
+        parts = [item for item in item_pool if item.name == items.MACGUFFIN_ITEM_NAME]
+        bind = len(parts) - int(self.options.robo_kyogre_parts_required) + 1
+        if bind <= 0 or bind > len(parts):
+            return []
+        return parts[:bind]
+
+    def get_pre_fill_items(self) -> "list[PokemonXDItem]":
+        """ADDENDUM 470: the Story-Weight Parts not yet placed -- in no itempool, so every all-state needs them."""
+        if getattr(self, "_hide_bound_parts", False):
+            return []
+        return [item for item in getattr(self, "_story_bound_part_items", None) or () if item.location is None]
 
     def create_item(self, name: str) -> PokemonXDItem:
         return items.create_item(self, name)
@@ -1129,7 +1258,7 @@ class PokemonXDWorld(World):
         are actually in the pool."""
         self._citadark_reliant_locations = frozenset()
         if not any(item.player == self.player and item.name == items.MACGUFFIN_ITEM_NAME
-                   for item in self.multiworld.itempool):
+                   for item in [*self.multiworld.itempool, *(getattr(self, "_story_bound_part_items", None) or ())]):
             return
         from worlds.generic.Rules import add_item_rule
 
@@ -1165,52 +1294,62 @@ class PokemonXDWorld(World):
         `citadark_story_weight` percent of seeds, `available - required + 1` Parts are placed now in this world's
         late-story locations -- so at most `required - 1` can be anywhere else, and the ride waits on the late
         story. The rest of the Parts, and every Part on the other seeds, go wherever fill puts them. A seed with
-        too few late locations simply skips the binding (noted in the spoiler log)."""
-        # Idempotent: a second pre_fill (some harnesses run the step twice) finds the Parts already placed.
-        already = sum(1 for location in self.multiworld.get_locations(self.player)
-                      if location.item is not None and location.item.player == self.player
-                      and location.item.name == items.MACGUFFIN_ITEM_NAME and location.locked)
-        self._story_bound_parts = already
-        if already:
+        too few late locations places the held Parts anywhere in this world instead (ADDENDUM 470; noted in the
+        spoiler log) -- they are in no itempool, so they cannot be handed back to the ordinary fill."""
+        # ADDENDUM 470: the roll and the choice of Parts happened in create_items (`_withhold_story_bound_parts`);
+        # those Parts are in no itempool, so this places them and touches nothing else. Idempotent: a second
+        # pre_fill (some harnesses run the step twice) finds nothing left to place.
+        chosen = list(getattr(self, "_story_bound_part_items", None) or ())
+        pending = [item for item in chosen if item.location is None]
+        self._story_bound_parts = 0
+        if not chosen:
             return
-        if self.options.randomize_travel_locations or not self.options.robo_kyogre_parts_unlock_citadark:
-            return
-        weight = int(self.options.citadark_story_weight)
-        if weight <= 0 or self.random.randrange(100) >= weight:
-            return
-        parts = [item for item in self.multiworld.itempool
-                 if item.player == self.player and item.name == items.MACGUFFIN_ITEM_NAME]
-        required = int(self.options.robo_kyogre_parts_required)
-        bind = len(parts) - required + 1
-        if bind <= 0 or bind > len(parts):
-            return
-        late = [location for region in self.LATE_STORY_REGIONS
-                for location in self.multiworld.get_region(region, self.player).locations
-                if location.item is None and location.address is not None
-                and location.progress_type != LocationProgressType.EXCLUDED
-                and location.name not in self._citadark_reliant_locations
-                and not location.name.startswith("Story - Krane Memo")]
-        if len(late) < bind:
-            self._story_bind_note = (f"Citadark Story Weight: only {len(late)} late-story location(s) for {bind} "
-                                     "Robo Kyogre Parts -- the Parts were left to the ordinary fill.")
-            return
+        if pending:
+            late = [location for region in self.LATE_STORY_REGIONS
+                    for location in self.multiworld.get_region(region, self.player).locations
+                    if location.item is None and location.address is not None
+                    and location.progress_type != LocationProgressType.EXCLUDED
+                    and location.name not in self._citadark_reliant_locations
+                    and not location.name.startswith("Story - Krane Memo")]
+            if len(late) < len(pending):
+                self._story_bind_note = (f"Citadark Story Weight: only {len(late)} late-story location(s) for "
+                                         f"{len(pending)} Robo Kyogre Parts -- placed anywhere in this world.")
+                late = []
+            self.random.shuffle(late)
+            self._place_bound_parts(late, pending, allow_partial=True, name="late-story")
+        # Anything the late story could not hold still has to be placed somewhere -- it is in no itempool. Any of
+        # this world's own fillable, non-Citadark-reliant locations: ordinary fill would have done the same.
+        rest = [item for item in chosen if item.location is None]
+        if rest:
+            anywhere = [location for location in self.multiworld.get_locations(self.player)
+                        if location.item is None and location.address is not None
+                        and location.progress_type != LocationProgressType.EXCLUDED
+                        and location.name not in self._citadark_reliant_locations]
+            self.random.shuffle(anywhere)
+            self._place_bound_parts(anywhere, rest, allow_partial=False, name="fallback")
+        late_names = {location.name for region in self.LATE_STORY_REGIONS
+                      for location in self.multiworld.get_region(region, self.player).locations}
+        self._story_bound_parts = sum(1 for item in chosen
+                                      if item.location is not None and item.location.name in late_names)
+
+    def _place_bound_parts(self, locations: list, parts: list, allow_partial: bool, name: str) -> None:
         from Fill import fill_restrictive
 
-        chosen = parts[:bind]
-        for item in chosen:
-            self.multiworld.itempool.remove(item)
-        self.random.shuffle(late)
-        state = self.multiworld.get_all_state(False)
+        if not locations or not parts:
+            return
+        # The state every OTHER item gives: the Parts being placed are left out, or the fill would let a Part sit
+        # behind itself. `_hide_bound_parts` takes them out of `get_pre_fill_items` for this one all-state.
+        self._hide_bound_parts = True
         try:
-            # fill_restrictive pops from the list it is given, so it gets a copy and `chosen` stays the record.
-            fill_restrictive(self.multiworld, state, late, list(chosen), single_player_placement=True, lock=True,
-                             allow_partial=True, name="Pokemon XD late-story Robo Kyogre Parts")
+            state = self.multiworld.get_all_state(False)
         finally:
-            # Anything that could not be placed goes back to the ordinary fill rather than being lost.
-            for item in chosen:
-                if item.location is None:
-                    self.multiworld.itempool.append(item)
-        self._story_bound_parts = sum(1 for item in chosen if item.location is not None)
+            self._hide_bound_parts = False
+        for item in [i for i in (getattr(self, "_story_bound_part_items", None) or ()) if i.location is None
+                     and i not in parts]:
+            self.collect(state, item)
+        # fill_restrictive pops from the lists it is given, so it gets copies.
+        fill_restrictive(self.multiworld, state, list(locations), list(parts), single_player_placement=True,
+                         lock=True, allow_partial=allow_partial, name=f"Pokemon XD {name} Robo Kyogre Parts")
 
     def fill_slot_data(self) -> Mapping[str, Any]:
         slot_data: dict[str, Any] = dict(
@@ -1244,7 +1383,7 @@ class PokemonXDWorld(World):
             slot_data["trainer_team_fingerprints"] = self._trainer_team_fingerprints
         if self._shadow_species_assignment is not None:
             # Per-seed dex -> location map for the client's live detection, preferred over shadow_species.py's
-            # static vanilla map. Also backs !shadowdex, so the original name and dex ride along.
+            # static vanilla map. Also backs /shadowdex, so the original name and dex ride along.
             slot_data["shadow_species_map"] = [
                 {
                     "location": entry["location"],
@@ -1395,6 +1534,8 @@ class PokemonXDWorld(World):
             "purification_rate": 100,
             # ADDENDUM 443: None keeps Eevee; otherwise {"dex", "internal", "moves"}.
             "starter": None,
+            # ADDENDUM 463: a plain flag -- the patcher changes one main.dol word so a TM is kept like an HM.
+            "infinite_tms": False,
             # ADDENDUM 441: 0 is vanilla. With it on, {trainer index: 0..1000 progress} travels too.
             "catch_rate_scaling": 0,
             "catch_rate_progress_by_trainer": None,
@@ -1645,6 +1786,8 @@ class PokemonXDWorld(World):
         seed_data["hold_b_to_advance"] = bool(self.options.hold_b_to_advance)
         seed_data["battle_speed"] = int(self.options.battle_speed)
         seed_data["max_catch_rate"] = bool(catch_guaranteed)   # ADDENDUM 447/448
+        seed_data["infinite_tms"] = bool(getattr(self.options, "infinite_tms", 0))   # ADDENDUM 463
+        seed_data["shadow_engine_fixes"] = True   # ADDENDUM 465: snagged Shadows stay gone; the Shadow list's species
         # ADDENDUM 443: the starter's species (internal index) and four moves, five main.dol immediates.
         if self._starter:
             seed_data["starter"] = {"dex": self._starter["dex"], "internal": self._starter["internal"],
@@ -1677,6 +1820,9 @@ class PokemonXDWorld(World):
                 # Subtract the expansion's claim before ED plans padding, or trainers are over-committed.
                 _reserved = dict(shadow_slots_consumed_by_trainer)
                 for _host, _count in _relocation_slots.items():
+                    _reserved[_host] = _reserved.get(_host, 0) + _count
+                # ADDENDUM 467: the copies of those Shadows on the hosts' other occurrences hold slots as well.
+                for _host, _count in (getattr(self, "_shadow_mirror_slots", None) or {}).items():
                     _reserved[_host] = _reserved.get(_host, 0) + _count
                 ed_team_census = adjust_team_census_for_reserved_slots(ed_team_census, _reserved)
                 # A no-op frozenset(): MT_BATTLE_TRAINER_INDICES is permanently empty here.

@@ -238,9 +238,14 @@ class TestVanillaTravel(_ScalingWorld):
     def test_the_story_order(self):
         progress = self._progress()
         self._check(progress)
+        # ADDENDUM 485: grouped by the region each fight is LEVELLED in (`region_by_trainer_index`, which applies the
+        # ramp overrides), the same table catch progress reads -- the Sixes' Phenac rows are filed in Cipher Lab for
+        # logic but fought, levelled and catch-scaled at Phenac.
+        from ..randomizer.path_level_scaling import region_by_trainer_index
+        ramp_region = region_by_trainer_index()
         by_region = {}
         for i, v in progress.items():
-            by_region.setdefault(trainer_placements.region_for(i), set()).add(v)
+            by_region.setdefault(ramp_region.get(i, trainer_placements.region_for(i)), set()).add(v)
         self.assertLess(max(by_region["Phenac City"]), min(by_region["Citadark Isle"]))
         self.assertLess(max(by_region["Cipher Lab"]), min(by_region["Phenac City"]))
 

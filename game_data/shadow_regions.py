@@ -200,6 +200,30 @@ DDPK_REGION_FALLBACK: "dict[int, tuple[str, str]]" = {
     81: ("Outskirt Stand", "Hordel's Togepi, at the Outskirt Stand"),
 }
 
+# ADDENDUM 473: Shadows only obtainable AFTER the goal. Player: "Treat Miror B's dragonite as after goal, yes."
+# Miror B.'s Dragonite (DDPK 80) is his post-game Gateon rematch. Its Citadark fallback above stays -- it is still
+# where the island's ladder files it -- but rules.py adds the goal itself ("Victory") to every way of getting it:
+# its catch location and every `Purify N` that needs it are reachable only after the goal, and are filler-only.
+#
+# ADDENDUM 479: and every Shadow Greevil carries. Player: "please remove all post-game/post-greevil checks - the
+# trainers can stay randomized, but don't give their shadows checks or else we can potentially softlock." Shadow
+# Lugia (his first fight, DDPK 73) and the six of his second (DDPK 74-79, the goal fight itself) can only be
+# PURIFIED once Greevil is beaten. These Shadows now have no checks at all: no `Catch - X` for a species only they
+# carry, and no `Purify N` counted for them -- this seed's purification ladder is one rung per Shadow that can be
+# had before the goal. Their trainers are untouched. A Shadow MOVED off Greevil (Remove Greevil Shadows, which
+# hands his seven to unmissable trainers elsewhere) is not at its Greevil row any more and keeps its checks.
+POST_GOAL_DRAGONITE_DDPK = 80
+GREEVIL_SHADOW_ROWS: "frozenset[int]" = frozenset({199, 200, 201})
+
+
+def _greevil_only_ddpks() -> "frozenset[int]":
+    rows_by_ddpk = shadow_carriers()
+    return frozenset(ddpk for ddpk, rows in rows_by_ddpk.items() if rows and set(rows) <= GREEVIL_SHADOW_ROWS)
+
+
+#: The event item the game's goal awards (regions.py), required on top of a post-goal Shadow's gate.
+POST_GOAL_EVENT_ITEM = "Victory"
+
 
 @functools.lru_cache(maxsize=1)
 def shadow_carriers() -> "dict[int, tuple[int, ...]]":
@@ -212,6 +236,11 @@ def shadow_carriers() -> "dict[int, tuple[int, ...]]":
             if slot.get("kind") == "DDPK" and slot.get("ddpk_index") is not None:
                 out.setdefault(int(slot["ddpk_index"]), []).append(int(trainer["index"]))
     return {ddpk: tuple(sorted(set(rows))) for ddpk, rows in out.items()}
+
+
+# Lugia (73) and Greevil's six (74-79), read off the census; the literal is only for a build missing the data file.
+POST_GOAL_SHADOW_DDPKS: "frozenset[int]" = frozenset({POST_GOAL_DRAGONITE_DDPK}) | (
+    _greevil_only_ddpks() or frozenset(range(73, 80)))
 
 
 @functools.lru_cache(maxsize=1)
@@ -236,12 +265,18 @@ def gates_for_ddpk(ddpk: int) -> "tuple[TrainerGate, ...]":
     if not gates and int(ddpk) in DDPK_REGION_FALLBACK:
         region, why = DDPK_REGION_FALLBACK[int(ddpk)]
         gates.append(TrainerGate(region, (), (), f"fallback: {why}"))
+    if int(ddpk) in POST_GOAL_SHADOW_DDPKS:
+        # ADDENDUM 473: only after the goal -- every way to it also needs the goal's own event item.
+        gates = [g._replace(required_items=tuple(g.required_items) + (POST_GOAL_EVENT_ITEM,),
+                            source=f"{g.source}, after the goal") for g in gates]
     return tuple(gates)
 
 
-def shadow_regions_in_graph_order(exclude_dex: "frozenset[int]" = frozenset()) -> "list[tuple[str, str]]":
+def shadow_regions_in_graph_order(exclude_dex: "frozenset[int]" = frozenset(),
+                                  include_post_goal: bool = True) -> "list[tuple[str, str]]":
     """[(region, species_name), ...] for every vanilla shadow, sorted by how early its EARLIEST snag region is in
-    the graph. ADDENDUM 432: by carrying trainer row, not by name -- see `gates_for_ddpk`."""
+    the graph. ADDENDUM 432: by carrying trainer row, not by name -- see `gates_for_ddpk`. ADDENDUM 479:
+    `include_post_goal=False` leaves out the Shadows that have no checks (`POST_GOAL_SHADOW_DDPKS`)."""
     from . import load_json_data_file
     from ..tools.xd_species_index import INTERNAL_INDEX_TO_NATIONAL_DEX
 
@@ -251,6 +286,8 @@ def shadow_regions_in_graph_order(exclude_dex: "frozenset[int]" = frozenset()) -
         dex, name = INTERNAL_INDEX_TO_NATIONAL_DEX.get(int(entry["species"]), (None, "?"))
         if dex in exclude_dex:
             continue   # ADDENDUM 423: a Shadow this seed removed (Nightmare Citadark)
+        if not include_post_goal and is_post_goal_ddpk(int(entry["ddpk_index"])):
+            continue   # ADDENDUM 479
         gates = gates_for_ddpk(int(entry["ddpk_index"]))
         if not gates:
             continue
@@ -258,6 +295,11 @@ def shadow_regions_in_graph_order(exclude_dex: "frozenset[int]" = frozenset()) -
         rows.append((order.index(region), region, str(name).title()))
     rows.sort(key=lambda row: row[0])
     return [(region, species) for _position, region, species in rows]
+
+
+def is_post_goal_ddpk(ddpk: int) -> bool:
+    """ADDENDUM 479: a Shadow that, at its own trainer, can only be purified after the goal -- no checks."""
+    return int(ddpk) in POST_GOAL_SHADOW_DDPKS
 
 
 # ADDENDUM 184: where you CATCH a shadow and where you can PURIFY it are different questions, and this
@@ -268,7 +310,8 @@ def shadow_regions_in_graph_order(exclude_dex: "frozenset[int]" = frozenset()) -
 PURIFICATION_FLOOR_REGION = "Agate Village"
 
 
-def purification_weights(threshold_count: int, exclude_dex: "frozenset[int]" = frozenset()) -> "dict[str, int]":
+def purification_weights(threshold_count: int, exclude_dex: "frozenset[int]" = frozenset(),
+                         include_post_goal: bool = True) -> "dict[str, int]":
     """How many of the first `threshold_count` purification thresholds each region supplies. Truncated at
     `threshold_count` on purpose: 83 vanilla shadows, but the ladder is only as long as
     `locations.PURIFICATION_LOCATION_COUNT` (32). Threshold N is gated where the Nth shadow becomes
@@ -277,7 +320,7 @@ def purification_weights(threshold_count: int, exclude_dex: "frozenset[int]" = f
     order = _region_order()
     floor_at = order.index(PURIFICATION_FLOOR_REGION) if PURIFICATION_FLOOR_REGION in order else 0
     counts: "dict[str, int]" = {}
-    for region, _species in shadow_regions_in_graph_order(exclude_dex)[:threshold_count]:
+    for region, _species in shadow_regions_in_graph_order(exclude_dex, include_post_goal)[:threshold_count]:
         if order.index(region) < floor_at:
             region = PURIFICATION_FLOOR_REGION
         counts[region] = counts.get(region, 0) + 1

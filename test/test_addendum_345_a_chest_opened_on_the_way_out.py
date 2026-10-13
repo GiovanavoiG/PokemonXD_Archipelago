@@ -210,7 +210,7 @@ class TestTheFenceThatKeepsThisHonest(_Base):
         self.run_polls([foreign] * 30, seconds_each=1.0)   # past _UNPLACEABLE_HOLD_SECONDS
         self.assertEqual(0, self.tracker.credits)
         self.assertTrue(self.tracker.unplaceable_notices, "an unplaceable berry must be reported")
-        self.assertIn("!checked", self.tracker.unplaceable_notices[0])
+        self.assertIn("/checked", self.tracker.unplaceable_notices[0])
 
     def test_an_unplaceable_pickup_is_held_before_it_is_reported(self):
         berry = self.berry

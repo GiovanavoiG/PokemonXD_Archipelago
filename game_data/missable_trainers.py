@@ -304,6 +304,27 @@ SHADOW_HOST_UNCONFIRMED: "frozenset[int]" = frozenset({13})
 assert SHADOW_HOST_UNCONFIRMED <= SHADOW_HOST_REFUSED
 
 
+# ADDENDUM 466, player: "Go ahead and relax our shadow rematch constraints then." ADDENDUM 465 stopped the engine
+# rebuilding a snagged or purified Shadow when its trainer is fought again (`game_data/shadow_engine.py`), which was the
+# whole reason a rematch could not host one. So three fences come down for Shadow hosting only -- every one stays
+# defined, so a revert is one line in `shadow_expansion_excluded_trainer_indices`:
+#   * `SAME_TEAM_REMATCH_TRAINER_INDICES` (ADDENDUM 459, Agate's Gorps/Jols/Ladi/Cron) -- no longer subtracted;
+#   * `SHADOW_HOST_REFUSED` (ADDENDUM 461's ruling) -- no longer added; the player: "Reopen them";
+#   * the re-fightable `final` rows below, fenced only because every occurrence of their name is (ADDENDUM 236's
+#     "offered again on every rematch"). Each is regioned, not missable, not Citadark, not the goal and snaggable.
+#     Laken #3 (202) is the one other row of that shape, and stays out: "exclude laken and hebon from progression".
+# Missable, unplaced (no region), post-goal and no-snag fights are untouched -- those are about losing or never
+# reaching the catch, not about rematches.
+REFIGHTABLE_FINAL_SHADOW_HOSTS: "frozenset[int]" = frozenset({
+    60,    # Naps #2, Cipher Lab
+    147,   # Zook #2, Cipher Key Lair (exterior)
+    164,   # Smarton #2, Cipher Key Lair
+    167,   # Chobin #7, Kaminko's House
+})
+#: Set to False to put all three ADDENDUM 466 fences back exactly as ADDENDUM 461 left them.
+SHADOW_REMATCH_FENCES_RELAXED = True
+
+
 def shadow_expansion_excluded_trainer_indices() -> "frozenset[int]":
     """Trainers that must never receive a generated Shadow Pokemon: a Shadow is a catch location, so its
     trainer must be fightable exactly once and never again. The full un-redoable set, NOT the ADDENDUM 407
@@ -318,6 +339,32 @@ def shadow_expansion_excluded_trainer_indices() -> "frozenset[int]":
     # Shadow on one is offered once. Player: "Give these trainers shadows if they WON'T infinitely spawn them".
     from .missable_indices import PLAYER_RULED_UNMISSABLE
 
-    return ((frozenset(UNREDOABLE_TRAINER_INDICES) - PLAYER_RULED_UNMISSABLE)
-            | NO_SNAG_TRAINER_INDICES | SAME_TEAM_REMATCH_TRAINER_INDICES | SHADOW_HOST_REFUSED)
+    if not SHADOW_REMATCH_FENCES_RELAXED:   # ADDENDUM 461's fence, kept verbatim for a revert
+        return ((frozenset(UNREDOABLE_TRAINER_INDICES) - PLAYER_RULED_UNMISSABLE)
+                | NO_SNAG_TRAINER_INDICES | SAME_TEAM_REMATCH_TRAINER_INDICES | SHADOW_HOST_REFUSED)
+    # ADDENDUM 466: rematches may host a Shadow -- a snagged one is no longer rebuilt (ADDENDUM 465).
+    # ADDENDUM 487: and the first fights whose second fight always carries the mirror (`shadow_mirrors`).
+    from .shadow_mirrors import mirrored_host_rows
+
+    return ((frozenset(UNREDOABLE_TRAINER_INDICES) - PLAYER_RULED_UNMISSABLE - REFIGHTABLE_FINAL_SHADOW_HOSTS
+             - mirrored_host_rows())
+            | NO_SNAG_TRAINER_INDICES)
+
+
+def _check_refightable_final_hosts() -> None:
+    from . import census_repeat_column, trainer_placements
+    from .catch_rate_exclusions import citadark_trainer_indices
+    from .missable_indices import MISSABLE_TRAINER_INDICES as _listed
+    from .shadow_regions import NO_SNAG_TRAINER_INDICES as _no_snag
+
+    for index in REFIGHTABLE_FINAL_SHADOW_HOSTS:
+        repeat, missable = census_repeat_column.CENSUS_REPEAT_AND_MISSABLE[index]
+        placement = trainer_placements.PLACEMENTS.get(index)
+        assert repeat == "final" and not missable and index not in _listed, f"{index} is not a safe final row"
+        assert placement is not None and placement.region, f"{index} has no region"
+        assert index not in POST_GOAL_TRAINER_INDICES and index not in _no_snag, index
+        assert index not in citadark_trainer_indices(), index
+
+
+_check_refightable_final_hosts()
 

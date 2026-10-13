@@ -201,10 +201,11 @@ class TestPurificationCapIsValidatedPerSeed(unittest.TestCase):
         with self.assertLogs(level="WARNING") as logged:
             mw = self._build(cap=100, expansion=0)
         world = mw.worlds[1]
-        self.assertEqual(83, int(world.options.purification_progression_cap))
-        self.assertEqual([("purification_progression_cap", 100, 83)], world.option_adjustments)
-        self.assertTrue(any("using 83 instead" in line for line in logged.output))
-        self.assertEqual(83, world.fill_slot_data()["universal_tracker"]["options"]["purification_progression_cap"])
+        # RETARGETED BY ADDENDUM 479: 75 -- the vanilla Shadows that can be had before the goal.
+        self.assertEqual(75, int(world.options.purification_progression_cap))
+        self.assertEqual([("purification_progression_cap", 100, 75)], world.option_adjustments)
+        self.assertTrue(any("using 75 instead" in line for line in logged.output))
+        self.assertEqual(75, world.fill_slot_data()["universal_tracker"]["options"]["purification_progression_cap"])
 
     def test_the_same_cap_is_fine_once_the_expansion_supplies_the_shadows(self) -> None:
         self._build(cap=100, expansion=44)   # 83 + 44 = 127, so 100 is inside the seed's own bound
