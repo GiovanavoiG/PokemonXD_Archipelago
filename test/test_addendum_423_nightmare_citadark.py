@@ -71,7 +71,7 @@ class TestThePool(unittest.TestCase):
                           "species": list(nc.XD_ORRE_COLOSSEUM_TEAMS[41])}, xd)
         colo = nc.seed_entry("colo:559")
         self.assertEqual(6, len(colo["sets"]))
-        self.assertEqual(nc.xd_ai_row_from_colosseum(nc.COLOSSEUM_ORRE_LV100_AI[559]).hex(), colo["ai_row"])
+        self.assertEqual(nc.dtai_row(nc.COLOSSEUM_ORRE_LV100_AI_STYLES[559]).hex(), colo["ai_row"])
         self.assertEqual(json.loads(json.dumps(colo)), colo)
 
     def test_thirty_five_shadows_leave_citadark(self) -> None:

@@ -20,25 +20,22 @@ Lestor, Lovrina, ...): deck level 60 (the game scales them to the player), with 
 IVs, EVs, nature/gender/ability byte, AI role -- and each trainer's own `aiIndex` into that deck's DTAI table.
 Trainers 1-40 are the low tiers (level 20/40, three to five members) and are not used.
 
-WHAT SHIPS HERE. Only identifiers: which source trainers form the pool and the six species each fields, so
-generation can fingerprint a fight and the patcher can refuse a disc whose deck disagrees. Every set and AI
-block is read off the player's own disc at patch time (the no-game-data plan's Tier 2 shape).
+For these, generation names the source trainer and its six species, so the patcher can refuse a disc whose deck
+disagrees; the sets and the AI row are copied from that deck at patch time.
 
 THE COLOSSEUM TEAMS. The player's answer to "which teams" was XD + Colosseum, and to "repeats" (2026-10-06)
 "I want every trainer to have a unique team" -- 33 Citadark trainers against XD's 28. Pokemon Colosseum's own Orre
 Colosseum, Lv. 100 Battle Mode, adds sixteen: eight Single rounds and eight Double rounds, every member already
 level 100. They were read off a Colosseum (USA, GC6E) disc's `common.rel` -- Trainer table (0x34/row, rows 559-574)
-and TrainerPokemonData (0x50/row) -- and every field was explicit (no random ability, gender, nature or move). The
-player patches an XD disc, so these sets ship here as identifiers (species, item and move numbers, IVs, EVs, nature,
-gender, ability slot, happiness, AI role), the same facts a team listing gives.
+and TrainerPokemonData (0x50/row) -- and every field was explicit (no random ability, gender, nature or move). Each
+team's sets are below, with how its AI plays (`COLOSSEUM_ORRE_LV100_AI_STYLES`).
 
 Both games number species, items and moves the same way, and their Pokemon AI-role tables are the same table: 79
 rows each, every row's name id and second word identical, weights on a different scale (Colosseum 0x80 at
 neutral, XD 0x32). Measured on Colosseum's `common.rel` and XD's live table at `*(r13-0x74D4)` (count at
 `*(r13-0x74D8)`, read by `fightTrainerPokemonPartDataBiosGetPtr`). So a member's AI role carries over as its number.
 
-The trainer AI is laid out differently -- Colosseum's TrainerAIData row is 0x28 bytes, XD's DTAI row 0x20 -- but
-ADDENDUM 424 decoded both from the two games' code, field by field, and translates (`xd_ai_row_from_colosseum`).
+A Colosseum team's AI is given as named settings (`AiStyle`) and built into an XD DTAI row (`dtai_row`).
 
 THE AI. Story trainers' DTAI rows are nearly empty -- no stat-stage targets, no switch/item/KO rates -- while the
 Colosseum rows set all of them. The patch copies the source trainer's 0x20-byte DTAI row into the Citadark
@@ -48,6 +45,7 @@ trainer's own row (each Story trainer owns row == its index, so it is an in-plac
 from __future__ import annotations
 
 import random
+import struct
 from typing import NamedTuple
 
 from . import load_json_data_file
@@ -249,108 +247,81 @@ COLOSSEUM_ORRE_LV100_TEAMS: "dict[int, tuple[_Set, ...]]" = {
 
 assert all(len(team) == TEAM_SIZE for team in COLOSSEUM_ORRE_LV100_TEAMS.values())
 
-#: Colosseum's TrainerAIData row for each team -- bytes 0x00-0x19, then the two revise pairs at 0x20-0x27 (0x1A-0x1F
-#: are padding and a row id nothing reads). Read off the Colosseum disc with its sets; `xd_ai_row_from_colosseum`
-#: turns one into the XD DTAI row that makes XD's AI behave the same way.
-COLOSSEUM_ORRE_LV100_AI: "dict[int, bytes]" = {
-    559: bytes.fromhex("0000000101010064000000010132012b26010001010150000a02" "0980098000800080"),  # AI row 133
-    560: bytes.fromhex("0000000101010064000000010132012b26010001010150000a02" "0980098000800080"),  # AI row 134
-    561: bytes.fromhex("0000000101010064000000010132012b26010001010150000a02" "0980098000800080"),  # AI row 135
-    562: bytes.fromhex("0000000101010064000000010132012b26010001010150000a02" "0980098000800080"),  # AI row 136
-    563: bytes.fromhex("0000000101010064000000010132012e26010001010150000a00" "0980098000800080"),  # AI row 137
-    564: bytes.fromhex("0000000101010064000000010132012b26010001010150000a02" "0980098000800080"),  # AI row 138
-    565: bytes.fromhex("0000000101010064000000010132012b26010001010150000a02" "0980098000800080"),  # AI row 139
-    566: bytes.fromhex("0000000101010064000000010132012b26010001010150000a02" "0980098000800080"),  # AI row 140
-    567: bytes.fromhex("0001000001010064000000010132012c26000001010150000a08" "0980098000800080"),  # AI row 181
-    568: bytes.fromhex("0001000001010064000000010132012b26000001010150000a03" "0980098000800080"),  # AI row 182
-    569: bytes.fromhex("0001000001010064000000010132012b26000001010150000a08" "0980098000800080"),  # AI row 183
-    570: bytes.fromhex("0001000001010064000000010132012b26000001010150000a08" "0980098000800080"),  # AI row 184
-    571: bytes.fromhex("0001000001010064000000010114012b2600000101015b000a03" "04ff098000800080"),  # AI row 185
-    572: bytes.fromhex("0001000001010064000000010132012d27000001010150000a03" "0980098000800080"),  # AI row 186
-    573: bytes.fromhex("0001000001010064000000010132012b26000001010164010a02" "0d000d0006ff07ff"),  # AI row 187
-    574: bytes.fromhex("0000000101010064000000010132012b26000001010150000a02" "0980098000800080"),  # AI row 188
+# How each Colosseum team's AI plays, set out as XD's AI reads it. A DTAI row is 0x20 bytes:
+#
+#   0x00, 0x01   trait bits (`_TRAIT_BITS`)        0x0E  switch %              0x14, 0x15  type ids to weigh
+#   0x04-0x0A    per-stat stage limits (0x66)      0x0F  item %                0x16, 0x17  their weights
+#   0x0C, 0x0D   stage-total max / min             0x10  accuracy floor %      0x18, 0x1A  move kinds to weigh (u16)
+#   0x11         both-actives-on-one-target (0)    0x12  low-HP %              0x1C, 0x1D  their weights
+#   0x1E         random +-N on move scores         0x13  last-PP %
+#
+# Weights are percentages where 50 is neutral; type 9 and move kind 0 mean "none". The stage limits are read only by
+# combos, and these teams have none, so they stay neutral; 0x11 stays 0.
+_TRAIT_BITS: "dict[str, tuple[int, int]]" = {
+    "random_lead": (0x00, 7), "lead_into_weakness": (0x00, 6), "send_in_listed_order": (0x00, 5),
+    "ace_last": (0x00, 4), "key_member": (0x00, 3), "type_matchups": (0x00, 2), "abilities": (0x00, 1),
+    "damage_estimates": (0x00, 0), "random_target": (0x01, 7), "random_move": (0x01, 6),
+    "opening_move_bias": (0x01, 5), "follow_roles": (0x01, 4), "check_accuracy": (0x01, 3), "weigh_risk": (0x01, 2),
+    "status_aware": (0x01, 1),
+}
+NO_TYPE = 9
+NO_MOVE_KIND = 0
+NEUTRAL = 50
+_NEUTRAL_STAGE_LIMIT = 0x66
+
+
+class AiStyle(NamedTuple):
+    traits: "frozenset[str]"
+    stage_max: int = 43
+    stage_min: int = 38
+    switch_pct: int = 100
+    item_pct: int = 0
+    accuracy_pct: int = 80
+    low_hp_pct: int = 50
+    last_pp_pct: int = 10
+    spread: int = 2
+    type_bias: "tuple[tuple[int, int], tuple[int, int]]" = ((NO_TYPE, NEUTRAL), (NO_TYPE, NEUTRAL))
+    move_kind_bias: "tuple[tuple[int, int], tuple[int, int]]" = ((NO_MOVE_KIND, NEUTRAL), (NO_MOVE_KIND, NEUTRAL))
+
+
+def dtai_row(style: AiStyle) -> bytes:
+    """The 0x20-byte XD DTAI row that plays `style`."""
+    row = bytearray(0x20)
+    for trait in style.traits:
+        at, bit = _TRAIT_BITS[trait]
+        row[at] |= 1 << bit
+    row[0x04:0x0B] = bytes((_NEUTRAL_STAGE_LIMIT,)) * 7
+    row[0x0C], row[0x0D] = style.stage_max, style.stage_min
+    row[0x0E], row[0x0F], row[0x10] = style.switch_pct, style.item_pct, style.accuracy_pct
+    row[0x12], row[0x13], row[0x1E] = style.low_hp_pct, style.last_pp_pct, style.spread
+    for i, ((type_id, type_weight), (kind, kind_weight)) in enumerate(zip(style.type_bias, style.move_kind_bias)):
+        row[0x14 + i], row[0x16 + i] = type_id, type_weight
+        struct.pack_into(">H", row, 0x18 + 2 * i, kind)
+        row[0x1C + i] = kind_weight
+    return bytes(row)
+
+
+_PLAYS_WELL = frozenset({"key_member", "type_matchups", "abilities", "damage_estimates", "opening_move_bias",
+                         "follow_roles", "check_accuracy", "status_aware"})
+_SINGLES = AiStyle(_PLAYS_WELL | {"ace_last", "random_target"})
+_DOUBLES = AiStyle(_PLAYS_WELL | {"lead_into_weakness"}, spread=8)
+
+#: {Colosseum Trainer row: how its AI plays}.
+COLOSSEUM_ORRE_LV100_AI_STYLES: "dict[int, AiStyle]" = {
+    559: _SINGLES, 560: _SINGLES, 561: _SINGLES, 562: _SINGLES,
+    563: _SINGLES._replace(stage_max=46, spread=0),
+    564: _SINGLES, 565: _SINGLES, 566: _SINGLES,
+    567: _DOUBLES._replace(stage_max=44),
+    568: _DOUBLES._replace(spread=3),
+    569: _DOUBLES, 570: _DOUBLES,
+    571: _DOUBLES._replace(spread=3, accuracy_pct=91, low_hp_pct=20, type_bias=((4, 100), (NO_TYPE, NEUTRAL))),
+    572: _DOUBLES._replace(stage_max=45, stage_min=39, spread=3),
+    573: _DOUBLES._replace(traits=_DOUBLES.traits | {"weigh_risk"}, spread=2, accuracy_pct=100,
+                          type_bias=((13, 0), (13, 0)), move_kind_bias=((6, 100), (7, 100))),
+    574: AiStyle(_PLAYS_WELL | {"ace_last"}),
 }
 
-assert set(COLOSSEUM_ORRE_LV100_AI) == set(COLOSSEUM_ORRE_LV100_TEAMS)
-assert all(len(row) == 34 for row in COLOSSEUM_ORRE_LV100_AI.values())
-
-# ADDENDUM 424 -- THE COLOSSEUM AI, FIELD BY FIELD. Both games read trainer AI through one shared "status" getter
-# keyed by field id (XD `fightTrainerGetStatus` 0x801FCD1C, Colosseum 0x801FB1C0): the same id ranges (trainer <10,
-# Pokemon role <13, member <30, AI <61, value tables <66) and the same 87-entry jump table. Fields 31-60 are the AI.
-# Colosseum's accessors read byte (id - 31) of its row, and ids 57-60 the pairs at 0x20/0x24; XD's call
-# `fightTrainerAiDB_Get*`, which call `DeckTrainerAI` methods on the DTAI row. Matching the two by field id:
-#
-#   id  XD name (fightTrainerAiDB_Get...)   Colosseum      XD DTAI
-#   31  PokemonSelectRandomFlag             0x00           0x00 bit 7
-#   32  PokemonSelectWeakPointFlag          0x01           0x00 bit 6
-#   33  PokemonDataOrderOutFlag             0x02           0x00 bit 5
-#   34  PokemonDataOrderAceBossFlag         0x03           0x00 bit 4
-#   35  KeyPlayerFlag                       0x04           0x00 bit 3
-#   36  PokemonJoutaiFlag                   0x05           0x01 bit 1
-#   37  ComboValue                          0x06           -- XD returns 100 (only combos read it; these have none)
-#   38  IrekaeValue (switch %)              0x07           0x0E
-#   39  ItemValue (item %)                  0x08           0x0F
-#   40  ParamExpectFlag                     0x09           -- XD returns 1; Colosseum reads it only in a debug menu
-#   41  ParamStoreFlag                      0x0A           -- likewise
-#   42  ZokuseiCheckFlag (type matchups)    0x0B           0x00 bit 2
-#   43  TokuseiCheckFlag (abilities)        0x0C           0x00 bit 1
-#   44  NokoriHpValue (low-HP %)            0x0D           0x12
-#   45  WazaDamageFlag                      0x0E           0x00 bit 0
-#   46  AbicntMaxValue                      0x0F           0x0C
-#   47  AbicntMinValue                      0x10           0x0D
-#   48  DefensePokemonRndSelectFlag         0x11           0x01 bit 7
-#   49  WazaRndSelectFlag                   0x12           0x01 bit 6
-#   50  WazaInitValueFlag                   0x13           0x01 bit 5
-#   51  PartFlag (respect AI role)          0x14           0x01 bit 4
-#   52  WazaHitFlag                         0x15           0x01 bit 3
-#   53  WazaAvgValue (accuracy %)           0x16           0x10
-#   54  WazaRiskFlag                        0x17           0x01 bit 2
-#   55  WazaNokoriPpValue (last-PP %)       0x18           0x13
-#   56  LastValueRevise (random +-N)        0x19           0x1E
-#   57  ZokuseiReviseZokuseiDataId[i]       0x20+2i        0x14+i
-#   58  ZokuseiReviseValue[i]               0x21+2i        0x16+i   rescaled, below
-#   59  WazaTypeReviseTypeDataId[i]         0x24+2i        0x18+2i  (u16)
-#   60  WazaTypeReviseValue[i]              0x25+2i        0x1C+i   rescaled
-#
-# The percentages, the stage totals and the random correction are used by matching code in both games (rand%100
-# against the value, HP*100/max, the same stage-sum test, rand%(2N+1)-N), so they copy. The revise values do not:
-# Colosseum turns one into a percentage as v*100/255, XD as v*100/100, then both apply (pct-50)*weight/50 -- so
-# XD's byte is v*100//255, exact under XD's own arithmetic (0x80 -> 50, neutral in both). Type ids are the same
-# type numbering (9 = none, skipped by both), and move-kind ids the same move-kind numbering (0 = none, skipped).
-#
-# XD-only bytes. 0x11 (`GetStrokeValue`, both actives on one target) gates a step Colosseum's turn function does
-# not have -- XD skips it at 0 -- so 0. 0x04-0x0A (per-stat stage limits) are read only by the Sweet Scent +
-# Blizzard combo, and these trainers have no combos; they take the neutral 0x66.
-_FLAG_BITS = ((0x00, 7, 0x00), (0x00, 6, 0x01), (0x00, 5, 0x02), (0x00, 4, 0x03), (0x00, 3, 0x04),
-              (0x01, 1, 0x05), (0x00, 2, 0x0B), (0x00, 1, 0x0C), (0x00, 0, 0x0E), (0x01, 7, 0x11),
-              (0x01, 6, 0x12), (0x01, 5, 0x13), (0x01, 4, 0x14), (0x01, 3, 0x15), (0x01, 2, 0x17))
-_COPIED = ((0x0E, 0x07), (0x0F, 0x08), (0x12, 0x0D), (0x0C, 0x0F), (0x0D, 0x10), (0x10, 0x16), (0x13, 0x18),
-           (0x1E, 0x19))
-
-
-def _revise_value(colosseum_value: int) -> int:
-    return colosseum_value * 100 // 255
-
-
-def xd_ai_row_from_colosseum(row: bytes) -> bytes:
-    """The 0x20-byte XD DTAI row equivalent to one `COLOSSEUM_ORRE_LV100_AI` entry (see the table above)."""
-    if len(row) != 34:
-        raise ValueError("a Colosseum AI entry is 34 bytes: 0x00-0x19 and 0x20-0x27")
-    head, pairs = row[:26], row[26:]
-    out = bytearray(0x20)
-    for xd_byte, bit, colosseum_byte in _FLAG_BITS:
-        if head[colosseum_byte]:
-            out[xd_byte] |= 1 << bit
-    out[0x04:0x0B] = b"\x66" * 7
-    for xd_byte, colosseum_byte in _COPIED:
-        out[xd_byte] = head[colosseum_byte]
-    out[0x11] = 0
-    for i in range(2):
-        out[0x14 + i] = pairs[2 * i]                                   # type id
-        out[0x16 + i] = _revise_value(pairs[2 * i + 1])
-        out[0x18 + 2 * i:0x1A + 2 * i] = bytes((0, pairs[4 + 2 * i]))  # move-kind id, u16
-        out[0x1C + i] = _revise_value(pairs[4 + 2 * i + 1])
-    return bytes(out)
+assert set(COLOSSEUM_ORRE_LV100_AI_STYLES) == set(COLOSSEUM_ORRE_LV100_TEAMS)
 
 
 #: Every team in the pool, by key: "xd:<DeckData_Colosseum.bin trainer>" and "colo:<Colosseum Trainer row>".
@@ -369,12 +340,12 @@ def team_species(key: str) -> "tuple[int, ...]":
 
 def seed_entry(key: str) -> dict:
     """What the patcher needs for one team. An XD team names its source row, which the patcher copies whole;
-    a Colosseum team carries its sets and its AI, translated to an XD DTAI row (ADDENDUM 424)."""
+    a Colosseum team carries its sets and its AI as an XD DTAI row."""
     game, _, index = key.partition(":")
     if game == "xd":
         return {"key": key, "deck": SOURCE_DECK, "trainer": int(index), "species": list(team_species(key))}
     return {"key": key, "sets": [member.as_dict() for member in COLOSSEUM_ORRE_LV100_TEAMS[int(index)]],
-            "ai_row": xd_ai_row_from_colosseum(COLOSSEUM_ORRE_LV100_AI[int(index)]).hex()}
+            "ai_row": dtai_row(COLOSSEUM_ORRE_LV100_AI_STYLES[int(index)]).hex()}
 
 
 #: Greevil's first fight: Shadow Lugia alone. ADDENDUM 424 leaves it exactly as the game has it.

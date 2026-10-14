@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import hashlib
 import struct
 import tempfile
 import unittest
@@ -246,7 +247,11 @@ class TestAgainstTheRealDol(unittest.TestCase):
 
     def test_every_expected_word_is_on_disc(self):
         for address, expected, _new in CB.dol_patch_words():
-            self.assertEqual(expected, self.word(address), hex(address))
+            if expected is not None:
+                self.assertEqual(expected, self.word(address), hex(address))
+        for start, length, digest in CB.vanilla_digests():
+            span = b"".join(struct.pack(">I", self.word(start + i)) for i in range(0, length, 4))
+            self.assertEqual(digest, hashlib.sha1(span).hexdigest(), hex(start))
 
     def test_nothing_reaches_the_cave_except_the_debug_menu(self):
         """No branch, no stored address and no lis/addi pair anywhere in main.dol names 0x80066D30."""
@@ -295,7 +300,7 @@ class TestAgainstTheRealDol(unittest.TestCase):
             img[0:4] = b"GXXE"
             struct.pack_into(">I", img, ip.DOL_OFFSET_FIELD, dol_off)
             iso.write_bytes(bytes(img))
-            result = ip.write_dol_words_patch(iso, CB.dol_patch_words())
+            result = ip.write_dol_words_patch(iso, CB.dol_patch_words(), CB.vanilla_digests())
             self.assertTrue(result["applied"], result["reason"])
             patched = iso.read_bytes()[dol_off:]
             word, _s = _dol_word_reader(patched)
@@ -303,7 +308,7 @@ class TestAgainstTheRealDol(unittest.TestCase):
                 self.assertEqual(new, word(address), hex(address))
             changed = sum(1 for a, b in zip(self.data, patched) if a != b)
             self.assertLessEqual(changed, 4 * len(CB.dol_patch_words()))
-            again = ip.write_dol_words_patch(iso, CB.dol_patch_words())
+            again = ip.write_dol_words_patch(iso, CB.dol_patch_words(), CB.vanilla_digests())
             self.assertEqual("already patched", again["reason"])
 
     def test_a_different_build_is_refused_untouched(self):
@@ -317,7 +322,7 @@ class TestAgainstTheRealDol(unittest.TestCase):
             img[spot:spot + 4] = b"\xde\xad\xbe\xef"
             iso.write_bytes(bytes(img))
             before = iso.read_bytes()
-            result = ip.write_dol_words_patch(iso, CB.dol_patch_words())
+            result = ip.write_dol_words_patch(iso, CB.dol_patch_words(), CB.vanilla_digests())
             self.assertFalse(result["applied"])
             self.assertEqual(before, iso.read_bytes())
 

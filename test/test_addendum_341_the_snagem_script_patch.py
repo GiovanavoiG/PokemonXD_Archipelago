@@ -20,9 +20,9 @@ returns a multi-bit value rather than a boolean -- the flag-1293 branch was test
 
 So the client patches two bytes of the loaded script. Both confirmed in play: Wakin fights, then Gonzap.
 
-WHAT THIS FILE GUARDS, and the fixture it uses. `data_addendum_341_snagem_2f_script.bin` is the RESIDENT
-script lifted byte-for-byte out of a real MEM1 dump taken standing in the room -- not the disc copy, which
-differs (the loader relocates the FTBL name pointers). So the anchors are tested against what the client will
+WHAT THIS FILE GUARDS, and the fixture it uses. The fixture is the RESIDENT script as a MEM1 dump taken
+standing in the room holds it (`local_dumps.snagem_2f_script`) -- not the disc copy, which differs (the loader
+relocates the FTBL name pointers). Without that dump on this machine the module skips. So the anchors are tested against what the client will
 actually see, and a change that only works against the disc bytes fails here.
 
 THE ANCHORS ARE THE POINT. Writing into a map script on a guessed address is how this project would corrupt a
@@ -48,8 +48,11 @@ if "dolphin_memory_engine" not in sys.modules:
 
 from .. import ram_client
 
-FIXTURE = Path(__file__).with_name("data_addendum_341_snagem_2f_script.bin")
-SCRIPT = FIXTURE.read_bytes()
+from .local_dumps import snagem_2f_script
+
+SCRIPT = snagem_2f_script()
+if SCRIPT is None:
+    raise unittest.SkipTest("needs the Snagem 2F MEM1 dump")
 BLOB = 0x8099E160          # where it sat in the dump; the code must not depend on this
 
 

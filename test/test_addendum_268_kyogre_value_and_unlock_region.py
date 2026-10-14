@@ -236,10 +236,10 @@ class TestThePokeSpotWriteIsBounded(unittest.TestCase):
         def __init__(self, count: int = 3) -> None:
             self.count = count
 
-        def get_pointer(self, index: int) -> int:
+        def entry_address(self, index: int) -> int:
             return 0x100
 
-        def get_value_at_pointer(self, index: int) -> int:
+        def entry_value(self, index: int) -> int:
             return self.count
 
     def test_a_slot_the_pool_does_not_have_is_refused(self) -> None:

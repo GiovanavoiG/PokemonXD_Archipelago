@@ -5,7 +5,7 @@ display name and story placement.
 Only 66 of the game's 232 ordinary trainers get a named location. `real_trainer_data.py` loads the full
 byte-exact roster from data/deckdata_story_trainers.json, but that extraction only recovered each trainer's
 trainer_class/name_id/string_ptr -- the text table those point into is not decoded -- so the only source of
-readable names is data/trainer_census.json (68 hand-transcribed, see data/trainer_pools_SOURCES.md). Two of
+readable names is data/trainer_census.json (68 hand-transcribed). Two of
 those ("Shadow Lugia" and the Citadark "Final Battles" copy of Cipher Boss Greevil) are all-Shadow-team
 placeholders rather than separate trainers, leaving 66. The other 166 are still detected and still counted via
 locations.py's TRAINER_DEFEAT_COUNT_LOCATION_COUNT cumulative bucket, which TrainerBattleDefeatTracker awards

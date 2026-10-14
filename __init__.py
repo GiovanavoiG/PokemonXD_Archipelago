@@ -47,8 +47,8 @@ from .web_world import PokemonXDWebWorld
 
 
 def launch_client(*args: str) -> None:
-    """Launch the Pokemon XD client (mirrors worlds/tww's run_client). `args` is accepted for symmetry with
-    the other `launch_*` functions here; CommonClient's entry point has nothing to do with it."""
+    """Launch the Pokemon XD client. `args` is accepted for symmetry with the other `launch_*` functions here;
+    CommonClient's entry point has nothing to do with it."""
     print("Running Pokemon XD Client")
     from .Client import main
 
@@ -1455,7 +1455,7 @@ class PokemonXDWorld(World):
             hint_data.setdefault(self.player, {}).update(by_id)
 
     def generate_output(self, output_directory: str) -> None:
-        # Follows worlds/tww: this writes a small, inspectable seed file, never an ISO or a diff.
+        # This writes a small, inspectable seed file, never an ISO or a diff.
         from .game_data.real_moveset_data import load_level_up_moves
         from .game_data.real_trainer_data import (
             MT_BATTLE_TRAINER_INDICES,

@@ -27,6 +27,7 @@ import argparse
 import json
 import random
 import os
+import hashlib
 import struct
 import sys
 import time
@@ -1679,9 +1680,13 @@ def read_citadark_entry_level(output_path: Path, trainer_indices: "list[int]") -
     return {"level": best[0], "trainer_index": best[1], "slot": best[2], "kind": best[3], "members": members}
 
 
-def write_dol_words_patch(output_path: Path, words: "tuple[tuple[int, int, int], ...]") -> dict:
+def write_dol_words_patch(output_path: Path, words: "tuple[tuple[int, int | None, int], ...]",
+                          vanilla_digests: "tuple[tuple[int, int, str], ...]" = ()) -> dict:
     """Write each (address, expected, new) word into `output_path`'s main.dol. All or nothing: refuses unless
     every word is either its expected original or already the new value. Never raises.
+
+    A word whose expected value is None must lie inside one of `vanilla_digests`' (address, length, SHA-1) spans;
+    such a span passes when its bytes hash to the SHA-1 (vanilla) or already are the new words (patched).
 
     `{"applied", "reason", "words": [(address, file_offset, original)]}`."""
     output_path = Path(output_path).resolve()
@@ -1691,16 +1696,40 @@ def write_dol_words_patch(output_path: Path, words: "tuple[tuple[int, int, int],
         try:
             dol_offset = struct.unpack(">I", reader.read(DOL_OFFSET_FIELD, 4))[0]
             sections = dol_sections(reader, dol_offset)
-            plan = []
-            for address, expected, new in words:
+
+            def file_offset_of(address: int) -> "int | None":
                 holder = [sec for sec in sections if sec[2] <= address < sec[2] + sec[3]]
                 if not holder:
+                    return None
+                _i, sec_file, sec_addr, _len = holder[0]
+                return dol_offset + sec_file + (address - sec_addr)
+
+            new_by_address = {address: new for address, _expected, new in words}
+            for start, length, digest in vanilla_digests:
+                first, last = file_offset_of(start), file_offset_of(start + length - 1)
+                if first is None or last is None or last - first != length - 1:
+                    result["reason"] = f"0x{start:08X} (+0x{length:X}) is not inside one section of this main.dol"
+                    return result
+                span = reader.read(first, length)
+                patched = all(new_by_address.get(start + i) == struct.unpack_from(">I", span, i)[0]
+                              for i in range(0, length, 4))
+                if hashlib.sha1(span).hexdigest() != digest and not patched:
+                    result["reason"] = (f"main.dol's code at 0x{start:08X} (+0x{length:X}) is not what this patch "
+                                        "expects -- a different build or region")
+                    return result
+            plan = []
+            for address, expected, new in words:
+                file_offset = file_offset_of(address)
+                if file_offset is None:
                     result["reason"] = f"0x{address:08X} is not inside any section of this ISO's main.dol"
                     return result
-                _i, sec_file, sec_addr, _len = holder[0]
-                file_offset = dol_offset + sec_file + (address - sec_addr)
                 original = struct.unpack(">I", reader.read(file_offset, 4))[0]
                 result["words"].append((address, file_offset, original))
+                if expected is None:
+                    if not any(start <= address < start + length for start, length, _d in vanilla_digests):
+                        result["reason"] = f"0x{address:08X} has no expected value and no checked span"
+                        return result
+                    expected = original
                 if original not in (expected, new):
                     result["reason"] = (f"the word at 0x{address:08X} is 0x{original:08X}, not the expected "
                                         f"0x{expected:08X} -- a different build or region")
@@ -3450,7 +3479,8 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                 print(f"Reduce Citadark Grind: could NOT read Citadark's levels ({type(exc).__name__}: {exc}); the "
                       "Candy Box falls back to level 100 (99 if it can still evolve).")
         candy_box_dol = write_dol_words_patch(output_path, _candy.dol_patch_words(trade_evolutions_by_level,
-                                                                                  _entry_level))
+                                                                                  _entry_level),
+                                              _candy.vanilla_digests())
         if candy_box_dol["applied"]:
             print("Reduce Citadark Grind: Candy Box code written into main.dol"
                   + (" (already present)." if candy_box_dol["reason"] else "."))
@@ -3477,7 +3507,8 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     ability_patch_code_ready = False
     if ability_patch:
         _swap = _game_data_module("ability_patch")
-        swap_dol = write_dol_words_patch(output_path, _swap.dol_patch_words(candy_box_code_ready))
+        swap_dol = write_dol_words_patch(output_path, _swap.dol_patch_words(candy_box_code_ready),
+                                         _swap.vanilla_digests())
         ability_patch_code_ready = bool(swap_dol["applied"])
         summary["ability_patch_dol_applied"] = ability_patch_code_ready
         summary["ability_patch_dol_reason"] = swap_dol["reason"]
@@ -3857,22 +3888,12 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                                 )
                         rename_diag_lines.append("")
                     rename_diag_lines.append(
-                        f"Full dump of this REL's own CommonRelStringTable (pointer index "
-                        f"{rel_format.COMMON_REL_STRING_TABLE_POINTER}) -- {len(all_strings)} entries, "
-                        f"(NameID: decoded text; an entry that hits an 0xFFFF escape/unterminated run before a "
-                        f"real 0x0000 terminator decodes only its bytes up to that point):"
+                        f"This REL's own CommonRelStringTable (pointer index "
+                        f"{rel_format.COMMON_REL_STRING_TABLE_POINTER}) holds {len(all_strings)} entries."
                     )
-                    for name_id in sorted(all_strings):
-                        try:
-                            raw = rel_format.read_string_table_entry_bytes(rel, all_strings[name_id])
-                            text = raw.decode("utf-16-be", errors="replace")
-                        except Exception as decode_exc:
-                            text = f"<decode error: {decode_exc}>"
-                        rename_diag_lines.append(f"  {name_id}: {text!r}")
                     rename_diag_path = output_path.parent / f"{output_path.stem}_rename_diagnostic.txt"
                     rename_diag_path.write_text("\n".join(rename_diag_lines), encoding="utf-8")
-                    print(f"  Rename diagnostic data (full string table dump, {len(all_strings)} entries) "
-                          f"written to: {rename_diag_path}")
+                    print(f"  Rename diagnostic data written to: {rename_diag_path}")
                     summary["items_rename_diagnostic_file"] = str(rename_diag_path)
                 except Exception as diag_exc:
                     print(f"  (could not write rename diagnostic file: {diag_exc})")
@@ -4370,18 +4391,16 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                 pm_entry_span_bytes = pm_entry_raw[: pm_rel_entry["comp_size"] if pm_is_lzss else pm_rel_entry["decomp_size"]]
                 ok_lines += [
                     "",
-                    f"Raw ORIGINAL bytes of {pm_rel_name!r} (FSYS record data_off={pm_rel_entry['data_off']} "
+                    f"Original {pm_rel_name!r} (FSYS record data_off={pm_rel_entry['data_off']} "
                     f"comp={pm_rel_entry['comp_size']} decomp={pm_rel_entry['decomp_size']}, at ISO offset "
-                    f"{pm_abs_entry_off}), hex, ALL {len(pm_entry_span_bytes)} bytes -- for offline analysis:",
+                    f"{pm_abs_entry_off}): {len(pm_entry_span_bytes)} bytes, SHA-1 "
+                    f"{hashlib.sha1(pm_entry_span_bytes).hexdigest()}",
                 ]
-                raw_hex = pm_entry_span_bytes.hex()
-                for i in range(0, len(raw_hex), 64):
-                    ok_lines.append(f"  {i // 2:06X}: {raw_hex[i:i + 64]}")
                 ok_lines += ["", f"New entry written: {len(pm_new_entry_raw)} bytes, declared comp_size {pm_real_comp_size}"]
                 ok_path = output_path.parent / f"{output_path.stem}_shop_diagnostic.txt"
                 ok_path.write_text("\n".join(ok_lines) + "\n", encoding="utf-8")
                 summary["shop_diagnostic_file"] = str(ok_path)
-                print(f"  Shop diagnostic (structure, census, full raw entry bytes) written to: {ok_path}")
+                print(f"  Shop diagnostic (structure, census) written to: {ok_path}")
             except Exception as diag_exc:  # pragma: no cover -- diagnostics are best-effort, never fatal
                 print(f"  (could not write the shop diagnostic file: {diag_exc})")
         except Exception as exc:
@@ -4407,8 +4426,8 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                             "label": f"#{e['index']} {e['full_name'] or e['name']!r} (format {e['file_format']})",
                             "record": {k: e[k] for k in ("data_off", "decomp_size", "comp_size", "record_off")},
                             "abs_entry_off": abs_entry_off,
-                            # The whole entry -- an offline decode needs every byte.
-                            "raw_hex": entry_raw[: max(e["comp_size"], 0x10 + 2048)].hex(),
+                            "size": len(entry_raw[: max(e["comp_size"], 0x10 + 2048)]),
+                            "sha1": hashlib.sha1(entry_raw[: max(e["comp_size"], 0x10 + 2048)]).hexdigest(),
                         }
                         for e, abs_entry_off, entry_raw in pm_candidate_raws
                     ],
@@ -4544,12 +4563,9 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                     diagnostic_lines.append("")
                 for cand in pm_hex_dump.get("candidates") or []:
                     diagnostic_lines.append(
-                        f"Raw bytes of candidate {cand['label']} (FSYS record {cand['record']}, at ISO offset "
-                        f"{cand['abs_entry_off']}), hex, first {len(cand['raw_hex']) // 2} bytes -- for offline analysis:"
+                        f"Candidate {cand['label']} (FSYS record {cand['record']}, at ISO offset "
+                        f"{cand['abs_entry_off']}): {cand['size']} bytes, SHA-1 {cand['sha1']}"
                     )
-                    raw_hex = cand["raw_hex"]
-                    for i in range(0, len(raw_hex), 64):
-                        diagnostic_lines.append(f"  {i // 2:06X}: {raw_hex[i:i + 64]}")
                     diagnostic_lines.append("")
             if shop_file_scan:
                 diagnostic_lines.append(

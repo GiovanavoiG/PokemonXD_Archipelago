@@ -54,8 +54,8 @@ Client.py-touching addendum in this project.
 
 WHY THE MART TESTS DO NOT CONSTRUCT A REAL `RelFile`: see the FakeRel docstring below -- same reasoning as
 this project's other real-REL tests (chest/Poke Spot tables): no synthetic/fixture REL binary exists
-anywhere in this codebase, and every mart helper only ever calls `rel.data`/`rel.get_pointer()`/
-`rel.get_value_at_pointer()`, so a minimal duck-typed fake exercises the real offset arithmetic/walk logic
+anywhere in this codebase, and every mart helper only ever calls `rel.data`/`rel.entry_address()`/
+`rel.entry_value()`, so a minimal duck-typed fake exercises the real offset arithmetic/walk logic
 just as faithfully without needing a real REL header.
 """
 from __future__ import annotations
@@ -162,10 +162,10 @@ class FakeRel:
         self._pointers = pointers
         self._values = values_at_pointer
 
-    def get_pointer(self, index: int) -> int:
+    def entry_address(self, index: int) -> int:
         return self._pointers[index]
 
-    def get_value_at_pointer(self, index: int) -> int:
+    def entry_value(self, index: int) -> int:
         return self._values[index]
 
 

@@ -40,11 +40,11 @@ ALLOWED_AUTOMATIC = {
     # ADDENDUM 428: one-shot guidance, once per received item -- 99 Candy Boxes in a seed with no Candy Box code.
     "99 Candy Boxes: this seed does not have",
     # -- the connection lifecycle: exactly "the standard archipelago connection logs."
-    "Starting Dolphin connector",
-    "CONNECTION_REFUSED_GAME_STATUS",
-    "CONNECTION_REFUSED_SAVE_STATUS",
-    "CONNECTION_CONNECTED_STATUS",
-    "Connection to Dolphin lost",
+    "Watching for Dolphin",
+    "DOLPHIN_WRONG_GAME",
+    "DOLPHIN_NO_SAVE",
+    "DOLPHIN_READY",
+    "Lost Dolphin --",
     "Attempting to connect to Dolphin",
     "Connection to Dolphin failed",
     # ADDENDUM 421: the save data moved under a live hook (a reset or another boot's save state) -- the same

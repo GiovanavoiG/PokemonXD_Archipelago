@@ -2,7 +2,7 @@
 Real, ISO-extracted trainer census for Pokemon XD: Gale of Darkness (2026-09-06).
 
 Not `trainer_census.py`, which loads a hand-transcribed census (68 of the game's 232 trainers, from wiki/FAQ
-text -- `data/trainer_pools_SOURCES.md`) keyed by display name, with no join key back to the ISO's own DPKM
+text) keyed by display name, with no join key back to the ISO's own DPKM
 records, so a shuffle over it can never become a patch.
 
 This loads `data/deckdata_story_trainers.json`, decoded from a real ISO by `tools/xd_deck_format.py`'s

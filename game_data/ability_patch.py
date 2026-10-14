@@ -38,7 +38,7 @@ THE CODE (main.dol, every replaced word checked first; all or nothing):
               old = pokemon_GetTokuseiFlag(pkm)
               pokemon_SetTokuseiFlag(pkm, old ^ 1)                ; forced to 0 for a one-ability species
               if pokemon_GetTokuseiFlag(pkm) == old:              ; nothing changed
-                  dispMsg(0xC374)                                 ; "It won't have any effect." -- not used up
+                  dispMsg(0xC374)                                 ; the "no effect" message -- not used up
               else:
                   playRecoverSE(item); menuPokemonUpdate(); *consumed = 1; result 0
               menuOffScreenSetPriority(0); menuPocket2ClosePokemonMenu(slot); return result
@@ -121,16 +121,11 @@ DISP_MSG = 0x800A481C                   # dispMsg__FUl
 PLAY_RECOVER_SE = 0x800A4380            # playRecoverSE__FUl
 MENU_POKEMON_UPDATE = 0x80015E80        # menuPokemonUpdate
 OFFSCREEN_PRIORITY = 0x80114B8C         # menuOffScreenSetPriority
-NO_EFFECT_MSG = 0xC374                  # "It won't have any effect." -- menuUseItemEvolution's
+NO_EFFECT_MSG = 0xC374                  # the "no effect" message menuUseItemEvolution shows
 
-#: The vanilla words at DISPATCH_ADDRESS the code replaces (more of the debug party's item grants). Checked first.
-CAVE_ORIGINAL_HEX = (
-    "3880008838a0000338c0ffff480e5aad7fe3fb783880008638a0000138c0ffff480e5a997fe3fb783880008738a0000238c0ffff"
-    "480e5a857fe3fb783880020038a0000138c0ffff480e5a717fe3fb783880020238a0000138c0ffff480e5a5d7fe3fb7838800203"
-    "38a0000138c0ffff480e5a497fe3fb783880020138a0000138c0ffff480e5a357fe3fb783880021538a0000138c0ffff480e5a21"
-    "7fe3fb783880021638a0000138c0ffff480e5a0d7fe3fb783880021738a0000138c0ffff480e59f97fe3fb783880021838a00001"
-    "38c0ffff480e59e57fe3fb783880021938a0000138c0ffff480e59d17fe3fb783880021a38a0000138c0ffff480e59bd"
-)
+#: SHA-1 of main.dol's CODE_SIZE bytes at DISPATCH_ADDRESS, checked against the player's own main.dol first.
+CODE_VANILLA_SHA1 = "0a080addd1b296d0354b0813d14a1ec5cf0138ba"
+
 
 # A minimal Gekko encoder: the forms this code uses beyond candy_box's, each checked by the test.
 def _d_form(op: int, rt: int, ra: int, d: int) -> int:
@@ -282,21 +277,20 @@ def cave_code(candy_box_in: bool = False) -> "list[int]":
     return words
 
 
-def cave_original_words() -> "tuple[int, ...]":
-    raw = bytes.fromhex(CAVE_ORIGINAL_HEX)
-    return struct.unpack(f">{len(raw) // 4}I", raw)
-
-
-def dol_patch_words(candy_box_in: bool = False) -> "tuple[tuple[int, int, int], ...]":
-    """(address, vanilla, new): the cave, then the hook. All or nothing through `write_dol_words_patch`.
-    `candy_box_in`: the Candy Box's main.dol patch went in first, so the hook word is its branch."""
+def dol_patch_words(candy_box_in: bool = False) -> "tuple[tuple[int, int | None, int], ...]":
+    """(address, vanilla or None, new): the code, then the hook. All or nothing through `write_dol_words_patch`, the
+    code's words checked as one span by `vanilla_digests`. `candy_box_in`: the Candy Box's main.dol patch went in
+    first, so the hook word is its branch."""
     code = cave_code(candy_box_in)
-    original = cave_original_words()
-    if len(code) > len(original):
-        raise AssertionError("the cave's checked words do not cover the code")
-    words = [(DISPATCH_ADDRESS + 4 * i, original[i], new) for i, new in enumerate(code)]
+    if len(code) * 4 != CODE_SIZE:
+        raise AssertionError("the code does not fill its checked span")
+    words: "list[tuple[int, int | None, int]]" = [(DISPATCH_ADDRESS + 4 * i, None, new) for i, new in enumerate(code)]
     words.append((HOOK_ADDRESS, hook_expected_word(candy_box_in), _b(HOOK_ADDRESS, DISPATCH_ADDRESS)))
     return tuple(words)
+
+
+def vanilla_digests() -> "tuple[tuple[int, int, str], ...]":
+    return ((DISPATCH_ADDRESS, CODE_SIZE, CODE_VANILLA_SHA1),)
 
 
 def row_edits() -> "dict[int, bytes]":
@@ -311,4 +305,3 @@ assert len(ABILITY_PATCH_NAME) == len(ABILITY_PATCH_VANILLA_NAME), "names are re
 assert len(TWO_ABILITY_SPECIES) == 129
 assert CAVE_OFFSET >= candy_box.LEARN_END_OFFSET, "after the Candy Box's code"
 assert CAVE_OFFSET + CODE_SIZE <= 0x800, "before the conditional catch (+0x800)"
-assert len(cave_original_words()) * 4 >= CODE_SIZE

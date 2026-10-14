@@ -186,7 +186,7 @@ class TestTheLearnHooks(unittest.TestCase):
         self.assertLessEqual(CB.LEARN_END_OFFSET, CB.CAVE_SIZE)
         self.assertEqual(CB.LEARN_END_OFFSET - CB.LEARN_OFFSET, 4 * len(CB.learn_code()))
         self.assertEqual(0, CB.learn_code()[0], "the saved level starts empty")
-        self.assertEqual(len(bytes.fromhex(CB.LEARN_ORIGINAL_HEX)), CB.LEARN_END_OFFSET - CB.LEARN_OFFSET)
+        self.assertEqual(((CB.CAVE_ADDRESS, CB.LEARN_END_OFFSET, CB.CAVE_VANILLA_SHA1),), CB.vanilla_digests())
 
     def test_the_three_hooks(self) -> None:
         words = {a: (e, n) for a, e, n in CB.dol_patch_words()}
@@ -206,7 +206,8 @@ class TestTheLearnHooks(unittest.TestCase):
     def test_against_the_real_dol(self) -> None:
         word = _dol_reader()
         for address, expected, _new in CB.dol_patch_words():
-            self.assertEqual(expected, word(address), hex(address))
+            if expected is not None:
+                self.assertEqual(expected, word(address), hex(address))
         # The loop the hooks bend: pokemonGetOboeWazaDataId(pkm, r28, &cursor) at +0x1F8, `mr r27,r3`, the
         # zero test, and the evolution check right after.
         self.assertEqual(CB._b(0x800A5B8C, 0x80140E34, True), word(0x800A5B8C))

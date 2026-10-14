@@ -39,8 +39,10 @@ if "dolphin_memory_engine" not in sys.modules:
 
 from .. import ram_client
 
-FIXTURE = Path(__file__).with_name("data_addendum_341_snagem_2f_script.bin")
-SCRIPT = FIXTURE.read_bytes()
+from .local_dumps import snagem_2f_script
+
+SCRIPT = snagem_2f_script() or b""
+_needs_script = unittest.skipUnless(SCRIPT, "needs the Snagem 2F MEM1 dump")
 BLOCK = 0x80479120          # where the save block sat in the dumps; the code must not depend on this
 
 
@@ -234,6 +236,7 @@ class TestTheRepairIsScopedToTheHideout(unittest.TestCase):
         self.assertEqual(mem.writes, [])
 
 
+@_needs_script
 class TestTheStagingSelector(unittest.TestCase):
     def setUp(self):
         _clear_env(self)
@@ -294,6 +297,7 @@ class TestTheStagingSelector(unittest.TestCase):
         self.assertEqual(by_offset[ram_client._instr(159) + 3], 200)    # -> instr 200
 
 
+@_needs_script
 class TestTheRetraction(unittest.TestCase):
     def setUp(self):
         _clear_env(self)
@@ -335,6 +339,7 @@ if __name__ == "__main__":
     unittest.main()
 
 
+@_needs_script
 class TestAddendum343TheStop(unittest.TestCase):
     """The patch has to come back out, and the stop has to survive a reload.
 

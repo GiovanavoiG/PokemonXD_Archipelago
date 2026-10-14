@@ -1,9 +1,11 @@
 r"""
-Pokemon XD: Gale of Darkness -- GameCube REL pointer-table reader.
+Pokemon XD: Gale of Darkness -- reads the data tables of a GameCube relocatable module (REL).
 
-Written from scratch against the REL container format. Header offsets, pointer-table geometry and the XD
-table indices below agree with `rotobash/pokemon-ngc-rando` (GPLv2) -- see NOTICE.md; the `.cs` filenames
-named below are that project's. Everything here was then verified against a real `common_rel.rel`.
+A REL header gives a section-info table (8-byte {offset, size} entries), the offset of its relocation records and
+of its import table. XD keeps its data tables in one data section and reaches each through the relocations this
+module applies to itself: the import table's first entry is this module, and its relocation records, after the
+leading section-select record, come in pairs whose first addend is a table's offset inside the data section. The
+n-th pair is table n. Everything here was verified against a real `common_rel.rel`.
 
 ALL OFFSETS BELOW ARE RELATIVE TO THE DECOMPRESSED REL'S OWN BYTES, never `common.fsys`'s or the ISO's.
 """
@@ -12,71 +14,72 @@ from __future__ import annotations
 
 import struct
 
-COMMON_REL_DATA_START_OFFSET_LOCATION = 0x6C  # used when the REL's own filename contains "common_rel"
-REL_DATA_START_OFFSET_LOCATION = 0x64  # used for every other REL file
-REL_POINTERS_START_OFFSET_LOCATION = 0x24
-REL_POINTERS_HEADER_POINTER_1_OFFSET = 0x28
-REL_POINTERS_FIRST_POINTER_OFFSET = 0x8
-REL_SIZE_OF_POINTER = 0x10
-REL_POINTER_DATA_POINTER_1_OFFSET = 0x4
+_HEADER_RELOCATIONS = 0x24          # u32: offset of the relocation records
+_HEADER_IMPORTS = 0x28              # u32: offset of the import table ({module id, records offset} per entry)
+_SECTION_TABLE = 0x4C               # where XD's RELs keep their section-info table
+_SECTION_ENTRY = 8
+_DATA_SECTION = 3                   # the data section of an ordinary REL
+_COMMON_DATA_SECTION = 4            # common_rel keeps its tables one section later
+_RECORD = 8                         # {u16 offset delta, u8 type, u8 section, u32 addend}
+_R_DOLPHIN_SECTION = 0xCA           # record type: "the following records apply to section N"
+_PAIR = 2 * _RECORD
 
-# Sentinel range: a pointer-table "value" landing in here marks the end of the table, not a real pointer.
-_SENTINEL_LOW = 0xCA01
-_SENTINEL_HIGH = 0xCAFF
+
+def data_section_entry(is_common: bool) -> int:
+    """Header offset of the data section's {offset, size} entry."""
+    return _SECTION_TABLE + _SECTION_ENTRY * (_COMMON_DATA_SECTION if is_common else _DATA_SECTION)
 
 
 class RelFile:
-    """Parses a decompressed REL's pointer table; exposes the GetPointer/GetValueAtPointer reads."""
+    """A decompressed REL: its data section and the tables its self-relocations point at."""
 
     def __init__(self, rel_bytes: bytes, is_common: bool, label: str = "REL"):
         self.data = rel_bytes
         self.label = label  # only for the error messages below; never affects parsing
-        start_off = COMMON_REL_DATA_START_OFFSET_LOCATION if is_common else REL_DATA_START_OFFSET_LOCATION
-        self.data_start = self._u32(start_off)
-        # ADDENDUM 128: 0x64/0x6C are section-info-table entries ({u32 offset, u32 size}, table at 0x4C), so
-        # the u32 after the data-start offset is that section's SIZE -- the upper bound for every table in it.
-        self.data_section_end = self.data_start + self._u32(start_off + 4)
-        self.pointer_start = self._u32(REL_POINTERS_START_OFFSET_LOCATION)
-        self.first_pointer = self.pointer_start + REL_POINTERS_FIRST_POINTER_OFFSET
+        section = data_section_entry(is_common)
+        self.data_base = self._word(section)
+        # ADDENDUM 128: the section's size bounds every table in it.
+        self.data_end = self.data_base + self._word(section + 4)
+        own_records = self._word(_HEADER_RELOCATIONS) + _RECORD     # past the section-select record
+        next_module = self._word(self._word(_HEADER_IMPORTS) + _SECTION_ENTRY + 4)
+        self._pairs = own_records
+        self.entry_count = sum(1 for _ in self._pair_starts(own_records, next_module))
 
-        pointer_header = self._u32(REL_POINTERS_HEADER_POINTER_1_OFFSET)
-        pointer_end = self._u32(pointer_header + 0xC)
+    def _pair_starts(self, first: int, stop: int):
+        at = first
+        while at < stop:
+            delta, kind, section = struct.unpack_from(">HBB", self.data, self._checked(at))
+            if delta == 0 and kind == _R_DOLPHIN_SECTION and section:
+                return                                                # the next section's records begin
+            yield at
+            at += _PAIR
 
-        count = 0
-        offset = self.first_pointer
-        while offset < pointer_end:
-            val = self._u32(offset)
-            if _SENTINEL_LOW <= val <= _SENTINEL_HIGH:
-                break
-            count += 1
-            offset += REL_SIZE_OF_POINTER
-        self.number_of_pointers = count
-
-    def _u32(self, offset: int) -> int:
+    def _checked(self, offset: int) -> int:
         # ADDENDUM 115: a bare struct.error gave no hint which REL or offset caused it.
         if offset < 0 or offset + 4 > len(self.data):
             raise ValueError(
                 f"{self.label}: pointer-table walk computed offset {offset}, which is out of bounds for this "
                 f"REL's own decompressed size ({len(self.data)} bytes) -- this container's data very likely "
                 "is NOT real REL pointer-table data (either the wrong FSYS entry was selected, or this file "
-                "doesn't follow the expected REL.cs layout). This needs a live inspection of the container's "
+                "doesn't follow the expected REL layout). This needs a live inspection of the container's "
                 "real entries to identify the correct one, not another blind guess."
             )
-        return struct.unpack_from(">I", self.data, offset)[0]
+        return offset
 
-    def get_pointer_offset(self, index: int) -> int:
-        """Offset of entry `index`'s own stored offset field -- what RETARGETING the pointer would write."""
-        return self.first_pointer + index * REL_SIZE_OF_POINTER + REL_POINTER_DATA_POINTER_1_OFFSET
+    def _word(self, offset: int) -> int:
+        return struct.unpack_from(">I", self.data, self._checked(offset))[0]
 
-    def get_pointer(self, index: int) -> int:
-        """Resolves entry `index` to an absolute offset in `self.data` (stored offset + data_start)."""
-        offset = self.get_pointer_offset(index)
-        return self._u32(offset) + self.data_start
+    def entry_addend_offset(self, index: int) -> int:
+        """Offset of table `index`'s addend field -- what RETARGETING the table would write."""
+        return self._pairs + index * _PAIR + 4
 
-    def get_value_at_pointer(self, index: int) -> int:
-        """The u32BE stored AT the address entry `index` resolves to -- scalars, not array bases."""
-        offset = self.get_pointer(index)
-        return self._u32(offset)
+    def entry_address(self, index: int) -> int:
+        """Table `index`'s absolute offset in `self.data`."""
+        return self.data_base + self._word(self.entry_addend_offset(index))
+
+    def entry_value(self, index: int) -> int:
+        """The u32BE stored at table `index` -- for scalars, not array bases."""
+        return self._word(self.entry_address(index))
 
 
 # Chest ("treasure box") table, XD pointer-table indices from Constants.cs. Entry layout from
@@ -94,7 +97,7 @@ TREASURE_BOX_QUANTITY_OFFSET = 0x01
 
 def chest_table_base(rel: RelFile) -> int:
     """Absolute offset (within `rel.data`) of treasure-box entry 0."""
-    return rel.get_pointer(XD_TREASURE_BOX_DATA_POINTER)
+    return rel.entry_address(XD_TREASURE_BOX_DATA_POINTER)
 
 
 def chest_raw_count(rel: RelFile) -> int:
@@ -103,7 +106,7 @@ def chest_raw_count(rel: RelFile) -> int:
 
     SENTINEL CONFIRMED 2026-09-14 (ADDENDUM 207) against the player's own `common_rel`: entry 0 is 28 zero
     bytes and entries 1..115 match `game_data/chest_table.py` byte-for-byte. 116 raw is 115 real chests."""
-    return rel.get_value_at_pointer(XD_NUMBER_TREASURE_BOXES_POINTER)
+    return rel.entry_value(XD_NUMBER_TREASURE_BOXES_POINTER)
 
 
 def real_chest_indices(rel: RelFile) -> list[int]:
@@ -212,23 +215,23 @@ MART_WALK_CAP = 4096  # defensive per-mart walk cap (slots); a real mart is < 30
 
 def mart_start_indexes_base(rel: RelFile) -> int:
     """Absolute offset (within `rel.data`) of MartStartIndexes entry 0."""
-    return rel.get_pointer(MART_START_INDEXES_POINTER)
+    return rel.entry_address(MART_START_INDEXES_POINTER)
 
 
 def number_of_marts(rel: RelFile) -> int:
     """Real mart/shop count per this REL's own table. Not yet cross-checked against a real ISO census."""
-    return rel.get_value_at_pointer(NUMBER_OF_MARTS_POINTER)
+    return rel.entry_value(NUMBER_OF_MARTS_POINTER)
 
 
 def mart_items_base(rel: RelFile) -> int:
     """Absolute offset (within `rel.data`) of the shared MartItems pool's entry 0."""
-    return rel.get_pointer(MART_ITEMS_POINTER)
+    return rel.entry_address(MART_ITEMS_POINTER)
 
 
 def number_of_mart_items(rel: RelFile) -> int:
     """Scalar total item-slot count. Deliberately NOT used to bound the per-mart walk: whether it counts each
     mart's terminating sentinel is unconfirmed, so it could stop a slot early or run a slot long."""
-    return rel.get_value_at_pointer(NUMBER_OF_MART_ITEMS_POINTER)
+    return rel.entry_value(NUMBER_OF_MART_ITEMS_POINTER)
 
 
 def mart_first_item_index(rel: RelFile, mart_index: int) -> int:
@@ -254,11 +257,11 @@ def mart_pool_end_offset(rel) -> int:
     section_end = getattr(rel, "data_section_end", None)
     if isinstance(section_end, int) and base < section_end < end:
         end = section_end
-    pointer_count = getattr(rel, "number_of_pointers", None)
+    pointer_count = getattr(rel, "entry_count", None)
     if isinstance(pointer_count, int):
         for index in range(pointer_count):
             try:
-                target = rel.get_pointer(index)
+                target = rel.entry_address(index)
             except Exception:  # pragma: no cover -- a malformed pointer can't narrow the bound, that's all
                 continue
             if base < target < end:
@@ -616,12 +619,12 @@ NUMBER_OF_POKEMON_MOVES = 4  # max moves in an active battle moveset
 
 def pokemon_stats_base(rel: RelFile) -> int:
     """Absolute offset (within `rel.data`) of species-stats entry 0 (internal species index 0)."""
-    return rel.get_pointer(XD_POKEMON_STATS_POINTER)
+    return rel.entry_address(XD_POKEMON_STATS_POINTER)
 
 
 def pokemon_stats_count(rel: RelFile) -> int:
     """Real entry count per the REL's own table (415, confirmed against the real ISO 2026-09-07)."""
-    return rel.get_value_at_pointer(XD_NUMBER_OF_POKEMON_POINTER)
+    return rel.entry_value(XD_NUMBER_OF_POKEMON_POINTER)
 
 
 # ADDENDUM 285: a wrong base here writes into arbitrary common_rel bytes, so the table is PROVEN first.
@@ -749,11 +752,11 @@ def assert_move_status_fields_unchanged(before: bytes, after: bytes) -> None:
 
 
 def moves_table_base(rel: RelFile) -> int:
-    return rel.get_pointer(XD_MOVES_POINTER)
+    return rel.entry_address(XD_MOVES_POINTER)
 
 
 def moves_table_count(rel: RelFile) -> int:
-    return rel.get_value_at_pointer(XD_NUMBER_OF_MOVES_POINTER)
+    return rel.entry_value(XD_NUMBER_OF_MOVES_POINTER)
 
 
 def verify_moves_table(rel: RelFile, minimum_agreement: int = 12) -> bool:
@@ -1094,14 +1097,14 @@ POKESPOT_STEPS_PER_SNACK_OFFSET = 0x8
 def pokespot_pool_base(rel: RelFile, pool: str) -> int:
     """Offset of `pool`'s entry 0. `pool` is "rock", "oasis", "cave" or "all" (KeyError otherwise)."""
     data_index, _entries_index = POKESPOT_POOL_POINTERS[pool]
-    return rel.get_pointer(data_index)
+    return rel.entry_address(data_index)
 
 
 def pokespot_pool_count(rel: RelFile, pool: str) -> int:
     """Real entry count for `pool` per the REL's own table (3 for rock/oasis/cave, 2 for all -- confirmed
     2026-09-06 against the real ISO, see game_data/pokespot_data.py's VANILLA_POKESPOT_SLOTS)."""
     _data_index, entries_index = POKESPOT_POOL_POINTERS[pool]
-    return rel.get_value_at_pointer(entries_index)
+    return rel.entry_value(entries_index)
 
 
 def pokespot_species_offset(rel: RelFile, pool: str, slot_index: int) -> int:
@@ -1286,7 +1289,7 @@ def load_common_rel(common_fsys_bytes: bytes, lzss_decode) -> RelFile:
 # CommonRelStringTable + Items table (ADDENDUM 113/114: the AP Item in-game rename), both in `common_rel.rel`
 # and indexed in its own pointer space.
 #
-# CommonRelStringTable (pointer 116, base = `rel.get_pointer(116) + 0x68`) is the same shared table species
+# CommonRelStringTable (pointer 116, base = `rel.entry_address(116) + 0x68`) is the same shared table species
 # names resolve through; per ADDENDUM 113's reading of StringTable.cs/Items.cs/Move.cs/Abilities.cs, item,
 # move and ability names all resolve through this one.
 # Layout: a 0x10-byte header (count u16BE at +0x04), `entry_count` 8-byte records (4-byte id masked & 0xFFFFF,
@@ -1324,7 +1327,7 @@ ITEM_REMAP_SHIFT = 150
 
 def string_table_base(rel: RelFile) -> int:
     """Absolute offset (within `rel.data`) of the CommonRelStringTable's own header."""
-    return rel.get_pointer(COMMON_REL_STRING_TABLE_POINTER) + STRING_TABLE_BLOB_OFFSET
+    return rel.entry_address(COMMON_REL_STRING_TABLE_POINTER) + STRING_TABLE_BLOB_OFFSET
 
 
 def string_table_entry_count(rel: RelFile) -> int:
@@ -1392,9 +1395,9 @@ def find_candidate_item_string_tables(
     normalized_hints = {h.strip().casefold() for h in substring_hints if h.strip()}
     data = rel.data
     n = len(data)
-    for pointer_index in range(rel.number_of_pointers):
+    for pointer_index in range(rel.entry_count):
         try:
-            base = rel.get_pointer(pointer_index) + STRING_TABLE_BLOB_OFFSET
+            base = rel.entry_address(pointer_index) + STRING_TABLE_BLOB_OFFSET
             if base < 0 or base + STRING_TABLE_HEADER_SIZE > n:
                 continue
             count = struct.unpack_from(">H", data, base + STRING_TABLE_ENTRY_COUNT_OFFSET)[0]
@@ -1439,12 +1442,12 @@ def find_candidate_item_string_tables(
 
 def item_table_base(rel: RelFile) -> int:
     """Absolute offset (within `rel.data`) of Items-table entry index 0."""
-    return rel.get_pointer(ITEMS_TABLE_POINTER)
+    return rel.entry_address(ITEMS_TABLE_POINTER)
 
 
 def xd_number_of_items(rel: RelFile) -> int:
     """Live `XDNumberOfItems` scalar, read dynamically -- the remap threshold `item_table_index` uses."""
-    return rel.get_value_at_pointer(XD_NUMBER_OF_ITEMS_POINTER)
+    return rel.entry_value(XD_NUMBER_OF_ITEMS_POINTER)
 
 
 def item_table_index(rel: RelFile, item_id: int) -> int:

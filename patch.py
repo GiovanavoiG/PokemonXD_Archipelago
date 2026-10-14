@@ -1,12 +1,10 @@
 """
 Patch container for Pokemon XD: Gale of Darkness.
 
-A plain `APPlayerContainer`, not an `APProcedurePatch`/bsdiff-against-a-base-ROM setup, following worlds/tww:
-AP cannot ship a copy of, or a binary diff against, a ~1.4GB copyrighted GameCube ISO. So this zips a small
-inspectable seed payload and `tools/iso_patcher.py` does the real ISO work locally against the player's own
-disc.
+A plain `APPlayerContainer`, not an `APProcedurePatch`/bsdiff-against-a-base-ROM setup: this zips a small
+inspectable seed payload and `tools/iso_patcher.py` does the real ISO work locally against the player's own disc.
 
-`seed.json` is plain JSON rather than TWW's base64+yaml, so it stays readable by hand:
+`seed.json` is plain JSON, so it stays readable by hand:
   - `location_to_game_item_id`: per filled location, the real Bag item id (`items.py`'s `game_item_id`) the
     check grants, or `null` for items with no Bag id yet (Ein File S, the trap), which the client special-cases.
   - `trainer_team_assignments`: `randomizer.team_shuffle`'s output, trainer name -> team, for inspection only.

@@ -2,8 +2,7 @@
 Pokemon XD: Gale of Darkness -- Archipelago client.
 
 Built on ram_client.py (Dolphin memory access: hooking, block-base resolution, Bag pocket read/write,
-party/species detection, purification detection) and shadow_species.py. Shaped like worlds/tww/TWWClient.py,
-another GameCube CommonClient.
+party/species detection, purification detection) and shadow_species.py.
 
 Detected live with no ISO patch: "Catch - {species}" (386), "Purify N Shadow Pokemon" (32),
 "Defeat - {trainer}" (66), "Defeat N Trainers" (232), and the seed's Goal. Catches read the save-resident
@@ -26,6 +25,7 @@ trainer name is read back out of the block (`ctx.trainer_name`) wherever the cli
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import sys
 import os
@@ -75,16 +75,16 @@ from .game_data.repeatable_trainers import SURNAME_TO_LOCATION as REPEATABLE_SUR
 # Reverse map, so the "Sent N check(s)" line in _send_checks can name them.
 ID_TO_LOCATION_NAME = {v: k for k, v in LOCATION_NAME_TO_ID.items()}
 
-CONNECTION_INITIAL_STATUS = "Dolphin connection has not been initiated."
-CONNECTION_LOST_STATUS = "Dolphin connection was lost. Please restart Dolphin with Pokemon XD loaded."
-CONNECTION_REFUSED_GAME_STATUS = (
-    "Dolphin is not running Pokemon XD: Gale of Darkness (USA). Please load it. Retrying in 5 seconds..."
+DOLPHIN_NOT_STARTED = "Not connected to Dolphin yet."
+DOLPHIN_LOST = "Lost Dolphin. Start Dolphin with Pokemon XD running and the client will reconnect."
+DOLPHIN_WRONG_GAME = (
+    "Dolphin is running something other than Pokemon XD: Gale of Darkness (USA). Checking again every 5 seconds..."
 )
-CONNECTION_REFUSED_SAVE_STATUS = (
-    "Connected to Dolphin, but couldn't find your save data yet. Make sure you're in-game (not on the title "
-    "screen or a menu) with a save loaded. Retrying in 5 seconds..."
+DOLPHIN_NO_SAVE = (
+    "Dolphin is connected, but there is no save loaded yet. Load your save and get in-game (past the title screen "
+    "and menus). Checking again every 5 seconds..."
 )
-CONNECTION_CONNECTED_STATUS = "Dolphin connected successfully."
+DOLPHIN_READY = "Connected to Dolphin."
 
 # Verbose logging. Unconditional output is the connection lifecycle, items received, checks sent, errors,
 # warnings needing player action, and one-shot guidance. Narration of normal progress is gated behind `/verbose`.
@@ -1104,7 +1104,7 @@ class PokemonXDContext(CommonContext):
     def __init__(self, server_address: Optional[str], password: Optional[str]) -> None:
         super().__init__(server_address, password)
         self.dolphin_sync_task: Optional["asyncio.Task[None]"] = None
-        self.dolphin_status: str = CONNECTION_INITIAL_STATUS
+        self.dolphin_status: str = DOLPHIN_NOT_STARTED
 
         # Resolved once per Dolphin boot and cached. None means "not resolved yet", not "known not to exist".
         self.block_base: Optional[int] = None
@@ -1423,7 +1423,7 @@ class PokemonXDContext(CommonContext):
             lines.append(
                 "In the menu struct but not the save block: "
                 + ", ".join(f"#{dex}" for dex in sorted(only_in_menu))
-                + " -- tell Claude; it means the save-block records lag in some situation."
+                + " -- please report this; it means the save-block records lag in some situation."
             )
         if not only_in_block and not only_in_menu:
             lines.append("Both sources agree.")
@@ -4205,7 +4205,7 @@ async def _send_checks(ctx: PokemonXDContext, location_names: list[str]) -> None
     await ctx.check_locations(ids)
 
 
-# Main Dolphin sync loop -- mirrors worlds/tww/TWWClient.py's dolphin_sync_task structure.
+# The Dolphin loop: hook, confirm the game, then poll every tick.
 
 def _looks_ingame() -> bool:
     """Cheap in-game check: is party slot 0's species field non-zero yet? PARTY_BASE initializes lazily, so an
@@ -4222,23 +4222,27 @@ def _looks_ingame() -> bool:
         return False
 
 
+async def _pause(ctx: PokemonXDContext, seconds: float) -> None:
+    """Wait up to `seconds`, waking early when the context signals (a received item, shutdown)."""
+    if seconds <= 0.0:
+        return
+    with contextlib.suppress(asyncio.TimeoutError):
+        await asyncio.wait_for(ctx.watcher_event.wait(), seconds)
+
+
 async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
-    logger.info("Starting Dolphin connector. Use /dolphin for status information.")
+    logger.info("Watching for Dolphin. /dolphin shows the connection status.")
     sleep_time = 0.0
     while not ctx.exit_event.is_set():
-        if sleep_time > 0.0:
-            try:
-                await asyncio.wait_for(ctx.watcher_event.wait(), sleep_time)
-            except asyncio.TimeoutError:
-                pass
-            sleep_time = 0.0
+        await _pause(ctx, sleep_time)
+        sleep_time = 0.0
         ctx.watcher_event.clear()
 
         try:
-            if ram_client.is_hooked() and ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
+            if ram_client.is_hooked() and ctx.dolphin_status == DOLPHIN_READY:
                 if ram_client.read_bytes(ram_client.MEM1_START, 4) != XD_GAME_CODE:
-                    logger.info(CONNECTION_REFUSED_GAME_STATUS)
-                    ctx.dolphin_status = CONNECTION_REFUSED_GAME_STATUS
+                    logger.info(DOLPHIN_WRONG_GAME)
+                    ctx.dolphin_status = DOLPHIN_WRONG_GAME
                     ctx.block_base = None
                     ctx.fst_guard.reset()
                     sleep_time = POLL_INTERVAL_RETRY
@@ -4296,7 +4300,7 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                         continue
                     ctx.block_base = ram_client.resolve_block_base(landmark)
                     if ctx.block_base is None:
-                        logger.info(CONNECTION_REFUSED_SAVE_STATUS)
+                        logger.info(DOLPHIN_NO_SAVE)
                         sleep_time = POLL_INTERVAL_RETRY
                         continue
                     # ADDENDUM 444: the in-game name, read from the save rather than assumed to be the slot name.
@@ -4479,9 +4483,9 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                 # FASTEST, which is when a chest pickup sitting in the Bag is most vulnerable.
                 sleep_time = await fast_poll_window(ctx, sleep_time)
             else:
-                if ctx.dolphin_status == CONNECTION_CONNECTED_STATUS:
-                    logger.info("Connection to Dolphin lost, reconnecting...")
-                ctx.dolphin_status = CONNECTION_LOST_STATUS
+                if ctx.dolphin_status == DOLPHIN_READY:
+                    logger.info("Lost Dolphin -- reconnecting...")
+                ctx.dolphin_status = DOLPHIN_LOST
                 ctx.block_base = None
                 ctx.fst_guard.reset()
                 ctx.block_stability.reset()
@@ -4501,8 +4505,8 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                     sleep_time = POLL_INTERVAL_RETRY
                     continue
                 if ram_client.hook():
-                    logger.info(CONNECTION_CONNECTED_STATUS)
-                    ctx.dolphin_status = CONNECTION_CONNECTED_STATUS
+                    logger.info(DOLPHIN_READY)
+                    ctx.dolphin_status = DOLPHIN_READY
                     ctx._hook_failures = 0
                 else:
                     if ctx._hook_failures == 0:
@@ -4522,43 +4526,41 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
             # ADDENDUM 445: one line by default; the traceback is `/verbose` only.
             logger.warning(f"Lost the game for a moment ({type(exc).__name__}: {exc}) -- reconnecting.")
             _note(ctx, traceback.format_exc())
-            ctx.dolphin_status = CONNECTION_LOST_STATUS
+            ctx.dolphin_status = DOLPHIN_LOST
             ctx.block_base = None
             sleep_time = POLL_INTERVAL_RETRY
             continue
 
 
+async def _run_client(connect: Optional[str], password: Optional[str], name: Optional[str]) -> None:
+    ctx = PokemonXDContext(connect, password)
+    # Not ctx.auth: self.auth is reset to None on every disconnect while self.username is not, so setting
+    # username here lets a reconnect re-derive auth instead of getting stuck unauthenticated.
+    ctx.username = name
+    ctx.server_task = asyncio.create_task(server_loop(ctx), name="ServerLoop")
+    if gui_enabled:
+        ctx.run_gui()
+    ctx.run_cli()
+    await asyncio.sleep(1)
+    ctx.dolphin_sync_task = asyncio.create_task(dolphin_sync_task(ctx), name="DolphinSync")
+    await ctx.exit_event.wait()
+    ctx.watcher_event.set()                 # wake the Dolphin loop so it sees the exit
+    ctx.server_address = None
+    await ctx.shutdown()
+    if ctx.dolphin_sync_task:
+        await ctx.dolphin_sync_task
+
+
 def main(*args: str) -> None:
     Utils.init_logging("Pokemon XD Client")
-
-    async def _main(connect: Optional[str], password: Optional[str], name: Optional[str]) -> None:
-        ctx = PokemonXDContext(connect, password)
-        # Not ctx.auth: self.auth is reset to None on every disconnect while self.username is not, so setting
-        # username here lets a reconnect re-derive auth instead of getting stuck unauthenticated.
-        ctx.username = name
-        ctx.server_task = asyncio.create_task(server_loop(ctx), name="ServerLoop")
-        if gui_enabled:
-            ctx.run_gui()
-        ctx.run_cli()
-        await asyncio.sleep(1)
-
-        ctx.dolphin_sync_task = asyncio.create_task(dolphin_sync_task(ctx), name="DolphinSync")
-
-        await ctx.exit_event.wait()
-        ctx.watcher_event.set()
-        ctx.server_address = None
-
-        await ctx.shutdown()
-
-        if ctx.dolphin_sync_task:
-            await ctx.dolphin_sync_task
-
     parser = get_base_parser()
     parser.add_argument("--name", default=None, help="Slot name to connect as (also your in-game trainer name).")
-    parsed_args = parser.parse_args(args)
+    options = parser.parse_args(args)
 
     import colorama
 
     colorama.init()
-    asyncio.run(_main(parsed_args.connect, parsed_args.password, parsed_args.name))
-    colorama.deinit()
+    try:
+        asyncio.run(_run_client(options.connect, options.password, options.name))
+    finally:
+        colorama.deinit()

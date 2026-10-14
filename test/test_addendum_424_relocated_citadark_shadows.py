@@ -293,43 +293,51 @@ def _xd_fields(row: bytes) -> dict:
     }
 
 
+_COLOSSEUM_NAMES = ["SelRandom", "WeakPoint", "OrderOut", "AceBoss", "KeyPlayer", "Joutai", "Combo", "Irekae", "Item",
+                    "ParamExpect", "ParamStore", "Zokusei", "Tokusei", "NokoriHp", "WazaDamage", "AbiMax", "AbiMin",
+                    "DefRnd", "WazaRnd", "WazaInit", "Part", "WazaHit", "WazaAvg", "WazaRisk", "WazaPP", "LastRevise"]
+_FLAGS = ("SelRandom", "WeakPoint", "OrderOut", "AceBoss", "KeyPlayer", "Zokusei", "Tokusei", "WazaDamage", "Joutai",
+          "WazaRisk", "WazaHit", "Part", "WazaInit", "WazaRnd", "DefRnd")
+
+
 def _colosseum_fields(row: bytes) -> dict:
-    names = ["SelRandom", "WeakPoint", "OrderOut", "AceBoss", "KeyPlayer", "Joutai", "Combo", "Irekae", "Item",
-             "ParamExpect", "ParamStore", "Zokusei", "Tokusei", "NokoriHp", "WazaDamage", "AbiMax", "AbiMin",
-             "DefRnd", "WazaRnd", "WazaInit", "Part", "WazaHit", "WazaAvg", "WazaRisk", "WazaPP", "LastRevise"]
-    out = dict(zip(names, row[:26]))
-    pairs = row[26:]
+    """A Colosseum TrainerAIData row (0x28 bytes) through its accessors: byte (id - 31), then the pairs at 0x20."""
+    out = dict(zip(_COLOSSEUM_NAMES, row[:26]))
+    pairs = row[0x20:0x28]
     out.update({"ZokuseiId": (pairs[0], pairs[2]), "ZokuseiVal": (pairs[1], pairs[3]),
                 "WazaTypeId": (pairs[4], pairs[6]), "WazaTypeVal": (pairs[5], pairs[7])})
     return out
 
 
-class TestTheTranslation(unittest.TestCase):
-    def test_every_field_the_xd_engine_reads(self) -> None:
-        for team, row in nc.COLOSSEUM_ORRE_LV100_AI.items():
-            colo, xd = _colosseum_fields(row), _xd_fields(nc.xd_ai_row_from_colosseum(row))
-            for name in ("SelRandom", "WeakPoint", "OrderOut", "AceBoss", "KeyPlayer", "Zokusei", "Tokusei",
-                         "WazaDamage", "Joutai", "WazaRisk", "WazaHit", "Part", "WazaInit", "WazaRnd", "DefRnd"):
-                self.assertEqual(bool(colo[name]), bool(xd[name]), (team, name))
-            for name in ("AbiMax", "AbiMin", "Irekae", "Item", "WazaAvg", "NokoriHp", "WazaPP", "LastRevise",
-                         "ZokuseiId", "WazaTypeId"):
-                self.assertEqual(colo[name], xd[name], (team, name))
-            for name in ("ZokuseiVal", "WazaTypeVal"):
-                # Colosseum's percentage is v*100/255 and XD's v*100/100: the same number after each game's math.
-                self.assertEqual(tuple(v * 100 // 255 for v in colo[name]), xd[name], (team, name))
+class TestTheStyles(unittest.TestCase):
+    def test_every_style_reads_back(self) -> None:
+        for team, style in nc.COLOSSEUM_ORRE_LV100_AI_STYLES.items():
+            xd = _xd_fields(nc.dtai_row(style))
+            names = {"random_lead": "SelRandom", "lead_into_weakness": "WeakPoint", "send_in_listed_order": "OrderOut",
+                     "ace_last": "AceBoss", "key_member": "KeyPlayer", "type_matchups": "Zokusei",
+                     "abilities": "Tokusei", "damage_estimates": "WazaDamage", "random_target": "DefRnd",
+                     "random_move": "WazaRnd", "opening_move_bias": "WazaInit", "follow_roles": "Part",
+                     "check_accuracy": "WazaHit", "weigh_risk": "WazaRisk", "status_aware": "Joutai"}
+            self.assertEqual({names[t] for t in style.traits}, {f for f in _FLAGS if xd[f]}, team)
+            self.assertEqual((style.stage_max, style.stage_min, style.switch_pct, style.item_pct, style.accuracy_pct,
+                              style.low_hp_pct, style.last_pp_pct, style.spread),
+                             (xd["AbiMax"], xd["AbiMin"], xd["Irekae"], xd["Item"], xd["WazaAvg"], xd["NokoriHp"],
+                              xd["WazaPP"], xd["LastRevise"]), team)
             self.assertEqual(0, xd["Stroke"])
 
-    def test_round_one_single_by_hand(self) -> None:
-        self.assertEqual(bytes.fromhex("1fba0000666666666666660" "02b2664005000320a" "0909323200000000" "3232" "0200"),
-                         nc.xd_ai_row_from_colosseum(nc.COLOSSEUM_ORRE_LV100_AI[559]))
+    def test_round_one_single(self) -> None:
+        xd = _xd_fields(nc.dtai_row(nc.COLOSSEUM_ORRE_LV100_AI_STYLES[559]))
+        self.assertEqual((100, 0, 80, 50, 10, 2), (xd["Irekae"], xd["Item"], xd["WazaAvg"], xd["NokoriHp"],
+                                                   xd["WazaPP"], xd["LastRevise"]))
+        self.assertEqual(((9, 9), (50, 50)), (xd["ZokuseiId"], xd["ZokuseiVal"]))
 
     def test_the_one_with_type_preferences(self) -> None:
-        xd = _xd_fields(nc.xd_ai_row_from_colosseum(nc.COLOSSEUM_ORRE_LV100_AI[573]))
+        xd = _xd_fields(nc.dtai_row(nc.COLOSSEUM_ORRE_LV100_AI_STYLES[573]))
         self.assertEqual(((13, 13), (0, 0)), (xd["ZokuseiId"], xd["ZokuseiVal"]))      # shun Electric moves
         self.assertEqual(((6, 7), (100, 100)), (xd["WazaTypeId"], xd["WazaTypeVal"]))  # favour move kinds 6 and 7
 
     def test_every_colosseum_team_has_its_ai(self) -> None:
-        self.assertEqual(set(nc.COLOSSEUM_ORRE_LV100_TEAMS), set(nc.COLOSSEUM_ORRE_LV100_AI))
+        self.assertEqual(set(nc.COLOSSEUM_ORRE_LV100_TEAMS), set(nc.COLOSSEUM_ORRE_LV100_AI_STYLES))
         for key in nc.TEAM_KEYS:
             entry = nc.seed_entry(key)
             if key.startswith("colo:"):
@@ -337,16 +345,27 @@ class TestTheTranslation(unittest.TestCase):
 
 
 @unittest.skipUnless(os.path.exists(COLO_COMMON), "needs Pokemon Colosseum's common.fsys")
-class TestTheAIRowsMatchTheDisc(unittest.TestCase):
+class TestTheStylesMatchTheDisc(unittest.TestCase):
+    """Each style plays as the Colosseum disc's own AI row for that team does, field by field the XD engine reads."""
+
     def test_rows(self) -> None:
         data = Path(COLO_COMMON).read_bytes()
         entry = iso_patcher.parse_fsys(data)["common_rel"]
         rel = deck_format.lzss_decode(data[entry["data_off"]:entry["data_off"] + 0x10 + entry["comp_size"]])
         trainers, ai = 0x92ED0, 0x9D560
-        for team, row in nc.COLOSSEUM_ORRE_LV100_AI.items():
+        for team, style in nc.COLOSSEUM_ORRE_LV100_AI_STYLES.items():
             index = struct.unpack_from(">H", rel, trainers + team * 0x34 + 6)[0]
-            on_disc = rel[ai + index * 0x28:ai + index * 0x28 + 0x28]
-            self.assertEqual(row, on_disc[:0x1A] + on_disc[0x20:0x28], team)
+            colo = _colosseum_fields(rel[ai + index * 0x28:ai + index * 0x28 + 0x28])
+            xd = _xd_fields(nc.dtai_row(style))
+            for name in _FLAGS:
+                self.assertEqual(bool(colo[name]), bool(xd[name]), (team, name))
+            for name in ("AbiMax", "AbiMin", "Irekae", "Item", "WazaAvg", "NokoriHp", "WazaPP", "LastRevise",
+                         "ZokuseiId", "WazaTypeId"):
+                self.assertEqual(colo[name], xd[name], (team, name))
+            for name in ("ZokuseiVal", "WazaTypeVal"):
+                # Colosseum turns a weight into a percentage as v*100/255, XD as v*100/100.
+                self.assertEqual(tuple(v * 100 // 255 for v in colo[name]), xd[name], (team, name))
+
 
 
 @unittest.skipUnless(os.path.exists(COLO_DOL), "needs Pokemon Colosseum's main.dol")

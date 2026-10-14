@@ -4,9 +4,10 @@ synthetic ISO whose only file is a `pocket_menu.fsys` shaped like the real one (
 at the next 32-byte boundary). Verifies the whole chain the ADDENDUM 127 build got wrong: the REL is found,
 structurally validated, patched only inside the MartItems pool, re-encoded with header-inclusive sizes into
 EXACTLY its original footprint (the neighbouring msg entry is byte-identical afterwards), re-validated, and the
-always-on diagnostic file carries the complete raw entry bytes."""
+always-on diagnostic file identifies the original entry by size and SHA-1."""
 from __future__ import annotations
 
+import hashlib
 import json
 import struct
 import tempfile
@@ -131,19 +132,14 @@ class TestShopPassEndToEnd(unittest.TestCase):
             # the neighbouring msg entry was not touched (no 16-byte overshoot past the REL's footprint)
             msg_off = container_off + layout["data1"]
             self.assertEqual(patched_iso[msg_off:msg_off + len(layout["msg"])], layout["msg"])
-            # the always-on diagnostic exists and carries the whole original entry as hex
+            # the always-on diagnostic exists and identifies the original entry by its size and hash
             diag = Path(summary["shop_diagnostic_file"])
             text = diag.read_text(encoding="utf-8")
             self.assertIn("Status: OK", text)
             self.assertIn("mart 2 (start 6", text)
             original_entry = iso[container_off + layout["data0"]: container_off + layout["data0"] + layout["comp_size"]]
-            self.assertIn(original_entry[:32].hex(), text)
-            dumped_hex = "".join(
-                line.split(": ", 1)[1]
-                for line in text.splitlines()
-                if line.startswith("  ") and ": " in line and len(line.split(": ", 1)[0].strip()) == 6
-            )
-            self.assertIn(original_entry.hex(), dumped_hex)
+            self.assertIn(f"{len(original_entry)} bytes, SHA-1 {hashlib.sha1(original_entry).hexdigest()}", text)
+            self.assertNotIn(original_entry[:32].hex(), text)
 
 
 if __name__ == "__main__":

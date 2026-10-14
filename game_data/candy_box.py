@@ -163,20 +163,9 @@ DISPATCH_OFFSET = 0x00
 LEVEL_HELPER_OFFSET = 0x24
 TABLE_OFFSET = 0x58
 
-#: The vanilla words the patch replaces at CAVE_ADDRESS, in order. Checked before anything is written.
-CAVE_ORIGINAL_HEX = (
-    "9421ff207c0802a6900100e493e100dc38600000388000024816826d7c601b78386000007c1f037838800001480f186d"
-    "7c661b78386100083880008738a00028480da6357fe3fb783881000838a0000038c0000438e00001480e61d538810008"
-    "38600000481cdf613860000038800001480f18297c661b78386100083880008638a00028480da5f17fe3fb7838810008"
-    "38a0000038c0000438e00001480e61913881000838600000481cdf1d3860000038800001480f17e57c661b7838610008"
-    "3880016138a00064480da5ad3861000838800040480d82097fe3fb783881000838a0000038c0000438e00001480e6141"
-    "3860000038800001480f17a17c661b78386100083880016238a00064480da569386100083880004d480d81c57fe3fb78"
-    "3881000838a0000038c0000438e00001480e60fd3860000038800001480f175d7c661b7838610008388000ac38a00064"
-    "480da525386100083880004c480d81817fe3fb783881000838a0000038c0000438e00001480e60b93860000038800001"
-    "480f17197c661b7838610008388000fa38a00064480da4e1386100083880001d480d813d7fe3fb783881000838a00000"
-    "38c0000438e00001480e60757fe3fb783880000138a0006338c0ffff480e5bed7fe3fb783880000238a0006338c0ffff"
-    "480e5bd97fe3fb783880000338a0006338c0ffff480e5bc5"
-)
+#: SHA-1 of main.dol's bytes over the cave this patch rewrites (CAVE_ADDRESS .. + LEARN_END_OFFSET), checked
+#: against the player's own main.dol before anything is written.
+CAVE_VANILLA_SHA1 = "3c5d0151a0825ab968bc491320b583daae8eb659"
 
 
 # A minimal Gekko encoder -- only the forms this patch uses, each checked by the test against a disassembler.
@@ -321,13 +310,6 @@ LEARN_LOOP_CALL = 0x800A5B80               # pokemonGetOboeWazaDataId(pkm, r28, 
 LEARN_LOOP_DONE = 0x800A5BA0               # the evolution check after the loop
 POKEMON_LEVEL_OFFSET = 0x11                # pokemonBiosGetLevel: lbz r3,17(r3)
 
-#: The vanilla bytes at CAVE_ADDRESS + LEARN_OFFSET the routines replace (more of the debug party's item grants).
-LEARN_ORIGINAL_HEX = (
-    "7fe3fb783880000438a0006338c0ffff480e5bb17fe3fb783880000538a0006338c0ffff480e5b9d7fe3fb783880000638a00063"
-    "38c0ffff480e5b897fe3fb783880000738a0006338c0ffff480e5b757fe3fb783880000838a0006338c0ffff480e5b617fe3fb78"
-    "3880000938a0006338c0ffff480e5b4d7fe3fb783880000a38a0006338c0ffff480e5b39"
-)
-
 
 def _stwu(rs: int, d: int, ra: int) -> int:
     return (37 << 26) | (rs << 21) | (ra << 16) | (d & 0xFFFF)
@@ -425,15 +407,13 @@ def learn_code() -> "list[int]":
 
 def dol_patch_words(trade_by_level: bool = False,
                     entry_level: "int | None" = None) -> "tuple[tuple[int, int, int], ...]":
-    """(address, expected vanilla word, new word) for every word the Candy Box changes in main.dol."""
+    """(address, expected vanilla word or None, new word) for every word the Candy Box changes in main.dol. A None
+    word is inside `vanilla_digests()`."""
     new = cave_bytes(trade_by_level, entry_level)
-    original = bytes.fromhex(CAVE_ORIGINAL_HEX + LEARN_ORIGINAL_HEX)
-    if len(new) != len(original):
-        raise AssertionError(f"cave is {len(new)} bytes but {len(original)} original bytes are recorded")
-    words = [
-        (CAVE_ADDRESS + i, struct.unpack_from(">I", original, i)[0], struct.unpack_from(">I", new, i)[0])
-        for i in range(0, len(new), 4)
-    ]
+    if len(new) != LEARN_END_OFFSET:
+        raise AssertionError(f"cave is {len(new)} bytes but the checked span is {LEARN_END_OFFSET}")
+    # The cave's own words carry no expected value: `vanilla_digests` checks the whole span at once.
+    words = [(CAVE_ADDRESS + i, None, struct.unpack_from(">I", new, i)[0]) for i in range(0, len(new), 4)]
     words.append((CANT_USE_HANDLER, CANT_USE_HANDLER_FIRST_WORD, _b(CANT_USE_HANDLER, CAVE_ADDRESS + DISPATCH_OFFSET)))
     words.append((LEVEL_STEP_ADDRESS, LEVEL_STEP_WORD,
                   _b(LEVEL_STEP_ADDRESS, CAVE_ADDRESS + LEVEL_HELPER_OFFSET, link=True)))
@@ -444,3 +424,8 @@ def dol_patch_words(trade_by_level: bool = False,
                   _b(LEARN_LEVEL_ADDRESS, CAVE_ADDRESS + LEARN_START_OFFSET, link=True)))
     words.append((LEARN_LOOP_ADDRESS, LEARN_LOOP_WORD, _b(LEARN_LOOP_ADDRESS, CAVE_ADDRESS + LEARN_NEXT_OFFSET)))
     return tuple(words)
+
+
+def vanilla_digests() -> "tuple[tuple[int, int, str], ...]":
+    """(address, length, SHA-1) of each main.dol span `dol_patch_words` rewrites without per-word expectations."""
+    return ((CAVE_ADDRESS, LEARN_END_OFFSET, CAVE_VANILLA_SHA1),)

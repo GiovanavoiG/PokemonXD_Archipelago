@@ -9,6 +9,7 @@ one is) so that when it "rewrites" it's just the same text anyway?"
 """
 from __future__ import annotations
 
+import hashlib
 import struct
 import tempfile
 import unittest
@@ -122,7 +123,11 @@ class TestTheCode(unittest.TestCase):
     def test_against_the_real_dol(self) -> None:
         word = _dol_word_reader()
         for address, vanilla, _new in AP.dol_patch_words(False):
-            self.assertEqual(vanilla, word(address), hex(address))
+            if vanilla is not None:
+                self.assertEqual(vanilla, word(address), hex(address))
+        for start, length, digest in AP.vanilla_digests():
+            span = b"".join(struct.pack(">I", word(start + i)) for i in range(0, length, 4))
+            self.assertEqual(digest, hashlib.sha1(span).hexdigest(), hex(start))
         self.assertEqual(0x5463043E, word(0x80022F88), "_getUseFunc is as mapped")
         self.assertEqual(0x48000000 | ((AP.MENU_OPEN_POKEMON - 0x800A54D8) & 0x03FFFFFC) | 1, word(0x800A54D8),
                          "menuUseItemEvolution opens the party menu the same way")

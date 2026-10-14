@@ -41,10 +41,10 @@ class _Rel:
         self.data = data
         self._base, self._count = base, count
 
-    def get_pointer(self, index: int) -> int:
+    def entry_address(self, index: int) -> int:
         return self._base
 
-    def get_value_at_pointer(self, index: int) -> int:
+    def entry_value(self, index: int) -> int:
         return self._count
 
 
@@ -110,8 +110,8 @@ class TestTheStrongerVerification(unittest.TestCase):
     def test_it_refuses_rather_than_raises_when_the_table_is_unreachable(self) -> None:
         class Broken:
             data = b""
-            def get_pointer(self, index): raise ValueError("no pointer table")
-            def get_value_at_pointer(self, index): raise ValueError("no pointer table")
+            def entry_address(self, index): raise ValueError("no pointer table")
+            def entry_value(self, index): raise ValueError("no pointer table")
         self.assertFalse(rf.verify_move_status_fields(Broken(), move_status.MOVE_STATUS))
 
 

@@ -55,13 +55,13 @@ class _FakeRel:
                 struct.pack_into(">H", self.data, entry + rf.POKESPOT_SPECIES_OFFSET, 27)
 
     # `pokespot_pool_base` / `pokespot_pool_count` go through these two.
-    def get_pointer(self, index: int) -> int:
+    def entry_address(self, index: int) -> int:
         for pool, (data_index, _count_index) in rf.POKESPOT_POOL_POINTERS.items():
             if data_index == index:
                 return self._bases[pool]
         raise KeyError(index)
 
-    def get_value_at_pointer(self, index: int) -> int:
+    def entry_value(self, index: int) -> int:
         for pool, (_data_index, count_index) in rf.POKESPOT_POOL_POINTERS.items():
             if count_index == index:
                 return self._counts.get(pool, 0)
@@ -104,14 +104,14 @@ class TestTheTableIsVerifiedBeforeAnythingIsWritten(unittest.TestCase):
 
     def test_one_wrong_level_byte_fails_it(self) -> None:
         rel = _FakeRel()
-        base = rel.get_pointer(rf.POKESPOT_POOL_POINTERS["cave"][0])
+        base = rel.entry_address(rf.POKESPOT_POOL_POINTERS["cave"][0])
         rel.data[base + rf.POKESPOT_MIN_LEVEL_OFFSET] = 9
         self.assertFalse(rf.verify_pokespot_table(rel))
 
     def test_a_zero_min_level_fails_it(self) -> None:
         """The reported symptom, as a rejection: a table already holding a zero is not one to write into."""
         rel = _FakeRel()
-        base = rel.get_pointer(rf.POKESPOT_POOL_POINTERS["rock"][0])
+        base = rel.entry_address(rf.POKESPOT_POOL_POINTERS["rock"][0])
         rel.data[base + rf.POKESPOT_MIN_LEVEL_OFFSET] = 0
         self.assertFalse(rf.verify_pokespot_table(rel))
 
@@ -145,7 +145,7 @@ class TestTheLevelsAreFencedAcrossThePass(unittest.TestCase):
 
     def test_a_stray_write_over_a_level_is_caught(self) -> None:
         before = rf.pokespot_level_fields(self.buffer, self.rel)
-        base = self.rel.get_pointer(rf.POKESPOT_POOL_POINTERS["oasis"][0])
+        base = self.rel.entry_address(rf.POKESPOT_POOL_POINTERS["oasis"][0])
         self.buffer[base + rf.POKESPOT_MIN_LEVEL_OFFSET] = 0
         with self.assertRaises(AssertionError) as caught:
             rf.assert_pokespot_levels_unchanged(before, rf.pokespot_level_fields(self.buffer, self.rel))
@@ -161,7 +161,7 @@ class TestTheLevelsAreFencedAcrossThePass(unittest.TestCase):
         bytes puts its zero high byte into MinLevel. Simulated directly, because if the fence did not catch
         this it would be catching nothing worth catching."""
         before = rf.pokespot_level_fields(self.buffer, self.rel)
-        base = self.rel.get_pointer(rf.POKESPOT_POOL_POINTERS["rock"][0])
+        base = self.rel.entry_address(rf.POKESPOT_POOL_POINTERS["rock"][0])
         struct.pack_into(">H", self.buffer, base + rf.POKESPOT_MIN_LEVEL_OFFSET, 133)
         self.assertEqual(0, self.buffer[base + rf.POKESPOT_MIN_LEVEL_OFFSET], "the symptom, reproduced")
         with self.assertRaises(AssertionError):
@@ -179,7 +179,7 @@ class TestTheReportNamesTheSlot(unittest.TestCase):
     def test_a_bad_slot_is_identifiable(self) -> None:
         rel = _FakeRel()
         buffer = bytearray(rel.data)
-        base = rel.get_pointer(rf.POKESPOT_POOL_POINTERS["cave"][0])
+        base = rel.entry_address(rf.POKESPOT_POOL_POINTERS["cave"][0])
         buffer[base + rf.POKESPOT_ENTRY_SIZE + rf.POKESPOT_MIN_LEVEL_OFFSET] = 0
         bad = [r for r in rf.pokespot_level_report(buffer, rel)
                if r["expected"] != (r["min_level"], r["max_level"])]

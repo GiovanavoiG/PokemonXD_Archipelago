@@ -1,8 +1,7 @@
 """
 Binary layouts for Pokemon XD's trainer-team data.
 
-The offsets agree with rotobash/pokemon-ngc-rando's `XDTrainerPokemon.cs`/`XDTrainer.cs` (see NOTICE.md)
-and were re-confirmed against real extracted DPKM/DDPK/DTNR blocks.
+The offsets agree with rotobash/pokemon-ngc-rando's research and were re-confirmed against real extracted DPKM/DDPK/DTNR blocks.
 
 Scope: confirmed byte ranges inside an already-extracted block. This does not parse a GameCube FST, touch
 FSYS archives, or know where the DTNR block sits in a real ISO -- see apply_patch.py. Every accessor mutates

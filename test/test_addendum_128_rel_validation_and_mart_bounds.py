@@ -55,12 +55,12 @@ def _build_synthetic_rel(pool_values: list[int], mart_starts: list[int], junk_af
     rel_off = imp_off + imp_size
 
     # pointer table = self relocations: SECTION marker, then one (ADDR32 into section 3) pair per pointer
-    # index: entry (1 + 2*index) carries the addend REL.cs reads as the pointer.
+    # index: entry (1 + 2*index) carries the addend that locates table `index`.
     targets = [off_starts, off_num_marts, off_filler, off_filler, off_pool, off_num_items, off_junk]
     self_rels = bytearray(struct.pack(">HBBI", 0, rel_format.R_DOLPHIN_SECTION, 3, 0))
     for t in targets:
         self_rels += struct.pack(">HBBI", 4, 1, 3, t)
-        self_rels += struct.pack(">HBBI", 4, 1, 3, t)  # the second of the pair (REL.cs skips it)
+        self_rels += struct.pack(">HBBI", 4, 1, 3, t)  # the second of the pair (not read)
     self_rels += struct.pack(">HBBI", 0, rel_format.R_DOLPHIN_END, 0, 0)
     dol_rel_off = rel_off + len(self_rels)
     dol_rels = bytearray(struct.pack(">HBBI", 0, rel_format.R_DOLPHIN_SECTION, 3, 0))
@@ -79,7 +79,7 @@ def _build_synthetic_rel(pool_values: list[int], mart_starts: list[int], junk_af
     struct.pack_into(">IIII", rel, imp_off, 0x33, rel_off, 0, dol_rel_off)
     rel[rel_off:rel_off + len(self_rels)] = self_rels
     rel[dol_rel_off:dol_rel_off + len(dol_rels)] = dol_rels
-    assert rel_format.REL_DATA_START_OFFSET_LOCATION == sec_table_off + 3 * 8
+    assert rel_format.data_section_entry(False) == sec_table_off + 3 * 8
     return bytes(rel)
 
 
@@ -87,9 +87,9 @@ class TestSyntheticRelParsesWithTheRealRelFile(unittest.TestCase):
     def test_pointer_walk_and_mart_tables_resolve(self) -> None:
         rel_bytes = _build_synthetic_rel([4, 13, 0, 17, 0], [0, 3], [])
         rel = rel_format.RelFile(rel_bytes, is_common=False)
-        # REL.cs's walk only stops on a R_DOLPHIN_SECTION-shaped sentinel (0xCA01..0xCAFF) or the import
+        # The walk only stops on a section-select record or the import
         # boundary, so the trailing END entry is counted as one extra (harmless, addend 0) pointer.
-        self.assertGreaterEqual(rel.number_of_pointers, 7)
+        self.assertGreaterEqual(rel.entry_count, 7)
         self.assertEqual(rel_format.number_of_marts(rel), 2)
         self.assertEqual(rel_format.number_of_mart_items(rel), 3)
         self.assertEqual(rel_format.mart_first_item_index(rel, 0), 0)
@@ -120,7 +120,7 @@ class TestStructuralMartBounds(unittest.TestCase):
         self.assertTrue(all(base <= o < end for o in changed))
         self.assertEqual(end, rel_format.mart_items_base(rel) + 3 * 2)  # bounded by the next pointer target
         # the junk table is byte-identical
-        junk_off = rel.get_pointer(6)
+        junk_off = rel.entry_address(6)
         self.assertEqual(patched[junk_off:junk_off + 12], rel_bytes[junk_off:junk_off + 12])
         # and the patched REL still links
         rel_format.validate_rel_structure(bytes(patched))

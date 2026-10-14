@@ -10,7 +10,7 @@ The original record follows unchanged.
 
 ADDENDUM 397 (2026-10-01) -- `world_checks` falls back to `everything` when it names nothing.
 
-Player: "Shops are progression eligible. What the hell are you talking about. rethink this whole thing"
+Player: "Shops are progression eligible. ... rethink this whole thing"
         "there's so many eligible progression items. go tally them and mark them"
         "Even with all the options off."
 

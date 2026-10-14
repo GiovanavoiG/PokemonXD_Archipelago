@@ -6,7 +6,7 @@ them are named, censused against all 823 records in a real DeckData_Story.bin.
 The table was found in a real `common_rel` RAM dump by requiring 22 species to agree on this project's own
 base-HP offset (+0x8F); every offset in the 0x124-byte entry was then brute-forced against 50 known Gen III
 base-experience yields and exactly one matched all 50. Both offsets, and the single-byte width, agree with
-rotobash/pokemon-ngc-rando's `XDPokemon.cs` (see NOTICE.md).
+rotobash/pokemon-ngc-rando's research.
 
     +0x00  u8   experience group (the `ExpRate` enum below)
     +0x01  u8   catch rate                 verified: Bulbasaur 45, Pikachu 190, Chansey 30, Mewtwo 3

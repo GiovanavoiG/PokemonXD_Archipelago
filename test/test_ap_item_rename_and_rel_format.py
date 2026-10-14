@@ -27,7 +27,7 @@ WHAT WAS DROPPED (64 -> 44 tests), and why:
 
 WHY THIS DOESN'T CONSTRUCT A REAL `RelFile` FOR THE STRING-TABLE TESTS: same reasoning as
 test_addendum_111_mart_rel_helpers.py's own FakeRel -- no synthetic/fixture REL binary exists anywhere in this
-codebase, and every helper under test only ever calls `rel.data`/`rel.get_pointer()`/`rel.get_value_at_pointer()`,
+codebase, and every helper under test only ever calls `rel.data`/`rel.entry_address()`/`rel.entry_value()`,
 so a minimal duck-typed fake exercises the real offset arithmetic/decode logic just as faithfully without
 needing a real REL header. (The ADDENDUM 115 bounds-check tests below are the exception: they construct a real
 `RelFile`, because the header walk itself is what they test.)"""
@@ -56,10 +56,10 @@ class FakeRel:
         self._pointers = pointers
         self._values = values_at_pointer
 
-    def get_pointer(self, index: int) -> int:
+    def entry_address(self, index: int) -> int:
         return self._pointers[index]
 
-    def get_value_at_pointer(self, index: int) -> int:
+    def entry_value(self, index: int) -> int:
         return self._values[index]
 
 
@@ -215,35 +215,31 @@ def _build_rel_with_second_string_table() -> FakeRel:
     pointers = dict(move_rel._pointers)
     pointers[200] = item_table_base_addr - rel_format.STRING_TABLE_BLOB_OFFSET
     fake = FakeRel(bytes(data), pointers, move_rel._values)
-    fake.number_of_pointers = 201  # scan range must reach pointer index 200
+    fake.entry_count = 201  # scan range must reach pointer index 200
     return fake
 
 
 def _build_minimal_valid_rel(is_common: bool = False) -> bytes:
-    """ADDENDUM 115. The smallest possible buffer that satisfies RelFile.__init__'s real header walk:
-    pointer_start and pointer_header both point at in-bounds, self-consistent locations, and
-    pointer_end == first_pointer so the pointer-count loop body never has to run (number_of_pointers == 0) --
-    a minimal, deliberately trivial, but genuinely VALID REL header, not a fixture that happens to dodge the
+    """ADDENDUM 115. The smallest possible buffer that satisfies RelFile.__init__'s real header walk: the
+    relocation and import offsets point at in-bounds, self-consistent locations, and the next module's records
+    begin right after this module's section-select record, so there are no tables (entry_count == 0) -- a
+    minimal, deliberately trivial, but genuinely VALID REL header, not a fixture that happens to dodge the
     bounds check by accident."""
-    data_start_off = (
-        rel_format.COMMON_REL_DATA_START_OFFSET_LOCATION if is_common else rel_format.REL_DATA_START_OFFSET_LOCATION
-    )
     data = bytearray(0x80)
-    struct.pack_into(">I", data, data_start_off, 0)  # data_start = 0
-    struct.pack_into(">I", data, rel_format.REL_POINTERS_START_OFFSET_LOCATION, 0x40)  # pointer_start = 0x40
-    struct.pack_into(">I", data, rel_format.REL_POINTERS_HEADER_POINTER_1_OFFSET, 0x40)  # pointer_header = 0x40
-    first_pointer = 0x40 + rel_format.REL_POINTERS_FIRST_POINTER_OFFSET  # 0x48
-    struct.pack_into(">I", data, 0x40 + 0xC, first_pointer)  # pointer_end == first_pointer -> loop never runs
+    struct.pack_into(">I", data, rel_format.data_section_entry(is_common), 0)  # data section at 0
+    struct.pack_into(">I", data, 0x24, 0x40)  # relocation records at 0x40
+    struct.pack_into(">I", data, 0x28, 0x40)  # import table at 0x40
+    struct.pack_into(">I", data, 0x40 + 0xC, 0x48)  # second module's records start at 0x48 -> no pairs
     return bytes(data)
 
 
 def _build_undersized_garbage_rel() -> bytes:
     """ADDENDUM 115, reproducing the REAL player report exactly: a 544-byte container (far too small to be real
-    REL pointer-table data) with a garbage "pointer_header" value at the real REL.cs offset that dereferences
+    REL pointer-table data) with a garbage import-table offset in the real REL header that dereferences
     WAY out of bounds ("unpack_from requires a buffer of at least 369098756 bytes ... actual buffer size is
     544")."""
     data = bytearray(544)
-    struct.pack_into(">I", data, rel_format.REL_POINTERS_HEADER_POINTER_1_OFFSET, 369098740)
+    struct.pack_into(">I", data, 0x28, 369098740)
     return bytes(data)
 
 
@@ -744,7 +740,7 @@ class TestRelFileValidConstruction(unittest.TestCase):
         # is what makes the error in TestRelFileBoundsCheckedErrors actionable -- it names the container and
         # entry the bad bytes came from.
         rel = rel_format.RelFile(_build_minimal_valid_rel(), is_common=False)
-        self.assertEqual(rel.number_of_pointers, 0)
+        self.assertEqual(rel.entry_count, 0)
         self.assertEqual(rel.label, "REL")  # generic default
         labelled = rel_format.RelFile(
             _build_minimal_valid_rel(), is_common=False, label="pocket_menu.fsys entry 'x'"
@@ -784,7 +780,7 @@ class TestRelFileBoundsCheckedErrors(unittest.TestCase):
         # rejected the same clear way, not handed to struct.unpack_from to fail on its own terms.
         rel = rel_format.RelFile(_build_minimal_valid_rel(), is_common=False)
         with self.assertRaises(ValueError):
-            rel._u32(-1)
+            rel._word(-1)
 
 
 # ---------------------------------------------------------------------------------------------------------
