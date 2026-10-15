@@ -1,11 +1,10 @@
 """ADDENDUM 454 (2026-10-09) -- the ABILITY SWAP as a USE item, Disable Move Animations without the AI cost (plus a
 live guard), and one world-map description per place.
 
-Player: "Can you rework it and shorten the name then? Does AbilitySwap fit, or AbilityPatch without a space? I want it
-as a use item not held. Also, can we assign a guard to our no move animations? I've seen scenarios where the
-animations start playing again. Also, when hovering locations on the map, the location description text jumps as we
-write the story byte. Can we just rewrite all the descriptions in the iso to be the same (whatever the first/earliest
-one is) so that when it "rewrites" it's just the same text anyway?"
+The ability item gets a shorter name and is a USE item, not a held one. Disabled move animations get a live guard,
+because the animations could start playing again. Hovering a place on the world map made its description text jump
+as the story byte was written, so every description in the ISO is rewritten to one text (the first/earliest) and a
+"rewrite" lands on the same text anyway.
 """
 from __future__ import annotations
 
@@ -281,7 +280,7 @@ class TestTheMapTable(unittest.TestCase):
         self.assertEqual(b"\x11" * 64, bytes(data[:64]))
 
     def test_the_three_named_places(self) -> None:
-        """Player: "Switch Libra, Cipher Lab and Key Lair to their first clear one"."""
+        """SS Libra, the Cipher Lab and the Key Lair use their first clear description."""
         expected = list(MD.FIRST_RECORD[1:])
         expected[MD.CIPHER_LAB_WORD - 1] = 0xD4FD     # CIPHER LAB / CIPHER's old lab back in operation.
         expected[MD.SS_LIBRA_WORD - 1] = 0xD4FF       # S.S. LIBRA / The POKeMON cargo ship that went missing ...

@@ -1,8 +1,7 @@
 """ADDENDUM 355 (2026-09-25): nine unlocks nobody earned.
 
-Player, with a screenshot of nine `Unlock -` checks firing on arrival at Gateon Port: "No, I did not earn
-those nine unlocks. I went to an area past them so it gave me all of them." Then: "Let's figure out those
-early unlocks."
+Nine `Unlock -` checks fired on arrival at Gateon Port, none of them earned: having been to an area past them
+paid out all of them at once.
 
 WHAT THE OLD GATE ASKED. ADDENDUM 268's `_story_byte_was_earned_here` compared the player's CURRENT region's
 unlock floor against the threshold and credited when `floor < threshold`. It was written for the failure of
@@ -30,7 +29,7 @@ bank anything this client wrote (ADDENDA 229/275/277) or anything carried in fro
 288). A mark exists only where the game moved the byte itself.
 
 AND IT DOES NOT REOPEN ADDENDUM 270, which is the trap. That addendum tightened the old guard to strict `<`
-precisely so a travel item could not pay out its own check -- "you unlock the icon and then go". A rule of
+precisely so a travel item could not pay out its own check -- unlock the icon, then go. A rule of
 "have you been to D" would hand that straight back, because in a shuffled seed arriving at D is exactly what
 the item buys. This rule cannot: arriving writes D's entry floor, and that write is ours, so no mark comes of
 it. The item gets you there; the mark still has to be earned.
@@ -46,8 +45,8 @@ would hold its check forever, silently. `!unlocks` exists for that -- it prints 
 threshold, its mark and the verdict, so a stranded check is a row a player can read and report.
 
 SUPERSEDED IN PART, 2026-09-25 (ADDENDUM 356). The rule below asks for the mark in D ITSELF. That fixes the
-failure this addendum is about, but it fixes it the wrong way round -- the player, reading it back: "They
-should be logically gated behind the area before them - that's where they're unlocked." Asking for the mark
+failure this addendum is about, but it fixes it the wrong way round: the checks should be logically gated behind the
+area before them, because that is where they are unlocked. Asking for the mark
 in D made every `Unlock - D` check wait on `Travel Unlock - D`, which is ADDENDUM 270's self-credit deferred
 rather than prevented. ADDENDUM 356 moves the witness one rung down the ladder. Everything else here -- the
 diagnosis, why the byte alone cannot answer it, and why `observe()`'s guards are what make any of this safe --
@@ -164,7 +163,7 @@ class TestTheGateAsksAboutTheDestination(unittest.TestCase):
 
 
 class TestTheGloballyHighByteIsNoLongerEnough(unittest.TestCase):
-    """The player's failure, stated as an arithmetic fact about the tables rather than as a story.
+    """The failure, stated as an arithmetic fact about the tables rather than as a story.
 
     Gateon Port's floor sits at or before EVERY threshold in the game. Under 268's `floor < threshold` that
     made Gateon qualify for all of them at once, which is why nine fired together. Nothing about the tables

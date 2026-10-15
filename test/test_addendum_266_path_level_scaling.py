@@ -1,9 +1,9 @@
 """ADDENDUM 266 (2026-09-17): trainer levels that follow the INTENDED path.
 
-Player: "please investigate scaling level for location shuffle - first area unlocked has level 10s, second has
-20s, etc - it's fine to scale them by INTENDED path rather than when they're actually received."
+With location shuffle, trainer levels scale by area -- the first area unlocked has level 10s, the second 20s,
+and so on -- along the INTENDED path rather than by when areas are actually received.
 
-That concession is what makes the feature buildable. With travel randomization on, the order a player ACTUALLY
+Scaling by the intended path is what makes the feature buildable. With travel randomization on, the order a player ACTUALLY
 reaches areas in is decided by the multiworld and is not knowable at patch time -- the ISO is patched before
 anyone plays -- so scaling by it would mean rewriting levels live from the client. The intended path is a
 property of the GAME, fixed for every seed, and bakes straight into the ISO.
@@ -22,7 +22,7 @@ already know -- the exact failure this project keeps finding (ADDENDA 185/211/24
 
 ## The curve
 
-The player chose the vanilla range: 10 at the first tier, 65 at the last, spread evenly. It lands on clean
+The curve uses the vanilla range: 10 at the first tier, 65 at the last, spread evenly. It lands on clean
 fives (10, 15, 20 ... 65) by arithmetic rather than by being typed that way, which is worth a test of its own.
 
 The literal "+10 per tier" reading overshoots -- twelve tiers reaches 120 and the last three areas flatten
@@ -30,7 +30,7 @@ against the cap, taking the differentiation out of exactly the stretch where it 
 
 ## Mt. Battle is one region and a hundred trainers
 
-Included at the player's request, and it cannot take a single band without erasing the 1-to-100 gauntlet that
+Included, but it cannot take a single band without erasing the 1-to-100 gauntlet that
 is the whole point of the place. It keeps its own ramp and takes the path only as a STARTING POINT.
 """
 from __future__ import annotations
@@ -101,8 +101,7 @@ class TestThePathIsDerivedFromTheStoryFloors(unittest.TestCase):
 
         RE-EXPRESSED BY ADDENDUM 368 (2026-09-26), and deliberately not weakened. The floor the ramp reads is
         `_path_floor`, which is `region_floor` for every region except the ones ADDENDUM 368 merges onto
-        another region's floor on the player's ruling ("Key lair interior and exterior should be the same
-        place"). Asking `_path_floor` keeps this an iff over the whole region set rather than an iff with a
+        another region's floor (the Key Lair's interior and exterior are the same place). Asking `_path_floor` keeps this an iff over the whole region set rather than an iff with a
         hand-waved exception, and `test_the_merge_is_the_only_gap_between_the_two_floors` below pins that the
         two functions differ nowhere else -- so a future merge cannot quietly widen the gap this test allows."""
         regions = {p.region for p in trainer_placements.PLACEMENTS.values() if p.region}
@@ -329,7 +328,7 @@ if __name__ == "__main__":
 
 
 class TestAddendum281ThePinnedTutorialFight(unittest.TestCase):
-    """Player: *"Make sure chobin 1's pokemon is always level 5 - level path scaling is making him level 10."*
+    """Chobin #1's Pokemon is always level 5 -- path level scaling was making him level 10.
 
     Chobin #1 is `trainer_index` 15, one Sunkern, level 5 in the real deck data. He lives in Kaminko's House,
     an always-open region and therefore tier 0 -- and tier 0 is `FIRST_TIER_LEVEL`, 10. So the ramp doubled

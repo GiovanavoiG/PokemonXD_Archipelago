@@ -1,8 +1,6 @@
 """ADDENDUM 339 (2026-09-24): a generated Shadow took its trainer's VANILLA average.
 
-Player: "Can we double check generated shadow scaling - they're still not matching path scaling."
-
-They were not. `shadow_expansion.build_shadow_expansion_plans` levels each new Pokemon at
+Generated Shadows were not matching path scaling. `shadow_expansion.build_shadow_expansion_plans` levels each new Pokemon at
 `avg_level_by_trainer[idx] * level_multiplier`, and that average comes from the team census -- the vanilla
 numbers. The multiplier carries Enhanced Difficulty (ADDENDUM 198) and nothing else. The plan is built in
 `generate_early`, BEFORE `pre_output` resolves this seed's tier order, so the path plan does not exist yet.

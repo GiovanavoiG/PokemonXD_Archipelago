@@ -1,7 +1,7 @@
 """ADDENDUM 266 (2026-09-17): every trainer defeat is behind the items that reach it.
 
-Player: "for location shuffle, are all trainer defeats properly gated behind their area/the items needed to
-reach them?"
+Question: with location shuffle, is every trainer defeat properly gated behind its area and the items needed
+to reach it?
 
 Audited and yes. This file is the audit turned into a standing test, because the answer is only worth
 anything for as long as it stays true -- and the two ways it could stop being true are both silent.
@@ -30,7 +30,7 @@ The three zeroes are each explained, and none is a hole:
     its 8 defeats are meant to be reachable from the start. Its item exists because the map ICON is a real
     destination, not because it gates anything.
   * **Orre Colosseum**'s item opens a region that gates nothing, deliberately and documented in ADDENDUM 185
-    -- the player's instruction was "Leave Orre Colosseum as a gettable location", not "make it a key".
+    -- Orre Colosseum stays a gettable location; it is not a key.
   * **Realgam Tower** holds no trainer defeats at all: the 232-row DTNR story roster contains no Realgam
     trainer. The Tower Colosseum fights are simply not in that table.
 
@@ -38,7 +38,7 @@ The three zeroes are each explained, and none is a hole:
 
 84 of 267 are reachable with NO items, and 37 of those sit in a catch-all region called `Unique Trainer
 Defeats`. **All 37 are EXCLUDED**, by construction: they are `trainer_placements.PLACEMENTS` rows with
-`region=None` -- 36 already-missable rows the player marked "N/A", plus Hordel -- and `region=None` means
+`region=None` -- 36 already-missable rows marked "N/A", plus Hordel -- and `region=None` means
 "no region known, filler only". AP requires every location to be reachable so filler can be placed, so they
 are parked somewhere always-open and marked EXCLUDED. That module says it best: *reachable and never required
 is exactly the right shape.*
@@ -113,8 +113,8 @@ class TestEveryDefeatIsBehindItsTravelUnlock(_TravelShuffleBase):
         always_open = {"Pokemon HQ Lab", "Kaminko's House", "Gateon Port", "Agate Village",
                        "Unique Trainer Defeats"}
         # ADDENDUM 433: Citadark Isle has no map icon. With the Parts gate on (the default) it is the Robo
-        # Kyogre ride from always-open Gateon, gated by the Parts, not by any travel unlock -- player: "Citadark
-        # is not gated behind key lair in location shuffle."
+        # Kyogre ride from always-open Gateon, gated by the Parts, not by any travel unlock -- Citadark is not
+        # gated behind the Key Lair in location shuffle.
         if self.multiworld.worlds[self.player].options.robo_kyogre_parts_unlock_citadark:
             always_open.add("Citadark Isle")
         gated_regions = set().union(*gated_by.values()) if gated_by else set()
@@ -176,8 +176,8 @@ class TestTheUngatedDefeatsAreAllFillerOnly(_TravelShuffleBase):
 
         parked = [l for l in self.defeats() if l.parent_region.name == "Unique Trainer Defeats"]
         # ADDENDUM 401: a region-less placement whose numbered fight was removed has no location to park.
-        # ADDENDUM 409: "Hordel is not a check, so remove him", the rematch trim, and Miror B. #2's placement
-        # ("outskirt stand or cave spot") leave NO region-less placement with a live location. The invariant is
+        # ADDENDUM 409: Hordel's removal (he is not a check), the rematch trim, and Miror B. #2's placement
+        # (Outskirt Stand or the Cave Poke Spot) leave NO region-less placement with a live location. The invariant is
         # now the stronger one: nothing is parked, and every region-less row is a removed label, absent here.
         region_less = {
             trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[index])

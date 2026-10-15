@@ -1,14 +1,11 @@
 """ADDENDUM 301 (2026-09-20) -- Aferd (Any) is filler-only, and the exclusion mechanism audited end to end.
 
-Player: "Exclude Aferd(Any) from progression/useful items. Also double check that mechanism - my guess is
-there's another field that controls it or a multiplier."
-
 THE CHANGE IS ONE LINE. `AFERD` joins `repeatable_trainers.ALWAYS_FILLER_SURNAMES`, which feeds
 `ALWAYS_FILLER_LOCATIONS`, which `locations.create_regions_and_locations` turns into
 `LocationProgressType.EXCLUDED` before `create_items` runs. That is the whole path.
 
 THE AUDIT IS THE REST OF THIS FILE, because "it is marked EXCLUDED" and "nothing good can land on it" are two
-different claims and only the second one is what was asked for. Four fields were checked:
+different claims and only the second one is what matters. Four fields were checked:
 
   1. `progress_type` -- set in `create_regions_and_locations`, BEFORE `create_items`. This ordering is load-
      bearing: the world sizes its own useful/filler pools from the count of non-EXCLUDED locations, so an
@@ -31,9 +28,9 @@ anchors are in it by construction and membership carries no information about th
 missable column is the right witness and `_build()` already reads it. This is written down because it is a
 false positive worth only finding once.
 
-SO AFERD IS A RULING, NOT A DERIVATION, and the module says so where the ruling lives. Its anchor is occurrence
-69 -- Aferd #2, Pokemon HQ Lab, census-safe, sphere zero. Nothing about it was broken; the player decided it
-should not host progression, and this is the lever that decides that.
+SO AFERD IS A DESIGN CHOICE, NOT A DERIVATION, and the module says so where the choice lives. Its anchor is occurrence
+69 -- Aferd #2, Pokemon HQ Lab, census-safe, sphere zero. Nothing about it was broken; it simply does not host
+progression or useful items, and this is the lever that decides that.
 """
 from __future__ import annotations
 
@@ -49,30 +46,30 @@ from ..game_data import repeatable_trainers as RT
 AFERD_ANY = "Defeat Aferd (Any)"
 
 
-class TestTheRuling(unittest.TestCase):
-    def test_aferd_is_in_the_ruling_table_with_a_reason(self) -> None:
+class TestTheExclusion(unittest.TestCase):
+    def test_aferd_is_in_the_exclusion_table_with_a_reason(self) -> None:
         self.assertIn("AFERD", RT.ALWAYS_FILLER_SURNAMES)
         self.assertTrue(RT.ALWAYS_FILLER_SURNAMES["AFERD"].strip())
 
-    def test_the_ruling_reaches_the_location_name(self) -> None:
+    def test_the_exclusion_reaches_the_location_name(self) -> None:
         self.assertEqual(AFERD_ANY, RT.location_name("AFERD"))
         self.assertIn(AFERD_ANY, RT.ALWAYS_FILLER_LOCATIONS)
 
-    def test_the_anchor_is_the_fight_the_ruling_names(self) -> None:
+    def test_the_anchor_is_the_fight_the_exclusion_names(self) -> None:
         """If the census is ever regenerated and Aferd's anchor moves to a different occurrence, the reason
-        recorded beside the ruling stops describing it."""
+        recorded beside the exclusion stops describing it."""
         row = next(r for r in RT.REPEATABLE_TRAINERS if r["surname"] == "AFERD")
         self.assertEqual(69, row["anchor_index"])
         self.assertEqual("Pokemon HQ Lab", row["region"])
 
-    def test_the_ruling_was_not_derivable(self) -> None:
+    def test_the_exclusion_was_not_derivable(self) -> None:
         """Stated so nobody later "fixes" the derivation to produce it. The census says this anchor is safe --
-        Aferd is here because the player said so, which is a different kind of fact."""
+        Aferd is here by design choice, which is a different kind of fact."""
         row = next(r for r in RT.REPEATABLE_TRAINERS if r["surname"] == "AFERD")
         self.assertFalse(row["anchor_is_missable"])
 
     def test_the_named_occurrences_were_already_filler_and_stay_that_way(self) -> None:
-        """"keep our current checks & keep them filler" from ADDENDUM 252, unchanged by this."""
+        """ADDENDUM 252 kept these checks and kept them filler; unchanged by this."""
         for index in (8, 69, 70, 146, 223):
             self.assertIn(index, MT.FILLER_ONLY_TRAINER_INDICES, index)
 
@@ -82,7 +79,7 @@ class TestTheFalsePositive(unittest.TestCase):
 
     def test_every_any_defeat_anchor_is_in_the_filler_only_set(self) -> None:
         for row in RT.REPEATABLE_TRAINERS:
-            # ADDENDUM 407: the un-redoable set; a few anchors are now mandatory rematches the player unfenced.
+            # ADDENDUM 407: the un-redoable set; a few anchors are now unfenced mandatory rematches.
             self.assertIn(row["anchor_index"], MT.UNREDOABLE_TRAINER_INDICES, row["location"])
 
     def test_and_most_of_those_anchors_are_census_safe(self) -> None:
@@ -126,7 +123,7 @@ class TestInARealWorld(PokemonXDTestBase):
 
 
 class TestFillReallyLeavesItAlone(PokemonXDTestBase):
-    """The claim the player actually made -- not "it is flagged", but "nothing good lands on it"."""
+    """The claim that matters -- not "it is flagged", but "nothing good lands on it"."""
 
     options = {"shuffle_trainer_defeats": True}
 

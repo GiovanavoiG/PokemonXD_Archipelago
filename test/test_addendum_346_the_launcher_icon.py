@@ -1,6 +1,6 @@
 """ADDENDUM 346 (2026-09-25) -- the Launcher button carries the project's own icon.
 
-Player supplied the artwork and asked for it on the "Pokemon XD Client" button in the Archipelago Launcher.
+The "Pokemon XD Client" button in the Archipelago Launcher shows the project's icon.
 
 WHY THIS IS NOT A FILE PATH, which is the only interesting thing about the change. `kvui`'s
 `ImageLoaderPkgutil` splits an `ap:` URI into a module and a path and loads it with `pkgutil.get_data`, which

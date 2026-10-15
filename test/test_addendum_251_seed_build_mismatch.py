@@ -1,16 +1,16 @@
 """ADDENDUM 251 (2026-09-16) -- a seed and the installed apworld can now tell each other apart.
 
-ADDENDA 245/246 diagnosed a player's "unwinnable" seed. It was not a logic error. The seed was rolled the same
+ADDENDA 245/246 diagnosed an "unwinnable" seed. It was not a logic error. The seed was rolled the same
 day three changes landed -- ADDENDUM 237 retired 52 duplicate Overworld Items, 238 excluded the Battle CD
 shop's 9 lines, 242 renamed a chest -- and 63 of its 685 rows named locations the installed build no longer
-had. FIVE held progression, including the Mayor's Note, which is why the player reported "there's nothing in
-the SS Libra except for the chests".
+had. FIVE held progression, including the Mayor's Note, which is why the SS Libra appeared to hold nothing but its
+chests.
 
-Nothing anywhere noticed. The client connected, the dead ids were never sent, and the player found out hours
+Nothing anywhere noticed. The client connected, the dead ids were never sent, and nobody found out until hours
 in. This addendum is the notice.
 
 TWO MECHANISMS, DELIBERATELY. The id-set comparison needs no slot data and therefore works on seeds generated
-before this existed -- including the reported one. The fingerprint catches what the id set cannot: a RENAME
+before this existed -- including the one diagnosed above. The fingerprint catches what the id set cannot: a RENAME
 that carries its id across, which both ADDENDUM 242 and ADDENDUM 246 did, leaving the id set identical while
 still invalidating an in-flight seed.
 """
@@ -171,7 +171,7 @@ class TestTheComparison(unittest.TestCase):
 
 class TestItWarnsAndNeverRefuses(unittest.TestCase):
     def test_the_check_cannot_stop_the_connection(self) -> None:
-        """The standing rule: "Make sure NEVER to block sending items -- that was what ruined the run." A
+        """Item sending must NEVER be blocked. A
         mismatched seed is usually still playable for hours, and `!checked` exists. The player gets the facts
         and makes the call."""
         tree = ast.parse(CLIENT_SOURCE)

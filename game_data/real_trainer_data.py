@@ -34,7 +34,7 @@ LEGENDARY_NATIONAL_DEX: set[int] = {
                                                         # Groudon/Rayquaza/Jirachi/Deoxys
 }
 
-# ADDENDUM 101: Lugia, Bonsly and Munchlax are permanently off the randomizable pool by player request.
+# ADDENDUM 101: Lugia, Bonsly and Munchlax are permanently off the randomizable pool.
 # Internal species indices (National Dex 249, 387, 388), filtered in `real_species_pool()` -- the one shared
 # source every candidate list draws from. Vanilla slots holding them are still reassigned like any other;
 # what changes is that nothing can be randomized INTO them.
@@ -57,7 +57,7 @@ def real_species_pool() -> dict[int, Species]:
         if name is None:
             continue  # reserved/unused slot -- not a real species, never a valid replacement
         if internal_index in PERMANENTLY_EXCLUDED_SPECIES_INDICES:
-            continue  # ADDENDUM 101 -- player-requested permanent exclusion, see that set's own comment
+            continue  # ADDENDUM 101 -- permanent exclusion, see that set's own comment
         options = trainer_evolutions.get(internal_index) or [(None, None)]
         pool[internal_index] = Species(
             species_id=internal_index,

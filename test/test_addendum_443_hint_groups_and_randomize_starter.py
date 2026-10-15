@@ -1,8 +1,7 @@
 """ADDENDUM 443 (2026-10-09) -- "!hint ID Card", and Randomize Starter.
 
-Player: "Can you make it so if someone types "!hint ID Card" it will hint Data Rom & ID Card? Also, add a setting to
-randomize our starter pokemon. Make it have 3 options, off, random_no_legendary, and true_random." Then: "And ensure
-that the randomized starter has at least one attacking move."
+"!hint ID Card" hints Data ROM & ID Card. And a setting randomizes the starter Pokemon, with three choices: off,
+random_no_legendary and true_random. The randomized starter always has at least one attacking move.
 """
 from __future__ import annotations
 
@@ -56,7 +55,7 @@ class TestTheStarterPatch(unittest.TestCase):
         self.assertEqual((0x801CED08, 0x3880002C, 0x38800000), words[3])
         self.assertEqual((0x801CED0C, 0x3800001C, 0x38000000), words[4])
 
-    @unittest.skipUnless(REAL_DOL.is_file(), "needs the player's main.dol")
+    @unittest.skipUnless(REAL_DOL.is_file(), "needs the real main.dol")
     def test_against_the_real_dol(self):
         data = REAL_DOL.read_bytes()
         offs = struct.unpack(">18I", data[0:72]); addrs = struct.unpack(">18I", data[72:144])

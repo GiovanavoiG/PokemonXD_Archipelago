@@ -1,7 +1,6 @@
 """ADDENDUM 145 (2026-09-11): Mt. Battle vs the 232-trainer story roster.
 
-Player request: "Can you ensure that the mt battle trainers aren't included in that 232?" They are not -- the
-two come from different deck files -- but the check turned up two things worth pinning:
+The Mt. Battle trainers are not part of the 232 -- the two come from different deck files -- but the check turned up two things worth pinning:
 
   1. Three names appear in BOTH rosters (MIRU / CRIDEL / BARDO, Mt. Battle 1/2/3 and story 30/31/32, with the
      same `name_id`s). Benign -- they are the same three characters, Mt. Battle Area 1 being story content --
@@ -77,11 +76,11 @@ if __name__ == "__main__":
 
 
 class TestMtBattleNames(unittest.TestCase):
-    """ADDENDUM 161 (player instruction: "make that mt battle option also modify whether those trainers are
-    defeat checks - exclude makes them not checks, include makes them checks").
+    """ADDENDUM 161: the Mt. Battle option also decides whether those trainers are defeat checks -- exclude makes
+    them not checks, include makes them checks.
 
     Acting on that needs the names, since the battle roster is the only thing the client can identify a trainer
-    by. All 100 were decoded from the player's own ISO by the same pass that named the 232 story trainers."""
+    by. All 100 were decoded from a real ISO by the same pass that named the 232 story trainers."""
 
     def test_all_100_are_named_and_distinct(self) -> None:
         from ..game_data import mtbattle_trainer_data as mtb
@@ -209,7 +208,7 @@ class TestTheCeiling(unittest.TestCase):
         # the live table rather than copying the new numbers, so the NEXT census change is a data change here
         # too -- the hardcoded pair is what went stale.
         # RETARGETED AGAIN 2026-09-13 (ADDENDUM 175): the hardcoded 10 is gone for good. The weights are now
-        # the player's own census rather than any estimate, so Agate's capacity is whatever the count says
+        # the trainer census rather than any estimate, so Agate's capacity is whatever the count says
         # (36 at the time of writing) and pinning the number here would just queue up the same staleness a
         # third time. What has to hold is the BOUNDARY: Agate's own capacity resolves to Agate, and one past
         # it resolves to the next region in graph order that carries any trainers.

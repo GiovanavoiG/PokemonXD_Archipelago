@@ -1,6 +1,6 @@
 """ADDENDUM 225 (2026-09-15) -- every Shadow Pokemon is a distinct species, and that is now load-bearing.
 
-Player: "For purifications, ensure that every shadow pokemon is unique so there's still enough checks."
+Every Shadow Pokemon must be unique so the purification ladder still has enough checks.
 
 WHY THIS MATTERS NOW. ADDENDUM 220 made `PurificationCountTracker` key on SPECIES, because that is the only
 thing that makes a save-menu re-observation distinguishable from a real purification. The cost of that key is
@@ -93,7 +93,7 @@ class TestGeneratedShadowsCollideWithNothing(unittest.TestCase):
 
 
 class TestThereAreEnoughDistinctSpeciesForTheLadder(unittest.TestCase):
-    """The player's actual question: "so there's still enough checks"."""
+    """The question that matters: are there still enough checks."""
 
     def setUp(self):
         self.learnsets = load_level_up_moves()

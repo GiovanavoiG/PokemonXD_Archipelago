@@ -1,7 +1,6 @@
 """ADDENDUM 449 (2026-10-09) -- `progression_locations` removed; Laken behind the Machine Part.
 
-Player: "Isn't the "progression_locations" option redundant at this point? Also, make Laken gated behind the machine
-part."
+The "progression_locations" option was redundant, so it is removed. Laken is gated behind the Machine Part.
 """
 from __future__ import annotations
 
@@ -52,7 +51,7 @@ class TestLakenNeedsTheMachinePart(PokemonXDTestBase):
 
 
 class _WakinGonzap(PokemonXDTestBase):
-    """Player: "Make sure Wakin and Gonzap are NOT filler." Their fights may hold progression."""
+    """Wakin and Gonzap are NOT filler: their fights may hold progression."""
 
     def test_not_filler_only(self) -> None:
         for name in ("Defeat - Wakin", "Defeat - Gonzap"):

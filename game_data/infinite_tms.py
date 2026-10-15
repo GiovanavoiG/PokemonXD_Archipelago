@@ -1,7 +1,5 @@
 """ADDENDUM 463 -- Infinite TMs: a TM is never used up, like an HM.
 
-Player: "Can we add an option for TMs to be infinite use?"
-
 Using a TM from the Bag runs `menuUseItemSkill` (0x800A5048), XD's item handler for TMs and HMs. It calls
 `wazaMachineProc` to teach the move, and when the Pokemon learned it, writes the caller's "consumed" flag -- the same
 `func(item, &consumed)` contract `_actTukauNormal` uses for every Bag item (ADDENDUM 453):

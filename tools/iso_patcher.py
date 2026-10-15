@@ -922,10 +922,10 @@ def apply_shadow_catch_rate(ddpk_decompressed: bytes, ddpk: deck_format.DarkPoke
     return bytes(buf), (raised, in_use)
 
 
-# ADDENDUM 440, player: "add an option, similar to exp scaling, that scales how much the shadow gauge decreases from
-# things like battle/scent usage." Every gauge-lowering action takes a fixed amount (by nature) off the DDPK record's
-# heart gauge (+0x08, u16, vanilla 2000-ish for most). Shrinking the gauge by the rate is the same as scaling every
-# one of those amounts up by it, and it is data, not code -- nothing in main.dol moves.
+# ADDENDUM 440: an option, like experience scaling, that scales how much the Shadow gauge drops from battle, scents and
+# the like. Every gauge-lowering action takes a fixed amount (by nature) off the DDPK record's heart gauge (+0x08, u16,
+# vanilla 2000-ish for most). Shrinking the gauge by the rate is the same as scaling every one of those amounts up by
+# it, and it is data, not code -- nothing in main.dol moves.
 HEART_GAUGE_OFFSET = 0x08
 
 
@@ -961,14 +961,14 @@ def apply_heart_gauge_rate(ddpk_decompressed: bytes, ddpk: deck_format.DarkPokem
     return bytes(buf), (scaled, in_use)
 
 
-# ADDENDUM 441, player: "Can we include an option for scaling catch rate, where it gets harder to catch things as the
-# game goes on? Make it work for vanilla and location shuffle." A Shadow's snag rate is its DDPK record's override
-# (+0x01), so the scaling is per record: the record's EARLIEST holder (the fight it is first offered in, the
-# ADDENDUM 416 rule) decides how far along the seed's area order it sits.
+# ADDENDUM 441: catch-rate scaling, where catching gets harder as the game goes on, in both vanilla and location
+# shuffle. A Shadow's snag rate is its DDPK record's override (+0x01), so the scaling is per record: the record's
+# EARLIEST holder (the fight it is first offered in, the ADDENDUM 416 rule) decides how far along the seed's area order
+# it sits.
 #
-# ADDENDUM 442 turned the curve the right way up. Player: "I want it to still make the pokemon easier to catch, so that
-# a regirock isnt almost impossible, but still allow later areas to be harder." So it is a BOOST that fades: every
-# rate rises toward 255, the first areas all the way, the last areas only `scaling`% of the way. Never below vanilla.
+# ADDENDUM 442 turned the curve the right way up: it still makes Pokemon easier to catch, so a Regirock is not almost
+# impossible, while later areas stay harder. So it is a BOOST that fades: every rate rises toward 255, the first areas
+# all the way, the last areas only `scaling`% of the way. Never below vanilla.
 MAX_CATCH_RATE_BYTE = 0xFF
 
 
@@ -982,10 +982,10 @@ def scaled_catch_rate(vanilla: int, scaling_percent: int, progress_permille: int
     return max(vanilla, min(MAX_CATCH_RATE_BYTE, vanilla + int(round((MAX_CATCH_RATE_BYTE - vanilla) * boost))))
 
 
-# ADDENDUM 446. Player: "Catch Rate Scaling should make poke spot pokemon much easier in general." A Poke Spot is
-# not on the seed's area ladder -- the three spots open together and stay open -- so its Pokemon take the boost the
-# ladder gives its FIRST area, wherever and whenever they are met: progress 0, which is catch rate 255. That is the
-# species table's byte, the one wild catches read; Shadows read their own DDPK override and are untouched by it.
+# ADDENDUM 446. Catch Rate Scaling makes Poke Spot Pokemon much easier in general. A Poke Spot is not on the seed's area
+# ladder -- the three spots open together and stay open -- so its Pokemon take the boost the ladder gives its FIRST
+# area, wherever and whenever they are met: progress 0, which is catch rate 255. That is the species table's byte, the
+# one wild catches read; Shadows read their own DDPK override and are untouched by it.
 POKESPOT_CATCH_PROGRESS_PERMILLE = 0
 
 
@@ -2995,16 +2995,16 @@ def write_fsys_multi_entry_patch(
 # ============================================================================================================
 # ADDENDUM 399 -- the pre-flight. Reject a source ISO that is not what this build was measured against.
 # ============================================================================================================
-# A player reported `ValueError: trainer 87 only has 0 free team slot(s), but 1 new shadow pokemon were
+# A patch failed with `ValueError: trainer 87 only has 0 free team slot(s), but 1 new shadow pokemon were
 # requested for it`. The generator was innocent: `data/deckdata_story_trainers.json` says trainer 87 carries
 # party_size 4 in slots [0,1,2,3], the seed's expansion plan asked for 1, and across eight seeds on that
-# player's exact yaml no trainer was ever over-assigned. The ISO simply was not the ISO the census describes.
+# exact yaml no trainer was ever over-assigned. The ISO simply was not the ISO the census describes.
 #
 # Two things produce that, and the error named neither:
 #   * a bad or non-matching dump -- a different revision, a bad rip, or something already modified;
-#   * an already-patched ISO handed back in. That player's yaml had `enhanced_difficulty: fill_enemy_team`,
+#   * an already-patched ISO handed back in. That yaml had `enhanced_difficulty: fill_enemy_team`,
 #     which pads EVERY trainer to six, and trainer 87 lands at exactly 6/6 after one patch (4 vanilla + 1
-#     expansion + 1 pad). Re-running the patcher on its own output reproduces the report verbatim.
+#     expansion + 1 pad). Re-running the patcher on its own output reproduces the error verbatim.
 #
 # Before this, nothing in the patcher looked at its input at all -- no disc id, no structural check. The
 # first thing that noticed was a ValueError three thousand lines deep about team slots, which tells a player
@@ -3191,7 +3191,7 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     # ADDENDUM 427: Reduce Citadark Grind -- Gateon's last tier sells a Rare Candy and a Candy Box, both for 1.
     # Shop lines only exist with shops randomized, the same footing as Agate Village Pit Stop.
     # ADDENDUM 437: no longer needs Randomize Shops -- the pocket_menu pass runs for the shelf alone when shops are
-    # vanilla. Player: "Make it so the reduce grind check works even if randomize shops is off."
+    # vanilla, so Reduce Citadark Grind works with Randomize Shops off.
     reduce_citadark_grind = bool(seed.get("reduce_citadark_grind"))
     # ADDENDUM 429: trade evolutions become level-ups in the species table.
     trade_evolutions_by_level = bool(seed.get("trade_evolutions_by_level"))
@@ -5776,7 +5776,7 @@ def apply_team_padding_shadow_reuse_edit(
         raise ValueError(
             f"ddpk_index {reuse_ddpk_index} is NOT marked in-use -- this diagnostic exists specifically to "
             "test reusing an EXISTING, already-in-use DDPK entry (part of the game's real Shadow Pokemon "
-            "'pool', per the user's own hypothesis), not a fresh/never-used one. Use "
+            "'pool', the hypothesis under test), not a fresh/never-used one. Use "
             "team-padding-shadow-borrow-test for the fresh-index case."
         )
 
@@ -5855,7 +5855,7 @@ def apply_team_padding_shadow_reuse_test(
         + f" Boot this ISO and fight trainer index {trainer_index}: if the reused Shadow Pokemon appears and "
         "loads correctly this time (unlike ADDENDUM 54/55's freshly-allocated DDPK indices), that's strong "
         "evidence for a save-resident 'pool' that only recognizes originally-shipped DDPK indices -- exactly "
-        "the user's own hypothesis."
+        "the hypothesis under test."
     )
 
     return {

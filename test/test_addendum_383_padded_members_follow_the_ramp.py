@@ -1,7 +1,7 @@
 """ADDENDUM 383 (2026-09-28) -- Enhanced Difficulty's padded members follow the ramp, like everything else.
 
-Player: "Double check ALL levels and stats to make sure no wacky stuff is happening despite settings - make
-sure trainers dont have one pokemon with crazy levels, make sure stats make sense, etc"
+An audit of ALL levels and stats, under every setting, for anything out of line: no trainer may field one
+Pokemon at a wildly different level, and stats must make sense.
 
 Found by auditing the `seed.json` of real generated seeds across the option matrix, rather than by reading
 code. With path scaling AND Enhanced Difficulty on, trainer 147's vanilla team of four level-26 Pokemon was

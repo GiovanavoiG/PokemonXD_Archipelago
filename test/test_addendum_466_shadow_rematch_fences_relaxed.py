@@ -1,7 +1,7 @@
 """ADDENDUM 466 (2026-10-11) -- rematches may host Shadow Pokemon again.
 
-Player: "Go ahead and relax our shadow rematch constraints then. Keep a list of all edits this will make so we can
-revert if needed." And, asked whether ADDENDUM 461's six refusals reopen too: "Reopen them".
+The Shadow rematch constraints are relaxed, with a list of every edit this makes so it can be reverted if
+needed. ADDENDUM 461's six refusals reopen too.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ class TestTheFence(unittest.TestCase):
     def test_the_final_rows(self):
         self.assertEqual(["NAPS", "ZOOK", "SMARTON", "CHOBIN"],
                          [tr.TRAINERS_BY_INDEX[i]["name"] for i in (60, 147, 164, 167)])
-        self.assertIn(202, mt.shadow_expansion_excluded_trainer_indices(), "Laken #3 stays out (player ruling)")
+        self.assertIn(202, mt.shadow_expansion_excluded_trainer_indices(), "Laken #3 stays out")
 
     def test_still_fenced(self):
         """Missable, unplaced, post-goal and no-snag fights are about losing the catch, not rematches."""

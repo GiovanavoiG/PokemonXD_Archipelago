@@ -1,11 +1,9 @@
 """ADDENDUM 229 (2026-09-15) -- backing out of the map puts the story byte back, before anything records it.
 
-Player, in two messages:
-    "I want to restore the story byte when you back out of the map, otherwise it breaks things. This restore
-     needs to happen prior to us recording the story byte in an area - if we back out, say, at HQ Lab where
-     the flag is 0x0F, and do it while hovering Agate, it can send our HQ Lab byte into the 0x2 range. Avoid
-     this at all costs."
-    "We can check a back-out by seeing if our room returns to the one we entered the map screen from."
+The story byte is restored when the player backs out of the map, otherwise it breaks things. The restore has
+to happen BEFORE the story byte is recorded for an area: backing out at HQ Lab (flag 0x0F) while hovering
+Agate would otherwise send the HQ Lab byte into the 0x2 range, which must never happen. A back-out is detected
+by the room returning to the one the map screen was entered from.
 
 WHY THE ORDERING IS THE WHOLE THING. The damage is not the wrong live byte -- that would be self-correcting,
 which is what ADDENDUM 177 reasoned when it chose not to restore. The damage is `observe()` banking that
@@ -47,7 +45,7 @@ class MapBackoutTestBase(unittest.TestCase):
         return self.memory.poll(BLOCK, region, None, self.live.value)
 
 
-class TestThePlayersExactScenario(MapBackoutTestBase):
+class TestTheExactScenario(MapBackoutTestBase):
     """Standing in HQ Lab at 0x0F, hover Agate, back out."""
 
     def test_the_hover_write_still_happens(self):
@@ -63,7 +61,7 @@ class TestThePlayersExactScenario(MapBackoutTestBase):
         self.assertIn("restored", note)
 
     def test_the_lab_mark_is_never_poisoned(self):
-        """The thing the player said to avoid at all costs, asserted at the only point it could happen."""
+        """The failure that must never happen, asserted at the only point it could happen."""
         self.hover("Agate Village")
         self.memory.observe("Pokemon HQ Lab", self.live.value)   # the old failure, fired deliberately
         self.assertEqual(self.memory.highest_by_region["Pokemon HQ Lab"], 0x0F)
@@ -183,14 +181,14 @@ class TestTheClientWiring(unittest.TestCase):
         cls.source = (Path(rc.__file__).resolve().parent / "Client.py").read_text(encoding="utf-8")
 
     def test_the_room_we_entered_the_map_from_is_remembered(self):
-        """The player's own test for a back-out, and the only one available: travelling lands you in the
+        """The test for a back-out, and the only one available: travelling lands you in the
         DESTINATION's room, backing out lands you in the room you came from."""
         self.assertIn("self._room_before_map", self.source)
         self.assertIn("backed_out = ctx._room_before_map is not None and room_id == ctx._room_before_map",
                       self.source)
 
     def test_the_restore_runs_before_anything_records(self):
-        """The load-bearing half of the instruction. Pinned by POSITION, because a correct call in the wrong
+        """The load-bearing half of the design. Pinned by POSITION, because a correct call in the wrong
         place is the whole bug."""
         block = self.source.split("async def check_area_story_memory", 1)[1].split("\nasync def ", 1)[0]
         restore_at = block.index("left_map_screen(")

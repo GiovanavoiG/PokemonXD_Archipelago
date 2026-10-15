@@ -1,7 +1,6 @@
 """ADDENDUM 429 (2026-10-06) -- Trade Evolutions By Level.
 
-Player: "can we make an option so that we can evolve trade evolutions by levelup instead, with the same logic as
-our trainer team evolutions?"
+An option evolves trade evolutions by level-up instead, with the same logic as the trainer team evolutions.
 
 "The same logic" is `evolution_data.TRAINER_EVOLUTIONS` (ADDENDUM 425): the level a trainer's Pokemon is fielded
 evolved, and a seeded coin between two branches. The patch rewrites the evolution entries in common_rel's species
@@ -57,7 +56,7 @@ NEW_TWO_STAGE_LEVEL_EVOLVERS: "tuple[int, ...]" = (60, 63, 66, 74, 92, 116)
 
 FRIENDSHIP = 1
 
-# ADDENDUM 451. Player: "Change friendship evolutions to just be by level." Always on, no option. XD has seven
+# ADDENDUM 451. Friendship evolutions are just by level. Always on, no option. XD has seven
 # friendship (method 1) entries -- Espeon and Umbreon are the Sun/Moon Shard key items (method 16) here, not
 # friendship -- and each becomes LEVEL at its TRAINER_EVOLUTIONS threshold: the babies at 15, Golbat at 35, Chansey
 # at 40. Azurill -> Marill at 15 then Marill -> Azumarill at 18, as a trainer's would.

@@ -1,12 +1,7 @@
 """ADDENDUM 276 (2026-09-18): discarding marks that cannot be trusted, and crediting from the right area.
 
-Two reports, one root.
-
-> *"This is still happening when I hover Agate."* -- with a screenshot of all five Krane Memo checks firing
-> at once.
->
-> *"The floors are not being tracked correctly - hovering Agate is forcing Kaminko and HQ Lab to 0x19, which
-> is softlocking the game."*
+Two symptoms, one root: hovering Agate fired all five Krane Memo checks at once, and hovering Agate forced
+Kaminko and the HQ Lab to 0x19, which softlocked the game.
 
 ## Part 1 -- the memo checks, and why the existing witness was not enough
 
@@ -18,7 +13,7 @@ moved onto it. **But the witness alone would not have fixed it either**, and its
 travelling COMMITS the destination's floor, so after a real trip to Agate the byte genuinely is 0x19 in the
 save and the witness rises to it honestly.
 
-The player's framing is what closes it: *"wire it so the floors we're tracking are what send checks."* Credit a
+What closes it is letting the tracked floors be what send checks. Credit a
 threshold from the mark of the area that actually hands the thing over. Krane hands the memos over in his lab,
 so the lab's mark is the witness that means something -- and Agate's floor can never raise the lab's mark.
 

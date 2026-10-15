@@ -1,19 +1,19 @@
 """
 ADDENDUM 299 (2026-09-20) -- the ramp follows THIS SEED's order, and species evolve against what ships.
 
-Player: *"Make the levels not the same for every seed. Make sure to evolve against the highest possible level
-(the closest to the one we ship to the trainer) if feasible."*
+Levels are not the same for every seed, and species evolve against the highest possible level (the closest to
+the one shipped to the trainer) where feasible.
 
 ## What was true before, and why it was wrong for a reason worth stating
 
 ADDENDUM 266 built the path ramp on the INTENDED path -- `story_bytes.area_entry_floor`, a constant property
-of the game. That was the player's own framing at the time (*"it's fine to scale them by INTENDED path rather
-than when they're actually received"*), and this module justified it by saying the received order *"is not
+of the game. Scaling by the INTENDED path rather than by when areas are actually received was the framing at
+the time, and this module justified it by saying the received order *"is not
 knowable at patch time at all, because the ISO is patched before anyone plays."*
 
 **The ISO is patched after GENERATION, and generation includes fill.** By the time the seed file is written
 every item is placed, so the sphere in which each travel unlock becomes obtainable is knowable. It simply was
-never asked for. Measured before this was built, on a real filled travel-shuffle seed: Snagem Hideout (fixed
+never used. Measured before this was built, on a real filled travel-shuffle seed: Snagem Hideout (fixed
 tier 10) opened in **sphere 1** while Cipher Lab (fixed tier 3) did not open until **sphere 7** -- a level-46
 area in the first hour and a level-19 area at the end.
 
@@ -267,7 +267,7 @@ class TestSpeciesEvolveAgainstTheShippedLevel(PokemonXDTestBase):
     options = dict(TRAVEL, randomize_trainer_teams=True)
 
     def test_every_ordinary_member_is_at_its_highest_evolution_for_its_level(self) -> None:
-        """The player's second sentence. `final_ordinary_levels` returns the level the patcher really writes
+        """Evolution against the shipped level. `final_ordinary_levels` returns the level the patcher really writes
         -- path ramp, ADDENDUM 295's per-team spread and Enhanced Difficulty's multiplier all composed -- so
         the evolution resolves against the exact number rather than an approximation."""
         from ..game_data.real_trainer_data import load_real_trainer_pools

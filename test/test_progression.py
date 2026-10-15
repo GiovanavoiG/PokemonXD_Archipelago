@@ -58,11 +58,11 @@ class TestKraneMemoGating(PokemonXDTestBase):
 
 
 class TestTheDataRomIsNotOnThePathToTheWin(PokemonXDTestBase):
-    """ADDENDUM 406 -- player: "Poke spots do NOT need the data rom. Also, Cipher Lab is not gated by Data Rom -
-    just Lovrina, her defeat item, and chest 23." With nothing else gated by it, the win does not need it.
+    """ADDENDUM 406 -- the Poke Spots do not need the Data ROM, and Cipher Lab is not gated by it either; only
+    Lovrina, her defeat item and chest 23 are. With nothing else gated by it, the win does not need it.
 
-    ADDENDUM 418 narrowed this to travel shuffle ON. Off, Pyrite Town is behind the ROM again -- player: "Every
-    pyrite town item in vanilla locations should also be gated behind Data Rom & ID Card" -- so the win needs it
+    ADDENDUM 418 narrowed this to travel shuffle ON. Off, Pyrite Town is behind the ROM again -- every Pyrite Town
+    item in vanilla locations is gated behind the Data ROM & ID Card -- so the win needs it
     (TestTheDataRomIsOnThePathInVanillaTravel below)."""
 
     options = {"key_item_shuffle": True, "randomize_travel_locations": True}

@@ -1,17 +1,15 @@
 """ADDENDA 401-402 (2026-10-02) -- missable trainer checks are no longer something a player can lose.
 
-Player: "act under the assumption that missable checks are now bad. I think our easiest way currently to resolve
-         this is once we hit the story cap for an area, we receive all missable trainer defeats in that area.
-         Remove the rematch fight checks from SPECIFICALLY missable trainers, it's fine to lose locations."
-Asked which "rematch checks" -- the later fights, the (Any) checks, or both:
-         "Leave the Any, remove ALL numbered fights, not just later ones, for missable trainers."
+Missable checks are treated as bad: once the story passes an area's cap, every missable trainer defeat in that
+area is received, and the rematch checks of SPECIFICALLY missable trainers are removed -- losing those locations
+is fine. Each such trainer keeps its (Any) check; ALL of its numbered fights go, not just the later ones.
 
 WHY NOW. Universal Tracker shows a check as in logic the moment its region is reachable. A fight the player has
 already walked past forever is still "in logic" to it, permanently -- the one thing a tracker cannot be allowed
 to say. Removing what can be lost, and sending the rest when the story closes it, is what makes the tracker's
 answer true.
 
-ADDENDUM 401 -- THE REMOVAL. A trainer is in scope when any of its rows is on the player's 47-row missable list
+ADDENDUM 401 -- THE REMOVAL. A trainer is in scope when any of its rows is on the 47-row missable list
 AND it fights more than once: 20 surnames. ALL of their numbered `Defeat - X #N` locations go, the missable #1 and
 the later fights alike -- 75. Kept: each one's `Defeat X (Any)`, which fires on whichever fight is won. The 26
 one-shot missables have no number and are not rematches, so they stay. Retired through the same door as
@@ -45,8 +43,8 @@ SCHEDULE = missable_autosend.AUTO_SEND_AT_STORY_BYTE
 def _surnames_in_scope() -> "set[str]":
     return {
         trainer_roster.TRAINERS_BY_INDEX[i]["name"].upper()
-        # ADDENDUM 460: the ruled-unmissable fights keep the removal they had, so they stay in scope here.
-        for i in missable_indices.MISSABLE_TRAINER_INDICES | missable_indices.PLAYER_RULED_UNMISSABLE
+        # ADDENDUM 460: the fights reclassified as unmissable keep the removal they had, so they stay in scope here.
+        for i in missable_indices.MISSABLE_TRAINER_INDICES | missable_indices.CONFIRMED_UNMISSABLE
         if i in trainer_roster.TRAINERS_BY_INDEX and trainer_roster.TRAINERS_BY_INDEX[i]["total_with_name"] > 1
     }
 
@@ -55,13 +53,13 @@ def _surnames_in_scope() -> "set[str]":
 # ADDENDUM 401
 # ============================================================================================================
 class TestWhatWasRemoved(unittest.TestCase):
-    def test_the_players_numbers(self) -> None:
-        """ADDENDUM 406 narrowed 75 to 21: only the MISSABLE fights go. Player: "make sure the mandatory/
-        nonmissable rematches are still counted." """
-        self.assertEqual(39, len(missable_indices.MISSABLE_TRAINER_INDICES))  # ADDENDUM 440: +4 Phenac invasion; 460: -13 ruled unmissable
+    def test_the_expected_numbers(self) -> None:
+        """ADDENDUM 406 narrowed 75 to 21: only the MISSABLE fights go; the mandatory/non-missable rematches are
+        still counted."""
+        self.assertEqual(39, len(missable_indices.MISSABLE_TRAINER_INDICES))  # ADDENDUM 440: +4 Phenac invasion; 460: -13 reclassified unmissable
         self.assertEqual(20, len(_surnames_in_scope()))
-        # ADDENDUM 409: "make their #2 at Phenac (missable, behind disc and note)" -- the Sixes' missable fight is now
-        # their #2, and the player KEPT it as a check. 21 missable fights of in-scope surnames, six of them kept.
+        # ADDENDUM 409: the Sixes' #2 is at Phenac (missable, behind the Disc and the Note) -- their missable fight is
+        # now their #2, and it is KEPT as a check. 21 missable fights of in-scope surnames, six of them kept.
         self.assertEqual(6, len(trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS))
         # ADDENDUM 436 retired ADDENDUM 411's link: Ardos vs Zook is a fight the player only watches.
         self.assertEqual(frozenset(), trainer_roster.LINKED_MISSABLE_DEFEAT_LOCATIONS)
@@ -73,7 +71,7 @@ class TestWhatWasRemoved(unittest.TestCase):
                      "Defeat - Biden #1", "Defeat - Biden #2"):
             self.assertIn(name, REMOVED, name)
             self.assertNotIn(name, L.LOCATION_TABLE, name)
-        # ADDENDUM 409: "Make their #1 at Cipher Lab, and make their #2 at Phenac (missable, behind disc and note)."
+        # ADDENDUM 409: the Sixes' #1 is at the Cipher Lab and their #2 at Phenac (missable, behind the Disc and Note).
         # Resix #1 is no longer missable at all; Resix #2 is missable but kept as a check.
         for name in ("Defeat - Resix #1", "Defeat - Resix #2"):
             self.assertNotIn(name, REMOVED, name)
@@ -86,9 +84,9 @@ class TestWhatWasRemoved(unittest.TestCase):
         for name in ("Defeat - Zook #2", "Defeat - Ardos #2"):
             self.assertIn(name, trainer_roster.RULED_OUT_DEFEAT_LOCATIONS, name)
             self.assertNotIn(name, L.LOCATION_TABLE, name)
-        # ADDENDUM 409: "Remove all of cida,clerr,belish,dosk, and hebon's rematches. Remove Aferd's rematches."
-        # and "Remove all their other fights" (the Sixes). These were mandatory rematches 406 kept; they are gone
-        # now by the player's ruling, not because they are missable.
+        # ADDENDUM 409 removed all of Cida's, Clerr's, Belish's, Dosk's, Hebon's and Aferd's rematches, and all the
+        # Sixes' other fights. These were mandatory rematches 406 kept; they are gone now as deliberate removals,
+        # not because they are missable.
         for name in ("Defeat - Dosk #2", "Defeat - Dosk #3", "Defeat - Resix #6", "Defeat - Aferd #5"):
             self.assertNotIn(name, REMOVED, name)
             self.assertIn(name, trainer_roster.RULED_OUT_DEFEAT_LOCATIONS, name)
@@ -100,10 +98,10 @@ class TestWhatWasRemoved(unittest.TestCase):
             for surname in _surnames_in_scope()
             for row in trainer_roster.TRAINERS_BY_NAME[next(
                 n for n in trainer_roster.TRAINERS_BY_NAME if n.upper() == surname)]
-            # ADDENDUM 460: the ruled-unmissable fights keep their numbered-check removal.
-            if row["index"] in (missable_indices.MISSABLE_TRAINER_INDICES | missable_indices.PLAYER_RULED_UNMISSABLE)
+            # ADDENDUM 460: the fights reclassified as unmissable keep their numbered-check removal.
+            if row["index"] in (missable_indices.MISSABLE_TRAINER_INDICES | missable_indices.CONFIRMED_UNMISSABLE)
         }
-        # ADDENDUM 409: "make their #2 at Phenac (missable, behind disc and note)" -- the Sixes' missable #2 is kept.
+        # ADDENDUM 409: the Sixes' #2 is at Phenac (missable, behind the Disc and the Note), and it is kept.
         self.assertLessEqual(trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS, expected)
         kept = trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS | trainer_roster.LINKED_MISSABLE_DEFEAT_LOCATIONS
         self.assertEqual(expected - kept, set(REMOVED))   # ADDENDUM 411: Zook #1 kept, linked to Ardos #1
@@ -130,8 +128,8 @@ class TestRetiredThroughTheSameDoorAsChobin(unittest.TestCase):
     def test_out_of_the_dispatch_queue(self) -> None:
         """ADDENDUM 406: every surname in scope queues exactly its non-missable fights -- one label per team the
         player cannot miss, so skipping the missable fight costs nothing. Biden queues nothing."""
-        # ADDENDUM 409: the player trimmed most in-scope surnames further ("Remove Aferd's rematches", "Remove all
-        # their other fights", ...). Those queue only what the ruling left; the untouched ones (Zook, Laken, Biden)
+        # ADDENDUM 409 trimmed most in-scope surnames further (Aferd's rematches, the Sixes' other fights, ...).
+        # Those queue only what the trim left; the untouched ones (Zook, Laken, Biden)
         # still queue exactly one label per non-missable team.
         trimmed = {"AFERD", "CIDA", "HEBON", "DOSK", "DOBY", "LABET", "RALING", "FINOL", "EROLL", "EQUIN", "WILLIE"}
         trimmed |= trainer_roster.SIXES
@@ -150,7 +148,7 @@ class TestRetiredThroughTheSameDoorAsChobin(unittest.TestCase):
         self.assertEqual({"ZOOK", "LAKEN", "BIDEN"}, _surnames_in_scope() - trimmed)
         self.assertEqual([], trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["ZOOK"])
         self.assertEqual([], trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["BIDEN"])
-        # ADDENDUM 409: "Remove Aferd's rematches." -- his only other fight, #1, is missable, so nothing is left.
+        # ADDENDUM 409 removed Aferd's rematches; his only other fight, #1, is missable, so nothing is left.
         self.assertEqual([], trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["AFERD"])
 
     def test_out_of_the_missable_fence(self) -> None:
@@ -196,7 +194,7 @@ class TestInAUniqueModeSeed(PokemonXDTestBase):
 # ============================================================================================================
 class TestTheSchedule(unittest.TestCase):
     def test_thirty_three_checks(self) -> None:
-        # ADDENDUM 409: "make their #2 at Phenac (missable, behind disc and note)" -- six kept missable checks join
+        # ADDENDUM 409: the Sixes' #2 is at Phenac (missable, behind the Disc and the Note) -- six kept checks join
         # the 26 one-shots. ADDENDUM 436: Biden's (Any) is not missable any more, so it is not scheduled.
         # ADDENDUM 438: + Zook's (Any), which the Key Lair's raised entry floor can step over.
         self.assertEqual(32, len(SCHEDULE))  # ADDENDUM 440: +4 Phenac invasion; 460: - Bost and five Snagem fights
@@ -207,7 +205,7 @@ class TestTheSchedule(unittest.TestCase):
             trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[i])
             for i in missable_indices.MISSABLE_TRAINER_INDICES if i in trainer_roster.TRAINERS_BY_INDEX
         } - REMOVED
-        # ADDENDUM 409: the 26 one-shots plus the Sixes' six kept #2 fights ("missable, behind disc and note").
+        # ADDENDUM 409: the 26 one-shots plus the Sixes' six kept #2 fights (missable, behind the Disc and the Note).
         # ADDENDUM 411: Zook #1 survives too, but is NOT scheduled -- Ardos #1, a fight nobody can miss, sends it.
         self.assertEqual(trainer_roster.LINKED_MISSABLE_DEFEAT_LOCATIONS, one_shots - set(SCHEDULE))
         one_shots -= trainer_roster.LINKED_MISSABLE_DEFEAT_LOCATIONS
@@ -220,7 +218,7 @@ class TestTheSchedule(unittest.TestCase):
             self.assertIn(name, L.LOCATION_TABLE, name)
 
     def test_only_the_fully_missable_any_is_scheduled(self) -> None:
-        """ADDENDUM 436: Biden's Snagem fight is not missable (player ruling), so no (Any) can be lost to a missed
+        """ADDENDUM 436: Biden's Snagem fight is not missable, so no (Any) can be lost to a missed
         fight. ADDENDUM 438: Zook's can be lost to the Key Lair's entry floor instead, so it is sent once the Lair
         moves past him."""
         scheduled_any = {n for n in SCHEDULE if n.endswith("(Any)")}
@@ -232,7 +230,7 @@ class TestTheSchedule(unittest.TestCase):
         self.assertEqual(story_bytes.REGION_STORY_WINDOW[digor.region].ceiling, SCHEDULE["Defeat - Digor"])
 
     def test_bost_is_the_only_override_and_the_phenac_cipher_fights_wait_for_snattle(self) -> None:
-        # ADDENDUM 436, player: "Missable Phenac trainers should send upon defeating Snattle (ONLY cipher members)."
+        # ADDENDUM 436: missable Phenac trainers send upon defeating Snattle (ONLY Cipher members).
         self.assertEqual({"Defeat - Bost": 0x19}, missable_autosend.CAP_OVERRIDES)
         phenac = [n for n in ("Pellim", "Fenton", "Forgs", "Kapen", "Ezoor", "Ertlig")] \
             + [f"{n} #2" for n in ("Resix", "Blusix", "Browsix", "Yellosix", "Purpsix", "Greesix")]

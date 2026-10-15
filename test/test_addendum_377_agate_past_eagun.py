@@ -1,7 +1,7 @@
 """ADDENDUM 377 (2026-09-27): Agate's window reaches 0x24, and a return trip is past Eagun.
 
-Player: "Users reported Agate replaying the Eagun cutscene upon revisiting - We need to let the floor for Agate
-go high enough to match Mt Battle's entry point. Cap of 0x23 needs to be 0x24 for agate."
+Agate replayed the Eagun cutscene upon revisiting. Agate's floor has to go high enough to match Mt. Battle's
+entry point, so Agate's cap of 0x23 becomes 0x24.
 
 WHERE THE 0x23 CAME FROM: nowhere, it was derived. `_build_windows` gives every region "the next region's
 opening byte, minus one", and the next opening after Agate's 0x19 is Mt. Battle's 0x24. The ladder:
@@ -14,8 +14,8 @@ The minus-one rule models "the next place opened, so this place is done", which 
 separate errands and wrong here: 0x23 is earned inside Agate and 0x24 is the errand it hands you, so the story
 has not left the village at 0x24.
 
-TWO EDITS, AND THE FIRST ONE ALONE FIXES NOTHING -- worth pinning, because the player's instruction names only
-the cap. A window ceiling is not what the client writes: `target_for` takes the max of the entry floor, the
+TWO EDITS, AND THE FIRST ONE ALONE FIXES NOTHING -- worth pinning, because the cap is the only thing that
+looks like it needs changing. A window ceiling is not what the client writes: `target_for` takes the max of the entry floor, the
 area's banked mark and `AREA_FLOOR_RULES`, and never clamps to the ceiling. Raising the ceiling makes 0x24 a
 byte this module accepts as Agate's (mark banking, ADDENDUM 365's poison guard); the floor rule is what puts a
 revisit there.
@@ -32,7 +32,7 @@ AGATE = "Agate Village"
 
 class TestTheCeiling(unittest.TestCase):
     def test_agate_reaches_past_mt_battles_opening_byte(self) -> None:
-        # ADDENDUM 398 raised this from 0x24 to 0x25 at the player's instruction. Mt. Battle's own floor and
+        # ADDENDUM 398 raised this from 0x24 to 0x25. Mt. Battle's own floor and
         # ceiling are untouched -- only how far Agate's window reaches changed.
         self.assertEqual(0x25, sb.REGION_STORY_WINDOW[AGATE].ceiling)
         self.assertEqual(0x24, sb.REGION_STORY_WINDOW["Mt. Battle"].floor)
@@ -42,7 +42,7 @@ class TestTheCeiling(unittest.TestCase):
     def test_the_override_is_what_did_it_rather_than_a_changed_derivation(self) -> None:
         """The minus-one rule is right everywhere else, so this must be one named exception and not a global
         widening. Checked by confirming every OTHER region still ends one below its successor's opening."""
-        # ADDENDUM 379 added Phenac City; ADDENDUM 391 added four more at the player's instruction. Asserted
+        # ADDENDUM 379 added Phenac City; ADDENDUM 391 added four more. Asserted
         # WHOLE rather than by membership, on purpose: a new entry cannot appear without someone re-reading why
         # each one is a named exception. Every one of these six is the same case -- the region earns its
         # successor's opening byte while the player is still standing in it.
@@ -124,7 +124,7 @@ class TestTheReturnTripIsPastEagun(unittest.TestCase):
         self.assertGreater(rules[0].floor, sb.area_entry_floor(AGATE))
         self.assertLessEqual(rules[0].floor, sb.REGION_STORY_WINDOW[AGATE].ceiling,
                              "a floor rule above its own region's ceiling writes a byte the module does not "
-                             "accept as that region's -- which is the cap the player asked to raise")
+                             "accept as that region's -- which is the cap that was raised")
 
 
 class TestNothingElseMoved(unittest.TestCase):
@@ -143,8 +143,8 @@ class TestNothingElseMoved(unittest.TestCase):
         whose `before` sits inside the span and whose `after` is above it, and `0x25 -> 0x26` is "Cipher Lab
         unlocked / first visit". That is the same rule that put 0x24 inside Agate in the first place -- the
         unlock is earned while the player is still standing in the village -- so 0x26 is now a byte Agate can
-        legitimately hold. Asserted explicitly, because it is a real widening of a safety check and nobody
-        asked for it directly: it fell out of the ceiling change.
+        legitimately hold. Asserted explicitly, because it is a real widening of a safety check that was
+        never a goal in itself: it fell out of the ceiling change.
         """
         self.assertEqual(0x26, sb.AREA_GUARD_CEILINGS[AGATE])
         self.assertFalse(sb.poisoned_byte(AGATE, 0x24))

@@ -1,10 +1,10 @@
 """ADDENDUM 399 (2026-10-01) -- the patcher checks its input before it touches it.
 
-Player: "User reported ' ValueError: trainer 87 only has 0 free team slots(s), but 1 new shadow pokemon were
-         requested for it' with this yaml." ... "User reported their ISO dump may have been bad"
+A user hit 'ValueError: trainer 87 only has 0 free team slots(s), but 1 new shadow pokemon were requested for
+it' with their yaml, and their ISO dump may have been bad.
 
 THE GENERATOR WAS INNOCENT. `data/deckdata_story_trainers.json` gives trainer 87 `party_size` 4 with members
-in slots [0,1,2,3] -- two free. The seed's expansion plan asked for one. Across eight seeds on that player's
+in slots [0,1,2,3] -- two free. The seed's expansion plan asked for one. Across eight seeds on that
 exact yaml, no trainer was over-assigned, and the census only ever lists trainers with at least one free slot.
 The plan and the census agreed with each other; the ISO was the thing that disagreed with both.
 

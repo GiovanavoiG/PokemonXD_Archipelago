@@ -1,8 +1,7 @@
 """ADDENDUM 263 (2026-09-17): money is the second witness, and prices are per shelf line.
 
-Player, two asks in one message: "can we poll for the shop items being received faster? It's currently slow
-both to send checks and to update to no check", and "any chance we can modify prices of the berries to make
-progressive items more expensive?"
+Two changes: shop purchases were slow both to send their checks and to update the shelf to "no check", and
+berry prices now make progression items more expensive.
 
 ---
 
@@ -240,7 +239,7 @@ class TestWhatEachLineCosts(unittest.TestCase):
 
     def test_progression_costs_more_than_useful_costs_more_than_filler(self) -> None:
         """Pinned as an ORDERING, not as three numbers -- the numbers are a tuning knob, the ordering is the
-        feature the player asked for."""
+        feature."""
         prices = ins.PRICE_BY_CLASSIFICATION
         self.assertGreater(prices["progression"], prices["useful"])
         self.assertGreater(prices["useful"], prices["filler"])

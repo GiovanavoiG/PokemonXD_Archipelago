@@ -1,6 +1,6 @@
 """ADDENDUM 461 -- a one-on-one Generation III battle model, for the first Chobin fight.
 
-Two jobs. `min_hit_fraction` is the arithmetic the player asked for: the smallest share of a Pokemon's HP one of the
+Two jobs. `min_hit_fraction` is the arithmetic: the smallest share of a Pokemon's HP one of the
 starter's attacks is guaranteed to take -- lowest damage roll, no critical hit, the starter's worst IVs and nature,
 the target's best IVs, every ability the target could have (and, through Trace, every ability the starter could
 have), type and ability immunities included. `simulate` then plays the whole fight out, turn by turn, so "can we
@@ -203,10 +203,10 @@ def random_nature(rng: random.Random) -> "tuple[str | None, str | None]":
 
 # ---------------------------------------------------------------------------------------------------- moves
 
-#: Attacks that cannot be counted on to take a share of the foe's HP on the turn they are chosen: they knock the
-#: user out, only work in a state the foe controls, fail outright against a level-5 target's luck, return damage
-#: rather than deal it, or cannot finish a Pokemon. The player: "ensure our starter CANT ONLY HAVE
-#: explosion/selfdestruct as its attacks" -- this is that rule, widened to everything of the same kind.
+#: Attacks that cannot be counted on to take a share of the foe's HP on the turn they are chosen: they knock the user
+#: out, only work in a state the foe controls, fail outright against a level-5 target's luck, return damage rather than
+#: deal it, or cannot finish a Pokemon. The starter must never have only Explosion/Self-Destruct as its attacks -- this
+#: is that rule, widened to everything of the same kind.
 UNRELIABLE_EFFECTS: "frozenset[int]" = frozenset({
     E_EXPLOSION, E_OHKO, E_COUNTER, E_MIRROR_COAT, E_BIDE, E_DREAM_EATER, E_SNORE, E_SPIT_UP, E_FOCUS_PUNCH,
     E_FAKE_OUT, E_ENDEAVOR, E_PRESENT, E_FALSE_SWIPE, E_FUTURE_SIGHT, E_SUPER_FANG, E_BEAT_UP,

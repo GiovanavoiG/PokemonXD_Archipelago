@@ -1,8 +1,7 @@
 """ADDENDUM 456 (2026-10-09) -- Reduce Citadark Grind: `equal_to_citadark_entry`.
 
-Player: "Can you fold in an option to reduce_citadark_grind where the candy box will instead level you to the lowest
-level pokemon placed in citadark? make sure it accounts for level scaling and path level scaling, name it
-"equal_to_citadark_entry""
+A `reduce_citadark_grind` choice, `equal_to_citadark_entry`, makes the Candy Box level the party to the
+lowest-level Pokemon placed on Citadark Isle, accounting for level scaling and path level scaling.
 """
 from __future__ import annotations
 

@@ -144,7 +144,7 @@ class TestSSLibraWaitsForPhenac(unittest.TestCase):
 # --- 475 ------------------------------------------------------------------------------------------------------
 
 class TestTheWhiteoutHook(unittest.TestCase):
-    @unittest.skipUnless(DOL.is_file(), "needs the player's main.dol")
+    @unittest.skipUnless(DOL.is_file(), "needs a real main.dol")
     def test_vanilla_words_match_the_real_dol(self) -> None:
         from .test_addendum_465_shadow_engine import _word_reader
         word = _word_reader(DOL.read_bytes())

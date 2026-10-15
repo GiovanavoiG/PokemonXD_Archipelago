@@ -1,9 +1,9 @@
 """ADDENDUM 331 (2026-09-23): Phenac lands unlocked, and stays unlocked.
 
-Player: "The phenac bump - 0x3F > 0x41 - is not going off in play. We need to raise the floor and its current
-byte the moment we land in the phenac room id, so that the return trip doesn't kick us out again."
+The 0x3F -> 0x41 Phenac bump never went off in play. The fix raises both the floor and the current byte the
+moment the player lands in a Phenac room, so that the return trip does not kick them out again.
 
-TWO DEFECTS, one per half of that sentence.
+TWO DEFECTS, one per half of that fix.
 
 **The current byte.** `LiveStoryByteBump("Phenac City", 0x3F, 0x41)` fires only while the live byte is in
 [0x3F, 0x41). Phenac's icon enters the town at its window FLOOR -- 0x3E -- so that is the byte on every
@@ -49,8 +49,8 @@ class TestTheCurrentByte(unittest.TestCase):
         self.assertGreater(bump.becomes, bump.when_byte_is)
 
     def test_every_plain_phenac_room_resolves_to_the_region_the_bump_names(self) -> None:
-        """A bump that names a region no room maps to never fires -- and "the phenac room id" is the player's
-        own trigger, so the mapping is the mechanism rather than a detail."""
+        """A bump that names a region no room maps to never fires -- and landing in a Phenac room is the
+        trigger, so the mapping is the mechanism rather than a detail."""
         rooms = [room for room, region in chest_regions.ROOM_TO_REGION.items()
                  if region == "Phenac City"]
         self.assertTrue(rooms)
@@ -79,7 +79,7 @@ class TestTheFloor(unittest.TestCase):
                                                            {"Realgam Tower": 0x41, "Phenac City": 0x3F}))
 
     def test_the_return_trip_does_not_kick_the_player_out(self) -> None:
-        """The player's sentence, as a sequence. Land at 0x3E, get lifted to 0x41, leave, come back -- and
+        """The fix, as a sequence. Land at 0x3E, get lifted to 0x41, leave, come back -- and
         the hover must not name the locked town again. Asserted with NO Realgam mark, which is the case that
         was broken."""
         memory = rc.AreaStoryByteMemory()

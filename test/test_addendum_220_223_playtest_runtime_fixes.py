@@ -1,12 +1,11 @@
 """Playtest pass, 2026-09-15 -- ADDENDA 220, 221, 222 and 223.
 
-220: "Save menu is still sending duplicate purifications. Let's identify purifications by species under the
-      hood at purification-time, but just increment the count for the checks."
-221: "Party AND PC scanning are inconsistent at best. See if we can find a more consistent spot/area to
-      search."
-222: "Our item delivery system is better, but still a touch inconsistent."
-223: "Shadow bolt was generated on a shadow pokemon (pidgey) - when trying to use it, it failed saying it had
-      no PP - it shouldn't need PP."
+220: the save menu was still sending duplicate purifications. Purifications are identified by species under the
+     hood at purification time, and the checks just increment the count.
+221: party AND PC scanning were inconsistent; catches need a more consistent place to search.
+222: item delivery was still a touch inconsistent.
+223: Shadow Bolt was generated on a Shadow Pokemon (Pidgey) and failed with no PP when used -- Shadow moves need
+     no PP.
 """
 import random
 import unittest
@@ -41,7 +40,7 @@ class TestPurificationsAreCountedOncePerSpecies(unittest.TestCase):
         return t
 
     def test_the_same_species_is_never_counted_twice(self):
-        """The player's own example: the same Totodile must not be scanned twice."""
+        """The same Totodile must not be scanned twice."""
         t = self.tracker([[(158, 0)], [(158, 0)], [(158, 0)]])
         first = t.poll(0)
         self.assertEqual(len(first), 1)
@@ -58,7 +57,7 @@ class TestPurificationsAreCountedOncePerSpecies(unittest.TestCase):
         self.assertEqual(t.duplicate_species_rejected, 0)
 
     def test_the_checks_are_still_the_cumulative_ladder(self):
-        """"just increment the count for the checks" -- the species is the identity, the count is the reward."""
+        """The checks just increment the count -- the species is the identity, the count is the reward."""
         t = self.tracker([[(158, 0)], [(7, 1)]])
         self.assertEqual(t.poll(0), [rc.purification_location_name(1)])
         self.assertEqual(t.poll(0), [rc.purification_location_name(2)])
@@ -217,8 +216,7 @@ class TestDeliveryConfirmsOnThePeak(unittest.TestCase):
 
 
 class TestGeneratedShadowsKeepTheirRealMoves(unittest.TestCase):
-    """Player, 2026-09-15: "The 4 move set would include two normal moves right? Currently the generated
-    pokemon are getting their actual moves properly, so make sure that still works."
+    """2026-09-15: the 4-move set does not displace a generated Shadow's real moves, which must keep working.
 
     The two move sets are SEPARATE STRUCTURES, which is the thing worth pinning: a generated Shadow Pokemon's
     four ORDINARY moves live in its DPKM entry in DeckData_Story.bin (its real learnset moves, what it uses
@@ -258,7 +256,7 @@ class TestGeneratedShadowsKeepTheirRealMoves(unittest.TestCase):
                            "the 4-move change is not reaching generated Shadow Pokemon")
 
     def test_every_ordinary_move_is_one_that_species_could_really_know(self):
-        """The player's "getting their actual moves properly". Every ordinary move is either from the species'
+        """Generated Shadows get their actual moves. Every ordinary move is either from the species'
         own level-up learnset at or below its level, or the one extra move ADDENDUM 426 allows: a TM/HM this
         species can learn (level 30+), or one of its tutor or egg moves."""
         from ..randomizer.team_shuffle import species_move_compat
@@ -290,10 +288,10 @@ class TestGeneratedShadowsKeepTheirRealMoves(unittest.TestCase):
 
 
 class TestShadowMovesAreSlotLegal(unittest.TestCase):
-    """ADDENDUM 223. The player's Pidgey had move 364 in slot 1; 364 appears only in slot 0 in all 83 vanilla
+    """ADDENDUM 223. The playtest Pidgey had move 364 in slot 1; 364 appears only in slot 0 in all 83 vanilla
     entries."""
 
-    def test_the_players_own_case_is_now_detected(self):
+    def test_the_known_case_is_now_detected(self):
         self.assertEqual(sms.illegal_placements([356, 364]), [(1, 364)])
 
     def test_the_secondary_moves_are_barred_from_slot_zero(self):
@@ -324,7 +322,7 @@ class TestShadowMovesAreSlotLegal(unittest.TestCase):
 
     def test_the_old_uniform_sample_would_have_failed_this(self):
         """States the bug as a fact rather than a story: sampling from all 18 ids produces illegal placements
-        at a high rate, which is what the player's patch showed at 14 of 44."""
+        at a high rate, which is what the playtest patch showed at 14 of 44."""
         rng = random.Random(0)
         bad = sum(1 for _ in range(500)
                   if sms.illegal_placements(rng.sample(sms.ALL_SHADOW_MOVE_IDS, 2)))

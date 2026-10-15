@@ -1,7 +1,6 @@
 """ADDENDUM 286 (2026-09-19) -- the monotonic witness a crash-redelivery system needs.
 
-Player: "can we look into an 'item snapshot' system that will redeliver items if the game crashes/the user
-closes without a reload? I'm open to ideas on how to handle it."
+The goal is an 'item snapshot' system that redelivers items if the game crashes or is closed without a reload.
 
 THE GAP, stated plainly: `give_items` commits an index into `given_item_indices` about five seconds after the
 Bag quantity confirms, and that set is client-side state in a local file. Nothing in the chain involves the

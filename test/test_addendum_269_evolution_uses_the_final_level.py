@@ -1,8 +1,7 @@
 """ADDENDUM 269 (2026-09-18): a species must be evolved against the level it is actually fought at.
 
-Player: "Some trainers don't have fully evolved pokemon even in high level 70s. Explain?"
-
-Because their species was evolved against the wrong level.
+Some trainers did not have fully evolved Pokemon even in the high level 70s, because their species was evolved
+against the wrong level.
 
 ## The pass that fixes this already existed, and ADDENDUM 266 walked past it
 
@@ -22,7 +21,7 @@ through a different function, in a different phase:
 
 So with `path_level_scaling` on and Enhanced Difficulty off, the pass did not run at all (it was gated on ED),
 and **612 of 726 ordinary members had their level moved -- 568 of them upward -- while their species stayed
-evolved for the vanilla level.** Level-65 first-stage Pokemon, exactly as reported.
+evolved for the vanilla level.** Level-65 first-stage Pokemon, exactly the symptom.
 
 ## The invariant was real; what enforced it was a shared function
 

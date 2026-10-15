@@ -1,9 +1,9 @@
 """ADDENDUM 376 (2026-09-27): a chest opened before the client was watching is deducible, not lost.
 
-Player: "Just wire in whatever makes us not miss chest checks. I feel like you're overcomplicating this - berry
-gotten, check room id and berry, send check. should be 3 lines of code?"
+Chest checks must not be missed, and the live path should be about three lines: berry gotten, check the room id
+and the berry, send the check.
 
-THEY ARE RIGHT ABOUT THE LIVE PATH, and after ADDENDUM 375 that is what it is: berry rises, the room plus the
+AFTER ADDENDUM 375 THAT IS WHAT THE LIVE PATH IS: berry rises, the room plus the
 berry names the chest, the check goes. The only thing on top is one confirming read (~0.1s), which exists for
 a torn read of the berry's u16 rather than for any game behaviour.
 

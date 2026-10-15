@@ -1,6 +1,6 @@
 """ADDENDUM 300 (2026-09-20) -- the catch rate, in both of the places it lives.
 
-Player: "Can you add an option to make all pokemon have 100% catch rate?"
+An option gives every Pokemon a 100% catch rate.
 
 TWO HALVES, AND THE SECOND ONE IS THE ONE THAT MATTERS IN XD. An ordinary species' catch rate is a byte at
 +0x01 of the `common_rel` stats entry ADDENDUM 285 pinned down. A Shadow Pokemon's snag is not checked against
@@ -275,8 +275,7 @@ class TestTheOption(unittest.TestCase):
         from ..options import CatchRateScaling
         text = " ".join((CatchRateScaling.__doc__ or "").split())
         self.assertIn("Guaranteed Catches: every catch succeeds", text)   # ADDENDUM 448
-        # RETARGETED 2026-09-26: the player rewrote this option's text in their own words (see
-        # USER_FACING_TEXT.md's section A). The docstring assertions below went with it. The measured fact is
+        # RETARGETED 2026-09-26: this option's text was rewritten (see USER_FACING_TEXT.md's section A). The docstring assertions below went with it. The measured fact is
         # unchanged and still tested against the CODE in this file; what is no longer pinned is that the
         # player-facing text repeats it.
         #
@@ -378,7 +377,7 @@ class TestAgainstTheRealDarkPokemonFile(unittest.TestCase):
             self.assertEqual(before, now, f"ddpk index {index}")
 
     def test_the_one_guaranteed_catch_in_the_game_is_not_produced_by_this_byte(self) -> None:
-        """Player, mid-implementation: "the teddiursa at the start is guaranteed catch". It is. Its override
+        """The Teddiursa at the start is a guaranteed catch. Its override
         reads 120 -- below the maximum, below the 190 that ordinary Shadows carry, and eleven vanilla Shadows
         already sit at 255 without being certainties. So the tutorial snag is scripted, and no value this
         option writes can reproduce it. This test is here so the claim stays measured rather than remembered;

@@ -1,11 +1,12 @@
 """ADDENDUM 389 (2026-09-28) -- one failed read stopped killing shop descriptions, and NO CHECK survives a reboot.
 
-Player: "The vending machine in pyrite town (the small shop) is not updating its descriptions with ap items."
-Then: "In fact, all the shops break after the first one of a session. I also heard reports that they do not
-keep the 'no check' indicator after reboot."
+Symptoms: the Pyrite Town vending machine (the small shop) did not update its descriptions with AP items; in
+fact every shop after the first one of a session broke, and shops did not keep the NO CHECK indicator after a
+reboot.
 
-The second message is what identified both bugs. "The first one of a session works" is the shape of a
-session-scoped kill switch, and "not after reboot" is the shape of state that was never persisted.
+The second and third symptoms are what identified both bugs. Working only for the first shop of a session is
+the shape of a session-scoped kill switch, and failing after a reboot is the shape of state that was never
+persisted.
 
 FAULT ONE -- ONE FAILED MEM1 READ DISABLED THE FEATURE FOR THE SESSION.
 
@@ -148,7 +149,7 @@ class TestAFailedSearchReadIsNotFatal(_WriterCase):
         self.assertTrue(self.writer.enabled, "one bad read must not switch descriptions off for the session")
 
     def test_the_failures_are_counted_and_reported(self) -> None:
-        """Silence is what made this take a player report to find."""
+        """Silence is what made this take a play session to find."""
         self.run_polls(21, "Mt. Battle Shop", 18)
         self._force_a_sweep()
         self.mem.big_reads_fail = True

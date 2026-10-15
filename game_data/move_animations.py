@@ -1,7 +1,6 @@
 """ADDENDUM 454 -- Disable Move Animations, without touching the trainer AI, and a live guard on it.
 
-Player: "can we assign a guard to our no move animations? I've seen scenarios where the animations start playing
-again."
+The guard re-applies the setting live, because the animations can otherwise start playing again.
 
 WHAT +0x1E REALLY IS. ADDENDUM 291 zeroed every move's u16 at move-table +0x1E and called it the animation id. The
 DOL says otherwise: +0x1E is the move's FUNCTION-DATA id (`wazaDataBiosGetWazaFuncDataId`, `lhz r3,30(r3)`), an

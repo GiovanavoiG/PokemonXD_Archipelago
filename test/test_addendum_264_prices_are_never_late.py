@@ -1,8 +1,7 @@
 """ADDENDUM 264 (2026-09-17): a price must never arrive after the player is already looking at the shelf.
 
-Player, after seeing ADDENDUM 263's pricing work live: "Make sure this runs early enough that the prices
-don't have to update mid-game - can be written basically as soon as block_base is established I believe.
-Make progression items 1500 and filler 100 - useful 500 is fine."
+ADDENDUM 263's pricing has to run early enough that prices never update mid-game. Progression items cost
+1500, useful 500 and filler 100.
 
 Three things came out of that, and only one of them is the obvious one.
 
@@ -23,7 +22,7 @@ own `LocationInfo` packet, after `Connected`. The ordinary connect sequence was:
     changed -> the room-change-driven poll rewrites nothing
 
 and every shelf stayed filler-priced until the player happened to leave a shop and come back. That IS the
-"prices update mid-game" being complained about, and polling sooner just means polling sooner with no data.
+mid-game price update, and polling sooner just means polling sooner with no data.
 **Watching the input is what fixes it.**
 
 The renamer got away with watching only the room because its labels derive from the room and the berry index
@@ -36,8 +35,8 @@ real generated seed, **13 of 18 line numbers hold different item classes in diff
 progression at the Outskirt Stand and filler in Pyrite, in the same seed. A single set of prices written once
 at connect would be wrong for most lines in most shops.
 
-The room is not a latency problem to optimise away; it is part of the answer. What the player actually asked
-for -- never watching a price change while standing at a counter -- comes from writing on room ENTRY, which
+The room is not a latency problem to optimise away; it is part of the answer. What actually matters -- never
+watching a price change while standing at a counter -- comes from writing on room ENTRY, which
 happens long before anyone can reach a shopkeeper and open a menu.
 """
 from __future__ import annotations
@@ -198,7 +197,7 @@ class TestItRunsWithoutTheSaveBlock(unittest.TestCase):
 
 class TestTheTunedNumbers(unittest.TestCase):
 
-    def test_the_player_s_numbers(self) -> None:
+    def test_the_expected_numbers(self) -> None:
         self.assertEqual(1500, ins.PRICE_BY_CLASSIFICATION["progression"])
         self.assertEqual(500, ins.PRICE_BY_CLASSIFICATION["useful"])
         self.assertEqual(100, ins.PRICE_BY_CLASSIFICATION["filler"])

@@ -1,10 +1,9 @@
 """ADDENDUM 235. One label per shelf line, NO CHECK once bought -- and the berry-list drift that fixed a
 real, silent chest bug on the way.
 
-Player: "Are the shop berries unique and named differently when we open the shop menu? I want us still
-clearing them out of the bag as we get them to avoid clutter. I'd like every shop item to be labelled
-differently and change to no check as we purchase them -- scroll down the list and purchase each one once
-until they all show no check."
+Every shop line carries its own label and changes to NO CHECK once bought, so scrolling down the list and
+buying each line once leaves the whole shelf showing NO CHECK. Bought berries are still cleared out of the bag
+to avoid clutter.
 """
 from __future__ import annotations
 
@@ -83,7 +82,7 @@ class TestShelfLabels(unittest.TestCase):
         self.assertEqual("GATEON 01", names[self.berries[0]])
 
     def test_buying_every_line_empties_the_shelf(self) -> None:
-        """The player's own workflow: scroll down, buy each once, until they all show no check."""
+        """Scroll down, buy each line once, until they all show no check."""
         self.renamer.purchased_by_room = {156: set(self.berries)}
         self.assertEqual({ram_client.NO_CHECK_NAME},
                          set(self.renamer.desired_names(156, self.berries).values()))
@@ -120,8 +119,8 @@ class TestShelfLabels(unittest.TestCase):
 
 
 class TestPurchasesStillClearTheBag(unittest.TestCase):
-    """The player's standing requirement, restated this addendum: "I want us still clearing them out of the
-    bag as we get them to avoid clutter." Guarded here so a future display change cannot quietly drop it."""
+    """Bought shop berries are still cleared out of the bag to avoid clutter. Guarded here so a future
+    display change cannot quietly drop it."""
 
     def test_a_confirmed_purchase_clears_the_berry_and_records_the_line(self) -> None:
         # ADDENDUM 259: the confirm window is a DURATION as well as a read count now, so this sequence has to

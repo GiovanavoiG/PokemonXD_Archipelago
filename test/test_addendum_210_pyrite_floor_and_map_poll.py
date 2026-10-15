@@ -1,9 +1,8 @@
 """ADDENDUM 210. Pyrite's second-visit floor, and polling fast while the map cursor is live.
 
-Player, in one message:
-  * "if pyrite is at 0x35 or higher, and cave spot is at 0x3B or higher, push pyrite floor to 0x3C"
-  * "Please confirm that location shuffle is writing the story bytes based on map cursor polling"
-  * "poll FAST when on map for the cursor"
+  * If Pyrite is at 0x35 or higher and the Cave Spot is at 0x3B or higher, Pyrite's floor is pushed to 0x3C.
+  * Location shuffle writes the story bytes based on map cursor polling.
+  * The map cursor is polled fast while the map screen is up.
 
 THE RULE ENCODES A CHAIN THAT WAS ALREADY IN `TRANSITIONS`:
 
@@ -83,7 +82,8 @@ class TestThePyriteRule(unittest.TestCase):
 
 
 class TestTheCursorIsWhatDrivesTheWrite(unittest.TestCase):
-    """The player's "please confirm" -- asserted rather than answered in prose."""
+    """Location shuffle's story-byte writes are driven by map cursor polling -- asserted rather than stated in
+    prose."""
 
     @classmethod
     def setUpClass(cls) -> None:

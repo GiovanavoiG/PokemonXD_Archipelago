@@ -1,6 +1,6 @@
 """ADDENDUM 303 (2026-09-20) -- the search for a field that makes a catch unconditional.
 
-Player: "let's scan that catch rate function again and see if we can find some other field to make it 100%".
+The catch rate function was scanned again for some other field that makes a catch 100%.
 
 THREE NEGATIVE RESULTS, AND THEY ARE THE MOST VALUABLE PART. ADDENDUM 300 shipped 255 and said plainly it is
 not certainty. This addendum went looking for the thing that is, and eliminated:
@@ -293,7 +293,7 @@ class TestTheCeilingStatedByAddendum300StillHolds(unittest.TestCase):
         from ..options import CatchRateScaling   # ADDENDUM 447: Max Catch Rate is its 100
 
         text = " ".join((CatchRateScaling.__doc__ or "").split())
-        # RETARGETED 2026-09-26: the player rewrote this option's text in their own words (see
+        # RETARGETED 2026-09-26: this option's text was rewritten (see
         # USER_FACING_TEXT.md's section A). The docstring assertions below went with it. The measured fact is
         # unchanged and still tested against the CODE in this file; what is no longer pinned is that the
         # player-facing text repeats it.

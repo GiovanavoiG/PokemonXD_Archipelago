@@ -1,8 +1,8 @@
 """ADDENDUM 274 (2026-09-18): holding the story below the upgrade the item is meant to grant.
 
-Player: *"what happens if the player gets the scooter upgrade through story? can we prevent that?"* then
-*"Build with your suggestion of holding at 0x57, but make it an option -- 'shuffle scooter upgrade'. Make the
-option apply to both location shuffle and normal."*
+The question is what happens when the player gets the scooter upgrade through the story, and how to prevent
+it. The answer is a hold at 0x57, behind an option (`shuffle scooter upgrade`) that applies with location
+shuffle on and off.
 
 ADDENDUM 273 served the STRANDED ship whenever the player lacked the Scooter. That holds on the MAP route,
 because the hover is a pre-load hook. It does not hold on a story warp into the ship rooms: there is no
@@ -181,7 +181,7 @@ class TestTheOptionGatesEverything(PokemonXDTestBase):
 
 
 class TestTheOptionOnInTravelShuffle(PokemonXDTestBase):
-    """*"Make the option apply to both location shuffle and normal."*"""
+    """The option applies with location shuffle as well as without it."""
 
     options = {"shuffle_scooter_upgrade": True, "randomize_travel_locations": True}
 

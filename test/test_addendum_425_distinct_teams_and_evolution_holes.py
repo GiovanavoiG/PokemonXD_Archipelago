@@ -1,9 +1,8 @@
 """ADDENDUM 425 (2026-10-06) -- no species twice on one team, and the evolution holes.
 
-Player: "I've noticed that our "shuffle" is actually swapping IDs, from what I can tell - a trainer who has two of
-the same pokemon in vanilla will shuffle to two of the same pokemon. Is this true, and can we change it? Also, I've
-noticed that some pokemon are NOT evolved on trainer teams despite being at a suitable level to evolve. Check for
-holes."
+The team "shuffle" looked like it swapped IDs: a trainer with two of the same Pokemon in vanilla shuffled to two of
+the same Pokemon. It no longer does. Some Pokemon on trainer teams were also NOT evolved despite being at a level
+to evolve; those holes are closed.
 """
 from __future__ import annotations
 
@@ -101,7 +100,7 @@ class TestDistinctTeams(unittest.TestCase):
                 self.assertEqual(len(species), len(set(species)), (seed, trainer.name))
 
     def test_each_slot_is_its_own_roll(self) -> None:
-        """The player's report: vanilla duplicates do not stay duplicates (they never shared a record)."""
+        """Vanilla duplicates do not stay duplicates (they never shared a record)."""
         raw = load_json_data_file("deckdata_story_trainers.json")
         doubled = [t for t in raw if len({s["species"] for s in t["team"] if s.get("kind") == "DPKM"})
                    < len([s for s in t["team"] if s.get("kind") == "DPKM"])]

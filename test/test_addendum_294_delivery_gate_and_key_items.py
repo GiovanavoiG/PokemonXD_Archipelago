@@ -1,12 +1,11 @@
 """
 ADDENDUM 294 (2026-09-20) -- the gate that never opened, and the pocket we never looked in.
 
-Player, in one message: *"Can we double check our system that scans key items? User reported machine part not
-being removed. Also, double check our item delivery - user reported later in the run that some items were
-taking the full 10 minute timeout - this is fine, but it seemed more consistent than we wanted. Also, new bump
-- with location shuffle, make it so that if Phenac reaches 0x3F, it gets bumped to 0x41."*
+Three issues: the key-item scan did not remove the Machine Part; later in a run some item deliveries took the
+full 10-minute timeout, more consistently than expected; and, with location shuffle, Phenac reaching 0x3F
+needs a bump to 0x41.
 
-Three reports. The first two turned out to be the same kind of mistake in two different subsystems: a
+The first two turned out to be the same kind of mistake in two different subsystems: a
 question asked of one place when the answer could be in another.
 
 ## 1. The ten-minute ceiling, and the counter that could not count
@@ -35,7 +34,7 @@ present so the vanish-purge cannot touch it, and its idle counter **frozen below
 > 'items never arrive'; with that ceiling now in place, it instead looks like 'items always take the full
 > ceiling to arrive'."
 
-That is the report, word for word, and it grows more consistent through a run because the stale records the
+That is the observed symptom exactly, and it grows more consistent through a run because the stale records the
 cluster has to choose between accumulate.
 
 **The fix counts the poll rather than forgetting the key.** A key absent from this poll's clusters is, if
@@ -73,7 +72,7 @@ had merely ISSUED, so a clear count could climb once a second beside an item tha
 visit, which unlocks the town. At 0x3F the whole town is inert. In a vanilla run that is a two-minute errand.
 With travel locations shuffled, Realgam is its own destination behind its own unlock item, so a player can
 sit at 0x3F with a town full of visible, dead checks for as long as the multiworld takes. Location shuffle
-only, which is the player's own scope and the honest one.
+only, deliberately.
 """
 from __future__ import annotations
 
@@ -343,7 +342,7 @@ class TestTheReconcilerFindsItWhereverItIs(unittest.TestCase):
     def test_a_clear_that_does_not_stick_is_not_counted_as_a_clear(self) -> None:
         """`clear_item` reported success for a write it had merely ISSUED. A clear count climbing once a
         second beside an item still in the Bag reads as "the feature ran" when the truth is "the feature ran
-        and achieved nothing" -- which is exactly the question the player was trying to answer."""
+        and achieved nothing" -- which is exactly the question the readout has to answer."""
         bag = _Bag(key_items={MACHINE_PART: 1})
         with _Patched(bag):
             bag.write = lambda address, payload: None      # every write silently does nothing
@@ -395,7 +394,7 @@ class TestThePhenacBump(unittest.TestCase):
     def test_it_goes_from_the_arrival_byte_to_the_unlocked_one(self) -> None:
         """RETARGETED BY ADDENDUM 331, from (0x3F, 0x41) to (0x3E, 0x41).
 
-        Player: "The phenac bump - 0x3F > 0x41 - is not going off in play." It could not: Phenac's icon
+        The 0x3F -> 0x41 Phenac bump never went off in play. It could not: Phenac's icon
         enters the town at its window FLOOR, 0x3E, so 0x3E is the byte on every arrival. 0x3F is reached only
         by the game's own first-visit-complete beat, which ENDS by forcing the player out toward Realgam --
         so there is barely a moment where anyone is standing in a Phenac room at 0x3F. The window described a
@@ -417,15 +416,15 @@ class TestThePhenacBump(unittest.TestCase):
     def test_the_whole_locked_band_is_caught_and_the_target_is_not(self) -> None:
         bump = self._bump()
         self.assertTrue(bump.applies("Phenac City", 0x3E),
-                        "ADDENDUM 331: 0x3E is what the icon writes on landing -- this is the case the "
-                        "player reported never firing")
+                        "ADDENDUM 331: 0x3E is what the icon writes on landing -- this is the case that "
+                        "never fired")
         self.assertTrue(bump.applies("Phenac City", 0x3F), "the first visit having completed still lifts")
         self.assertTrue(bump.applies("Phenac City", 0x40), "a poll that landed a tick late still finishes")
         self.assertFalse(bump.applies("Phenac City", 0x41), "already there")
         self.assertFalse(bump.applies("Phenac City", 0x42), "never lowers")
 
     def test_the_bump_and_the_icon_agree_on_where_phenac_is_entered(self) -> None:
-        """ADDENDUM 331 is two halves of one answer -- "raise the floor and its current byte". If they named
+        """ADDENDUM 331 is two halves of one answer -- raise the floor and the current byte. If they named
         different bytes the icon and the bump would fight over the town every time the map opened."""
         self.assertEqual(story_bytes.area_entry_floor("Phenac City"), self._bump().becomes)
 

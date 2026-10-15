@@ -1,7 +1,7 @@
 """ADDENDUM 488 (2026-10-13) -- the Agate move tutor teaches every move again and again.
 
-Player: "There's a move tutor that teaches moves like icy wind, thunder wave etc, but she only teaches them once. Can we
-make it so she doesn't disable them after learning them once?"
+The move tutor teaches moves like Icy Wind and Thunder Wave, but vanilla she teaches each only once. She no longer
+disables a move after it has been learned.
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ class TestThePatch(unittest.TestCase):
         self.assertEqual(0x801A02F0, mt.CHECK_TAUGHT_CALL + disp, "bl GSflagTest")
         self.assertEqual(1, mt.CHECK_TAUGHT_VANILLA & 1, "a call")
 
-    @unittest.skipUnless(DOL.is_file(), "needs the player's main.dol")
+    @unittest.skipUnless(DOL.is_file(), "needs a real main.dol")
     def test_matches_the_real_dol(self) -> None:
         data = DOL.read_bytes()
         offs = struct.unpack(">18I", data[0:72])

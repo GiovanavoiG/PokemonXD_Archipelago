@@ -1,15 +1,14 @@
 """ADDENDUM 185 (2026-09-14): five corrections, four of them about what may hold progression.
 
-  1. "Seed 3 has an issue - browsix, and everything post-sixes, is gated behind the music disc and mayor's
-     note." -- the 22 named Phenac trainer-defeat locations move into the Disc+Note tier.
-  2. "all of those Sixes are marked missable - can you check the excel spreadsheet again? they shouldn't be
-     carrying anything important." -- the workbook's Missable? column is the fence again, and the named 66
-     inherit it (they had never been fenced at all).
-  3. "Add a toggle for Shadow Pokemon Catch checks being progression/useful or not. Default it off."
-  4. "Increase the cap on the progression purification checks option to 127, limit it to 83 + whatever the
-     player selects as their option for shadow pokemon expansion. Throw an error if they choose a cap higher
-     than what the expansion gives them."
-  5. "Leave Orre Colosseum as a gettable location, but remove it/all its trainers/chests from the logic."
+  1. Browsix, and everything post-Sixes, is gated behind the Music Disc and the Mayor's Note -- the 22 named
+     Phenac trainer-defeat locations move into the Disc+Note tier.
+  2. All of the Sixes are marked missable in the workbook, so they must not carry anything important -- the
+     workbook's Missable? column is the fence again, and the named 66 inherit it (they had never been fenced
+     at all).
+  3. A toggle for Shadow Pokemon Catch checks being progression/useful or not, default off.
+  4. The cap on the progression purification checks option rises to 127, limited to 83 + whatever the player
+     selects for Shadow Pokemon Expansion, and a cap higher than what the expansion gives is an error.
+  5. Orre Colosseum stays a gettable location, but it and all its trainers/chests leave the logic.
 """
 from __future__ import annotations
 
@@ -66,9 +65,9 @@ class TestTheMissableFenceIsBackAndWider(unittest.TestCase):
         cannot be redone, and this project had only ever read that one. See
         test_workbook_fence_and_sphere_zero.py, which asserts the fence against the workbook directly rather
         than against a remembered total."""
-        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 39)  # ADDENDUM 440: +4; 460: -13 ruled unmissable
+        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 39)  # ADDENDUM 440: +4; 460: -13 now unmissable
         self.assertEqual(len(missable_trainers.UNREDOABLE_TRAINER_INDICES), 149)   # ADDENDUM 440: +4; 460: -6
-        # ADDENDUM 407: minus Naps #2, the one mandatory rematch the player made progression-eligible.
+        # ADDENDUM 407: minus Naps #2, the one mandatory rematch made progression-eligible.
         self.assertEqual(len(missable_trainers.FILLER_ONLY_TRAINER_INDICES), 148)   # ADDENDUM 440: +4; 460: -6
         self.assertTrue(missable_trainers.MISSABLE_TRAINER_INDICES
                         <= missable_trainers.FILLER_ONLY_TRAINER_INDICES)
@@ -91,7 +90,7 @@ class TestTheMissableFenceIsBackAndWider(unittest.TestCase):
         from .. import species  # noqa: F401  (import kept uniform with the rest of the file)
         from ..game_data import trainer_roster
 
-        # ADDENDUM 407 unfenced Naps #2 only; the player kept the Sixes' #2 fights filler.
+        # ADDENDUM 407 unfenced Naps #2 only; the Sixes' #2 fights stay filler.
         for index in (69, 147, 202, 120, 44):   # Aferd #2, Zook #2, Laken #3, Browsix #4, Greesix #2
             self.assertIn(index, missable_trainers.FILLER_ONLY_TRAINER_INDICES,
                           trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[index]))
@@ -183,7 +182,7 @@ class TestPurificationCap(unittest.TestCase):
 
 
 class TestPurificationCapIsValidatedPerSeed(unittest.TestCase):
-    """Player: "Throw an error if they choose a cap higher than what the expansion gives them." """
+    """A cap higher than what the seed's expansion gives is checked per seed."""
 
     def _build(self, cap: int, expansion: int):
         from test.general import gen_steps, setup_multiworld
@@ -196,8 +195,8 @@ class TestPurificationCapIsValidatedPerSeed(unittest.TestCase):
         )
 
     def test_a_cap_above_the_seeds_own_shadow_count_is_rounded_down(self) -> None:
-        """ADDENDUM 406 replaced the error. Player: "make our refusals instead auto-adjust to valid settings ...
-        round purifications down if it's greater than possible shadows." """
+        """ADDENDUM 406 replaced the error: refusals auto-adjust to valid settings instead, and purifications
+        are rounded down if the cap is greater than the possible Shadows."""
         with self.assertLogs(level="WARNING") as logged:
             mw = self._build(cap=100, expansion=0)
         world = mw.worlds[1]
@@ -215,8 +214,8 @@ class TestPurificationCapIsValidatedPerSeed(unittest.TestCase):
 
 
 class TestOrreColosseumIsOutOfLogic(unittest.TestCase):
-    """ADDENDUM 446 superseded this addendum's Orre half. Player: "Remove the travel unlock for Orre Colosseum and
-    ensure no checks are there." No item, no `Unlock -` check, no region."""
+    """ADDENDUM 446 superseded this addendum's Orre half: no travel unlock for Orre Colosseum and no checks there.
+    No item, no `Unlock -` check, no region."""
 
     def test_no_travel_item_and_no_region(self) -> None:
         self.assertNotIn("Orre Colosseum", travel_locations.TRAVEL_LOCATION_TARGET_REGION)

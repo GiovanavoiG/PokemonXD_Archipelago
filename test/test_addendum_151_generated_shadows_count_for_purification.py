@@ -1,8 +1,6 @@
 """ADDENDUM 151 (2026-09-11): generated Shadow Pokemon and the purification checks.
 
-Player: "Make sure whatever shadow pokemon we generate are included in those purification checks."
-
-They are, and by construction rather than by accident -- but the reasons are spread across three modules and
+Every generated Shadow Pokemon is included in the purification checks, and by construction rather than by accident -- but the reasons are spread across three modules and
 none of them were asserted anywhere, so a future change to any one of them could break it silently. These
 tests pin the chain:
 

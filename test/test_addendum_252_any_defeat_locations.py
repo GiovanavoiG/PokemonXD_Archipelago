@@ -1,9 +1,9 @@
 """ADDENDUM 252 (2026-09-16) -- one progression-eligible check per re-fightable trainer.
 
-Player: "For all our repeatable fights, can we keep our current checks & keep them filler, but add a one-time
-check for ANY defeat of that trainer? This would add more progressive/unique locations."
-Then: "Make the names, for example, 'Defeat Blusix (Any)' and 'Defeat Cail (Any)'."
-And: "Make sure all the post-game fights are still filler - the ones at the bottom of the excel sheet."
+Every repeatable fight keeps its current checks, still filler, and also gets a one-time check for ANY defeat of
+that trainer, which adds more progression-eligible unique locations. The names take the form 'Defeat Blusix
+(Any)' and 'Defeat Cail (Any)'. All post-game fights -- the ones at the bottom of the census sheet -- stay
+filler.
 
 WHY AN INDIVIDUAL FIGHT CANNOT HOLD PROGRESSION AND "ANY" CAN. Every occurrence of a re-fightable trainer is
 either `earlier (N of M)` -- missable by construction, ADDENDUM 192 -- or the `final` row, which for 24 of the
@@ -24,7 +24,7 @@ class TestTheSet(unittest.TestCase):
         self.assertEqual(35, len(RT.REPEATABLE_TRAINERS))
         self.assertEqual(35, len(set(RT.LOCATION_NAMES)))
 
-    def test_the_names_are_the_format_the_player_asked_for(self) -> None:
+    def test_the_names_use_the_format(self) -> None:
         self.assertIn("Defeat Blusix (Any)", RT.LOCATION_NAMES)
         self.assertIn("Defeat Cail (Any)", RT.LOCATION_NAMES)
         for name in RT.LOCATION_NAMES:
@@ -52,7 +52,7 @@ class TestTheAnchor(unittest.TestCase):
     ADDENDUM 185 put the Music Disc behind itself."""
 
     def test_no_anchor_is_a_post_game_row(self) -> None:
-        """The player's explicit instruction. Every post-game row has region `None`, so an anchor with a real
+        """Post-game fights stay filler. Every post-game row has region `None`, so an anchor with a real
         region cannot be one -- asserted rather than relied on."""
         placements = dict(P.PLACEMENTS)
         for row in RT.REPEATABLE_TRAINERS:
@@ -79,23 +79,23 @@ class TestTheAnchor(unittest.TestCase):
             if row["anchor_is_missable"]:
                 self.assertTrue(row["always_filler"], row["location"])
 
-    def test_every_ruling_reaches_the_location_set(self) -> None:
+    def test_every_exclusion_reaches_the_location_set(self) -> None:
         """The wiring, not the count. ADDENDUM 301 added a sixth name and this test used to encode five, which
         is the shape of test that breaks on every legitimate change and catches nothing."""
         self.assertEqual({RT.location_name(surname) for surname in RT.ALWAYS_FILLER_SURNAMES},
                          set(RT.ALWAYS_FILLER_LOCATIONS))
 
-    def test_the_rulings_that_must_be_present(self) -> None:
+    def test_the_exclusions_that_must_be_present(self) -> None:
         """Each of these is a decision with a reason recorded beside it; losing one silently re-opens a
-        location that was ruled shut. New rulings may be added -- these may not be removed."""
-        # ADDENDUM 436 lifted Biden's: his Snagem Hideout fight is not missable (player ruling), and it is his check.
+        location that was deliberately shut. New entries may be added -- these may not be removed."""
+        # ADDENDUM 436 lifted Biden's: his Snagem Hideout fight is not missable, and it is his check.
         self.assertNotIn("Defeat Biden (Any)", RT.ALWAYS_FILLER_LOCATIONS)
         for name in ("Defeat Equin (Any)", "Defeat Eroll (Any)",
                      "Defeat Willie (Any)", "Defeat Greevil (Any)", "Defeat Aferd (Any)",
                      "Defeat Ardos (Any)", "Defeat Zook (Any)"):
             self.assertIn(name, RT.ALWAYS_FILLER_LOCATIONS, name)
 
-    def test_every_ruling_carries_a_reason(self) -> None:
+    def test_every_exclusion_carries_a_reason(self) -> None:
         for surname, reason in RT.ALWAYS_FILLER_SURNAMES.items():
             self.assertTrue(reason.strip(), surname)
 
@@ -192,13 +192,13 @@ class TestAgainstARealWorld(PokemonXDTestBase):
                 self.assertIsNot(LocationProgressType.EXCLUDED, location.progress_type, name)
 
     def test_the_eligible_set_is_exactly_the_unruled_remainder(self) -> None:
-        """A relationship rather than a number: whatever the rulings are, everything else is eligible."""
+        """A relationship rather than a number: whatever the exclusions are, everything else is eligible."""
         from BaseClasses import LocationProgressType
 
         live = self._live()
         eligible = {n for n, l in live.items() if l.progress_type is not LocationProgressType.EXCLUDED}
         self.assertEqual(set(live) - set(RT.ALWAYS_FILLER_LOCATIONS), eligible)
-        self.assertTrue(eligible, "the rulings must never swallow the whole category")
+        self.assertTrue(eligible, "the exclusions must never swallow the whole category")
 
     def test_each_one_is_reachable_from_its_own_region(self) -> None:
         """With every progression item in hand, all 35 must be reachable -- a location nothing can reach is

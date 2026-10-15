@@ -1,14 +1,16 @@
 """
 ADDENDUM 293 (2026-09-20) -- the SS Libra stops being a rung, and Kaminko's stops being written.
 
-Player, in one message:
+The changes:
 
-    "With scooter upgrade shuffled in, decouple SS Libra from Snagem. To do this, when SS Libra hits 0x5B,
-    immediately skip it to 0x5D. Make this happen no matter what on location shuffle, but only with scooter
-    shuffle in vanilla. Ensure Snagem's base floor is 0x62. This also means that Snagem is no longer gated
-    behind SS libra, which means Key Lair is also not gated behind SS Libra. Ensure the logic chains are
-    modified due to this. Also, after Kaminko reaches 0x03, stop writing its floor until it hits one of our
-    gates that modifies it - then we can start writing its floor again."
+  * With the Scooter Upgrade shuffled in, SS Libra is decoupled from Snagem: when SS Libra hits 0x5B it is
+    skipped straight to 0x5D. This happens unconditionally with location shuffle, and only with scooter
+    shuffle in vanilla.
+  * Snagem's base floor is 0x62.
+  * Snagem is no longer gated behind SS Libra, so the Key Lair is not either, and the logic chains change
+    with it.
+  * After Kaminko's House reaches 0x03, its floor is not written until one of the gates that modifies it
+    binds; then floor writing resumes.
 
 Five changes, and they are not five features. Four of them are one feature seen from four angles.
 
@@ -18,7 +20,7 @@ ADDENDUM 273 made the Scooter Upgrade an Archipelago item and the `SS Libra` reg
 whole point, and it was right. What nobody measured at the time is what ELSE was standing behind that region:
 
   * `travel_locations.TRAVEL_LOCATION_REQUIRED_REGIONS` said Snagem's gateway is sourced at `SS Libra`
-    (ADDENDUM 176, the player's own earlier instruction "Gate Snagem logically behind full SS Libra access"),
+    (ADDENDUM 176, which gated Snagem logically behind full SS Libra access),
     and the Key Lair's at `Snagem Hideout`. So the Key Lair inherited the ship through Snagem.
   * `regions.REGION_EDGES` ran `SS Libra -> Cipher Key Lair (exterior)`, and the exterior is a SIBLING tier
     (ADDENDUM 270) whose chain edge survives by design -- so it stayed behind the ship even with travel
@@ -87,7 +89,7 @@ class TestTheSSLibraSkip(unittest.TestCase):
     def test_those_two_bytes_are_the_ones_the_ladder_names(self) -> None:
         """Not typed twice. 0x5B is what "first fight on the SS Libra" lands on and 0x5D is what "Snag Machine
         stolen" lands on -- and it is 0x5D, not 0x5C, that opens the Key Lair exterior. If a future correction
-        to the player's own compilation moves either, this fails rather than the bump quietly aiming at a byte
+        to the story-byte compilation moves either, this fails rather than the bump quietly aiming at a byte
         that no longer means what the comment says."""
         lands_on = {t.after: t.what for t in story_bytes.TRANSITIONS}
         self.assertIn("first fight on the SS Libra", lands_on[0x5B])
@@ -114,14 +116,14 @@ class TestTheSSLibraSkip(unittest.TestCase):
         self.assertFalse(bump.applies("SS Libra (stranded)", 0x5B), "the stranded tier is not the ship")
         self.assertFalse(bump.applies("Gateon Port", 0x5B))
 
-    def test_the_gate_is_exactly_the_players_sentence(self) -> None:
-        """"no matter what on location shuffle, but only with scooter shuffle in vanilla" -- all four
-        combinations, because a gate is the kind of thing that is easy to get right in three of them."""
+    def test_the_gate_is_exact(self) -> None:
+        """Always with location shuffle, and only with scooter shuffle in vanilla -- all four combinations,
+        because a gate is the kind of thing that is easy to get right in three of them."""
         for scooter in (False, True):
             self.assertIsNotNone(story_bytes.live_bump_for("SS Libra", 0x5B, True, scooter),
                                  "location shuffle: fires whatever the Scooter option says")
-        # ADDENDUM 469: "On vanilla locations, remove our SS Libra story bump" -- the Scooter option no longer
-        # matters; in vanilla travel the ship plays its theft as written.
+        # ADDENDUM 469: on vanilla locations the SS Libra story bump is removed -- the Scooter option no
+        # longer matters; in vanilla travel the ship plays its theft as written.
         self.assertIsNone(story_bytes.live_bump_for("SS Libra", 0x5B, False, True),
                           "vanilla travel WITH the Scooter shuffled: no longer fires (ADDENDUM 469)")
         self.assertIsNone(story_bytes.live_bump_for("SS Libra", 0x5B, False, False),
@@ -225,7 +227,7 @@ class TestTheClientRunsItInVanillaTravel(unittest.TestCase):
 # ================================================================================================
 class TestSnagemsBaseFloor(unittest.TestCase):
     def test_it_is_0x62_from_the_ladder_itself(self) -> None:
-        """RETARGETED TWICE. ADDENDUM 324 moved this to 0x63 on the player's report; ADDENDUM 350 moved it
+        """RETARGETED TWICE. ADDENDUM 324 moved this to 0x63; ADDENDUM 350 moved it
         back, because 0x63 is a byte the game can never hold -- its window 792..799 contains no multiple of
         ten, and the story variable only ever holds multiples of ten. The property this class is really
         about is unchanged either way: the constant, the window and the entry floor must all be the same
@@ -238,7 +240,7 @@ class TestSnagemsBaseFloor(unittest.TestCase):
         self.assertIsNone(story_bytes.story_value_for_byte(0x63),
                           "0x63 is unreachable -- that is why it must never be a floor again")
 
-    def test_that_byte_is_the_one_the_player_recorded(self) -> None:
+    def test_that_byte_is_the_recorded_one(self) -> None:
         opens = [t for t in story_bytes.TRANSITIONS if "Snagem Hideout" in t.opens_regions]
         self.assertEqual(len(opens), 1)
         self.assertEqual(opens[0].after, story_bytes.SNAGEM_BASE_FLOOR)
@@ -248,7 +250,7 @@ class TestSnagemsBaseFloor(unittest.TestCase):
 # ================================================================================================
 # 3. The logic chains
 # ================================================================================================
-class TestNothingTheplayerNamedIsBehindTheShip(PokemonXDTestBase):
+class TestNothingNamedIsBehindTheShip(PokemonXDTestBase):
     options = {
         "randomize_travel_locations": True,
         "key_item_shuffle": True,
@@ -292,9 +294,9 @@ class TestNothingTheplayerNamedIsBehindTheShip(PokemonXDTestBase):
     def test_snagem_has_no_hard_prerequisite_left(self) -> None:
         """UPDATED BY ADDENDUM 332. The second line used to assert that the Key Lair was still behind Snagem
         -- this addendum's own reasoning was that the Lair stopped being behind the SHIP as a consequence of
-        Snagem doing so, rather than by a second edit. The player has since made that second edit
-        ("Decouple Key Lair from snagem"), so what survives here is this addendum's own claim: Snagem itself
-        is behind nothing."""
+        Snagem doing so, rather than by a second edit. ADDENDUM 332 has since made that second edit,
+        decoupling the Key Lair from Snagem, so what survives here is this addendum's own claim: Snagem
+        itself is behind nothing."""
         self.assertNotIn("Snagem Hideout", tl.TRAVEL_LOCATION_REQUIRED_REGIONS)
         self.assertNotIn("Cipher Key Lair", tl.TRAVEL_LOCATION_REQUIRED_REGIONS)
 
@@ -343,14 +345,14 @@ class TestKaminkosFloorPause(unittest.TestCase):
             )
 
     def test_a_satisfied_rule_resumes_it(self) -> None:
-        """"then we can start writing its floor again" -- and it resumes on the RULE, not on a second byte
+        """Floor writing resumes once a gate binds -- and it resumes on the RULE, not on a second byte
         typed in here, so the two tables cannot drift."""
         marks = {"Kaminko's House": 0x10, "Gateon Port": 0x52, "Pokemon HQ Lab": 0x0F}
         self.assertFalse(story_bytes.floor_writes_are_paused("Kaminko's House", marks))
         self.assertEqual(story_bytes.dynamic_region_floor("Kaminko's House", marks), 0x53)   # ADDENDUM 350: back to 0x53. 0x54 is a byte the game can never hold (672..679 contains no multiple of ten); what it bought was a write that always cleared 670 while the byte-only write made 0x53 land anywhere in 664..671. The twelve-bit write puts 0x53 exactly on 670.
 
     def test_the_robo_groudon_tier_counts_as_the_manor(self) -> None:
-        """Keyed on the AREA GROUP, so "Kaminko reaches 0x03" means what the player means by it."""
+        """Keyed on the AREA GROUP, so "Kaminko reaches 0x03" means the manor as a whole, either tier."""
         self.assertIn("Kaminko's House (Robo Groudon)", story_bytes.AREA_GROUPS["Kaminko's House"])
         self.assertTrue(story_bytes.floor_writes_are_paused(
             "Kaminko's House (Robo Groudon)", {"Kaminko's House": 0x30}))

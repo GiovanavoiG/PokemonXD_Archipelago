@@ -1,8 +1,7 @@
 """ADDENDUM 405 (2026-10-03) -- missables wait on THEIR area, and the ONBS raid does not name the Data ROM.
 
-Player: "make sure we send the checks AT the story cap for each area, and only when THAT AREA's floor reaches it."
-Player: "Pyrite Town 2nd visit (ONBS raid) in fact is not gated behind Data Rom at all - this means it's only
-gated behind pyrite town and the pokespots. Please fix/report the logic implications."
+Checks are sent AT the story cap for each area, and only when THAT AREA's floor reaches it. Pyrite Town's 2nd
+visit (the ONBS raid) is not gated behind the Data ROM at all, only behind Pyrite Town and the Poke Spots.
 
 PER AREA. ADDENDUM 402 released every missable off one number, the global witness high-water mark. With travel
 randomization on that is the wrong number: every area keeps its own story byte, so the player can push Phenac to
@@ -109,7 +108,7 @@ class TestOnlyThatAreasFloor(unittest.TestCase):
         so Bost's chance in Gateon is gone even though the player never walked back in."""
         marks = {"Gateon Port": 0x16, "Phenac City (Post-Sixes)": 0x4E}
         self.assertEqual(0x51, story_bytes.area_progress("Gateon Port", marks))
-        # ADDENDUM 460: Bost was Gateon's one missable; ruled unmissable, nothing in Gateon is auto-sent any more.
+        # ADDENDUM 460: Bost was Gateon's one missable; now unmissable, nothing in Gateon is auto-sent any more.
         self.assertNotIn("Defeat - Bost", self._due(marks))
 
 

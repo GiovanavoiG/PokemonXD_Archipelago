@@ -1,6 +1,6 @@
 """ADDENDUM 195. The world must load, and its data files must be readable, from a zipped .apworld.
 
-Player: "That apworld is no longer generating a yaml."
+Symptom: the installed apworld no longer generated a yaml.
 
 WHAT HAPPENS. `game_data/shadow_regions._load()` read `data/shadow_pokemon_list.json` with `open()` on a path
 built from `__file__`. From a loose checkout that works. From an installed `.apworld` it cannot: a zipimported
@@ -15,7 +15,7 @@ asserts at import time that the purification weights sum to `PURIFICATION_LOCATI
 So the symptom was "no yaml", three layers away from the cause.
 
 THIS IS THE THIRD TIME. `game_data.load_json_data_file`'s own docstring records the first two, both found live
-by the player rather than by any test, and both fixed by routing a caller through that helper. Two callers had
+in play rather than by any test, and both fixed by routing a caller through that helper. Two callers had
 never been routed through it. The reason this keeps recurring is that every test in this suite imports the
 world as a DIRECTORY, where the broken path works perfectly -- so no test could see it.
 
@@ -206,14 +206,14 @@ class TestLoadsFromAZippedApworld(unittest.TestCase):
 # ==============================================================================================================
 # ADDENDUM 260 (2026-09-17): the Launcher's ISO patch, from inside the zip
 # ==============================================================================================================
-# Player, with a screenshot of the Launcher's own error dialog:
+# The Launcher's own error dialog:
 #
 #     Could not load the ISO patcher tool:
 #     [Errno 2] No such file or directory:
 #     'D:\Archipelago\custom_worlds\pokemon_xd.apworld\pokemon_xd\game_data\shadow_move_slots.py'
 #
-# and: "The patch shouldn't ever depend this heavily on files -- it should be able to run through the
-# archipelago launcher standalone."
+# The patch must never depend this heavily on files -- it has to be able to run through the Archipelago
+# Launcher standalone.
 #
 # SAME BUG AS ADDENDUM 195, ONE DIRECTORY OVER. The file is there; the path is inside a zip, and the loader
 # reaching for it was a plain OS file read. What made this one survive ADDENDUM 195's sweep is visible three
@@ -235,7 +235,7 @@ class TestTheIsoPatcherLoadsFromAZippedApworld(unittest.TestCase):
         """The live failure, reproduced end to end in a subprocess and then proved fixed.
 
         Everything this probe touches was dead before the fix: `_shadow_move_slots` fell through to the
-        by-path loader that produced the player's error, `shop_stock.MART_GROUPS` had no fallback at all and
+        by-path loader that produced that error, `shop_stock.MART_GROUPS` had no fallback at all and
         would have raised "attempted relative import with no known parent package" the moment the shop pass
         ran, and the three sibling `tools` modules were reached via a `sys.path` insert of a directory that
         does not exist inside an archive."""
@@ -259,7 +259,7 @@ class TestTheIsoPatcherLoadsFromAZippedApworld(unittest.TestCase):
                                 "dead in that state, and its fallbacks are file reads a zip cannot serve.")
             self.assertGreater(int(values["shadowmoves"]), 0,
                                "game_data/shadow_move_slots.py was not reachable from inside the zip -- this "
-                               "is the exact module the player's error named")
+                               "is the exact module the Launcher's error named")
             self.assertGreater(int(values["martgroups"]), 0,
                                "game_data/shop_stock.py was not reachable from inside the zip, so the shop "
                                "pass would raise partway through a patch")
@@ -279,7 +279,7 @@ class TestTheIsoPatcherLoadsFromAZippedApworld(unittest.TestCase):
         guaranteed to name a real file on disk. A bare `try: <relative import> / except ImportError: <load by
         path>` does not satisfy it: an installed world always HAS a package, so an ImportError there is a real
         bug, and answering it with a file read reports the bug as a missing file. That is exactly the error
-        the player saw.
+        the Launcher showed.
 
         WHICH MODULES ARE HELD TO IT is derived, not listed. `tools/` also holds loose dev scripts
         (`verify_ddpk83.py`, `make_ability_test.py`, ...) that are only ever run as `python tools/foo.py` and
@@ -331,7 +331,7 @@ class TestTheIsoPatcherLoadsFromAZippedApworld(unittest.TestCase):
             for marker in ("spec_from_file_location", "sys.path.insert"):
                 if marker in source and "if __package__:" not in source:
                     offenders.append(f"tools/{name}.py: uses {marker} with no `if __package__:` gate")
-        # `launcher_patch.py` is the entry point the player's error actually came from, so it is held to the
+        # `launcher_patch.py` is the entry point the Launcher's error actually came from, so it is held to the
         # same rule even though it does not live under tools/.
         launcher = pathlib.Path(_PACKAGE_ROOT, "launcher_patch.py").read_text(encoding="utf-8")
         if "sys.path.insert" in launcher and "if __package__:" not in launcher:

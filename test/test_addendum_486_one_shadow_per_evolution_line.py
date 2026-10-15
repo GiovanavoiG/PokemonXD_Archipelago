@@ -1,6 +1,6 @@
 """ADDENDUM 486 (2026-10-13) -- no two Shadow Pokemon share an evolution line.
 
-Player: "can we make it so shadow pokemon will never be the same evolution line?"
+No two Shadow Pokemon are ever of the same evolution line.
 
 Applies wherever a Shadow's species is CHOSEN: Randomize Shadow Species, No Legendary Shadows' replacements, and the
 Shadow Pokemon Expansion. With Randomize Shadow Species off the 83 keep their vanilla species, which hold exactly one

@@ -1,9 +1,9 @@
 """ADDENDUM 165 (2026-09-13): the Launcher component patches OR connects -- never both.
 
-Two player requests, both about the Archipelago Launcher:
+Two behaviours, both about the Archipelago Launcher:
 
-  * "make it so the patch doesn't auto-launch the AP client"
-  * "remove the description below Pokemon XD Client in the Archipelago Launcher"
+  * patching does not auto-launch the AP client;
+  * there is no description below "Pokemon XD Client" in the Archipelago Launcher.
 
 Patching used to chain straight into `launch_client()`. The reasoning was that someone who just patched
 obviously wants to play -- but the patched ISO still has to be loaded in Dolphin by hand afterwards, so the
@@ -121,7 +121,7 @@ class TestTheLauncherComponent(unittest.TestCase):
         return matches[0]
 
     def test_it_has_no_description_line(self) -> None:
-        """Player request. Component's own signature defaults `description` to "", which the Launcher renders
+        """No subtitle. Component's own signature defaults `description` to "", which the Launcher renders
         as no subtitle at all."""
         self.assertEqual(self._component().description, "")
 

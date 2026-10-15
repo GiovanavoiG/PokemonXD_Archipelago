@@ -1,6 +1,6 @@
 """ADDENDUM 430 (2026-10-06) -- no Robo Kyogre Part on Citadark Isle or anything that needs it.
 
-Player: "Make sure ZERO robo kyogre parts can ever go in citadark or anything reliant on it."
+ZERO Robo Kyogre Parts can ever go on Citadark Isle or anything reliant on it.
 
 The gate already kept the COUNTED Parts off the island; spare Parts (available > required) were legal there.
 `PokemonXDWorld.pre_fill` now closes the island, sweeps, and forbids this player's Parts on everything left

@@ -1,11 +1,11 @@
 """ADDENDUM 392 (2026-09-29) -- the Poke Spot level fields are fenced, and an unproven table is refused.
 
-Player: "Another report of wild pokemon being level 0 at the wild spots. Investigate"
+Wild Pokemon were again seen at level 0 at the Poke Spots.
 
 ADDENDUM 268 investigated the first one and killed four hypotheses outright: every vanilla slot reads min >= 10
 in the live `common_rel`, the assignment only ever names the eleven real slots, Castform has no alternate-form
 index, and all 386 dex numbers round-trip through the species index with zero failures. It closed asking for the
-seed and the Poke Spot, and got another report instead.
+seed and the Poke Spot, and the symptom came back instead.
 
 WHAT 268 COULD NOT RULE OUT, and what nothing checked. `apply_pokespot_species` shares one
 decompress/mutate/re-encode pass over `common_rel` with the chest writer, the item renamer, the experience

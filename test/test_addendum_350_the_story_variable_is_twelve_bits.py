@@ -1,10 +1,8 @@
 """ADDENDUM 350 (2026-09-25): the story byte is eight bits of a twelve-bit variable, and the variable
 counts in tens.
 
-Player: "You know how we have that byte bump in cipher lab? I'd like to see if we can avoid it. I wanna load
-in at 0x25 and have the cutscenes play but they don't - my guess is the same issues as gonzap."
-
-The guess was right, and it reached further than either of us expected. Field scripts never read the byte at
+The goal was to avoid the Cipher Lab byte bump: loading in at 0x25 should play the cutscenes, and did not --
+the same issue as Gonzap. That diagnosis was right, and it reached further than expected. Field scripts never read the byte at
 `STORY_RECORD_OFFSET + STORY_BYTE_OFFSET`. They call builtin 0x85 with the argument 964 -- GS variable 964 --
 and that variable is twelve bits wide, of which this project was writing eight.
 
@@ -91,7 +89,7 @@ class TestTheTensRule(unittest.TestCase):
 
         Six byte values in this ladder's range stand for no state at all. Every one of them appears ONLY in
         a `passthrough` -- never as a transition's `before` or `after`, never as a floor. That is not a
-        coincidence: a passthrough is what the player wrote down when they watched the byte jump by two, and
+        coincidence: a passthrough is what gets recorded when the byte is seen to jump by two, and
         a byte jumps by two exactly when the value it skipped was never real.
 
         (The reverse is not true, and the test says so below: half the passthroughs ARE real rungs, from
@@ -231,7 +229,7 @@ class TestTheWrite(unittest.TestCase):
 
 
 class TestTheReadout(unittest.TestCase):
-    """Player: "Can you modify our story byte reporting to include that full value then?\""""
+    """The story byte report includes the full twelve-bit value."""
 
     def _tracker(self, first: int, second: int) -> rc.StoryByteTracker:
         tracker = rc.StoryByteTracker()
@@ -277,11 +275,11 @@ class TestWhatThisExplains(unittest.TestCase):
         self.assertEqual(0x26, sb.area_entry_floor("Cipher Lab"))
 
     def test_kaminko_was_a_threshold_which_is_why_it_inverted(self):
-        """Player: "Kaminko also did not function at 0x53, but did at 0x54."
+        """In play, Kaminko did not function at 0x53, but did at 0x54.
 
         Against a `>=` gate at 670 the unreachable byte is a reliable overshoot and the legal one below it is
         a coin flip -- 0x53 meant 664..671, which clears 670 for two of its eight substeps, while 0x54
-        meant 672..679, which clears it for all eight. That is the report exactly. It is also why the fix is
+        meant 672..679, which clears it for all eight. That is the observed behaviour exactly. It is also why the fix is
         0x53 rather than the next reachable byte up: 0x55 is 680, a different rung entirely."""
         self.assertEqual(670, sb.story_value_for_byte(0x53))
         self.assertEqual(680, sb.story_value_for_byte(0x55))

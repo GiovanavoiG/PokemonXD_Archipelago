@@ -1,6 +1,6 @@
 """ADDENDUM 381 (2026-09-28) -- the two bytes that decide a move's status, and the fence that keeps us off them.
 
-Two player reports drove this: "Poison Fang" put its TARGET to sleep, and "Icy Wind" froze BOTH of its
+Two symptoms drove this: "Poison Fang" put its TARGET to sleep, and "Icy Wind" froze BOTH of its
 targets. Both replace the move's real effect rather than adding to it, which is what wrong effect DATA looks
 like -- so the first question was whether this project's only move-table write was reaching further than
 intended.

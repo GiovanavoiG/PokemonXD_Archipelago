@@ -1,7 +1,7 @@
 """ADDENDUM 238c (2026-09-15) -- berries are dealt PER SHOP LINE, and a shop's later shelves are gated.
 
-Player: "Take option 2 - berries per shop line." and, on Phenac 1F, "these don't change, but are only
-accessible after music disc and mayor note."
+Berries are dealt per shop line. Phenac 1F's stock never changes, but it is only accessible after the Music Disc
+and the Mayor's Note.
 
 TWO CHANGES, and the second one is the one with teeth.
 
@@ -45,7 +45,7 @@ class TestALineKeepsItsBerry(unittest.TestCase):
             self.assertEqual(len(numbers), 1, f"{shop} item {item_id} took {numbers}")
 
     def test_every_shop_numbers_its_lines_1_to_n_with_no_gaps(self) -> None:
-        """Player: "change the labels so the ones that start available start from 1." Under this model that
+        """The lines available from the start are numbered from 1. Under this model that
         is structural rather than a renumbering pass -- the opening shelf is always 1..n."""
         for shop in S.SHOP_MART_TIERS:
             lines = S.shop_lines(shop)
@@ -55,7 +55,7 @@ class TestALineKeepsItsBerry(unittest.TestCase):
             self.assertEqual(S.MART_LINE_NUMBERS[opening],
                              tuple(range(1, len(S.MART_LINE_NUMBERS[opening]) + 1)), shop)
 
-    def test_the_three_shops_the_player_walked_through(self) -> None:
+    def test_the_three_shops_walked_through(self) -> None:
         """Agate is the one confirmed four ways over in live play, so it is the one pinned by item name."""
         agate = [(n, item) for n, item, _mart in S.shop_lines("Agate Village Shop")]
         self.assertEqual(agate, [(1, 13), (2, 22), (3, 14), (4, 15), (5, 16), (6, 17), (7, 18),
@@ -113,7 +113,7 @@ class TestTheGrouping(unittest.TestCase):
 
 
 class TestPhenacIsOneShelf(unittest.TestCase):
-    """The contradiction ADDENDUM 238b could not resolve, closed by the player's own stock table: Phenac 1F
+    """The contradiction ADDENDUM 238b could not resolve, closed by the shop stock table: Phenac 1F
     lists exactly mart 1's thirteen lines, and the ONLY "after meeting Duking in Pyrite Town" note on it sits
     on the POKE SNACK line -- the same note Agate's Snack line carries. It is the game-wide Snack unlock, not
     a mart swap. So Phenac 1F never restocks, its whole shelf sits behind the room's own key-item chain, and
@@ -291,9 +291,8 @@ class TestTheGatesActuallyBiteWhereTheyShould(PokemonXDTestBase):
     """ADDENDUM 239b -- the gates verified against a REAL generated world, not against the table that
     declares them.
 
-    Player: "ensure that we have logic in place for WHEN items are gained - aidan's message being after mt
-    battle and ONBS crisis being after data rom/id card & cave spot." This walks the key-item ladder and
-    checks what opens when."""
+    Logic covers WHEN items are gained: Aidan's message comes after Mt. Battle, and the ONBS crisis after the
+    Data ROM/ID Card and the cave spot. This walks the key-item ladder and checks what opens when."""
 
     options = {"shuffle_trainer_defeats": True}
 
@@ -326,7 +325,7 @@ class TestTheGatesActuallyBiteWhereTheyShould(PokemonXDTestBase):
 
     def test_the_onbs_tiers_open_without_the_data_rom(self) -> None:
         """ADDENDUM 406 reversed this: the ONBS crisis is solved without the ROM, so its shop lines need the ONBS
-        regions and nothing else. Player: "Poke spots do NOT need the data rom." The region gate is still real --
+        regions and nothing else, and Poke Spots do not need the Data ROM. The region gate is still real --
         `test_addendum_238` pins its regions -- it simply opens on the same chain the rooms do."""
         # ADDENDUM 418: with travel shuffle off the ONBS is past Pyrite, which is behind the ROM again, so these
         # lines need it through the chain -- never through a shop rule of their own.
@@ -400,12 +399,11 @@ class TestTheGatesActuallyBiteWhereTheyShould(PokemonXDTestBase):
 
 
 class TestWhereTheNumbersSitOnTheShelf(unittest.TestCase):
-    """ADDENDUM 259 (2026-09-17). Player, looking at a live Agate shelf: "Poke ball and great ball actually
-    get moved to the top of the list -- so it'd be poke ball (item 8) great ball item 9, then item 1. Is this
-    presentable this way?"
+    """ADDENDUM 259 (2026-09-17). On a live Agate shelf the Poke Ball and Great Ball get moved to the top of
+    the list, so it reads Poke Ball (item 8), Great Ball (item 9), then item 1.
 
-    The observation is correct and it is not a bug. A line's number is fixed by WHEN THE GAME FIRST OFFERS IT
-    (ADDENDUM 238c's rule, which the player set: "numbering start at 1 on whatever is available first"), while
+    That is not a bug. A line's number is fixed by WHEN THE GAME FIRST OFFERS IT
+    (ADDENDUM 238c's rule: numbering starts at 1 on whatever is available first), while
     the game reorders its own shelf when a shop restocks -- it promotes the Balls to the top. Those are two
     different orderings, and nothing can make them agree in every tier, because the game changes its mind
     between tiers and a check number is not allowed to.
@@ -419,7 +417,7 @@ class TestWhereTheNumbersSitOnTheShelf(unittest.TestCase):
     the better of the two available ones: **every shop's opening shelf reads 1, 2, 3 ...** Only a RESTOCKED
     tier is ever out of order. Anchoring numbers to the final tier's shelf instead would buy a tidy endgame
     shelf at the cost of an out-of-order opening one -- for most of the playthrough -- and would break the
-    player's own stated rule, so this is the trade being defended."""
+    numbering rule above, so this is the trade being defended."""
 
     def _shelf(self, mart: int) -> "list[int]":
         """The line numbers of one mart's patchable slots, in the order the shop displays them."""
@@ -457,7 +455,7 @@ class TestWhereTheNumbersSitOnTheShelf(unittest.TestCase):
             if self._shelf(mart) != sorted(self._shelf(mart))
         ]
         self.assertTrue(reordered, "no restocked tier reorders any more -- has the mart table changed?")
-        # The Agate case the player reported, named explicitly so it is greppable from their message.
+        # The Agate case, named explicitly so it is greppable.
         self.assertIn(("Agate Village Shop", 19), reordered)
         self.assertEqual([8, 9, 1, 2, 3, 4, 5, 6, 7], self._shelf(19),
                          "Agate's final shelf: Poke Ball (8), Great Ball (9), then 1..7")

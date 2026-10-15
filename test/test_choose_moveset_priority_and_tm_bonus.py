@@ -1,7 +1,6 @@
-"""Regression coverage for ADDENDUM 100's rework of `team_shuffle.choose_moveset()` (player request: "for
-moves - prioritize their latest damaging moves from levelups. Above level 30, teach them one strong TM
-attacking move that they could learn (anything 80 BP or above that isn't the same type as attacking moves
-they already have)."). Exercises `choose_moveset` directly with small synthetic learnsets -- the same
+"""Regression coverage for ADDENDUM 100's rework of `team_shuffle.choose_moveset()`: moves prioritize the
+latest damaging moves from level-ups, and above level 30 a Pokemon is taught one strong TM attacking move it
+could learn (anything 80 BP or above that is not the same type as the attacking moves it already has). Exercises `choose_moveset` directly with small synthetic learnsets -- the same
 "fully testable with synthetic data" approach `team_shuffle.py`'s own module docstring describes -- rather
 than a real species/ISO learnset, since only the selection LOGIC is under test here."""
 from __future__ import annotations
@@ -25,7 +24,7 @@ NO_COMPAT_SPECIES = 0
 
 
 class TestLatestLevelupPriority(unittest.TestCase):
-    """Covers the player's "prioritize their latest damaging moves from levelups" request."""
+    """Covers the "prioritize the latest damaging moves from level-ups" rule."""
 
     def _learnset(self) -> list[tuple[int, int]]:
         return [
@@ -62,7 +61,7 @@ class TestLatestLevelupPriority(unittest.TestCase):
         # UPDATED 2026-09-15 (ADDENDUM 217): Growl is that status move. Before this addendum it was excluded
         # for being the species' positionally-first learnset entry, Leer is not legal until level 15, and the
         # 3rd slot therefore came back empty -- so this test used to assert {TACKLE, EMBER}. Restoring level-1
-        # moves is exactly the behaviour change the player asked for, and this is where it shows.
+        # moves is exactly the intended behaviour change, and this is where it shows.
         chosen = choose_moveset(
             species_id=NO_COMPAT_SPECIES, level=12, learnset=self._learnset(), rng=random.Random(1), move_count=3,
         )
@@ -133,7 +132,7 @@ class TestLevel30TmBonusMove(unittest.TestCase):
             self.assertNotIn(MOVE_TYPES[extra[0]], other_types)
 
     def test_focus_punch_only_for_what_can_learn_it(self) -> None:
-        """The player's report: a Pokemon that cannot learn Focus Punch used it."""
+        """A Pokemon that cannot learn Focus Punch used it."""
         compat = species_move_compat()
         for species in range(1, 412):
             for seed in range(3):

@@ -1,14 +1,14 @@
 """ADDENDUM 372 (2026-09-27): five chest labels, and the chest poll's two real gaps.
 
-Player, in one message:
+The changes:
 
-  * "Rename 'Cipher Lab Chest 1' to 'Lovrina Defeat Item'."
-  * "There is a chest in the Key Lair named Snagem 3F Chest 1 - please rename to 'Cipher Key Lair 1F Central
-    Chest'."                                          <- NOT DONE; see `TestTheOneThatWasNotDone` below.
-  * "Swap 'Gonzap's Room Chest' and 'Snagem 2F Chest 1'."
-  * "Bonsly room Shiny and chest 1 are swapped."
-  * "Please speed up the chest polling in every situation, as users are still missing chests if they leave
-    quickly."
+  * 'Cipher Lab Chest 1' is renamed 'Lovrina Defeat Item'.
+  * A chest in the Key Lair named Snagem 3F Chest 1 would be renamed 'Cipher Key Lair 1F Central Chest'.
+                                                      <- NOT DONE; see `TestTheOneThatWasNotDone` below.
+  * 'Gonzap's Room Chest' and 'Snagem 2F Chest 1' swap labels.
+  * Bonsly room Shiny and Bonsly room chest 1 swap labels.
+  * Chest polling is faster in every situation, because chests were still being missed when a player left
+    quickly.
 
 THE ID IS FROZEN, THE LABEL IS NOT -- and for a SWAP that sentence has a direction that matters. A location's
 id belongs to the CHEST, not to the string: chest 103 keeps 1515 and chest 105 keeps 1517, and the labels cross
@@ -17,7 +17,7 @@ over between them. Getting that backwards would move two ids and silently re-poi
 THE POLLING HALF. What I measured before changing anything, driving `ChestBerryTracker` over the real chest
 tables -- open a chest, then poll from somewhere else entirely, at 0.02 / 0.05 / 0.1 / 1.0s, flagged and
 unflagged, and with the room unreadable for the whole run: every case CREDITED. So ADDENDUM 345 holds and
-nothing is dropped. The real complaint is the hard edge on latency -- a chest with no measured open-flag has no
+nothing is dropped. The real problem is the hard edge on latency -- a chest with no measured open-flag has no
 second witness and waits out `_CONFIRM_SECONDS` (2.0s), and a player who leaves, closes Dolphin or ends the
 session inside those two seconds loses it for real.
 
@@ -99,12 +99,11 @@ class TestTheLabels(unittest.TestCase):
 
 
 class TestTheOneThatWasNotDone(unittest.TestCase):
-    """"There is a chest in the Key Lair named Snagem 3F Chest 1 - please rename to 'Cipher Key Lair 1F Central
-    Chest'."
+    """The Key Lair chest named Snagem 3F Chest 1, as 'Cipher Key Lair 1F Central Chest'.
 
     NOT RENAMED, AND THIS TEST IS WHY RATHER THAN AN OVERSIGHT. Chest 106 is in ROOM 167, and room 167 is
-    `Snagem Hideout` in `chest_regions` -- which is the table the chest's ACCESS RULE reads. Two of the
-    player's own compilations put it there independently (the ADDENDUM 167 room list and the ADDENDUM 219 name
+    `Snagem Hideout` in `chest_regions` -- which is the table the chest's ACCESS RULE reads. Two
+    separate compilations put it there independently (the ADDENDUM 167 room list and the ADDENDUM 219 name
     list), and the Cipher Key Lair's rooms are 64-68 and 70, all of which are full.
 
     So renaming 106 alone would produce a location literally called "Cipher Key Lair 1F Central Chest" that
@@ -113,8 +112,8 @@ class TestTheOneThatWasNotDone(unittest.TestCase):
     decoupled the Lair from Snagem, a gating mismatch as well as a naming one.
 
     The two readings are a rename (label only) or a re-region (room 167 moves to the Lair, which moves the
-    gate for BOTH chests in it, 106 and 107 -- and the player asked about only one). That is a logic change on
-    a physical-geography question, so it is left for the player to settle rather than guessed at.
+    gate for BOTH chests in it, 106 and 107 -- and only one of them was named). That is a logic change on
+    a physical-geography question, so it is left unsettled rather than guessed at.
 
     This test pins the CURRENT state so the ambiguity cannot be resolved by accident: if room 167 ever moves,
     the label has to move with it."""
@@ -171,8 +170,8 @@ class TestTheChestPollIsFasterAndNoLongerStarved(unittest.TestCase):
         before = CLIENT[:CLIENT.index(call)]
         guard = before[before.rindex("\n", 0, before.rindex("\n")) + 1:]
         self.assertNotIn("MAP_SCREEN_ROOM_ID", guard,
-                         "the window is gated off the map screen again -- that is the situation the player's "
-                         "report is about")
+                         "the window is gated off the map screen again -- that is the situation where chests "
+                         "were being missed")
 
     def test_every_chest_window_is_still_a_clock_and_not_a_poll_count(self) -> None:
         """WHY THE RATE CHANGE IS FREE, and ADDENDUM 228's trap restated: a faster poll must not shorten any

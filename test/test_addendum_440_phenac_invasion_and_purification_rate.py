@@ -1,8 +1,8 @@
 """ADDENDUM 440 (2026-10-08) -- the Phenac invasion trainers, and Purification Rate.
 
-Player (with Bulbapedia's Phenac "Invasion" table -- Quelor, Teslor, Nopel, Kalus): "Exclude all of these trainers,
-mark them missable, send them when Phenac is done, do not give them shadows. Please add an option, similar to exp
-scaling, that scales how much the shadow gauge decreases from things like battle/scent usage."
+The trainers in Bulbapedia's Phenac "Invasion" table -- Quelor, Teslor, Nopel, Kalus -- are excluded, marked
+missable, sent when Phenac is done, and given no Shadows. A Purification Rate option, similar to exp scaling,
+scales how much the shadow gauge decreases from things like battles and scent usage.
 """
 from __future__ import annotations
 
@@ -110,7 +110,7 @@ class TestTheGaugeArithmetic(unittest.TestCase):
             iso_patcher.apply_heart_gauge_rate(bytes(blob), _FakeDdpk(5), 200)
 
     def test_the_gauges_are_no_longer_edited(self) -> None:
-        """SUPERSEDED by ADDENDUM 450. Player: "Editing the shadow gauge is breaking it." The seed patch no longer
+        """SUPERSEDED by ADDENDUM 450: editing the shadow gauge broke it. The seed patch no longer
         calls the gauge writer; the reductions are scaled in main.dol instead (test_addendum_450)."""
         source = (pathlib.Path(iso_patcher.__file__)).read_text(encoding="utf-8")
         self.assertNotIn("gauge = write_heart_gauge_rate_patch(output_path, purification_rate)", source)
@@ -202,7 +202,7 @@ class TestTheLearnHooks(unittest.TestCase):
         self.assertEqual(CB._b(CB.LEARN_LEVEL_ADDRESS, 0x80146FA4, True), CB.LEARN_LEVEL_WORD)   # pokemonBiosGetLevel
         self.assertEqual(CB._bne(CB.LEARN_LOOP_ADDRESS, CB.LEARN_LOOP_BODY), CB.LEARN_LOOP_WORD)
 
-    @unittest.skipUnless(REAL_DOL.is_file(), "needs the player's main.dol")
+    @unittest.skipUnless(REAL_DOL.is_file(), "needs a real main.dol")
     def test_against_the_real_dol(self) -> None:
         word = _dol_reader()
         for address, expected, _new in CB.dol_patch_words():

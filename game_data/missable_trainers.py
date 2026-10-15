@@ -2,9 +2,9 @@
 
 A progression item on a fight you can walk past forever is an unwinnable seed every time it happens, so these
 locations stay `LocationProgressType.EXCLUDED` at EVERY `ProgressionLocations` setting, `everything` included.
-That exception is the player's own qualifier on the option, asked for in the same breath as the option itself.
+That exception is part of the option's definition.
 
-The list is the player's field data and is explicitly incomplete; treat it as a growing set. Adding an index
+The list is field data and is explicitly incomplete; treat it as a growing set. Adding an index
 here is all that is needed, since locations.py reads this module directly.
 """
 from __future__ import annotations
@@ -34,9 +34,9 @@ def missable_trainer_location_names() -> "set[str]":
     return (names - trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS
             - trainer_roster.REMOVED_DEFEAT_LOCATIONS)
 
-# The fence reversed twice. ADDENDUM 171 unapplied it wholesale on the player's "story trainers are NOT
-# missable"; ADDENDUM 185 put it back after a seed placed the Music Disc on a Six. The list itself was never
-# deleted -- it is the player's own field data and costly to reproduce -- which is why re-applying it was a
+# The fence reversed twice. ADDENDUM 171 unapplied it wholesale on the premise that story trainers are NOT
+# missable; ADDENDUM 185 put it back after a seed placed the Music Disc on a Six. The list itself was never
+# deleted -- it is field data and costly to reproduce -- which is why re-applying it was a
 # one-line change.
 MANDATORY_REPEATED_TRAINERS: "frozenset[str]" = frozenset()   # retained for compatibility; unused since 171
 
@@ -72,7 +72,7 @@ def _every_occurrence_of(indices: "frozenset[int]") -> "frozenset[int]":
 
 
 # The fence is the union of four different ways of being un-redoable, with the workbook's own counts:
-#   1. `Missable?` marked                            -- the player's field notes (47 rows)
+#   1. `Missable?` marked                            -- the field notes (47 rows)
 #   2. `Repeat?` = "earlier (N of M)"                -- structurally not the last fight (88 rows; only 20 of
 #      them also marked Missable, so reading one column and not the other left 68 one-shot fights eligible)
 #   3. every other occurrence of any name in 1 or 2  -- the workbook marks occurrences, not trainers
@@ -128,7 +128,7 @@ ONE_SHOT_TRAINER_INDICES: "frozenset[int]" = _one_shot_fights_from_the_workbook(
 #
 # The set is kept, empty, because `FILLER_ONLY_TRAINER_INDICES` and `_check_workbook_totals` still read it and a
 # re-fence is one literal away. A client limitation is deliberately NOT folded into MISSABLE_TRAINER_INDICES --
-# that list is the player's measurement of what can be walked past, and mixing the two corrupts the evidence.
+# that list is a measurement of what can be walked past, and mixing the two corrupts the evidence.
 _WAKIN, _GONZAP = 144, 145
 
 SNAG_MACHINE_BLOCKED_TRAINER_INDICES: "frozenset[int]" = frozenset()
@@ -145,23 +145,21 @@ UNREDOABLE_TRAINER_INDICES: "frozenset[int]" = (
 )
 
 
-# ADDENDUM 407 -- mandatory rematches may hold progression and useful items. Player: "Make the mandatory
-# rematches able to hold progressive/useful", after ADDENDUM 406 restored them ("Naps #2 is also gated there, and
-# a mandatory fight").
+# ADDENDUM 407 -- mandatory rematches may hold progression and useful items, after ADDENDUM 406 restored them (Naps #2
+# is also gated there, and a mandatory fight).
 #
 # A rematch can hold an item only if its REGION says WHEN it is fought, because logic reads the region and nothing
 # else. That is what the fence was protecting all along: ADDENDUM 188 found key items parked on Aferd #2, Zook #2,
 # Laken #3 and Browsix #4. So this is an allowlist of the rematches whose region dates them, not a rule over all:
 #
 #   ON (1)  Naps #2 (60)          Cipher Lab, beside Lovrina (61) in deck order, behind the ID Card like her.
-#           Player: "Cids 2 and Sixes 2 should be filler only. Naps is the only one I guess that needed changed."
 #
-#   FILLER, the player's ruling: Cida #2 (29), Sixes #2 (39-44).
+#   FILLER: Cida #2 (29), Sixes #2 (39-44).
 #
 #   HELD BACK -- the region does not date the fight, so logic would call it reachable too early:
 #           Aferd #2-#4, Laken #2/#3   always-open regions (HQ Lab, Gateon Port): open from the first hour.
 #           Zook #2 (147)              the Key Lair enters at 0x64 (ADDENDUM 439), before his fight -- unconfirmed in play.
-#           Hebon #2                   the player's ruling: "Please exclude laken and hebon from progression".
+#           Hebon #2                   Laken and Hebon are excluded from progression.
 #           Sixes #3/#4 (112-123)      filed under Cipher Lab, but sit far later in deck order -- the lab's
 #                                      rebattles; Browsix #4 is one of 188's stuck keys.
 #           Dosk #2 (82)               filed under Agate Village, but sits among the ONBS fights in deck order.
@@ -177,14 +175,14 @@ def _check_mandatory_rematches() -> None:
         trainer = trainer_roster.TRAINERS_BY_INDEX[index]
         label = trainer_roster.trainer_label(trainer)
         assert trainer["occurrence"] >= 2, f"{label} is not a rematch"
-        assert index not in MISSABLE_TRAINER_INDICES, f"{label} is on the player's missable list"
+        assert index not in MISSABLE_TRAINER_INDICES, f"{label} is on the missable list"
         assert index not in POST_GOAL_TRAINER_INDICES, f"{label} is the goal fight"
         assert label not in trainer_roster.REMOVED_DEFEAT_LOCATIONS, f"{label} is not a location"
         region = trainer_placements.region_for(index)
         assert region is not None and region not in story_bytes.ALWAYS_OPEN_REGIONS, (
             f"{label} has no region that dates it ({region})"
         )
-        assert trainer["name"].upper() not in {"LAKEN", "HEBON"}, "ADDENDUM 362's ruling"
+        assert trainer["name"].upper() not in {"LAKEN", "HEBON"}, "ADDENDUM 362 excludes Laken and Hebon"
 
 
 _check_mandatory_rematches()
@@ -215,18 +213,18 @@ def _check_workbook_totals() -> None:
         _named = {trainer_roster.TRAINERS_BY_INDEX[i]["name"].upper()
                   for i in SNAG_MACHINE_BLOCKED_TRAINER_INDICES}
         assert _named == story_bytes.SNAGEM_BATTLE_EXEMPT_SURNAMES, (
-            f"the Snag Machine ruling names {_named}, but ADDENDUM 332 exempts "
+            f"the Snag Machine fence names {_named}, but ADDENDUM 332 exempts "
             f"{set(story_bytes.SNAGEM_BATTLE_EXEMPT_SURNAMES)} -- they are the same two fights or the "
             "reasoning no longer holds"
         )
         assert all(trainer_placements.region_for(i) == "Snagem Hideout"
                    for i in SNAG_MACHINE_BLOCKED_TRAINER_INDICES), (
-            "the Snag Machine ruling names a fight that is not in the Snagem Hideout"
+            "the Snag Machine fence names a fight that is not in the Snagem Hideout"
         )
     else:
         # The two fights it used to name must now be genuinely un-fenced, or the lift achieved nothing.
         assert _WAKIN not in FILLER_ONLY_TRAINER_INDICES and _GONZAP not in FILLER_ONLY_TRAINER_INDICES, (
-            "ADDENDUM 341 lifted the Snag Machine ruling, but Wakin/Gonzap are still filler-only -- something "
+            "ADDENDUM 341 lifted the Snag Machine fence, but Wakin/Gonzap are still filler-only -- something "
             "else is fencing them and the lift is a no-op"
         )
 
@@ -270,9 +268,8 @@ def filler_only_trainer_location_names() -> "set[str]":
 # Both are already what `FILLER_ONLY_TRAINER_INDICES` means (150 indices, all 35 `final` rows inside it), so
 # this is an existing fence applied to the one generator that never read it. There is room: of the 215 trainers
 # with free team slots, 80 survive the exclusion holding 182 slots between them, against a ceiling of 44.
-# ADDENDUM 459, player report: "one of the trainers in Agate having a shadow Snubbul that respawned upon being caught.
-# Those trainers let you rematch them but they have the exact same team ... It was trainers 24-27". Gorps, Jols, Ladi
-# and Cron are each one row in the deck (no `#2` row to mark them re-fightable), yet the game lets you fight that same
+# ADDENDUM 459: a Shadow Snubbul on one of the Agate trainers (24-27) respawned after being caught -- those trainers
+# can be rematched with the exact same team. Gorps, Jols, Ladi and Cron are each one row in the deck (no `#2` row to mark them re-fightable), yet the game lets you fight that same
 # row again -- so a generated or relocated Shadow on them is offered on every rematch.
 SAME_TEAM_REMATCH_TRAINER_INDICES: "frozenset[int]" = frozenset({
     24,   # Gorps, Agate Village
@@ -282,14 +279,14 @@ SAME_TEAM_REMATCH_TRAINER_INDICES: "frozenset[int]" = frozenset({
 })
 
 
-# ADDENDUM 460: "Give these trainers shadows if they WON'T infinitely spawn them ... double check the others quickly."
+# ADDENDUM 460: the trainers marked unmissable may host a Shadow only if they will NOT spawn it again on a rematch.
 # Checked against the deck: Cida #1, Dosk #1, Raling #1, Labet #1, Doby #1 and Willie #1 each have later rows of their
 # own with different teams and levels, so their rematches are those rows and a Shadow on #1 is offered once; the Snagem
-# fights and Willie are the player's own "fine". Bost is ONE row with no later one -- the same shape as Agate's
+# fights and Willie are fine. Bost is ONE row with no later one -- the same shape as Agate's
 # Gorps/Jols/Ladi/Cron, which the game re-fights as-is (ADDENDUM 459).
 #
-# ADDENDUM 461, player: "Remove everyone here as shadow candidates except the Snagem trainers and Willie." So of
-# the 460 rulings only the five Snagem Hideout fights, Biden #1 (also Snagem) and Willie #1 may host a Shadow. The
+# ADDENDUM 461: everyone here except the Snagem trainers and Willie is removed as a Shadow candidate. So of the
+# 460 unmissable rows only the five Snagem Hideout fights, Biden #1 (also Snagem) and Willie #1 may host a Shadow. The
 # six below keep everything else 460 gave them -- unmissable, progression-eligible -- and lose only Shadow hosting.
 SHADOW_HOST_REFUSED: "frozenset[int]" = frozenset({
     13,    # Bost, Gateon Port
@@ -299,20 +296,20 @@ SHADOW_HOST_REFUSED: "frozenset[int]" = frozenset({
     67,    # Labet #1, Pyrite Town
     68,    # Doby #1, Pyrite Town
 })
-#: Kept as a name: ADDENDUM 460's one-member set (Bost), now a subset of the ruling above.
+#: Kept as a name: ADDENDUM 460's one-member set (Bost), now a subset of the set above.
 SHADOW_HOST_UNCONFIRMED: "frozenset[int]" = frozenset({13})
 assert SHADOW_HOST_UNCONFIRMED <= SHADOW_HOST_REFUSED
 
 
-# ADDENDUM 466, player: "Go ahead and relax our shadow rematch constraints then." ADDENDUM 465 stopped the engine
+# ADDENDUM 466: the Shadow rematch constraints are relaxed. ADDENDUM 465 stopped the engine
 # rebuilding a snagged or purified Shadow when its trainer is fought again (`game_data/shadow_engine.py`), which was the
 # whole reason a rematch could not host one. So three fences come down for Shadow hosting only -- every one stays
 # defined, so a revert is one line in `shadow_expansion_excluded_trainer_indices`:
 #   * `SAME_TEAM_REMATCH_TRAINER_INDICES` (ADDENDUM 459, Agate's Gorps/Jols/Ladi/Cron) -- no longer subtracted;
-#   * `SHADOW_HOST_REFUSED` (ADDENDUM 461's ruling) -- no longer added; the player: "Reopen them";
+#   * `SHADOW_HOST_REFUSED` (ADDENDUM 461) -- no longer added; those rows are reopened;
 #   * the re-fightable `final` rows below, fenced only because every occurrence of their name is (ADDENDUM 236's
 #     "offered again on every rematch"). Each is regioned, not missable, not Citadark, not the goal and snaggable.
-#     Laken #3 (202) is the one other row of that shape, and stays out: "exclude laken and hebon from progression".
+#     Laken #3 (202) is the one other row of that shape, and stays out: Laken and Hebon are excluded from progression.
 # Missable, unplaced (no region), post-goal and no-snag fights are untouched -- those are about losing or never
 # reaching the catch, not about rematches.
 REFIGHTABLE_FINAL_SHADOW_HOSTS: "frozenset[int]" = frozenset({
@@ -335,18 +332,18 @@ def shadow_expansion_excluded_trainer_indices() -> "frozenset[int]":
     from .shadow_regions import NO_SNAG_TRAINER_INDICES
 
     # ADDENDUM 459: plus the rows the game re-fights as-is (`SAME_TEAM_REMATCH_TRAINER_INDICES`).
-    # ADDENDUM 460: minus the player's unmissable rulings -- one-time rows (a rematch is a different deck row), so a
-    # Shadow on one is offered once. Player: "Give these trainers shadows if they WON'T infinitely spawn them".
-    from .missable_indices import PLAYER_RULED_UNMISSABLE
+    # ADDENDUM 460: minus the rows marked unmissable -- one-time rows (a rematch is a different deck row), so a
+    # Shadow on one is offered once and never infinitely respawned.
+    from .missable_indices import CONFIRMED_UNMISSABLE
 
     if not SHADOW_REMATCH_FENCES_RELAXED:   # ADDENDUM 461's fence, kept verbatim for a revert
-        return ((frozenset(UNREDOABLE_TRAINER_INDICES) - PLAYER_RULED_UNMISSABLE)
+        return ((frozenset(UNREDOABLE_TRAINER_INDICES) - CONFIRMED_UNMISSABLE)
                 | NO_SNAG_TRAINER_INDICES | SAME_TEAM_REMATCH_TRAINER_INDICES | SHADOW_HOST_REFUSED)
     # ADDENDUM 466: rematches may host a Shadow -- a snagged one is no longer rebuilt (ADDENDUM 465).
     # ADDENDUM 487: and the first fights whose second fight always carries the mirror (`shadow_mirrors`).
     from .shadow_mirrors import mirrored_host_rows
 
-    return ((frozenset(UNREDOABLE_TRAINER_INDICES) - PLAYER_RULED_UNMISSABLE - REFIGHTABLE_FINAL_SHADOW_HOSTS
+    return ((frozenset(UNREDOABLE_TRAINER_INDICES) - CONFIRMED_UNMISSABLE - REFIGHTABLE_FINAL_SHADOW_HOSTS
              - mirrored_host_rows())
             | NO_SNAG_TRAINER_INDICES)
 

@@ -1,7 +1,7 @@
 """ADDENDUM 313 -- Citadark Isle is entered at story byte 0x71, then progresses vanilla.
 
-Player: "Story byte is 0x15 upon entering citadark. That's breaking things. It needs to be 0x71 upon entering
-citadark and progress vanilla." The Parts override treated the Robo Kyogre ride as walking out of Gateon and
+The story byte was 0x15 upon entering Citadark, which broke things; it must be 0x71 upon entering Citadark and
+progress vanilla from there. The Parts override treated the Robo Kyogre ride as walking out of Gateon and
 restored the pre-Gateon byte as the island loaded."""
 import unittest
 
@@ -30,7 +30,7 @@ class _Base(unittest.TestCase):
 
 
 class TestTheRide(_Base):
-    def test_the_players_report_arrives_at_0x71_not_0x15(self):
+    def test_the_arrival_is_at_0x71_not_0x15(self):
         self.enter_gateon()
         note = self.override.poll(BLOCK, UNRECORDED_DOCK)
         self.assertEqual(0x71, self.live.value)

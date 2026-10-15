@@ -1,7 +1,6 @@
 """ADDENDUM 422 (2026-10-06) -- the Poke Spot level-0 bug's root cause, and the fix.
 
-Player (screenshot: a wild Relicanth, Lv 0): "Every relicanth in this seed is generating at level 0. Did we fix
-this/find the root?"
+Every wild Relicanth in one seed was generating at level 0.
 
 `_fightTrainerCreateDeckWildPoke` looks the shown species up in its SPOT's three pool entries for the level
 range and leaves the index register uninitialised on a miss. The two "all"-pool slots (vanilla Bonsly and

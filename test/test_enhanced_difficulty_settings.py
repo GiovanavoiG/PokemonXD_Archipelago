@@ -1,12 +1,11 @@
 """ADDENDUM 197. Enhanced Difficulty is a Choice, and level scaling is its own toggle.
 
-Player, in three messages: "rather than on or off, add settings for 'up to one additional pokemon' 'up to two
-additional pokemon' and 'fill enemy team'"; "make the level boosting a different setting right underneath.
-That one can be on/off, to enable or disable the 1.33x scaling"; "Keep our current rules on which trainers can
-ONLY receive 0, 1, or 2 pokemon."
+Rather than on or off, Enhanced Difficulty has the settings 'up to one additional pokemon', 'up to two additional
+pokemon' and 'fill enemy team'. Level boosting is a separate on/off setting right underneath it, enabling or
+disabling the 1.33x scaling. The existing rules on which trainers can ONLY receive 0, 1, or 2 Pokemon are kept.
 
-The third message is the one with teeth. The ramp's bands are NOT replaced by a flat number -- they stay
-exactly as they were and they are themselves ceilings. The player's setting is a second ceiling laid over
+That last rule is the one with teeth. The ramp's bands are NOT replaced by a flat number -- they stay
+exactly as they were and they are themselves ceilings. The chosen setting is a second ceiling laid over
 them, and the lower one wins, so a setting can only ever lower what a band receives. The table below is that
 rule written out, and it is the contract this file exists to hold.
 """
@@ -118,7 +117,7 @@ class TestLevelScalingIsIndependent(unittest.TestCase):
 
 
 class TestTheOptionsThemselves(unittest.TestCase):
-    def test_enhanced_difficulty_is_a_choice_with_the_players_four_settings(self) -> None:
+    def test_enhanced_difficulty_is_a_choice_with_four_settings(self) -> None:
         # `name_lookup` is the canonical set; `options` also carries AP's own back-compat aliases
         # ("false" -> 0, inherited from this option having been a Toggle), which is why it is not compared.
         self.assertEqual(

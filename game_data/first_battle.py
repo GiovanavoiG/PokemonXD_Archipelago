@@ -1,10 +1,9 @@
 """ADDENDUM 461 -- with Randomize Starter on, the first Chobin fight is one the starter can win.
 
-The player: "If we have random starter on, can you make it so that the first Chobin fight has a pokemon that we can
-guaranteed hit for at least half its health (or close to it)? Account for immunity abilities (Levitate,
-Soundproof, Flash Fire, Volt Absorb, Water Absorb, Soundproof, WONDER GUARD CAN ONLY BE HIT BY SUPEREFFECTIVE) and
-type immunities. Also ensure our starter CANT ONLY HAVE explosion/selfdestruct as its attacks. Run battle sims if
-you can and ensure we can win."
+With Randomize Starter on, the first Chobin fight's Pokemon is one the starter is guaranteed to hit for at least
+half its health (or close to it), accounting for immunity abilities (Levitate, Soundproof, Flash Fire, Volt Absorb,
+Water Absorb; Wonder Guard can only be hit super-effectively) and type immunities. The starter can never have only
+Explosion/Selfdestruct as its attacks, and battle sims confirm the fight is winnable.
 
 THE FIGHT. Story trainer 15, Chobin #1 at Kaminko's House: one Pokemon, DPKM record 25, level 5 (pinned by
 ADDENDUM 281's `PINNED_TRAINER_LEVELS`, and exempt from Enhanced Difficulty's padding by
@@ -14,10 +13,10 @@ starter, a Levitate Pokemon against a Ground one, or a Wobbuffet whose Counter h
 
 WHAT THIS DOES. It re-draws that one Pokemon, from the same pool the shuffle uses, under two tests:
 
-  1. The guarantee the player asked for (`battle_sim.guaranteed_fraction`): one of the starter's reliable attacks
+  1. The damage guarantee (`battle_sim.guaranteed_fraction`): one of the starter's reliable attacks
      takes at least half the foe's HP on its WORST outcome -- lowest roll, no crit, the starter's worst IVs and
      nature, the foe's best IVs, every ability the foe could have (Trace included), type and ability immunities.
-     "Or close to it": when no species reaches 50% the floor steps down (`FRACTION_TIERS`), never to nothing.
+     When no species reaches 50% the floor steps down (`FRACTION_TIERS`), never to nothing.
   2. A measured win: `GATE_BATTLES` full simulated fights at `MIN_WIN_RATE` or better, against the foe's real
      moveset. A draw (both faint) counts as a loss.
 

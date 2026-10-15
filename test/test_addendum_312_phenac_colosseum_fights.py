@@ -1,7 +1,7 @@
 """ADDENDUM 312 -- Snattle and Smarton behind the Music Disc and the Mayor's Note, in every mode.
 
-Player: "Entering the colosseum should also be gated behind disc and note - snattle and the smarton fight there
-should both be behind those two key items." The gap was travel randomization: SS Libra is flown to directly, and
+Entering the colosseum is gated behind the disc and the note, so Snattle and the Smarton fight there are
+both behind those two key items. The gap was travel randomization: SS Libra is flown to directly, and
 Smarton's fight (row 128 / the named cumulative location) carried no item requirement of its own."""
 from BaseClasses import CollectionState
 
@@ -49,8 +49,7 @@ class TestUnique(_Probe, PokemonXDTestBase):
 
 
 class _TallyOnly:
-    """ADDENDUM 414: "Cumulative mode should not have the 64 names and any checks - it should just be a tally."
-    There are no Snattle or Smarton checks to gate in cumulative mode -- only the `Defeat N Trainers` tally."""
+    """ADDENDUM 414: cumulative mode has none of the 64 named checks -- it is just a tally. There are no Snattle or Smarton checks to gate in cumulative mode -- only the `Defeat N Trainers` tally."""
 
     def test_no_named_fights_exist(self) -> None:
         self.assertEqual([], [l.name for l in self.multiworld.get_locations(self.player)

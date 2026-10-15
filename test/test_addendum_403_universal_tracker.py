@@ -1,7 +1,7 @@
 """ADDENDUM 403 (2026-10-02) -- Universal Tracker regenerates this world exactly.
 
-Player: "https://github.com/FarisTheAncient/Archipelago this repo should have documentation for universal tracker.
-         I'd like to make this world compatible."
+This world is compatible with Universal Tracker, whose documentation is in
+https://github.com/FarisTheAncient/Archipelago.
 
 HOW UT WORKS. It never sees the seed. It regenerates the world on the player's machine -- generate_early through
 generate_basic, no fill -- and asks which locations are in logic for the items the server says they hold. The

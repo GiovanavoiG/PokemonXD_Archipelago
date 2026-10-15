@@ -1,6 +1,6 @@
 """ADDENDUM 421 (2026-10-05) -- the holes a Machine Part could slip through, closed.
 
-Player: "Player reported they had not received machine part yet in multiworld. Please check for holes."
+A Machine Part was reported as never received in a multiworld. These are the holes it could slip through.
 
 1. The Machine Part's in-game effect is the 0x15 -> 0x16 story byte (the Gateon parts shop), not the Bag, so
    clearing the Bag never undid it. With location shuffle off the early areas are held at 0x15 until it arrives.

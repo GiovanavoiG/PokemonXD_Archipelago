@@ -1,6 +1,6 @@
 """ADDENDUM 179 (2026-09-13): the Data ROM and ID Card ship as one item.
 
-Player instruction: "Can we package receiving the ID Card and the Data Rom as one item? This stops softlocks."
+Receiving the ID Card and the Data ROM as one packaged item stops softlocks.
 
 The softlock is real rather than a logic nicety: the Data ROM is what lets the player LEAVE the Cipher Lab, and
 the ID Card opens doors inside it, so holding one without the other can strand them in a room with no other exit.

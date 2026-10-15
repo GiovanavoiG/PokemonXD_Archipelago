@@ -27,7 +27,7 @@ class TestStoryWatchToggle(unittest.TestCase):
 
     def test_it_has_its_own_flag_rather_than_reusing_verbose(self):
         """If it piggy-backed on verbose_logging the player would have to take the room/travel/key-item
-        firehose to watch one byte, which is the opposite of what was asked for."""
+        firehose to watch one byte, which defeats the point of a narrow watch."""
         self.assertIn("self.story_byte_watch: bool = False", self.source)
 
     def test_it_is_off_by_default(self):

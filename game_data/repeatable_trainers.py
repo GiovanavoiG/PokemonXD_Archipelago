@@ -8,14 +8,14 @@ missed while any occurrence remains; 31 of the 35 have an in-game, non-missable 
 The anchor is derived -- the earliest occurrence that is both non-missable and regioned, which excludes the
 post-game block by construction -- and its requirements come with it. Too early is the dangerous direction:
 it lets Fill treat the check as available in a sphere the player cannot reach it in. Biden, Equin, Eroll and
-Willie have no such occurrence and are filler by ruling, as is Greevil, whose last Citadark fight is the goal.
+Willie have no such occurrence and are always filler, as is Greevil, whose last Citadark fight is the goal.
 """
 from __future__ import annotations
 
 from .census_repeat_column import CENSUS_REPEAT_AND_MISSABLE as _WORKBOOK
 from .missable_indices import WORKBOOK_MISSABLE_OVERRULED
 
-# ADDENDUM 436: the workbook's columns, with the player's "not missable" rulings applied (Biden #1).
+# ADDENDUM 436: the workbook's columns, with the "not missable" overrides applied (Biden #1).
 CENSUS_REPEAT_AND_MISSABLE = {
     index: (repeat, missable and index not in WORKBOOK_MISSABLE_OVERRULED)
     for index, (repeat, missable) in _WORKBOOK.items()
@@ -34,20 +34,20 @@ ALWAYS_FILLER_SURNAMES: "dict[str, str]" = {
     # fence would not have caught this. Pinned because that fight is the one found parked on the Machine Part,
     # inside the set fenced from difficulty scaling and Shadow assignment. Note that all 35 anchors sit in
     # `missable_trainers.FILLER_ONLY_TRAINER_INDICES` by construction, so membership there proves nothing.
-    "AFERD": "player ruling -- its anchor is Aferd #2, the fight ADDENDUM 188 found parked on the Machine Part",
-    # Rulings like Aferd's: both anchors are census-safe, so the fence would not have caught them.
-    "ARDOS": "player ruling (ADDENDUM 308)",
-    "ZOOK": "player ruling (ADDENDUM 308)",
+    "AFERD": "its anchor is Aferd #2, the fight ADDENDUM 188 found parked on the Machine Part",
+    # Like Aferd's: both anchors are census-safe, so the fence would not have caught them.
+    "ARDOS": "always filler (ADDENDUM 308)",
+    "ZOOK": "always filler (ADDENDUM 308)",
     # Same shape: both anchors are census-safe (Laken #2 in Gateon Port, Hebon #2 in Agate Village). Their
     # per-occurrence locations were already excluded, leaving these two as the only remaining surface.
-    "LAKEN": "player ruling (ADDENDUM 362)",
-    "HEBON": "player ruling (ADDENDUM 362)",
-    # ADDENDUM 457: "If we lose to miror b he leaves. Make it so every Miror B check ... are filler."
-    "MIROR B.": "player ruling (ADDENDUM 457) -- he leaves if you lose to him",
+    "LAKEN": "always filler (ADDENDUM 362)",
+    "HEBON": "always filler (ADDENDUM 362)",
+    # ADDENDUM 457: Miror B. leaves if you lose to him, so every Miror B. check is filler.
+    "MIROR B.": "always filler (ADDENDUM 457) -- he leaves if you lose to him",
     # BIDEN left this list in ADDENDUM 436: his Snagem Hideout fight is not missable, and it is his one check.
     "EQUIN": "only non-missable occurrence is post-game",
     "EROLL": "only non-missable occurrence is post-game",
-    "WILLIE": "player ruling (ADDENDUM 460): unmissable, but not ruled into progression",
+    "WILLIE": "always filler (ADDENDUM 460): unmissable, but not made progression-eligible",
     "GREEVIL": "every occurrence is Citadark Isle and the last one is the goal fight",
 }
 
@@ -87,7 +87,7 @@ def _build():
         anchor_pool = safe or regioned
         if not anchor_pool:
             # No in-game occurrence at all. Nothing in the census hits this today; if one ever does it must be
-            # ruled on rather than given a guessed region -- a wrong region is an unwinnable seed.
+            # decided explicitly rather than given a guessed region -- a wrong region is an unwinnable seed.
             continue
         anchor = ANCHOR_OVERRIDES.get(surname, anchor_pool[0])
         placement = placements[anchor]
@@ -136,17 +136,17 @@ from .trainer_roster import ANY_DUPLICATE_DEFEAT_LOCATIONS as _ANY_DUPES, TRAINE
 assert all(_t["name"].upper() in SURNAME_TO_LOCATION for _t in _ALL if _lab(_t) in _ANY_DUPES), (
     "ADDENDUM 410 removed a #1 whose surname has no (Any) location -- that fight would be no check at all"
 )
-# Every always-filler surname must actually BE re-fightable, or the ruling is attached to nothing.
+# Every always-filler surname must actually BE re-fightable, or the entry is attached to nothing.
 assert set(ALWAYS_FILLER_SURNAMES) <= {row["surname"] for row in REPEATABLE_TRAINERS}, (
     "ALWAYS_FILLER_SURNAMES names a trainer that is not in the re-fightable set"
 )
-# A missable or post-game anchor cannot hold progression, so one appearing outside the rulings above fails
+# A missable or post-game anchor cannot hold progression, so one appearing outside the entries above fails
 # the import rather than shipping a seed that can strand an item on a fight already walked past.
 for _row in REPEATABLE_TRAINERS:
     if _row["anchor_is_missable"]:
         assert _row["always_filler"], (
             f"{_row['location']}'s anchor (occurrence {_row['anchor_index']}) is MISSABLE and it is not marked "
-            "always-filler -- it needs a ruling, not a default"
+            "always-filler -- it needs an explicit entry, not a default"
         )
 
 

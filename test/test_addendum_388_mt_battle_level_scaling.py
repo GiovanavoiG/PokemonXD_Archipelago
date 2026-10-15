@@ -1,7 +1,6 @@
 """ADDENDUM 388 (2026-09-28) -- Mt. Battle's own ceiling, its padded members, and what "exclude" means.
 
-Player: "Can we examine how our multiple level scaling options affect mt battle? Their team levels are very
-inconsistent and all over the place right now"
+How the level scaling options combine on Mt. Battle, whose team levels were inconsistent and all over the place.
 
 Measured across the option matrix on real generated seeds, all 100 trainers, before any change:
 
@@ -185,7 +184,7 @@ class TestExcludeMeansFullyExcluded(unittest.TestCase):
 
     def test_path_scaling_is_deliberately_not_gated_by_it(self) -> None:
         """They are different options. Excluding Mt. Battle from Enhanced Difficulty must not silently
-        switch off a scaling option the player asked for separately."""
+        switch off a scaling option that is chosen separately."""
         branch = self.source.index("mt_levels, mt_averages = build_mt_battle_path_level_plan")
         preceding = self.source.rindex("if path_scale_levels:", 0, branch)
         window = self.source[preceding:branch]

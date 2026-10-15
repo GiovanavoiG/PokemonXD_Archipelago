@@ -1,7 +1,7 @@
 """ADDENDUM 446 (2026-10-09) -- the Items pocket overflows into the PC, Poke Spot catch rates, Orre Colosseum.
 
-Player: "Do we have enough info for the item overflow into PC? If so, do it. Catch Rate Scaling should make poke spot
-pokemon much easier in general. Remove the travel unlock for Orre Colosseum and ensure no checks are there."
+Items that do not fit overflow into the PC. Catch Rate Scaling makes Poke Spot Pokemon much easier in general. Orre
+Colosseum's travel unlock is removed, and no checks are there.
 """
 from __future__ import annotations
 

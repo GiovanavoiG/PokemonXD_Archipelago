@@ -1,8 +1,7 @@
 """ADDENDUM 200. A chest location can carry a human name, and both sides have to spell it identically.
 
-Player: "Relabel the Chest 98 check to 'Pickup PDA'." -- REVERSED by ADDENDUM 246, which moved chest 98 to
-"ONBS 3F Chest 1" once the player checked the game: "Pickup PDA is in hq lab right by chest 3, not pyrite
-town". The MECHANISM these tests cover is unchanged and is the reason the rename was safe to make.
+The Chest 98 check was once relabelled 'Pickup PDA' -- REVERSED by ADDENDUM 246, which moved chest 98 to
+"ONBS 3F Chest 1": the Pickup PDA is in the HQ Lab right by chest 3, not in Pyrite Town. The MECHANISM these tests cover is unchanged and is the reason the rename was safe to make.
 
 A location's NAME is its identity to Archipelago. `locations.py` builds it for the world and `ram_client.py`
 builds it again for the client -- independently, because that file deliberately cannot import `locations`
@@ -50,7 +49,7 @@ class TestChestNameOverride(unittest.TestCase):
 
     def test_the_hq_lab_has_no_pda_location_to_confuse_it_with(self) -> None:
         """The reason the rename happened. The lab holds three treasure boxes and nothing else, so no
-        location here can be the pickup the player found beside chest 3."""
+        location here can be the pickup that sits beside chest 3."""
         lab = {name for name, data in locations.LOCATION_TABLE.items()
                if data.region == "Pokemon HQ Lab" and name in locations.CHEST_LOCATION_NAMES}
         self.assertEqual({"Outside HQ Lab", "Master Ball Chest", "Player's Room Chest"}, lab)

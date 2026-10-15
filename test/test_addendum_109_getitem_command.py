@@ -1,5 +1,5 @@
-"""Regression coverage for ADDENDUM 109 (2026-09-10, player request, verbatim: "make it so the !getitem command
-bypasses our holds and delivers the item to back immediately, without a second check").
+"""Regression coverage for ADDENDUM 109 (2026-09-10): the !getitem command bypasses the client's delivery holds and
+delivers the item immediately, without a second check.
 
 WHY THIS DOES NOT IMPORT `Client.py` DIRECTLY: same documented sandbox limitation as test_sync_travel_
 locations.py's own module docstring -- `Client.py` -> `CommonClient` -> `MultiServer` -> `websockets.extensions`
@@ -47,7 +47,7 @@ class TestGetItemCommandWiring(unittest.TestCase):
 
     def test_force_deliver_pending_items_never_checks_the_battle_state_tracker(self) -> None:
         # The whole point of this addendum: unlike give_items(), this function must NOT wait on
-        # ctx.battle_state_tracker before writing -- that's one of the two "holds" the player asked to bypass.
+        # ctx.battle_state_tracker before writing -- that's one of the two holds it bypasses.
         body = self._force_deliver_body()
         self.assertNotIn("battle_state_tracker", body)
 
@@ -72,12 +72,12 @@ class TestGetItemCommandWiring(unittest.TestCase):
         self.assertIn("ctx.given_item_indices.add(idx)", body)
 
     def test_getitem_command_is_documented_with_a_usage_example(self) -> None:
-        """RETARGETED 2026-09-26: the player rewrote `!getitem`'s help text in their own words, and the
+        """RETARGETED 2026-09-26: `!getitem`'s help text was rewritten, and the
         worked example went with it -- the help now reads "Notable items not in pool: 99 Master Balls, 99
         Rare Candies", which says what the command is FOR but not how to type it.
 
         The command still takes `*name_words` and still fuzzy-matches, so a usage line is still true; whether
-        the help carries one is the player's call. What this test pins now is the thing that made the example
+        the help carries one is a separate matter. What this test pins now is the thing that made the example
         worth having: the command really does take free-form words rather than an id."""
         import ast
 

@@ -1,9 +1,8 @@
 """ADDENDUM 345 (2026-09-25) -- a chest opened on the way out of a room was dropped in silence.
 
-Player: "I opened a chest and left a room fast enough that it didn't catch it. I want this to NEVER happen.
-Is this currently the case?"
+A chest opened just before leaving its room must NEVER be missed.
 
-It was not. Reproduced against the real chest tables BEFORE anything was changed:
+That was not the case. Reproduced against the real chest tables BEFORE anything was changed:
 
     flagged chest   1 | stay in the room   -> CREDITED
     flagged chest   1 | leave after 0.1s   -> CREDITED

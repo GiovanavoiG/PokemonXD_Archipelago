@@ -1,7 +1,7 @@
 """ADDENDUM 433 (2026-10-08) -- Biden's uncatchable row, and Citadark under Location Shuffle.
 
-Player: "Biden's KEY LAIR fight is uncatchable. Snagem is fine. Citadark is not gated behind key lair in location
-shuffle."
+Biden's KEY LAIR fight is uncatchable; his Snagem fight is fine. Citadark Isle is not gated behind the Key Lair
+in location shuffle.
 """
 from __future__ import annotations
 

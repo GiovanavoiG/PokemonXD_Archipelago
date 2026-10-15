@@ -1,11 +1,10 @@
-"""ADDENDUM 135 (2026-09-11). Two player reports, one shared cause -- the battle roster was being read too
-bluntly.
+"""ADDENDUM 135 (2026-09-11). Two bugs, one shared cause -- the battle roster was being read too bluntly.
 
-  1. "I just defeated Lovrina in the cipher lab, but her check didn't send."
-  2. "we're still sending items during battle sometimes - see if you can find a more robust solution,
-     hopefully with the same info as the trainer defeats."
+  1. Defeating Lovrina in the Cipher Lab did not send her check.
+  2. Items were still sometimes sent during battle; the battle hold now uses the same roster info as the
+     trainer defeats.
 
-Every record below is REAL: addresses, species and HP values come from the player's own post-battle MEM1 dump
+Every record below is REAL: addresses, species and HP values come from a real post-battle MEM1 dump
 taken at story byte 0x2B (story-flags checkpoint 14)."""
 from __future__ import annotations
 
@@ -15,7 +14,7 @@ from .. import ram_client as rc
 
 R = rc.BattleRosterRecord
 
-# Lovrina's roster exactly as it sat in the player's dump: a stale full-HP copy, the real all-zero copy, and
+# Lovrina's roster exactly as it sat in the dump: a stale full-HP copy, the real all-zero copy, and
 # two strays thousands of bytes away -- one of them (LOMBRE) a species that is not even on her team.
 _LOVRINA_STALE = [(0x804A87C0, "SCEPTILE", 72), (0x804A8884, "KINGDRA", 72), (0x804A8948, "XATU", 67),
                   (0x804A8A0C, "KOFFING", 55), (0x804A8AD0, "CUBONE", 60)]
@@ -81,7 +80,7 @@ class TestTrainerDefeatDetection(unittest.TestCase):
 
     def test_the_old_surname_only_grouping_would_have_missed_it(self) -> None:
         """Pins the actual regression: with clustering disabled, the same sequence fires nothing at all --
-        which is exactly what the player experienced."""
+        which is exactly the original failure."""
         original = rc.dominant_roster_cluster
         rc.dominant_roster_cluster = lambda records, max_gap=0: list(records)
         try:
@@ -91,7 +90,7 @@ class TestTrainerDefeatDetection(unittest.TestCase):
         self.assertEqual([name for poll in out for name in poll], [])
         self.assertEqual(tracker.defeat_count, 0)
 
-    def test_the_players_own_surname_can_be_excluded(self) -> None:
+    def test_a_surname_can_be_excluded(self) -> None:
         """Every record of the player's own party carries their in-game trainer name, so a party wipe (i.e.
         the player LOSING) otherwise reads as a trainer defeat -- and parks that surname where it can never
         re-arm, because the player's own records never vanish."""

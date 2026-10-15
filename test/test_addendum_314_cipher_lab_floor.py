@@ -1,8 +1,8 @@
 """ADDENDUM 314 -- the Cipher Lab is entered at 0x27. RETRACTED BY ADDENDUM 350 (see TestTheFloor).
 
-Player: "Cipher lab reported to not have its story byte written properly in location shuffle" -> "Cipher lab is
-cursor index 4, location id 8" (which is what the table already had, ruling out the lookup) -> "Let's change the
-cipher lab floor to 0x27."."""
+The Cipher Lab's story byte was not written properly in location shuffle. The Cipher Lab is cursor index 4,
+location id 8 -- which is what the table already had, ruling out the lookup -- so the Cipher Lab floor became
+0x27."""
 import unittest
 
 from ..game_data import map_destinations as md
@@ -34,8 +34,8 @@ class TestTheFloor(unittest.TestCase):
         self.assertNotIn(0x27, sb.UNREACHABLE_BYTES_IN_LADDER,
                          "and it is no longer named anywhere in the ladder either")
 
-    def test_the_unlock_is_the_players_own_observation(self) -> None:
-        """Their 2026-09-13 compilation observed 0x25 -> 0x26. That is now the transition verbatim."""
+    def test_the_unlock_is_the_observed_one(self) -> None:
+        """The 2026-09-13 compilation observed 0x25 -> 0x26. That is now the transition verbatim."""
         transition = next(t for t in sb.TRANSITIONS if "Cipher Lab" in t.opens_regions)
         self.assertEqual((0x25, 0x26), (transition.before, transition.after))
         self.assertEqual((), transition.passthrough)
@@ -52,7 +52,7 @@ class TestTheFloor(unittest.TestCase):
 
 
 class TestTheLookupWasNeverTheProblem(unittest.TestCase):
-    def test_the_destination_id_is_the_players_reading(self) -> None:
+    def test_the_destination_id_is_the_measured_one(self) -> None:
         self.assertEqual("Cipher Lab", md.region_for_location_id(8))
 
     def test_the_cursor_index_is_not_a_key(self) -> None:

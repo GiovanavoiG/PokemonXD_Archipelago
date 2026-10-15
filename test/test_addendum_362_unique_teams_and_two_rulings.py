@@ -1,22 +1,22 @@
-"""ADDENDUM 362 (2026-09-26): a defeat check per UNIQUE TEAM, and Laken/Hebon ruled filler-only.
+"""ADDENDUM 362 (2026-09-26): a defeat check per UNIQUE TEAM, and Laken/Hebon made filler-only.
 
-Two player requests in one message: *"Please exclude laken and hebon from progression items. Also, send the
-trainer fight checks by how many UNIQUE teams we've defeated them with - for example, miror b 3 would send
-after defeating 3 of his unique teams."*
+Two changes: Laken and Hebon are excluded from progression items, and trainer fight checks are sent by how many
+UNIQUE teams of that trainer have been defeated -- Miror B. #3, for example, sends after defeating 3 of his
+unique teams.
 
 THE BUG THE SECOND ONE FIXES. Every confirmed win consumed the next queue entry. That is fine for a trainer
 met once per story beat and wrong for one who can be re-fought on demand: beating Miror B.'s FIRST team three
 times at a colosseum checked off #1, #2 and #3 without the later encounters ever happening. ADDENDUM 359 made
-those rematches easy to reach, which is what turned a latent flaw into something the player hit.
+those rematches easy to reach, which is what turned a latent flaw into something that happened in play.
 
-THE THREE RULINGS THIS RECORDS, all answers to questions put to the player before any of it was built:
+THE THREE DECISIONS THIS RECORDS, all settled before any of it was built:
 
   1. Chobin's occurrences 4 and 5 field byte-identical teams -- the only such pair in all 232 roster rows, so
-     he has 7 labels and 6 earnable ones. Asked whether to let the shared team count twice or to delete the
-     surplus label, the player chose: *"Strict unique, and delete Chobin #7."*
+     he has 7 labels and 6 earnable ones. Uniqueness is strict: the shared team counts once and the surplus
+     label, Chobin #7, is deleted.
   2. The cumulative "Defeat N Trainers" counter follows the same rule -- a rematch does not advance it either.
-  3. An unidentifiable win falls back to *"the team you actually saw"* rather than advancing blindly or
-     refusing to advance at all.
+  3. An unidentifiable win falls back to the team actually seen rather than advancing blindly or refusing to
+     advance at all.
 
 WHY THE RETIREMENT IS DERIVED. `trainer_roster._surplus_labels` recomputes the collision from the deck data
 every import, so a corrected roster row moves the retirement instead of leaving a stale hand-typed name. The
@@ -38,7 +38,7 @@ except ImportError:  # pragma: no cover - only when run outside an Archipelago c
 
 
 # ============================================================================================================
-# Ruling 1: Laken and Hebon
+# Decision 1: Laken and Hebon
 # ============================================================================================================
 class TestLakenAndHebonAreFillerOnly(unittest.TestCase):
     def test_both_are_ruled_always_filler(self) -> None:
@@ -47,8 +47,8 @@ class TestLakenAndHebonAreFillerOnly(unittest.TestCase):
             self.assertIn(repeatable_trainers.location_name(surname),
                           repeatable_trainers.ALWAYS_FILLER_LOCATIONS)
 
-    def test_the_ruling_was_needed_because_the_derivation_would_not_have_caught_it(self) -> None:
-        """Both anchors are census-safe -- not missable, real region -- so this is a RULING and the file says
+    def test_the_exclusion_was_needed_because_the_derivation_would_not_have_caught_it(self) -> None:
+        """Both anchors are census-safe -- not missable, real region -- so this is a HAND-SET entry and the file says
         so. If a roster correction ever makes an anchor missable, the module's own import fence would demand
         the entry anyway and this test would stop meaning anything; assert the shape so that is visible."""
         rows = {row["surname"]: row for row in repeatable_trainers.REPEATABLE_TRAINERS}
@@ -58,8 +58,8 @@ class TestLakenAndHebonAreFillerOnly(unittest.TestCase):
 
     def test_every_numbered_occurrence_was_already_fenced_before_this(self) -> None:
         """The audit that decided the (Any) lever was the only one to touch. Laken #1 and Hebon #1 are in the
-        player's missable compilation, and FILLER_ONLY_TRAINER_INDICES fences EVERY occurrence of a missable
-        surname -- so all six numbered checks were excluded already and the ruling adds the two that were not."""
+        missable compilation, and FILLER_ONLY_TRAINER_INDICES fences EVERY occurrence of a missable
+        surname -- so all six numbered checks were excluded already and the entry adds the two that were not."""
         fenced = missable_trainers.filler_only_trainer_indices()
         for surname in ("LAKEN", "HEBON"):
             indices = [i for i, row in trainer_roster.TRAINERS_BY_INDEX.items()
@@ -77,7 +77,7 @@ class TestLakenAndHebonAreFillerOnly(unittest.TestCase):
             self.assertIsNone(trainer_defeat.SURNAME_TO_LOCATION_QUEUE.get(surname), surname)
 
 
-class TestTheRulingReachesTheGeneratedWorld(PokemonXDTestBase):
+class TestTheExclusionReachesTheGeneratedWorld(PokemonXDTestBase):
     options = {"shuffle_trainer_defeats": True}
 
     def test_no_laken_or_hebon_check_can_hold_progression_at_the_most_permissive_setting(self) -> None:
@@ -90,7 +90,7 @@ class TestTheRulingReachesTheGeneratedWorld(PokemonXDTestBase):
 
 
 # ============================================================================================================
-# Ruling 1b: the surplus label
+# Decision 1b: the surplus label
 # ============================================================================================================
 class TestTheSurplusLabelIsRetired(unittest.TestCase):
     def test_chobin_four_and_five_really_are_identical(self) -> None:
@@ -106,9 +106,9 @@ class TestTheSurplusLabelIsRetired(unittest.TestCase):
         ]
         self.assertEqual(collided, ["CHOBIN"])
 
-    def test_miror_b_has_nine_distinct_teams_so_the_players_example_works(self) -> None:
+    def test_miror_b_has_nine_distinct_teams_so_the_example_works(self) -> None:
         self.assertEqual(trainer_roster.DISTINCT_TEAM_COUNTS["MIROR B."], 9)
-        # ADDENDUM 409: "Make Miror B only have one rematch (so up to miror B 2)." He still fields nine distinct
+        # ADDENDUM 409: Miror B. has only one rematch, so his checks go up to Miror B. #2. He still fields nine distinct
         # teams -- the fights stay in the game -- but only the first two distinct wins are checks.
         self.assertEqual(trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["MIROR B."],
                          ["Defeat - Miror B. #1", "Defeat - Miror B. #2"])
@@ -132,8 +132,8 @@ class TestTheSurplusLabelIsRetired(unittest.TestCase):
     def test_every_surviving_label_has_a_team_that_can_earn_it(self) -> None:
         """The invariant the whole retirement exists to restore, asserted over all 144 surnames rather than
         the one that failed it."""
-        # ADDENDUM 409: the player trimmed 25 surnames by name ("Remove Cail's rematches ... Make Miror B only have
-        # one rematch ... Hordel is not a check, so remove him"). Those queue FEWER labels than they have teams --
+        # ADDENDUM 409 trimmed 25 surnames by name (Cail's rematches removed, Miror B. down to one rematch, Hordel
+        # not a check at all). Those queue FEWER labels than they have teams --
         # on purpose -- so for them the invariant is the one-sided half: no label without a team behind it, and
         # (missable labels being auto-sent) no non-missable label without a non-missable team behind it.
         ruled = {
@@ -166,8 +166,8 @@ class TestTheSurplusLabelIsRetired(unittest.TestCase):
         trainer index resolves through and what the ids were frozen against."""
         self.assertEqual(len(locations.UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 232)
         # 232 - Chobin #7 (ADDENDUM 362) - the 15 removed missable fights (ADDENDA 401/406/409) - the 64 labels
-        # the player ruled out by name (ADDENDUM 409: "Remove all their other fights ... Hordel is not a check").
-        # ADDENDUM 436: 15 removed missable fights (Zook #1 unlinked), 70 ruled out (+ Ardos/Zook/Biden's six
+        # removed by name (ADDENDUM 409: all their other fights removed, and Hordel is not a check).
+        # ADDENDUM 436: 15 removed missable fights (Zook #1 unlinked), 70 removed by name (+ Ardos/Zook/Biden's six
         # numbered labels), three labels in both sets (Zook #1, Biden #1, Biden #2).
         self.assertEqual(len(trainer_roster.REMOVED_MISSABLE_DEFEAT_LOCATIONS), 15)
         self.assertEqual(len(trainer_roster.RULED_OUT_DEFEAT_LOCATIONS), 70)
@@ -180,7 +180,7 @@ class TestTheSurplusLabelIsRetired(unittest.TestCase):
 
 
 # ============================================================================================================
-# Ruling 2 and 3: what a win does
+# Decisions 2 and 3: what a win does
 # ============================================================================================================
 QUEUE = {"MIROR B.": [f"Defeat - Miror B. #{n}" for n in (1, 2, 3)]}
 FINGERPRINTS = {
@@ -222,8 +222,8 @@ def _confirmed_surnames(tracker, species, hp_top=50):
 
 
 class TestUniqueTeamDispatch(unittest.TestCase):
-    def test_the_players_own_example(self) -> None:
-        """"miror b 3 would send after defeating 3 of his unique teams." Three teams, three checks, in the
+    def test_the_worked_example(self) -> None:
+        """Miror B. #3 sends after defeating 3 of his unique teams. Three teams, three checks, in the
         order they were beaten."""
         tracker = rc.TrainerBattleDefeatTracker()
         fired = _win(tracker, ("LUDICOLO", "LOUDRED"), hp_top=50)
@@ -258,9 +258,9 @@ class TestUniqueTeamDispatch(unittest.TestCase):
         self.assertEqual(tracker.defeat_count, 4)
 
 
-class TestRulingTwoTheCumulativeCounter(unittest.TestCase):
+class TestPartTwoTheCumulativeCounter(unittest.TestCase):
     def test_a_rematch_does_not_advance_the_running_total(self) -> None:
-        """The player's choice: "Count unique teams only." A rematch must not farm the bucket either."""
+        """Only unique teams count. A rematch must not farm the bucket either."""
         tracker = rc.TrainerBattleDefeatTracker()
         for _ in range(4):
             _win(tracker, ("LUDICOLO", "LOUDRED"), hp_top=50)
@@ -282,7 +282,7 @@ class TestRulingTwoTheCumulativeCounter(unittest.TestCase):
         self.assertEqual(tracker.defeat_count, 1, "the second win was a rematch and must not have counted")
 
 
-class TestRulingThreeTheFallback(unittest.TestCase):
+class TestPartThreeTheFallback(unittest.TestCase):
     def test_an_unidentifiable_team_still_advances_the_first_time(self) -> None:
         """"Fall back to the team you actually saw." Never stalls a check."""
         tracker = rc.TrainerBattleDefeatTracker()

@@ -1,8 +1,7 @@
 """Which missable trainer checks the client sends on its own, and at what story byte.
 
-ADDENDUM 402. Player: "act under the assumption that missable checks are now bad. I think our easiest way
-currently to resolve this is once we hit the story cap for an area, we receive all missable trainer defeats in
-that area."
+ADDENDUM 402. Missable checks are treated as unreliable: once an area hits its story cap, every missable trainer
+defeat in that area is received.
 
 WHAT IS IN HERE. Every missable trainer check that still exists after ADDENDUM 401 removed the numbered fights of
 the missable trainers that fight more than once:
@@ -14,13 +13,13 @@ the missable trainers that fight more than once:
     fights' areas -- an (Any) is only lost once the last chance at it has closed.
 
 The other 19 (Any) checks of missable trainers are NOT here. Each of those surnames has a fight that is not on
-the missable list, so the (Any) cannot be missed, and the player said to leave the Any.
+the missable list, so the (Any) cannot be missed, and the (Any) is left as it is.
 
 WHAT "THE CAP" IS. `story_bytes.REGION_STORY_WINDOW[area].ceiling` -- the same ceiling the area memory and the
 poison guard use, overrides included, so a change to an area's cap moves its auto-send with it. One source.
 
-ADDENDUM 405 -- AT THE CAP, AND ONLY IN THAT AREA. Player: "make sure we send the checks AT the story cap for
-each area, and only when THAT AREA's floor reaches it." With travel randomization on every area keeps its own
+ADDENDUM 405 -- AT THE CAP, AND ONLY IN THAT AREA. The checks are sent AT the story cap for each area, and only
+when THAT AREA's floor reaches it. With travel randomization on every area keeps its own
 story byte (`ram_client.AreaStoryByteMemory`), so a fight is gone only when ITS area moves past it -- Pyrite's
 progress says nothing about the Cipher Lab. The client therefore compares each check against its own area's
 progress (`AUTO_SEND_AREA_CAPS`, `story_bytes.area_progress`). With travel randomization off there is one byte
@@ -37,8 +36,8 @@ leans early for that reason.
 from __future__ import annotations
 
 # An area with no story window has no cap to read. One missable sits in one today: Bost, in Gateon Port, which is
-# always open and so has no window at all. The player's rule ("the story cap for an area") does not define a cap
-# for it, so this table does, and every entry here is a judgement the player should confirm.
+# always open and so has no window at all. "The story cap for an area" does not define a cap for it, so this
+# table does, and every entry here is a judgement call.
 #
 #   Bost -> 0x19, "Agate Village unlocked / first visit". That is the byte that ends the opening Gateon stretch,
 #   and it is the EARLY choice on purpose: if Bost is actually fought on a later Gateon visit, he is auto-sent
@@ -47,7 +46,7 @@ CAP_OVERRIDES: "dict[str, int]" = {
     "Defeat - Bost": 0x19,
 }
 
-# ADDENDUM 436. Player: "Missable Phenac trainers should send upon defeating Snattle (ONLY cipher members)." Every
+# ADDENDUM 436. Missable Phenac trainers send upon defeating Snattle (ONLY Cipher members). Every
 # missable fight in Phenac City's area (the town, the Mayor's House and Post-Sixes) whose trainer is a Cipher Peon is
 # released at 0x48, "Snattle defeated" (0x47 -> 0x48) -- the six one-shots (Pellim, Fenton, Forgs, Kapen, Ezoor,
 # Ertlig) and the Sixes' #2, which ADDENDUM 409 had released at 0x46. Judged like every other cap: the global byte

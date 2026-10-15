@@ -1,11 +1,11 @@
 """ADDENDA 192-194. The workbook's `Repeat?` column, the goal fight, and what sphere zero contains.
 
-Three requests in one message, after the player had asked about the missable fence five times:
+Three fixes:
 
-  1. "Chobin 3 is marked missable, but has a key item. PLEASE. CHECK. THE. EXCEL. SHEET."
-  2. "a key item is locked behind Greevil 3. That's Citadark, and also beyond the final boss."
-  3. "If travel shuffle is on, Ensure that ZERO locations outside of Agate, Gateon, Kaminko and HQ are
-     reachable UNLESS we've received them in archipelago."
+  1. Chobin #3 was marked missable but holds a key item; the workbook (the Excel sheet) is the source of truth.
+  2. A key item was locked behind Greevil #3, which is Citadark and also beyond the final boss.
+  3. With travel shuffle on, ZERO locations outside Agate, Gateon, Kaminko's House and the HQ are reachable
+     until their unlock has been received from Archipelago.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ class TestTheWorkbookFence(unittest.TestCase):
         self.assertEqual(35, c.WORKBOOK_FINAL_COUNT)
 
     def test_chobin_three_is_a_one_shot_fight(self) -> None:
-        """The row the player named. It is blank in `Missable?` and "earlier (3 of 7)" in `Repeat?`."""
+        """The row in question. It is blank in `Missable?` and "earlier (3 of 7)" in `Repeat?`."""
         repeat, missable = census_repeat_column.CENSUS_REPEAT_AND_MISSABLE[124]
         self.assertFalse(missable, "Chobin #3 is NOT marked in the Missable? column -- that was the trap")
         self.assertEqual("earlier (3 of 7)", repeat)
@@ -45,7 +45,7 @@ class TestTheWorkbookFence(unittest.TestCase):
             and index not in missable_trainers.UNREDOABLE_TRAINER_INDICES
         )
         self.assertEqual([], unfenced)
-        # ADDENDUM 407: the progression fence is that set minus the player's mandatory rematches, nothing else.
+        # ADDENDUM 407: the progression fence is that set minus the mandatory rematches, nothing else.
         self.assertEqual(missable_trainers.FILLER_ONLY_TRAINER_INDICES,
                          missable_trainers.UNREDOABLE_TRAINER_INDICES - missable_trainers.MANDATORY_REMATCH_INDICES)
 
@@ -54,9 +54,9 @@ class TestTheWorkbookFence(unittest.TestCase):
             index for index, (_r, missable) in census_repeat_column.CENSUS_REPEAT_AND_MISSABLE.items()
             if missable and index not in missable_trainers.FILLER_ONLY_TRAINER_INDICES
         )
-        # ADDENDUM 460: the player's "unmissable" rulings overrule the column for exactly these rows.
-        from ..game_data.missable_indices import PLAYER_RULED_UNMISSABLE
-        self.assertEqual([], [i for i in unfenced if i not in PLAYER_RULED_UNMISSABLE])
+        # ADDENDUM 460: rows set as unmissable by hand overrule the column for exactly these rows.
+        from ..game_data.missable_indices import CONFIRMED_UNMISSABLE
+        self.assertEqual([], [i for i in unfenced if i not in CONFIRMED_UNMISSABLE])
 
     def test_every_occurrence_of_a_fenced_name_is_fenced(self) -> None:
         """ADDENDUM 188's rule, kept. The workbook marks OCCURRENCES; fencing "Aferd 1" and leaving Aferd 2-5
@@ -125,7 +125,7 @@ class TestSphereZeroTravelOn(PokemonXDTestBase):
         self.assertEqual([], offenders)
 
     def test_the_two_eevee_checks_are_filed_where_they_are_obtained(self) -> None:
-        """Both are legitimately sphere zero -- the player's own ruling -- and both used to sit in the
+        """Both are legitimately sphere zero, and both used to sit in the
         synthetic `Pokemon Storage` bucket, which made the assertion above need an exception list."""
         self.assertEqual("Pokemon HQ Lab", locations.LOCATION_TABLE["Catch - Eevee"].region)
         self.assertEqual("Gateon Port", locations.LOCATION_TABLE[locations.EEVEELUTION_LOCATION_NAME].region)

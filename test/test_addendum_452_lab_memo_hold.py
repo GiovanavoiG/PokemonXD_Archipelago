@@ -1,7 +1,7 @@
 """ADDENDUM 452 (2026-10-09) -- the HQ Lab is held at 0x16 until Krane Memos 3-5 are handed over.
 
-Player: "When we gain the machine part, set HQ Lab's floor to 0x16. HOLD IT THERE NO MATTER WHAT until we've received
-krane memo 3, 4, and 5."
+When the Machine Part is gained, HQ Lab's floor is set to 0x16 and HELD THERE NO MATTER WHAT until Krane Memos 3, 4
+and 5 have been received.
 """
 from __future__ import annotations
 

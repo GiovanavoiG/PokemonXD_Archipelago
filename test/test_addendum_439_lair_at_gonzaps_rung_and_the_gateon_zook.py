@@ -1,7 +1,7 @@
 """ADDENDUM 439 (2026-10-08) -- the Key Lair at 0x64, and Zook's Gateon fight sending nothing.
 
-Player: "I lied. put it to 64, so drop it one (two after the shift)."
-Then: "Also, zook (any) sent at the gateon fight, which is wrong. Make sure that doesn't happen."
+The Key Lair's floor goes back to 0x64 -- one step down (two after the shift). And Zook (Any) must not send at
+the Gateon fight.
 """
 from __future__ import annotations
 

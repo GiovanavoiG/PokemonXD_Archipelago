@@ -104,7 +104,7 @@ def chest_raw_count(rel: RelFile) -> int:
     """Raw entry count per the REL's own table (116, confirmed against the real ISO 2026-09-07). Entry 0 is
     an all-zero sentinel; `real_chest_indices()` is the count without it.
 
-    SENTINEL CONFIRMED 2026-09-14 (ADDENDUM 207) against the player's own `common_rel`: entry 0 is 28 zero
+    SENTINEL CONFIRMED 2026-09-14 (ADDENDUM 207) against a real `common_rel`: entry 0 is 28 zero
     bytes and entries 1..115 match `game_data/chest_table.py` byte-for-byte. 116 raw is 115 real chests."""
     return rel.entry_value(XD_NUMBER_TREASURE_BOXES_POINTER)
 
@@ -640,7 +640,7 @@ SPECIES_BASE_HP_OFFSET = 0x8F
 # every move's animation id, and its `Move` class resolves that id to `common_rel` pointer 124, a 0x38-byte
 # stride and a u16 at +0x1E for XD. Those four facts are what this uses.
 #
-# Verified first against the player's own `common_rel`: exactly one 0x38-stride candidate reproduces eighteen
+# Verified first against a real `common_rel`: exactly one 0x38-stride candidate reproduces eighteen
 # known Gen III (PP, base power) pairs at +0x01/+0x19, at 0xA2710, and type (+0x02) and accuracy (+0x04) then
 # decoded correctly too. The animation id IS the move index (359 distinct values over 359 entries), so slot 0
 # is the "no animation" entry and writing 0 is unambiguous -- and that is why indices 0 and 355 are skipped:
@@ -669,8 +669,8 @@ MOVES_WITHOUT_ANIMATIONS: "frozenset[int]" = frozenset({0, 355})
 
 # ADDENDUM 381: the two fields that decide which status a move inflicts, and the fence that keeps us off them.
 #
-# Measured 2026-09-28 against `bridge/dumps/a263_commonrel.bin`, chasing two player reports (Poison Fang
-# slept its target, Icy Wind froze both of its). Neither offset was known before, and both matter more than
+# Measured 2026-09-28 against `bridge/dumps/a263_commonrel.bin`, chasing two bugs (Poison Fang slept
+# its target, Icy Wind froze both of its). Neither offset was known before, and both matter more than
 # the animation field above, because between them they ARE the move's status behaviour:
 #
 #   +0x05  secondary-effect chance, a percentage. 24 of 24 known Gen III chances matched exactly
@@ -1130,12 +1130,10 @@ def read_pokespot_entry(rel: RelFile, pool: str, slot_index: int) -> dict:
 
 # ADDENDUM 392 -- the Poke Spot LEVEL fields, fenced.
 #
-# Player: "Another report of wild pokemon being level 0 at the wild spots."
-#
 # ADDENDUM 268 chased a level-0 Castform through four hypotheses and killed all four: every vanilla slot reads
 # min >= 10 in the live `common_rel`, the assignment only ever names the eleven real slots, Castform has no
 # alternate-form index, and all 386 dex numbers round-trip through the species index cleanly. It closed asking
-# for the seed, and the report has come back instead.
+# for the seed, and level-0 wild Pokemon at the Poke Spots have turned up again instead.
 #
 # What 268 could NOT rule out is the one thing nothing checks: the Poke Spot write shares a single
 # decompress/mutate/re-encode pass over `common_rel` with the chest writer, the item renamer, the experience
@@ -1225,7 +1223,7 @@ def assert_pokespot_levels_unchanged(before: bytes, after: bytes) -> None:
     raise AssertionError(
         f"the Poke Spot level fields changed during the common_rel pass ({len(moved)} byte(s), first at index "
         f"{moved[0] if moved else 'unknown'}) -- something in this pass wrote over a wild encounter's level, "
-        "which is the level-0 wild Pokemon players have reported. The ISO was NOT written."
+        "which is how a wild Pokemon ends up level-0. The ISO was NOT written."
     )
 
 

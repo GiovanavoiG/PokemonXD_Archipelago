@@ -1,19 +1,19 @@
 """ADDENDUM 202. The item-delivery gate reads an address that was actually measured.
 
-Player: "I want to detect the battle end, and delay items received in battle until then." Then, after the
-first live read came back: "That anchor's wrong and has not been working. Assume we're looking from scratch."
+The client detects the end of a battle and holds items received in battle until then. The first live read
+showed the old anchor was wrong and had never worked, so the search started from scratch.
 
 `BATTLE_STRUCT_ANCHOR_ADDRESS` read 0 in all four live dumps taken that session, two of them from inside a
 real battle. Seven addenda (33/34/37/39/41/44/80) of debounces, corroboration, reverts and restorations were
 built on an address that never carried the signal.
 
-`BATTLE_UI_FLAG_ADDRESS` replaces it, measured across eleven game states and three battles on the player's own
+`BATTLE_UI_FLAG_ADDRESS` replaces it, measured across eleven game states and three battles in a live
 game -- see ram_client's own section docstring for the table and the method.
 
 These tests pin the contract, not the value: the tracker must read the measured address, must never consult
 the retired one, must block on nonzero, must require a streak before clearing, and must stay bounded by
-give_items()'s hard timeout -- which is the player's standing rule ("Make sure NEVER to block sending items -
-that was what ruined the run") and the reason ADDENDUM 44 had to rip this gate out once already."""
+give_items()'s hard timeout -- item delivery must NEVER be blocked (a blocked delivery once ruined a run), which
+is the reason ADDENDUM 44 had to rip this gate out once already."""
 from __future__ import annotations
 
 import ast
@@ -90,9 +90,8 @@ class TestDebounceBehaviour(unittest.TestCase):
 
 
 class TestDeliveryCanNeverBeBlockedForever(unittest.TestCase):
-    """The player's standing rule, and the reason ADDENDUM 44 removed this gate entirely once before:
-    "Make sure NEVER to block sending items - that was what ruined the run." A better gate must not become a
-    new way to lose items, so the hard per-item timeout has to survive this addendum."""
+    """Item delivery must NEVER be blocked -- a blocked delivery once ruined a run, and it is the reason
+    ADDENDUM 44 removed this gate entirely once before. A better gate must not become a new way to lose items, so the hard per-item timeout has to survive this addendum."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -119,8 +118,8 @@ class TestDeliveryCanNeverBeBlockedForever(unittest.TestCase):
         self.fail("ITEM_DELIVERY_MAX_BATTLE_WAIT_SECONDS not found")
 
     def test_the_timeout_is_a_sane_duration(self) -> None:
-        """LOOSENED 2026-09-16 (ADDENDUM 248, player: "Increase the time limit on item delivery if in battle
-        to 10 minutes"). The upper bound used to be 120, which was a TUNING guard from the era when this
+        """LOOSENED 2026-09-16 (ADDENDUM 248: the in-battle item delivery time limit is 10 minutes). The upper
+        bound used to be 120, which was a TUNING guard from the era when this
         ceiling was load-bearing -- ADDENDUM 100's stuck tracker made every delayed item converge on it, so
         keeping it small mattered. That root cause is fixed at its source and the ceiling is now a last
         resort, so the real invariant this class exists to protect is the only one asserted here: the wait is
@@ -132,7 +131,7 @@ class TestDeliveryCanNeverBeBlockedForever(unittest.TestCase):
         self.assertGreater(value, 0, "a zero or negative ceiling would deliver straight into a battle")
         self.assertLessEqual(value, 3600, "an hour-plus ceiling is a typo, not a decision")
 
-    def test_the_timeout_is_the_value_the_player_asked_for(self) -> None:
+    def test_the_timeout_value(self) -> None:
         """Pinned as a literal so a change to it is deliberate rather than drift. 45 -> 600 was ADDENDUM 248;
         45 seconds was shorter than a real battle, and when this ceiling trips the item is delivered INTO the
         fight -- the exact outcome ADDENDUM 80 built the gate to prevent."""

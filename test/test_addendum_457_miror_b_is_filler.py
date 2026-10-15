@@ -1,6 +1,6 @@
 """ADDENDUM 457 (2026-10-09) -- everything Miror B. is filler-only.
 
-Player: "If we lose to miror b he leaves. Make it so every Miror B check (including his team's shadows) are filler."
+Losing to Miror B. makes him leave, so every Miror B. check (his team's Shadows included) is filler.
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ class TestTheRows(PokemonXDTestBase):
         self.assertEqual(9, len(rows))
         self.assertTrue(all(trainer_roster.TRAINERS_BY_INDEX[i]["name"] == "MIROR B." for i in rows))
 
-    def test_the_any_check_is_a_standing_ruling(self) -> None:
+    def test_the_any_check_is_a_standing_exclusion(self) -> None:
         from ..game_data import repeatable_trainers as RT
         self.assertIn("Defeat Miror B. (Any)", RT.ALWAYS_FILLER_LOCATIONS)
 
@@ -60,8 +60,7 @@ class TestCumulativeMode(PokemonXDTestBase):
 
 
 class TestWildCatchesNeedPyriteOrOutskirt(PokemonXDTestBase):
-    """Player: "make wild pokemon (the catches that are not shadows) gated behind either Pyrite Town OR Outskirt
-    Stand"."""
+    """Wild Pokemon (the catches that are not Shadows) are gated behind either Pyrite Town OR Outskirt Stand."""
     options = {"randomize_travel_locations": True}
 
     def test_the_constant(self) -> None:

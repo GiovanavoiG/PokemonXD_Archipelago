@@ -1,9 +1,8 @@
 """ADDENDUM 413 (2026-10-04) -- names no seed can hold leave the table; a seed holds only what its options select.
 
-Player: "Can we remove these from the location table? [the catalog's 'Never in a seed (119)': Defeat 115..232
-Trainers and Outskirt Stand - Eevee Gift] Also, please ensure that locations are ONLY given to the actual
-multiworld IF their yaml options are selected. I do not want Defeat N Trainer checks AT ALL if unique trainer
-defeats are selected, etc."
+The catalog's 'Never in a seed (119)' names -- Defeat 115..232 Trainers and Outskirt Stand - Eevee Gift --
+leave the location table. And locations are given to the multiworld ONLY if their yaml options select them: no
+Defeat N Trainers checks AT ALL when unique trainer defeats are selected, and so on.
 """
 from __future__ import annotations
 
@@ -82,8 +81,8 @@ class TestUnique(_Audit, PokemonXDTestBase):
 class TestCumulative(_Audit, PokemonXDTestBase):
     options = {"shuffle_trainer_defeats": True, "trainer_defeat_mode": 0, "trainer_defeat_check_count": 50}
 
-    def test_exactly_the_count_asked_for_and_nothing_else(self) -> None:
-        # ADDENDUM 414: "Cumulative mode should not have the 64 names and any checks - it should just be a tally."
+    def test_exactly_the_count_and_nothing_else(self) -> None:
+        # ADDENDUM 414: cumulative mode has none of the 64 named checks -- it is just a tally.
         created = _created(self)
         self.assertEqual({f"Defeat {n} Trainers" for n in range(1, 51)}, _counts(created))
         self.assertEqual(set(), _unique(created))

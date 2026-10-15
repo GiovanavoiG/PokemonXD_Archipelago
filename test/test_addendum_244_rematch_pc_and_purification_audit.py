@@ -1,7 +1,7 @@
-"""ADDENDUM 244 (2026-09-16) -- audit of the three things the player asked to re-check.
+"""ADDENDUM 244 (2026-09-16) -- audit of rematch Shadows, PC scanning and purification checks.
 
-Player: "Let's double check that our rematchable fights aren't infinitely spawning shadow pokemon. Let's also
-double check our pc scanning, and our purification checks."
+Three things re-checked: that rematchable fights are not infinitely spawning Shadow Pokemon, the PC scanning,
+and the purification checks.
 
 All three hold. What follows pins the parts that were NOT already covered by ADDENDUM 236's own tests, plus
 two findings that were new to this pass.
@@ -32,26 +32,26 @@ class TestTheRefightFenceCoversTheWholeShape(unittest.TestCase):
         """A `final` row is re-fightable, so a Shadow there is farmable. An `earlier` row is one occurrence of
         a repeated fight, so a Shadow there is walk-past-able once the story moves on. A missable row is
         losable outright. All three are catch locations that cannot be trusted, and all three are in."""
-        from ..game_data.missable_indices import PLAYER_RULED_UNMISSABLE as ruled   # ADDENDUM 460
+        from ..game_data.missable_indices import CONFIRMED_UNMISSABLE as ruled   # ADDENDUM 460
         # ADDENDUM 466: the snag no longer respawns (465), so the four safe `final` rows may host a Shadow.
         self.assertEqual(_FINAL - self.excluded, set(missable_trainers.REFIGHTABLE_FINAL_SHADOW_HOSTS),
                          "a re-fightable trainer outside the ADDENDUM 466 allowlist can take a generated Shadow")
-        self.assertFalse(ruled & _FINAL, "no ruled-unmissable row is a re-fightable one")
+        self.assertFalse(ruled & _FINAL, "no unmissable-set row is a re-fightable one")
         # ADDENDUM 487: minus the first fights whose second fight always carries the mirror.
         from ..game_data.shadow_mirrors import MIRRORED_SHADOW_HOSTS
         self.assertEqual(_EARLIER - self.excluded - ruled - set(MIRRORED_SHADOW_HOSTS), set(),
                          "an earlier occurrence can take a generated Shadow")
         self.assertEqual(_MISSABLE - self.excluded - ruled, set(), "a missable trainer can take a generated Shadow")
-        # ADDENDUM 466 reopened ADDENDUM 461's refusals ("Reopen them"): every ruled row may host a Shadow.
-        self.assertEqual(set(), ruled & self.excluded, "a ruled-unmissable row is still refused")
+        # ADDENDUM 466 reopened ADDENDUM 461's refusals: every unmissable-set row may host a Shadow.
+        self.assertEqual(set(), ruled & self.excluded, "an unmissable-set row is still refused")
 
     def test_the_set_is_big_enough_to_be_doing_something(self) -> None:
         """A fence that shrank to nothing would pass every test above. 150 of the 232 story trainers."""
-        self.assertEqual(len(self.excluded), 134)   # ADDENDUM 487: -4 mirrored first fights (Clerr, Belish, Dert, Cail #1); 466: -4 Agate rematch rows, -6 461 refusals, -4 final rows; 461: + Cida, Dosk, Raling, Labet, Doby; 460: -13 ruled unmissable, + Bost unconfirmed  # ADDENDUM 459: + Agate's same-team rematches 24-27; 440: + the four Phenac invasion trainers;   # ADDENDUM 341 lifted 337's +Wakin/+Gonzap
+        self.assertEqual(len(self.excluded), 134)   # ADDENDUM 487: -4 mirrored first fights (Clerr, Belish, Dert, Cail #1); 466: -4 Agate rematch rows, -6 461 refusals, -4 final rows; 461: + Cida, Dosk, Raling, Labet, Doby; 460: -13 unmissable, + Bost unconfirmed  # ADDENDUM 459: + Agate's same-team rematches 24-27; 440: + the four Phenac invasion trainers;   # ADDENDUM 341 lifted 337's +Wakin/+Gonzap
         self.assertEqual(len(_FINAL), 35)
 
-    def test_the_five_the_player_reported_and_the_two_brothers(self) -> None:
-        """The rows ADDENDUM 236 named from the real plan that triggered the report."""
+    def test_the_five_and_the_two_brothers(self) -> None:
+        """The rows ADDENDUM 236 named from the real plan that showed the problem."""
         for index in (215, 223, 226, 232):   # ADDENDUM 466: 167 (Chobin #7) is a safe final row and may host now
             self.assertIn(index, self.excluded, index)
         self.assertNotIn(167, self.excluded)
@@ -65,7 +65,7 @@ class TestVanillaShadowsOnRefightableTrainers(unittest.TestCase):
     ADDENDUM 236 stopped the expansion putting GENERATED Shadows on re-fightable trainers. It did not -- and
     could not -- do anything about the VANILLA ones: seven trainers the workbook marks `final` hold a DDPK
     (Shadow) slot in the shipped game, including MIROR B., whose rematches are a designed vanilla mechanic.
-    Seven more sit on missable rows, RESIX among them -- the trainer the player's original report named.
+    Seven more sit on missable rows, RESIX among them.
 
     THIS IS NOT AN AP HAZARD, and the reason is worth pinning rather than reasoning out again next time: a
     catch check is keyed by SPECIES, not by trainer or by encounter. Re-fighting a trainer and re-snagging the
@@ -130,7 +130,7 @@ class TestThePcBoxOverScanIsClean(unittest.TestCase):
         return rows
 
     def test_boxes_nine_to_twelve_decode_no_species_in_any_real_dump(self) -> None:
-        """Three dumps, three different sessions. Boxes 1-8 decode the player's real Pokemon; 9-12 decode
+        """Three dumps, three different sessions. Boxes 1-8 decode real Pokemon; 9-12 decode
         nothing at all -- so the over-scan reads dead space, not another Pokemon-bearing structure."""
         cases = {"agate_shopmenu_20260915.bin": 0x80479200,
                  "reboot_shopmenu_20260915.bin": 0x80479200,

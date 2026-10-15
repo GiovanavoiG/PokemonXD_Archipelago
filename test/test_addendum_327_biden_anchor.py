@@ -1,9 +1,9 @@
 """ADDENDUM 327 -- Biden (Any) is anchored in the Snagem Hideout, and Zook (Any) stays filler-only.
 
-Player: "Biden (Any) is only accessible through Snagem Hideout. Also, Exclude Zook (Any)."
+Biden (Any) is only accessible through the Snagem Hideout, and Zook (Any) is excluded.
 
 Both of Biden's fights are missable, so `_build`'s non-missable preference had nothing to choose between and
-the earliest regioned occurrence won -- Biden #1, Cipher Key Lair (exterior). The player has played it: the
+the earliest regioned occurrence won -- Biden #1, Cipher Key Lair (exterior). In play, the
 fight you can actually get is #2, in the hideout. Too EARLY is the dangerous direction for an anchor, because
 the fill treats the location as available in a sphere the player cannot reach it in."""
 import unittest
@@ -23,13 +23,13 @@ class TestBidensAnchor(unittest.TestCase):
     These two tests used to assert the MECHANISM -- anchor index 148, and `ANCHOR_OVERRIDES == {"BIDEN"}`.
     ADDENDUM 330 found why the override was needed at all: the census had Biden #1's and Biden #2's regions
     swapped, so the earliest regioned occurrence was the Key Lair exterior and the derivation could not reach
-    the player's answer. With `trainer_placements.PLACEMENT_REGION_OVERRIDES` correcting the swap, it reaches
+    the right answer. With `trainer_placements.PLACEMENT_REGION_OVERRIDES` correcting the swap, it reaches
     it unaided and the override is gone.
 
-    So the player's requirement is what gets asserted, not the machinery that used to deliver it."""
+    So the requirement is what gets asserted, not the machinery that used to deliver it."""
 
     def test_it_is_the_snagem_fight(self) -> None:
-        """The player's sentence, verbatim: "Biden (Any) is only accessible through Snagem Hideout"."""
+        """Biden (Any) is only accessible through the Snagem Hideout."""
         row = _row("BIDEN")
         self.assertEqual("Snagem Hideout", row["region"])
         self.assertEqual("Snagem Hideout", tp.region_for(row["anchor_index"]))
@@ -52,7 +52,7 @@ class TestBidensAnchor(unittest.TestCase):
 
 
 class TestZookStaysExcluded(unittest.TestCase):
-    def test_the_ruling_is_still_on_file(self) -> None:
+    def test_the_exclusion_is_still_on_file(self) -> None:
         self.assertIn("ZOOK", rt.ALWAYS_FILLER_SURNAMES)
         self.assertTrue(_row("ZOOK")["always_filler"])
 
@@ -75,6 +75,6 @@ class TestInARealSeed(PokemonXDTestBase):
     def test_both_any_defeats_hold_filler_only(self) -> None:
         from BaseClasses import LocationProgressType
 
-        # ADDENDUM 436: Zook's ruling stands; Biden's Snagem fight is not missable, so his check is an ordinary one.
+        # ADDENDUM 436: Zook's exclusion stands; Biden's Snagem fight is not missable, so his check is an ordinary one.
         self.assertEqual(LocationProgressType.EXCLUDED, self._location("Defeat Zook (Any)").progress_type)
         self.assertNotEqual(LocationProgressType.EXCLUDED, self._location("Defeat Biden (Any)").progress_type)

@@ -72,27 +72,26 @@ MART_LABELS: "dict[int, tuple[int, ...]]" = {
 # identifies the mart, "counted" means matched only by line count against shops.py, "unresolved" means the
 # data cannot split it.
 SHOP_MART_TIERS: "dict[str, dict]" = {
-    # ---- confirmed by the player from live play ----
+    # ---- confirmed from live play ----
     "Phenac City Shop": {
-        "room": 103, "marts": (1,), "confidence": "player",
-        "why": "ADDENDUM 238c: the player's own stock table for Phenac 1F lists exactly mart 1's thirteen "
+        "room": 103, "marts": (1,), "confidence": "compiled",
+        "why": "ADDENDUM 238c: the stock table for Phenac 1F lists exactly mart 1's thirteen "
                "lines -- Poke Ball, Great Ball, Ultra Ball, Antidote, Awakening, Burn Heal, Full Heal, Hyper "
                "Potion, Ice Heal, Parlyz Heal, Revive, Super Potion, Poke Snack -- and the ONLY 'after meeting "
                "Duking in Pyrite Town' annotation on that table sits on the POKE SNACK LINE. The identical note "
                "appears on Agate's Snack line too, so it is the game-wide Poke Snack unlock, not a mart swap. "
                "The earlier reading (14 -> 1) mistook that per-line note for a restock. Phenac 1F has ONE "
-               "state; mart 14 belongs to some other shop and is back in UNRESOLVED_MARTS. Player, "
-               'confirming: "these don\'t change, but are only accessible after music disc and mayor note"',
+               "state; mart 14 belongs to some other shop and is back in UNRESOLVED_MARTS. These lines don't "
+               "change, but are only accessible after the music disc and the mayor's note",
     },
     "Phenac City Shop 2F": {
-        "room": 104, "marts": (2,), "confidence": "player",
-        "why": 'player, correcting themselves mid-survey: "Wait no, you\'re right. 2F is mart 2." Mart 2 is '
-               "the six vitamins. Recorded because the first answer said mart 6, and mart 6 going back to "
-               "unassigned is what re-opened the Gateon ladder below",
+        "room": 104, "marts": (2,), "confidence": "compiled",
+        "why": "2F is mart 2, the six vitamins. Recorded because an earlier reading said mart 6, and mart 6 "
+               "going back to unassigned is what re-opened the Gateon ladder below",
     },
     "Pyrite Town Shop": {
-        "room": 121, "marts": (3, 13), "confidence": "player",
-        "why": 'player: "Pyrite is 3>13"',
+        "room": 121, "marts": (3, 13), "confidence": "compiled",
+        "why": "Pyrite is mart 3, then mart 13",
     },
     # ---- confirmed by preserved vanilla stock ----
     "Agate Village Shop": {
@@ -107,7 +106,7 @@ SHOP_MART_TIERS: "dict[str, dict]" = {
         "room": None, "marts": (7, 20), "confidence": "confirmed", "excluded": True,
         "why": "the only marts holding the four herbs; 7 and 20 are the SAME pool slice, so this is one "
                "stock list reached twice, not a restock -- it introduces no second set of lines. "
-               "EXCLUDED 2026-09-17 by the player's decision (\"Herb shop is fine as excluded\"): it has no "
+               "EXCLUDED 2026-09-17: it has no "
                "room id in the RoomAndStoryByteData compilation, so the client could never identify a "
                "purchase there, and `shops.SHOPS` has no row for it -- it creates no locations. Its four "
                "slots are still PATCHED, exactly like the Battle CD shop's nine (see that row): a shop left "
@@ -116,32 +115,32 @@ SHOP_MART_TIERS: "dict[str, dict]" = {
                "instead of an oversight -- and so that supplying a room id later is a deliberate reversal "
                "rather than an accident",
     },
-    # ---- closed by the player's own stock tables for these three rooms ----
+    # ---- closed by the stock tables for these three rooms ----
     "Outskirt Stand Shop": {
         # ADDENDUM 394: was 164 -- the EXTERIOR. Measured live: the counter is inside, room 163. This is a
         # SECOND copy of a room id that shops.py also holds, which is how it went stale unnoticed; the test
         # that cross-checks the two is what caught it.
         "room": 163, "marts": (8,), "confidence": "confirmed",
-        "why": "the player's table lists Full Heal, Hyper Potion, Nest Ball, Net Ball, Revive, Super Potion, "
+        "why": "the stock table lists Full Heal, Hyper Potion, Nest Ball, Net Ball, Revive, Super Potion, "
                "Timer Ball, Ultra Ball and a Poke Snack -- mart 8's nine lines exactly, and nothing on it is "
                "annotated except the Snack, so it is a single shelf that never restocks",
     },
     "Realgam Tower Shop": {
-        "room": 50, "marts": (0,), "confidence": "player",
-        "why": "the player's table lists Hyper Potion, Full Heal, Revive and nine TMs (10/14/15/16/17/20/25/"
+        "room": 50, "marts": (0,), "confidence": "compiled",
+        "why": "the stock table lists Hyper Potion, Full Heal, Revive and nine TMs (10/14/15/16/17/20/25/"
                "33/38) -- mart 0 exactly, the only TM shop in the table -- plus a Poke Snack, which mart 0 does "
                "NOT carry. Immaterial to checks (a Snack is never one) but recorded: it means the Snack line is "
                "not always part of the mart slice. Nothing else is annotated, so this shelf never restocks",
     },
     "Gateon Port Shop": {
         "room": 156, "marts": (6, 14, 15), "confidence": "elimination",
-        "why": "mart 15 is the player's table read straight off: Poke Ball, Great Ball, Ultra Ball, Potion, "
+        "why": "mart 15 is the stock table read straight off: Poke Ball, Great Ball, Ultra Ball, Potion, "
                "Super Potion, Hyper Potion, Max Potion, Full Restore, five status heals, Full Heal, Revive and "
                "a Poke Snack -- sixteen lines, fifteen buyable, exactly what shops.py allocates. The two "
                "earlier tiers are forced BY ELIMINATION rather than matched: with 0, 1, 2, 3, 4, 5, 7, 8, 9, "
                "10, 11, 12, 13, 16, 17, 18, 19, 20 all now having a confirmed home, marts 6 and 14 are the "
                "only ones left and Gateon is the only shop still needing earlier tiers. 6 + 5 + 4 = 15, "
-               "which is the right total. SEE THE CAVEAT ON TIER_GATES BELOW -- the player's per-item "
+               "which is the right total. SEE THE CAVEAT ON TIER_GATES BELOW -- the per-item "
                "conditions do not split cleanly across these three marts",
     },
     # ---- matched on line count alone; NOT proven, and one guess of this kind has already been wrong ----
@@ -152,7 +151,7 @@ SHOP_MART_TIERS: "dict[str, dict]" = {
     "Realgam Battle Sim Shop": {
         "room": 61, "marts": (16, 17, 18), "confidence": "counted", "excluded": True,
         "why": "three disjoint 3-line Battle CD marts summing to the 9 lines shops.py records. EXCLUDED "
-               "2026-09-15 at the player's instruction (\"Exclude the whole battle CD shop\") -- the row is "
+               "2026-09-15, the whole Battle CD shop -- the row is "
                "kept so the mart mapping and the three-tier structure survive, but shops.py marks the room "
                "unconfirmed so it creates no locations and credits no purchase",
     },
@@ -164,7 +163,7 @@ SHOP_MART_TIERS: "dict[str, dict]" = {
 UNRESOLVED_MARTS: "tuple[int, ...]" = ()
 UNRESOLVED_SHOPS: "tuple[str, ...]" = ()
 
-# What opens each later tier, from the player's live play. A tier with no entry has no known gate and must
+# What opens each later tier, from live play. A tier with no entry has no known gate and must
 # not be given a guessed one.
 TIER_GATES: "dict[tuple[str, int], dict]" = {
     ("Agate Village Shop", 12): {
@@ -184,7 +183,7 @@ TIER_GATES: "dict[tuple[str, int], dict]" = {
         "regions": ("Pyrite Town", "Poke Spots", "Pyrite Town (ONBS)"),
         "items": (),   # ADDENDUM 406
         "adds": "a Poke Ball line and a Great Ball line, plus Super Potion, Full Heal and Revive -- the last "
-                "three are unannotated on the player's table and are gated here only because they share a "
+                "three are unannotated on the stock table and are gated here only because they share a "
                 "mart with the Great Ball (see the elimination caveat above)",
     },
     ("Gateon Port Shop", 15): {
@@ -392,8 +391,8 @@ assert _snack_and_scent_lines_have_no_label(), (
 # Agate mart takes as many lines from the front of this list as it has patchable slots -- 7, 8 and 9, the
 # Scents staying. Asserted below so a shorter mart cannot silently drop a ball.
 AGATE_PIT_STOP_SHOP = "Agate Village Shop"
-# ADDENDUM 387 moved the Revive up. Player: "Add revives to the agate village pit stop in place of
-# something, prior to the expansion. Maybe hyper potions." The order matters because a mart takes lines from
+# ADDENDUM 387 moved the Revive up so the Agate Village pit stop carries Revives before the expansion, in the
+# Hyper Potion's place. The order matters because a mart takes lines from
 # the FRONT: Agate's three marts are 7, 8 and 9 lines, so anything past position 7 is only on the shelf
 # after a restock. The Revive sat at 8 and the smallest shelf therefore never carried one -- the item you
 # most want at a pit stop was the one gated behind the expansion. It now takes the Hyper Potion's place at

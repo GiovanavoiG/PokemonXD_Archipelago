@@ -1,8 +1,7 @@
 """ADDENDUM 384 (2026-09-28) -- the experience formula's own divisor.
 
-Player: "It's base times level over seven - can we just... change the seven? So the division is less
-impactful? Modify the exp formula?" then "make the exp multiplier range as high as reasonable with that
-option."
+Experience is base times level over seven. Changing the seven makes the division less impactful, and with
+that the exp multiplier's range goes as high as is reasonable.
 
 WHERE THE SEVEN IS. The award routine is four instructions:
 
@@ -146,7 +145,7 @@ class TestChoosingTheDivisor(unittest.TestCase):
     def test_vanilla_asks_for_no_patch_at_all(self) -> None:
         self.assertEqual(ss.EXP_DIVISOR_VANILLA, ss.choose_exp_divisor(100))
 
-    def test_it_never_overshoots_what_the_player_asked_for(self) -> None:
+    def test_it_never_overshoots_the_target(self) -> None:
         for rate in range(100, ss.RATE_MAX + 1, 5):
             divisor = ss.choose_exp_divisor(rate)
             self.assertLessEqual(ss.divisor_speedup(divisor), rate / ss.RATE_SCALE + 1e-9, rate)
@@ -188,7 +187,7 @@ class TestChoosingTheDivisor(unittest.TestCase):
 
 class TestThePlannerIsToldWhatTheDivisorAlreadyBought(unittest.TestCase):
     """ADDENDA 243/257: two sources of truth is the bug. Both levers multiply, so the tables must plan
-    the REMAINDER or the seed delivers the square of what the player asked for."""
+    the REMAINDER or the seed delivers the square of what the option asks for."""
 
     def setUp(self) -> None:
         self.species = {i: (60 + (i % 40), i % 6) for i in range(1, 300)}
@@ -204,7 +203,7 @@ class TestThePlannerIsToldWhatTheDivisorAlreadyBought(unittest.TestCase):
         plan = ss.plan_experience_rate(self.species, 1000, from_divisor=ss.divisor_speedup(1))
         self.assertLess(plan["achieved_mean"], 1000 / 700 + 0.05)
 
-    def test_the_two_levers_multiply_to_about_what_was_asked(self) -> None:
+    def test_the_two_levers_multiply_to_about_the_target(self) -> None:
         for rate in (150, 250, 400, 700, 850, 1000):
             divisor = ss.choose_exp_divisor(rate)
             speedup = ss.divisor_speedup(divisor)

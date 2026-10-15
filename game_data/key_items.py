@@ -26,7 +26,7 @@ class KeyItem:
 # The nine items that appear in a real access rule, plus the ones deliberately left vanilla.
 KEY_ITEMS: "tuple[KeyItem, ...]" = (
     KeyItem("Machine Part", 503, gates=("Agate Village",),
-            note="obtained at the Gateon Port parts shop (player, 2026-09-13)"),
+            note="obtained at the Gateon Port parts shop (2026-09-13)"),
     KeyItem("Data ROM", 505, gates=("Lovrina 1", "Lovrina Defeat Item (chest 17)", "Chest 23", "Naps 2"),
             note="ADDENDUM 406: not the Cipher Lab, Pyrite Town, the Poke Spots or the ONBS raid"),
     KeyItem("ID Card", 506, gates=("Chest 27", "Lovrina 1"),
@@ -34,7 +34,7 @@ KEY_ITEMS: "tuple[KeyItem, ...]" = (
     KeyItem("Music Disc", 507, gates=("Phenac City (Mayor's House)", "Phenac City (Post-Sixes)")),
     KeyItem("Mayor's Note", 509, gates=("Phenac City (Post-Sixes)", "SS Libra (stranded)")),
     KeyItem("Elevator Key", 501, gates=("SS Libra (stranded)",), shuffled=False,
-            note="chest 79 stays vanilla -- the player reports taking it out of place locks you in the room"),
+            note="chest 79 stays vanilla -- taking it out of place locks you in the room"),
     KeyItem("System Lever", 508, gates=("Cipher Key Lair (deep)", "Acrod", "Smarton", "Gorigan 1")),
     KeyItem("Gonzap's Key", 504, in_pool=False, shuffled=False,
             note="left vanilla: the container it opens is not in XDTreasureBoxData, so it gates no AP location"),
@@ -48,7 +48,7 @@ KEY_ITEM_BY_GAME_ID: "dict[int, KeyItem]" = {k.game_item_id: k for k in KEY_ITEM
 POLLED_GAME_ITEM_IDS: "frozenset[int]" = frozenset(k.game_item_id for k in KEY_ITEMS if k.shuffled and k.in_pool)
 
 # Items that exist in the game and are NOT part of this world's logic -- recorded so the ids are not re-hunted.
-# The player's instruction was to drop all of these from the pool for now.
+# All of these are dropped from the pool for now.
 FLAVOUR_ITEM_IDS: "dict[str, int]" = {
     "Bonsly Card": 502, "Miror Radar": 510, "Cologne Case": 512, "Sun Shard": 516, "Moon Shard": 517,
     "Bonsly Photo": 518, "Cry Analyzer": 519, "Disc Case": 533,
@@ -60,7 +60,7 @@ KRANE_MEMO_GAME_ITEM_IDS: "dict[int, int]" = {n: 522 + n for n in range(1, 6)}
 
 # Items resolved from the ISO that this project has no use for, kept so they are never mistaken for a gap.
 UNUSED_RESOLVED_IDS: "dict[str, int]" = {
-    "Safe Key": 500,        # exists in the game; the player's instruction was to ignore it
+    "Safe Key": 500,        # exists in the game; deliberately ignored
     "Poke Snack": 511,
     "Joy Scent": 513, "Excite Scent": 514, "Vivid Scent": 515,
 }

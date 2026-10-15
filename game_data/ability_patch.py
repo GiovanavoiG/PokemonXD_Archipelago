@@ -1,9 +1,7 @@
 """ADDENDUM 453 / 454 -- the ABILITY SWAP.
 
-Player (453): "Can we make an item that cycles through a pokemon's abilities called ability patch? Add it as an item
-that appears in gateon shop after all kyogre parts, make it 2000 dollars, and make it appear regardless of options."
-Player (454): "Can you rework it and shorten the name then? Does AbilitySwap fit, or AbilityPatch without a space? I
-want it as a use item not held."
+A use item (not a held item) that cycles a Pokemon's ability. It appears in the Gateon shop after all Kyogre Parts,
+costs 2000, and appears regardless of options.
 
 THE ITEM is the GREEN SHARD (51). XD carries it over from Ruby/Sapphire with no use and no source in this world, and
 its name is eleven letters, so "ABILITYSWAP" fits the name string in place (names are rewritten equal-length only,

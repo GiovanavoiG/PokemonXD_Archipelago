@@ -1,6 +1,6 @@
 """ADDENDUM 450 -- guaranteed catches that spare Citadark Isle / Greevil without switching the guarantee off.
 
-Player: "Didn't we find a way to write this in memory so that these didn't break the catch rate elsewhere?"
+The exclusions are written into memory so that they do not break the catch rate elsewhere.
 
 WHY THE EXCLUSIONS USED TO COST THE GUARANTEE (ADDENDUM 416). The guarantee is the community Action Replay word at
 0x80219324: `b +0x154` over `WS_BALL_THROW`'s ball-bonus `bctr`, straight to `li r28,4` (four shakes -- the path a

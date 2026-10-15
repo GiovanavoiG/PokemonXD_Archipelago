@@ -140,7 +140,7 @@ class TestScoring(unittest.TestCase):
                            T._fingerprint_score(entry, {"GLIGAR"}, None))
 
     def test_max_hp_separates_two_encounters_that_share_every_species(self) -> None:
-        """The failure the player anticipated when asking for a second axis: species alone can tie."""
+        """The failure a second axis exists for: species alone can tie."""
         early = _entry(["ZUBAT"], bands={"ZUBAT": [20, 26]})
         late = _entry(["ZUBAT"], bands={"ZUBAT": [90, 120]})
         self.assertGreater(T._fingerprint_score(late, {"ZUBAT"}, None, {"ZUBAT": 101}),
@@ -241,7 +241,7 @@ class TestDispatch(unittest.TestCase):
         )
 
     def test_the_same_team_twice_checks_off_one_location(self) -> None:
-        """ADDENDUM 362, the player's own case: "miror b 3 would send after defeating 3 of his unique teams."
+        """ADDENDUM 362's case: Miror B. #3 sends only after defeating three of his unique teams.
         Before this, three wins against one colosseum rematch consumed #1, #2 and #3."""
         tracker = rc.TrainerBattleDefeatTracker()
         self.assertEqual(_fight(tracker, ("PIDGEY", "SEEL")), ["Defeat - Dosk #1"])
@@ -288,7 +288,7 @@ class TestDispatch(unittest.TestCase):
 
     def test_an_unrecognised_or_ambiguous_team_falls_back_to_what_was_on_the_field(self) -> None:
         """RETARGETED 2026-09-26 (ADDENDUM 362). The fallback used to be story order; it is now the observed
-        team itself, the player's own choice when asked. Two candidates matching equally well is still no
+        team itself. Two candidates matching equally well is still no
         evidence, so nothing is identified -- but the win is still recognisable as a rematch next time."""
         tracker = rc.TrainerBattleDefeatTracker()
         self.assertEqual(_fight(tracker, ("MAGIKARP", "ZUBAT")), ["Defeat - Dosk #1"])

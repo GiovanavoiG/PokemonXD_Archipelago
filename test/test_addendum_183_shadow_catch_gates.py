@@ -1,9 +1,9 @@
 """ADDENDUM 183 (2026-09-13): Shadow Pokemon catches are gated by the snag floor and their holder's own logic.
 
-Player instruction, verbatim: "Catch Eevee is the starter pokemon, yes. Eeveelution is accessible so long as
-gateon is, which is always. Make shadow pokemon catches excluded UNTIL we have pyrite town and the miror radar
-(vanilla location.) Gate the pokemon by which trainer they were given to/their location/their logic. Include
-our generated shadow pokemon."
+Catch Eevee is the starter Pokemon. The Eeveelution is accessible whenever Gateon is, which is always. Shadow
+Pokemon catches stay excluded until Pyrite Town and the Miror Radar (at its vanilla location) are reachable, and
+each one is gated by the trainer it was given to, that trainer's location and its logic. Generated shadow Pokemon
+are included.
 
 This closes ADDENDUM 182's F1, which made five of ten audited seeds unwinnable: `rules._SPECIES_TO_REGION` is
 built from ORDINARY (DPKM) trainer teams, while every species that gets a catch location comes from the DDPK
@@ -142,7 +142,7 @@ class TestCatchGatesInAWorld(PokemonXDTestBase):
         self.assertEqual(missing, [], "catch locations exist for species with no resolved source at all")
 
     def test_generated_shadows_are_included(self) -> None:
-        """Player: "Include our generated shadow pokemon." With shadow_pokemon_expansion at 44 there are
+        """Generated shadow Pokemon are gated too. With shadow_pokemon_expansion at 44 there are
         expansion-hosted species, and each must resolve through its HOST trainer's index."""
         world = self.multiworld.worlds[self.player]
         hosts = getattr(world, "_shadow_catch_expansion_hosts", {})
@@ -183,7 +183,7 @@ class TestCatchGatesInAWorld(PokemonXDTestBase):
         self.assertGreater(checked, 20, "too few shadow-sourced catches examined to be meaningful")
 
     def test_an_unplaceable_species_is_filler_only_rather_than_ungated(self) -> None:
-        """A species whose every source is a census row the player marked filler-only has no honest gate. The
+        """A species whose every source is a census row marked filler-only has no honest gate. The
         safe answer is EXCLUDED -- never 'leave it open and progression-eligible', which is the exact shape
         ADDENDUM 182 found fatal."""
         _gates, unplaceable = self._gates()

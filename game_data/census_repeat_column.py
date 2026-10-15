@@ -1,4 +1,4 @@
-"""The `Repeat?` and `Missable?` columns of the player's trainer census workbook, transcribed verbatim.
+"""The `Repeat?` and `Missable?` columns of the trainer census workbook, transcribed verbatim.
 
 Generated from `pokemon_xd_trainers.xlsx`, sheet "Trainers", one entry per data row in index order, read with
 openpyxl rather than by hand. The sheet's single `EXAMPLE` row is dropped; the remaining 232 match the roster.
@@ -262,14 +262,14 @@ WORKBOOK_BLANK_REPEAT_COUNT = 109
 
 def is_a_one_shot_fight(index: int) -> bool:
     """True when the workbook says this occurrence can be permanently walked past. Either column is enough --
-    `Missable?` is the player's field note, "earlier (N of M)" is the structural fact."""
+    `Missable?` is a field note, "earlier (N of M)" is the structural fact."""
     entry = CENSUS_REPEAT_AND_MISSABLE.get(index)
     if entry is None:
         return False
     repeat, missable = entry
-    # ADDENDUM 460: the player's "unmissable" rulings overrule the `Missable?` column. "earlier (N of M)" is not a
+    # ADDENDUM 460: the trainers listed as unmissable overrule the `Missable?` column. "earlier (N of M)" is not a
     # missability claim and still counts -- that row is fought once, before a later one.
-    from .missable_indices import PLAYER_RULED_UNMISSABLE
-    if index in PLAYER_RULED_UNMISSABLE:
+    from .missable_indices import CONFIRMED_UNMISSABLE
+    if index in CONFIRMED_UNMISSABLE:
         missable = False
     return bool(missable) or (repeat is not None and repeat.startswith("earlier"))

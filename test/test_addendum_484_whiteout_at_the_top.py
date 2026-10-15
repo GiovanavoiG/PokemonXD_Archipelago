@@ -1,8 +1,7 @@
 """ADDENDUM 484 (2026-10-13) -- the white-out is counted at the top, and our own death is never sent back.
 
-Player: "for our deathlink check through code, make sure it sends at the top of the annihilation function, not at the
-end. Ensure that we don't send a duped one even if we receive a deathlink out of battle and white out at the start
-of a battle, etc."
+The Death Link check sends at the top of the annihilation function, not at the end, and never sends a duplicate --
+even when a Death Link is received out of battle and the white-out happens at the start of a battle.
 """
 from __future__ import annotations
 
@@ -34,7 +33,7 @@ class TestTheHookIsAtTheTop(unittest.TestCase):
     def test_the_counter_did_not_move(self) -> None:
         self.assertEqual(0x80067444, wc.COUNTER_ADDRESS)
 
-    @unittest.skipUnless(DOL.is_file(), "needs the player's main.dol")
+    @unittest.skipUnless(DOL.is_file(), "needs a real main.dol")
     def test_each_stub_counts_once_and_returns_with_r3_as_the_game_set_it(self) -> None:
         """Run the patched words: a tiny interpreter over the real main.dol."""
         data = DOL.read_bytes()

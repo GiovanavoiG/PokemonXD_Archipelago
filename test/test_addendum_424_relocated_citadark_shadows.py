@@ -1,10 +1,9 @@
 """ADDENDUM 424 (2026-10-06) -- Greevil keeps Lugia; the other Citadark Shadows move instead of vanishing; and the
 Colosseum teams' own trainer AI, decoded and translated exactly.
 
-Player: "Greevil's first team is just shadow lugia - don't replace that one. Also, now that those 36 shadow pokemon
-aren't in those spots, can they be shuffled/added into the rest of the trainers?" ... "Obviously still only give
-the shadow pokemon to non-missable trainers." ... "Also, can you please try to decipher the colosseum trainer AI?
-Work hard at it. It'd be nice to have it be exact."
+Greevil's first team is just Shadow Lugia and is not replaced. The 36 Shadow Pokemon no longer in those spots are
+shuffled/added into the rest of the trainers -- still only onto non-missable trainers. And the Colosseum trainer
+AI is deciphered exactly.
 """
 from __future__ import annotations
 

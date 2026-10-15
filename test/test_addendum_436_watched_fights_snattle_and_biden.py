@@ -1,12 +1,11 @@
 """ADDENDUM 436 (2026-10-08) -- fights the player only watches, the Phenac Cipher fights, and Biden.
 
-Player: "Missable Phenac trainers should send upon defeating Snattle (ONLY cipher members). Bost is fine like that.
-Biden is actually NOT missable with our current settings in Snagem, so remove his check from Key Lair defeat and
-instead just assign him to Snagem."
+Missable Phenac trainers send upon defeating Snattle (Cipher members ONLY); Bost stays as he is. Biden is NOT
+missable in Snagem with the current settings, so his check moves off the Key Lair defeat and onto Snagem.
 
-Then: "The two fights where the player doesn't act are ardos vs zook in gateon, and zook vs biden in key lair. Make it
-so those fights DO NOT send a check, remove the #1/#2 checks, and make their check send upon defeat in
-Citadark/Key Lair/Snagem for Ardos, Zook and Biden respectively."
+The two fights where the player does not act are Ardos vs Zook in Gateon and Zook vs Biden in the Key Lair. Those
+fights DO NOT send a check, their #1/#2 checks are removed, and the check for Ardos, Zook and Biden sends upon
+defeating them in Citadark, the Key Lair and Snagem respectively.
 """
 from __future__ import annotations
 
@@ -137,7 +136,7 @@ class TestThePhenacCipherFightsWaitForSnattle(unittest.TestCase):
             self.assertEqual((in_phenac and cipher) or invasion, label in released, label)
 
     def test_bost_unchanged(self):
-        # ADDENDUM 460: Bost is ruled unmissable -- an ordinary check now, never auto-sent.
+        # ADDENDUM 460: Bost is unmissable -- an ordinary check now, never auto-sent.
         self.assertNotIn("Defeat - Bost", ma.AUTO_SEND_AT_STORY_BYTE)
 
 

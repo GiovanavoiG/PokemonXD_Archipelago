@@ -1,8 +1,5 @@
 """ADDENDUM 450 -- Purification Rate scales what LOWERS the heart gauge, not the gauge itself.
 
-Player: "Rather than edit the shadow gauge itself, can we instead increase the values of the things that reduce it?
-Editing the shadow gauge is breaking it."
-
 ADDENDUM 440 shrank every Shadow's heart gauge (DDPK +0x08). That broke the gauge in play. This leaves every gauge
 vanilla and multiplies the reductions instead.
 

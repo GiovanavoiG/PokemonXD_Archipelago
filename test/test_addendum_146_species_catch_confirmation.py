@@ -1,7 +1,7 @@
 """ADDENDUM 146 (2026-09-11): the save-menu glitch reaching "Catch - {species}" locations.
 
-Player report: "Opening the save menu is sending checks for pokemon caught on the previous save -- fix the same
-as the other dupe checks?"
+Opening the save menu was sending checks for Pokemon caught on the previous save -- the same shape as the other
+duplicate checks.
 
 Same family as ADDENDUM 98/99, but with a worse failure cost: the chest and purification versions of this bug
 sent locations early that were going to be checked anyway, so the server's dedup absorbed them. This one sends

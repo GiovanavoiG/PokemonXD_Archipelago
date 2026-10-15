@@ -1,22 +1,22 @@
 """ADDENDUM 162 (2026-09-12): the Robo Kyogre Part MacGuffin, and the story-byte override it drives.
 
-Player: "Let's add a maguffin item that enables victory. Name them Robo Kyogre Part. Default it to 8 needed,
-range of 1-20. Default how many are available to 12, range of 1-40. When the amount is reached, we flip the
-story bit to 0xFF upon entering Gateon - which allows the player to go to citadark from Gateon."
+Robo Kyogre Parts are a MacGuffin item that enables victory: 8 needed by default (range 1-20), 12 available by
+default (range 1-40). When enough are held, the story byte is flipped to 0xFF upon entering Gateon, which allows
+the player to go to Citadark from Gateon.
 
-REDESIGNED the same day (ADDENDUM 163) on two corrections:
+REDESIGNED the same day (ADDENDUM 163):
 
-  * "I want robo-kyogre to be included with the defeat greevil victory condition, not its own condition -
-    collecting the parts will let us UNLOCK citadark, where the player can then go beat greevil." The Parts
+  * The Parts belong to the Defeat Greevil victory condition, not a condition of their own: collecting them
+    UNLOCKS Citadark, where the player can then go beat Greevil. The Parts
     briefly were their own Goal choice. They are a KEY: they gate the Citadark Isle entrance, alongside the
     Krane Memos it always needed. Goal and the Ein File S boss rule are untouched.
-  * "Unlocking citadark is done through flipping that story bit - it's done automatically with that condition."
+  * Citadark is unlocked by flipping that story byte, automatically, with that condition.
     So the story-byte write IS the unlock, not a separate experiment, and the second toggle that used to gate it
     is gone. One option now does both halves -- which is the point: logic and the game agree by construction.
 
-And, on what the override is groundwork for: "when we leave an area, our story byte in that area is saved AND
-REAPPLIED when we go back there... Do not make this the default yet." Hence the general save-and-restore with
-one wiring, and an option that is off by default.
+And the override is groundwork for more: when the player leaves an area, its story byte is saved AND REAPPLIED on
+the way back -- not yet a default. Hence the general save-and-restore with one wiring, and an option that is off
+by default.
 
 RETARGETED 2026-09-13 (ADDENDUM 168) throughout the two world-building test classes below. Two things this
 file asserted are gone:
@@ -61,14 +61,14 @@ ONE_SHORT = FULL_CHAIN - 1
 
 
 # ADDENDUM 335 (2026-09-24): the probe used to be "Citadark Isle - Pre-Boss Item", one of the fourteen
-# uncertain Overworld Items the player has now played and ruled not real. Any Citadark location does this job
+# uncertain Overworld Items since found in play not to be real. Any Citadark location does this job
 # -- what these tests measure is the REGION's gate, never the location -- so it is a real chest now, and one
 # constant rather than two classes naming their own.
 CITADARK_PROBE = "Citadark Isle Chest 2"
 
 
 class TestTheOptions(unittest.TestCase):
-    def test_the_ranges_and_defaults_are_what_was_asked_for(self) -> None:
+    def test_the_ranges_and_defaults(self) -> None:
         self.assertEqual((RoboKyogrePartsRequired.range_start, RoboKyogrePartsRequired.range_end), (1, 20))
         self.assertEqual(RoboKyogrePartsRequired.default, 8)
         self.assertEqual((RoboKyogrePartsAvailable.range_start, RoboKyogrePartsAvailable.range_end), (1, 40))
@@ -76,7 +76,7 @@ class TestTheOptions(unittest.TestCase):
 
     def test_one_option_does_both_halves_and_is_on_by_default(self) -> None:
         """ADDENDUM 163 collapsed two switches into one. It writes to save data, so it is never a default."""
-        # FLIPPED 2026-09-14 (ADDENDUM 196): on by default, per the player's own YAML ("On by default.").
+        # FLIPPED 2026-09-14 (ADDENDUM 196): on by default.
         self.assertEqual(RoboKyogrePartsUnlockCitadark.default, 1)
 
     def test_the_parts_are_not_a_goal(self) -> None:
@@ -157,7 +157,7 @@ class TestPartsGateCitadark(PokemonXDTestBase):
         self.assertTrue(self._reach(self.CITADARK, FULL_CHAIN, 8))
 
     def test_the_parts_are_on_top_of_the_key_item_chain_not_instead_of_it(self) -> None:
-        """SUPERSEDED by ADDENDUM 435. Player: "Citadark with location shuffle off can be parts-only". The Parts ARE
+        """SUPERSEDED by ADDENDUM 435: with location shuffle off, Citadark can be parts-only. The Parts ARE
         the route now -- the Robo Kyogre ride from Gateon -- so holding every Part with the key-item chain one
         short opens the island, and the chain alone still does not."""
         self.assertTrue(self._reach(self.CITADARK, ONE_SHORT, 12))
@@ -230,8 +230,8 @@ class TestWithTheOptionOff(PokemonXDTestBase):
 
 class TestImpossibleConfigurationIsCaughtEarly(unittest.TestCase):
     def test_requiring_more_parts_than_exist_raises_the_supply(self) -> None:
-        """ADDENDUM 406 replaced the error. Player: "make our refusals instead auto-adjust to valid settings.
-        Round available kyogre parts up to amount available" -- Available is raised to Required, and the seed
+        """ADDENDUM 406 replaced the error: a refusal auto-adjusts to valid settings instead, rounding the
+        available Kyogre Parts up -- Available is raised to Required, and the seed
         is winnable with exactly that many Parts in the pool."""
 
         class _Case(PokemonXDTestBase):
@@ -338,8 +338,8 @@ class TestStoryByteOverride(unittest.TestCase):
     def test_every_gateon_room_counts_as_inside(self) -> None:
         """All SIX room ids are one place.
 
-        WIDENED 2026-09-17 (ADDENDUM 254, player: "I have 8 robo kyogre parts - why is gateon not getting its
-        story byte written?"). This asserted the literal `{147, 153, 156}` from ADDENDUM 152's compilation,
+        WIDENED 2026-09-17 (ADDENDUM 254: a run holding 8 Robo Kyogre Parts never had Gateon's story byte
+        written). This asserted the literal `{147, 153, 156}` from ADDENDUM 152's compilation,
         which is the three rooms that set was typed from -- so it passed while the Krabby Klub basement (146)
         and both Gateon Tower floors (158, 160) silently did nothing, because it pinned the same mistake the
         code made. A test that restates a literal cannot catch the literal being wrong.
@@ -374,8 +374,8 @@ class TestStoryByteOverride(unittest.TestCase):
     # ==========================================================================================================
     # ADDENDUM 255 (2026-09-17): the hover write, and the map screen that would have undone it
     # ==========================================================================================================
-    # Player: "I want it to fire even if random_locations is off. It should write gateon as 0x6E as we hover it
-    # so long as we have the kyogre parts."
+    # It fires even with random_locations off: hovering Gateon writes its byte as 0x6E so long as the Kyogre Parts
+    # are held.
 
     MAP = rc.MAP_SCREEN_ROOM_ID
 
@@ -438,8 +438,8 @@ class TestStoryByteOverride(unittest.TestCase):
         self.assertEqual(ram.byte, 0x2F)
 
     def test_hovering_off_gateon_restores_before_the_destination_loads(self) -> None:
-        """The half the first cut of ADDENDUM 255 missed, caught by the player: "isn't 'not applying' on the
-        map going to break the system since we load in before the write?"
+        """The half the first cut of ADDENDUM 255 missed: not applying on the map would break the system, since
+        the destination loads before the write.
 
         Applying on the hover was handled; LEAVING was not. Before the hover hook existed, opening the map from
         inside Gateon put the player in room 910, `poll` read that as "not inside", and the restore happened
@@ -503,8 +503,8 @@ class TestStoryByteOverride(unittest.TestCase):
         self.assertEqual(override.applications, 1)
 
     def test_real_progress_made_inside_gateon_is_never_rolled_back(self) -> None:
-        """The player's own "UNLESS something in Pyrite allows us to go to Z story byte" clause, implemented as
-        the general rule: restore only if the live byte has not moved past the remembered one."""
+        """The exception for progress the game itself makes (something in Pyrite moving the story byte on),
+        implemented as the general rule: restore only if the live byte has not moved past the remembered one."""
         override, ram = rc.StoryByteOverride(armed=True), _Ram(0x2F)
         with _Patched(ram):
             override.poll(BLOCK_BASE, OUTSIDE)
@@ -560,7 +560,7 @@ if __name__ == "__main__":
 
 class TestItRunsInBothTravelModes(unittest.TestCase):
     """ADDENDUM 255. `check_story_byte_override` used to return early when `randomize_travel_locations` was
-    off (ADDENDUM 169's "their bytes shouldn't be edited"), which left a player holding every Part with nothing
+    off (ADDENDUM 169: those bytes are not edited), which left a player holding every Part with nothing
     to show for it. Checked over the AST -- Client.py cannot be imported in this sandbox.
 
     The narrowness is the point: ADDENDUM 169's rule still holds for every OTHER byte, and the area memory

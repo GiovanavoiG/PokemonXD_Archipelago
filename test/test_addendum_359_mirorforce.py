@@ -1,7 +1,7 @@
 """ADDENDUM 359 (2026-09-25): !mirorforce.
 
-Player: "wire in a command called !mirorforce that takes an argument. example: '!mirorforce pyrite' would
-put him in pyrite. do the same for realgam, oasis, rock, and cave."
+!mirorforce takes an argument: '!mirorforce pyrite' puts Miror B. in Pyrite, and the same works for realgam,
+oasis, rock and cave.
 
 WHAT IT ACTS ON. ADDENDUM 358 decompiled `underTakerCallBackFunc` and then watched a whole cycle live. The
 force is a change of RULE, not of counter: the step threshold (cfg+0x00) to 1 so every step rolls, the hit
@@ -29,7 +29,7 @@ from .. import ram_client as rc
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CLIENT = (ROOT / "Client.py").read_text(encoding="utf-8")
 
-# The descriptors measured live on the player's save (ADDENDUM 358).
+# The descriptors measured live on a real save (ADDENDUM 358).
 DESCRIPTORS = {1191: (1, 1144), 1415: (1, 1535), 1449: (16, 1577), 1450: (4, 1593),
                1451: (16, 1597), 1452: (16, 1613), 964: (12, 917)}
 DESC_TABLE, GROUP_TABLE, STORAGE, CFG = 0x80100000, 0x80200000, 0x80300000, 0x80400000
@@ -146,7 +146,7 @@ class TestTheFlagReader(unittest.TestCase):
 
 
 class TestArming(unittest.TestCase):
-    def test_the_five_names_are_exactly_what_was_asked_for(self):
+    def test_the_five_names_are_exact(self):
         self.assertEqual({"pyrite", "realgam", "rock", "oasis", "cave"}, set(rc.MIROR_PLACE_IDS))
 
     def test_gateon_is_not_offered_because_its_weight_is_zero(self):

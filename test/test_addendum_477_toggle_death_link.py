@@ -1,5 +1,5 @@
-"""ADDENDUM 477 (2026-10-13) -- /toggledeathlink. Player: "can we make a /toggledeathlink command that turns on/off
-the deathlink feature"."""
+"""ADDENDUM 477 (2026-10-13) -- /toggledeathlink, a command that turns the Death Link feature on and
+off."""
 from __future__ import annotations
 
 import pathlib

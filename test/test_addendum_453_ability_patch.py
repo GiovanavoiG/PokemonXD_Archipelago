@@ -1,7 +1,7 @@
 """ADDENDUM 453 (2026-10-09) -- the ABILITY PATCH, reworked by ADDENDUM 454 into the ABILITY SWAP (a USE item).
 
-Player: "Can we make an item that cycles through a pokemon's abilities called ability patch? Add it as an item that
-appears in gateon shop after all kyogre parts, make it 2000 dollars, and make it appear regardless of options."
+The Ability Patch cycles through a Pokemon's abilities. It is sold in the Gateon shop after all the Kyogre parts,
+costs 2000, and appears regardless of options.
 """
 from __future__ import annotations
 

@@ -1,13 +1,10 @@
 """ADDENDUM 467 -- a Shadow given to a trainer goes on every occurrence of that trainer; one catch clears it from all.
 
-Player: "If you're giving them a shadow pokemon, give it to the #1, #2, etc., the same pokemon. Then, if it's caught
-from ANY, remove it from all."
-
 ONE RECORD, MANY SLOTS. A trainer's Shadow slot holds a DDPK index, and the save tracks a Shadow by that index. So
 the same DDPK index is written into a free slot of each of the trainer's other occurrences (`mirror_trainer_indices`):
 whichever of them the player meets first, it is the same Shadow, met the same way. Once it is snagged (status 3,
-ADDENDUM 465) or beaten and fled to Miror B. (status 2, ADDENDUM 468) every ordinary trainer skips it -- "remove it
-from all" is the engine's own bookkeeping -- and a fled one is fielded by Miror B. alone, as in the vanilla game.
+ADDENDUM 465) or beaten and fled to Miror B. (status 2, ADDENDUM 468) every ordinary trainer skips it -- clearing it
+from all of them is the engine's own bookkeeping -- and a fled one is fielded by Miror B. alone, as in the vanilla game.
 
 WHAT GETS A COPY. Every other deck row with the host's name ("CIDA" #1/#2/#3, "NAPS" #1/#2 ...), except:
   * rows that cannot field one sensibly -- the goal fight, Citadark Isle (Nightmare teams and Shadow removal live
@@ -41,14 +38,14 @@ MAX_LEVEL_RATIO: "float | None" = 1.5
 #: Miror B. #1-#6: two Pokemon and four open slots that the game fills with the Shadows that fled (status 2).
 MIROR_B_POKE_SPOT_ROWS: "frozenset[int]" = frozenset(range(2, 8))
 
-# ADDENDUM 487. Player: "clerr/belish/dosk/dert/raling/labet/doby can be opened with the mirrors. Leave the rest as
-# is." Each has a first fight (#1) and a second (#2) in the same town, and a late player may meet only the second.
-# So the FIRST hosts the Shadow and the SECOND always carries its mirror -- the catch is in both fights, whichever the
-# player meets. {host row: its later rows in the story}. Guaranteed, not best-effort: a host is capped at the slots
-# its partners have free (`cap_census_for_mirrored_hosts`), a partner hosts nothing of its own, and `plan_mirrors`
-# places every partner copy first, past the level-ratio rule. Each trainer's last row has no region and gains a copy
-# only if a slot is left. Player, after: "You can open Cail with the mirrors too." -- Cail has three Pyrite fights,
-# so his first carries the Shadow and the second and third both carry the copy.
+# ADDENDUM 487. Clerr, Belish, Dosk, Dert, Raling, Labet, Doby and Cail are opened with the mirrors; the rest are left
+# as they are. Each has a first fight (#1) and a second (#2) in the same town, and a late player may meet only the
+# second. So the FIRST hosts the Shadow and the SECOND always carries its mirror -- the catch is in both fights,
+# whichever the player meets. {host row: its later rows in the story}. Guaranteed, not best-effort: a host is capped
+# at the slots its partners have free (`cap_census_for_mirrored_hosts`), a partner hosts nothing of its own, and
+# `plan_mirrors` places every partner copy first, past the level-ratio rule. Each trainer's last row has no region and
+# gains a copy only if a slot is left. Cail has three Pyrite fights, so his first carries the Shadow and the second
+# and third both carry the copy.
 MIRRORED_SHADOW_HOSTS: "dict[int, tuple[int, ...]]" = {
     19: (80,),        # Clerr #1 -> #2, Agate Village
     20: (81,),        # Belish #1 -> #2, Agate Village

@@ -1,6 +1,6 @@
 """ADDENDUM 363 (2026-09-26): "fits" is measured against the REAL span in both callers, not just one.
 
-Player, with a screenshot of the patcher's own error dialog:
+The patcher's own error dialog:
 
     Could not patch the ISO:
     new_entry_blob (16640 bytes) is not larger than DeckData_Story.bin's real on-disk span to the next entry
@@ -98,7 +98,7 @@ class TestGrewAgainstRealSpan(unittest.TestCase):
                                declared_comp_size=0x200, span=0x400)
 
     def test_a_blob_exactly_filling_the_real_span_is_not_growth(self) -> None:
-        """The reported case, reduced. 16640 vs 16640 said "not larger than", and not-larger-than is precisely
+        """The failing case, reduced. 16640 vs 16640 said "not larger than", and not-larger-than is precisely
         the condition under which nothing needs to move."""
         self.assertFalse(
             iso_patcher._grew_against_real_span(self.fsys, STORY, b"\x00" * 0x400, grew=True)
@@ -141,7 +141,7 @@ class TestTheInPlaceGuard(unittest.TestCase):
 
 class TestTheWholePatchNoLongerRefusesAnEditThatFits(unittest.TestCase):
     def test_an_edit_over_the_declared_size_but_inside_the_real_span_writes_in_place(self) -> None:
-        """End to end through `write_deck_story_patch`, which is the function the player's dialog came from.
+        """End to end through `write_deck_story_patch`, which is the function that dialog came from.
         Before the fix this raised ValueError out of `rebuild_fsys_container_grown`."""
         base = _build_synthetic_story_decompressed()
         # Sized from measurement, not guessed: the edit must land strictly between the declared allocation
@@ -188,7 +188,7 @@ class TestTheWholePatchNoLongerRefusesAnEditThatFits(unittest.TestCase):
 class TestBothCallersShareOneAnswer(unittest.TestCase):
     def test_neither_caller_re_implements_the_span_comparison(self) -> None:
         """The actual point of this addendum. Two hand-written copies of this comparison is what let one of
-        them go unfixed from ADDENDUM 70 until the player hit it."""
+        them go unfixed from ADDENDUM 70 until it was hit in practice."""
         source = (Path(iso_patcher.__file__)).read_text()
         body = source[source.index("def write_deck_story_patch("):]
         body = body[:body.index("\ndef ", 1)]
@@ -204,7 +204,7 @@ class TestBothCallersShareOneAnswer(unittest.TestCase):
 # ============================================================================================================
 # The other half of ADDENDUM 363: the caches added because the suite got slow
 # ============================================================================================================
-# Player: "why are tests so long to run all of a sudden?"
+# The suite had suddenly become slow to run.
 #
 # Measured: 81% of the suite's wall time was world generation (786 generations, one per test method), and
 # three functions inside a generation accounted for well over half of one. All three were recomputing an

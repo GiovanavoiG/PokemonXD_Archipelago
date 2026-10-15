@@ -1,6 +1,6 @@
 """ADDENDUM 335 (2026-09-24): the fourteen uncertain Overworld Items are retired.
 
-Player, sending the tracker's own "Missing:" list back: "Delete all of these checks. None of these are real."
+Every check on the tracker's own "Missing:" list is deleted: none of them is real.
 
 The list was EXACTLY the fourteen names ADDENDUM 237 could not vouch for -- all of them, and no name it
 could. That census retired 51 Overworld Items on evidence and deliberately kept these, because the two
@@ -34,9 +34,9 @@ THE_FOURTEEN = frozenset({
 
 
 class TestTheListTransferredExactly(unittest.TestCase):
-    def test_the_set_is_the_players_list_and_nothing_more(self) -> None:
-        """Transcribed from the screenshot, asserted against the code. A fifteenth name here would mean
-        something was retired that the player did not rule on."""
+    def test_the_set_is_the_list_and_nothing_more(self) -> None:
+        """Transcribed from the tracker's list, asserted against the code. A fifteenth name here would mean
+        something was retired that was not on that list."""
         self.assertEqual(THE_FOURTEEN, census.RETIRED_UNREAL_LOCATIONS)
 
     def test_it_was_the_whole_uncertain_list(self) -> None:

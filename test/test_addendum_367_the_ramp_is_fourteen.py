@@ -1,6 +1,6 @@
 """ADDENDUM 367 (2026-09-26): all three always-open regions come off the ramp, and it is fourteen tiers.
 
-Player: *"Make sure to adjust the rest of the areas to scale with the missing area."*
+The goal: the rest of the areas scale to account for the area that was removed.
 
 WHAT I MEASURED FIRST, because the obvious reading of that turned out to be wrong. Removing Kaminko's House
 (ADDENDUM 366) re-spaced nothing: it was never its own rung -- it shared the always-open tier with Gateon Port
@@ -19,7 +19,7 @@ about when any particular fight in it happens.
 SO ALL THREE COME OFF, AND THE ARITHMETIC FALLS OUT. With no always-open region left on the ramp,
 `path_tiers` stops emitting its leading `None` tier: fourteen real tiers, re-spread across 8-50. Agate Village
 11 -> 8, Citadark Isle stays at 50, everything between moves down one to three. The endpoints are preserved
-and the spacing widens from 3.00 to 3.23 -- which is the "adjust the rest of the areas" the player asked for,
+and the spacing widens from 3.00 to 3.23 -- which is the rest of the areas adjusting to the missing one,
 arrived at by the same rule rather than imposed on top of it.
 """
 from __future__ import annotations
@@ -155,7 +155,7 @@ class TestWhatTheTrainersGet(unittest.TestCase):
         self.rows = {row["trainer_index"]: row for row in self.census}
 
     def test_chobin_one_is_still_pinned_to_five(self) -> None:
-        """The player's standing instruction, restated with this change: "Ensure Chobin 1 stays at level 5.\""""
+        """Chobin 1 stays at level 5."""
         for dpkm_index in self.rows[15]["member_levels"]:
             self.assertEqual(self.levels[dpkm_index], 5, dpkm_index)
         self.assertEqual(self.averages[15], 5.0)

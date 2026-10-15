@@ -1,6 +1,6 @@
 """ADDENDUM 139 (2026-09-11): live story-byte readout and automatic change logging.
 
-Player request: "Can you wire in a feature to check my story byte too?" Sixteen checkpoints have been captured
+The client watches the story byte itself. Sixteen checkpoints have been captured
 by hand so far, each one a bridge round trip plus a manual doc edit. The client can just watch it."""
 from __future__ import annotations
 
@@ -133,10 +133,10 @@ if __name__ == "__main__":
 
 
 class TestAnImplausibleByteIsUnreadableNotUnchanged(unittest.TestCase):
-    """ADDENDUM 256 (2026-09-17). Player, after 0xFF had been written into the byte by hand: "Why does /story
-    still show 0x6E in the arch client?"
+    """ADDENDUM 256 (2026-09-17). After 0xFF had been written into the byte by hand, /story still showed 0x6E in
+    the AP client.
 
-    Because `poll` bailed on the implausible value before updating anything and `describe()` then reported
+    That was because `poll` bailed on the implausible value before updating anything and `describe()` then reported
     `self.current` -- the last value it happened to trust, minutes stale -- with nothing marking it as old. The
     reasonable conclusion was that the write had not taken.
 

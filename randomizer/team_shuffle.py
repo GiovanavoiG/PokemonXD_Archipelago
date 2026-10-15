@@ -121,8 +121,8 @@ class TeamShuffler:
         self.rng = rng
         self.species_pool = species_pool
         self._picked_shadow_species: set[int] = set()
-        # ADDENDUM 486, player: "can we make it so shadow pokemon will never be the same evolution line?" The
-        # evolution families already taken by a Shadow -- a candidate from one of them is never offered again.
+        # ADDENDUM 486: no two Shadow Pokemon share an evolution line. The evolution families already taken by a
+        # Shadow -- a candidate from one of them is never offered again.
         self._picked_shadow_families: set[int] = set()
         self._leveled_slot_indices: set[int] = set()
         # ADDENDUM 363: the list depends only on `legendary_safe` (fixed here) and `original.is_legendary`, so

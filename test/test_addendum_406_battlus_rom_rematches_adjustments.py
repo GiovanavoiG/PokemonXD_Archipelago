@@ -1,10 +1,10 @@
 """ADDENDUM 406 (2026-10-03) -- the Mt. Battle goal, the Data ROM, the mandatory rematches, and adjust-don't-refuse.
 
-Player: "Mt Battle goal seems to be sending the clear when 100 trainers are defeated, NOT when the last mt battle
-trainer is defeated. Can you look online and make sure we send victory when the final trainer is defeated? Find
-their name. Poke spots do NOT need the data rom. Also, Cipher Lab is not gated by Data Rom - just Lovrina, her
-defeat item, and chest 23. Naps #2 is also gated there, and a mandatory fight, so make sure the mandatory/
-nonmissable rematches are still counted. Also, make our refusals instead auto-adjust to valid settings."
+The Mt. Battle goal was sending the clear when 100 trainers were defeated, NOT when the last Mt. Battle trainer
+was defeated; victory is sent when the final trainer is defeated. The Poke Spots do NOT need the Data ROM. The
+Cipher Lab is not gated by the Data ROM either -- only Lovrina, her defeat item, and chest 23 are. Naps #2 is also
+gated there and is a mandatory fight, so the mandatory/non-missable rematches are still counted. Invalid settings
+are auto-adjusted to valid ones instead of refused.
 
 THE GOAL. Mt. Battle's 100th and final trainer is Mt. Btlmaster Battlus (Bulbapedia, "Battlus": "the final trainer
 at Mt. Battle"; index 100 decodes out of the ISO as BATTLUS). Two things made the goal fire on the 100th defeat of
@@ -91,9 +91,9 @@ class TestTheClientGoal(unittest.TestCase):
 class TestTheMandatoryRematchesCount(unittest.TestCase):
     """Labels fire on the Nth distinct team, and a missable fight's team still counts toward N.
 
-    ADDENDUM 409: Aferd was this class's example (#1 missable, #2-#5 mandatory). The player then ruled "Remove
-    Aferd's rematches", so his queue is empty and his wins check nothing off. The 406 principle is now shown on
-    Laken, who the ruling left alone: #1 is missable and gone, #2 and #3 are mandatory and queued."""
+    ADDENDUM 409: Aferd was this class's example (#1 missable, #2-#5 mandatory). Aferd's rematches
+    were then removed, so his queue is empty and his wins check nothing off. The 406 principle is now shown on
+    Laken, who was left alone: #1 is missable and gone, #2 and #3 are mandatory and queued."""
 
     QUEUE = {
         "AFERD": trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["AFERD"],
@@ -108,7 +108,8 @@ class TestTheMandatoryRematchesCount(unittest.TestCase):
         return sent
 
     def test_the_queue(self) -> None:
-        # ADDENDUM 409: "Remove Aferd's rematches." -- #2-#5 are ruled out, and #1 was already gone (missable).
+        # ADDENDUM 409: Aferd's rematches are removed -- #2-#5 are in RULED_OUT_DEFEAT_LOCATIONS, and #1 was
+        # already gone (missable).
         self.assertEqual([], self.QUEUE["AFERD"])
         for n in (2, 3, 4, 5):
             self.assertIn(f"Defeat - Aferd #{n}", trainer_roster.RULED_OUT_DEFEAT_LOCATIONS)
@@ -155,8 +156,8 @@ class TestWhatTheDataRomGates(PokemonXDTestBase):
             self.assertFalse({l for l in blocked if region_of[l] in ("Poke Spots", "Pyrite Town", "Pyrite Town (ONBS)")})
             self.assertTrue(state.can_reach("Poke Spots", player=self.player))
             return
-        # ADDENDUM 418, travel shuffle off: Pyrite and everything past it. Player: "As should everything after
-        # pyrite town, which is EVERYTHING EXCEPT agate, gateon, mt battle, and cipher lab".
+        # ADDENDUM 418, travel shuffle off: Pyrite and everything past it, which is EVERYTHING EXCEPT Agate,
+        # Gateon, Mt. Battle and the Cipher Lab.
         self.assertFalse(state.can_reach("Pyrite Town", player=self.player))
         self.assertFalse(state.can_reach("Poke Spots", player=self.player))
         for location in self.multiworld.get_locations(self.player):

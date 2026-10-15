@@ -1,7 +1,5 @@
-"""ADDENDUM 152 (2026-09-11): the player's room/story compilation, and missable trainers.
-
-Player: "I've compiled some info. This isn't done yet, but record this and make sure the missable trainers are
-excluded from useful/progressive items."
+"""ADDENDUM 152 (2026-09-11): a (still incomplete) room/story compilation, recorded, and missable trainers
+excluded from useful/progression items.
 
 The second half is the load-bearing one. ADDENDUM 150 made per-trainer defeat checks eligible to hold
 progression -- correct for a fight you will certainly have, and an unwinnable seed for one you can walk past.
@@ -21,11 +19,11 @@ from ..game_data import missable_trainers, trainer_roster
 
 
 class TestTheMissableList(unittest.TestCase):
-    def test_it_holds_the_forty_seven_the_player_identified(self) -> None:
-        """EXPANDED 2026-09-13 (ADDENDUM 167) from {8, 51} to the player's full compiled list. Pinned as a
+    def test_it_holds_the_forty_seven(self) -> None:
+        """EXPANDED 2026-09-13 (ADDENDUM 167) from {8, 51} to the full compiled list. Pinned as a
         count plus spot checks rather than the whole literal set, so the set can be corrected without
         rewriting an assertion that merely restates it."""
-        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 39)  # ADDENDUM 440: +4; 460: -13 ruled unmissable
+        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 39)  # ADDENDUM 440: +4; 460: -13 unmissable
         self.assertTrue({8, 51}.issubset(missable_trainers.MISSABLE_TRAINER_INDICES),
                         "the original two must survive the expansion")
 
@@ -34,24 +32,24 @@ class TestTheMissableList(unittest.TestCase):
             self.assertIn(index, trainer_roster.TRAINERS_BY_INDEX, index)
 
     def test_only_occurrence_one_is_fenced_except_biden(self) -> None:
-        """The player's list reads "Name 1" throughout -- occurrence 1 only -- with Biden the single name they
-        listed twice. A later occurrence sneaking in would silently fence a trainer that can always be fought."""
+        """The compiled list reads "Name 1" throughout -- occurrence 1 only -- with Biden the single name it
+        lists twice. A later occurrence sneaking in would silently fence a trainer that can always be fought."""
         later = {
             index for index in missable_trainers.MISSABLE_TRAINER_INDICES
             if trainer_roster.TRAINERS_BY_INDEX[index]["occurrence"] != 1
         }
-        # ADDENDUM 409: "Make their #1 at Cipher Lab, and make their #2 at Phenac (missable, behind disc and note)."
-        # The Sixes' missable fight is their #2 (39-44), by the player's own correction, so it joins Biden 2.
+        # ADDENDUM 409: the Sixes' #1 is at Cipher Lab and their #2 at Phenac (missable, behind the Disc and Note).
+        # The Sixes' missable fight is their #2 (39-44), so it joins Biden 2.
         self.assertEqual(later, {148, 39, 40, 41, 42, 43, 44},
                          "only Biden 2 and the Sixes' #2 may be a non-first occurrence")
         for index in (39, 40, 41, 42, 43, 44):
             self.assertEqual(trainer_roster.TRAINERS_BY_INDEX[index]["occurrence"], 2, index)
 
     def test_all_six_sixes_are_fenced_with_the_corrected_names(self) -> None:
-        """The player's list said "redsix" (no such trainer), listed Greesix twice, and omitted Browsix. The
+        """The compiled list said "redsix" (no such trainer), listed Greesix twice, and omitted Browsix. The
         roster's real six are RESIX, BLUSIX, BROWSIX, YELLOSIX, PURPSIX, GREESIX at indices 33-38."""
-        # ADDENDUM 409: "make their #1 at Cipher Lab, and make their #2 at Phenac (missable, behind disc and
-        # note)". The fenced fight moved from #1 (33-38) to #2 (39-44); the names correction still holds for both.
+        # ADDENDUM 409: the Sixes' #1 is at Cipher Lab and their #2 at Phenac (missable, behind the Disc and
+        # Note). The fenced fight moved from #1 (33-38) to #2 (39-44); the names correction still holds for both.
         sixes = {39, 40, 41, 42, 43, 44}
         first = {33, 34, 35, 36, 37, 38}
         self.assertTrue(sixes.issubset(missable_trainers.MISSABLE_TRAINER_INDICES))
@@ -79,14 +77,14 @@ class TestTheMissableList(unittest.TestCase):
         # ADDENDUM 401: the 21 rows belonging to missable trainers that fight more than once no longer have a
         # location -- every numbered fight of those 20 surnames was removed -- so 26 of the 47 resolve. Aferd #1
         # and Browsix #1 were the two named here; they are now the proof of the removal rather than of the fence.
-        # ADDENDUM 409: "make their #2 at Phenac (missable, behind disc and note)" -- the Sixes' missable #2 is
+        # ADDENDUM 409: the Sixes' #2 is at Phenac (missable, behind the Disc and Note) -- the Sixes' missable #2 is
         # kept as a check, so 26 + 6 = 32 resolve. Browsix #1 is no longer on the missable list at all.
         # ADDENDUM 411: + Zook #1, kept because Ardos #1 sends it -- still a missable fight, still fenced. 33.
         # ADDENDUM 436: - Zook #1 again -- Ardos vs Zook is a fight the player only watches. 32.
         self.assertEqual(len(names), 31)  # ADDENDUM 440: +4; 460: - Bost and five Snagem fights
         self.assertNotIn("Defeat - Zook #1", names)
         self.assertIn("Defeat - Digor", names)
-        self.assertNotIn("Defeat - Bost", names)   # ADDENDUM 460: ruled unmissable
+        self.assertNotIn("Defeat - Bost", names)   # ADDENDUM 460: unmissable
         self.assertLessEqual(trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS, names)
         self.assertIn("Defeat - Browsix #2", names)
         self.assertNotIn("Defeat - Browsix #1", names)
@@ -127,12 +125,11 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
         
     }
 
-    def test_the_players_missable_compilation_is_the_fence_again(self) -> None:
+    def test_the_missable_compilation_is_the_fence_again(self) -> None:
         """INVERTED 2026-09-13 (ADDENDUM 171), RE-APPLIED 2026-09-14 (ADDENDUM 185).
 
-        171 emptied the fence on the player's "Story trainers are NOT missable". 185 puts it back on their
-        correction to that: "all of those Sixes are marked missable - can you check the excel spreadsheet
-        again? they shouldn't be carrying anything important." The workbook's own "Missable?" column has 47
+        171 emptied the fence on the premise that story trainers are not missable. 185 puts it back: the Sixes
+        are all marked missable in the workbook, so they must not carry anything important. The workbook's own "Missable?" column has 47
         rows set, including 33-38, so the data was right and only its application had been withdrawn."""
         fenced = missable_trainers.filler_only_trainer_location_names()
         # WIDENED 2026-09-14 (ADDENDUM 188): the workbook's 47 rows name 46 TRAINERS, and every occurrence of
@@ -143,8 +140,8 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
         # leaves it out. One today: `Defeat - Chobin #7`.
         # ADDENDUM 401: minus the 75 removed numbered fights too, for the same reason -- not locations, so no
         # progress type to assert.
-        # ADDENDUM 409: minus the player's ruled-out rematches and Hordel as well ("Remove all their other fights",
-        # "Hordel is not a check, so remove him") -- REMOVED_DEFEAT_LOCATIONS carries both sets.
+        # ADDENDUM 409: minus the removed rematches (all their other fights) and Hordel (not a check) as well --
+        # REMOVED_DEFEAT_LOCATIONS carries both sets.
         gone = trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS | trainer_roster.REMOVED_DEFEAT_LOCATIONS
         # ADDENDUM 410: 63 -- the six lone #1s (Cail, Clerr, Belish, Eagun, Dert, Dobit) were fenced and are gone.
         # ADDENDUM 411: 64 -- Zook #1 is a location again and fenced like every missable fight.
@@ -166,8 +163,8 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
 
     def test_every_occurrence_of_a_missable_trainer_is_fenced(self) -> None:
         """INVERTED 2026-09-14 (ADDENDUM 188). This used to assert the opposite -- that Resix #2 stayed an
-        ordinary check because only #1 is in the workbook. That reading was mine, not the player's, and it left
-        54 fights against trainers they had told us can be missed fully progression-eligible. A trainer you can
+        ordinary check because only #1 is in the workbook. That reading was wrong, and it left 54 fights against
+        trainers marked as missable fully progression-eligible. A trainer you can
         walk past is one you can walk past every time you would have met them."""
         # ADDENDUM 401 went one step further than 188's fence: the numbered fights of a missable trainer that
         # fights more than once are not locations at all now. The one-shot (Digor) is still here and still
@@ -183,12 +180,12 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
         for name in ("Defeat - Laken #3",):
             self.assertIn(name, created, name)
             self.assertEqual(self.progress_type(name), LocationProgressType.EXCLUDED, name)
-        # ADDENDUM 409: "Make their #1 at Cipher Lab, and make their #2 at Phenac (missable, behind disc and note)."
+        # ADDENDUM 409: the Sixes' #1 is at Cipher Lab and their #2 at Phenac (missable, behind the Disc and Note).
         # Both Sixes fights are checks, and both are still fenced -- the surname can be walked past.
         for name in ("Defeat - Resix #1", "Defeat - Browsix #1", "Defeat - Resix #2", "Defeat - Browsix #2"):
             self.assertIn(name, created, name)
             self.assertEqual(self.progress_type(name), LocationProgressType.EXCLUDED, name)
-        # ADDENDUM 409: "Remove Aferd's rematches" / "Remove all their other fights" -- not created at all.
+        # ADDENDUM 409: Aferd's rematches and the Sixes' other fights are removed -- not created at all.
         for name in ("Defeat - Aferd #2", "Defeat - Aferd #5", "Defeat - Resix #6", "Defeat - Browsix #4"):
             self.assertNotIn(name, created, name)
             self.assertIn(name, trainer_roster.RULED_OUT_DEFEAT_LOCATIONS, name)
@@ -201,10 +198,10 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
         WIDENED AGAIN 2026-09-14 (ADDENDUM 192) to 150, and the reason is that `Missable?` was never the only
         column. The workbook's `Repeat?` column marks 88 rows "earlier (N of M)" -- a fight with a later
         occurrence, which therefore does not come back -- and only 20 of those are also marked in `Missable?`.
-        `Defeat - Chobin #3` is the row the player named: blank in `Missable?`, "earlier (3 of 7)" next to it.
+        `Defeat - Chobin #3` is the example: blank in `Missable?`, "earlier (3 of 7)" next to it.
         The fence is now the union of both columns, the name expansion over both, the 37 rows with no region
         data, and the goal fight (ADDENDUM 193). See game_data/census_repeat_column.py."""
-        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 39)  # ADDENDUM 440: +4; 460: -13 ruled unmissable
+        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 39)  # ADDENDUM 440: +4; 460: -13 unmissable
         self.assertEqual(len(missable_trainers.UNREDOABLE_TRAINER_INDICES), 149)   # ADDENDUM 440: +4; 460: -6 (Bost, Snagem)
         self.assertEqual(len(missable_trainers.FILLER_ONLY_TRAINER_INDICES), 148)   # ADDENDUM 407: -Naps #2; 440: +4; 460: -6
         self.assertTrue(missable_trainers.MISSABLE_TRAINER_INDICES
@@ -250,7 +247,7 @@ class TestStillExcludedAtEverySetting(_UniqueModeBase):
 
 
 class TestRoomTable(unittest.TestCase):
-    def test_the_players_compilation_is_recorded(self) -> None:
+    def test_the_compilation_is_recorded(self) -> None:
         for room_id in (1, 7, 8, 10, 11, 20, 21, 125, 126, 132,
                         138, 139, 140, 141, 143, 146, 156, 158, 160, 169, 173, 910):
             self.assertIn(room_id, rc.KNOWN_ROOM_IDS, room_id)
@@ -274,7 +271,7 @@ class TestRoomTable(unittest.TestCase):
             self.assertLessEqual(room_id, rc.ROOM_ID_MAX_PLAUSIBLE, room_id)
 
     def test_the_chest_rooms_named_really_do_hold_chests(self) -> None:
-        """Cross-checks the player's own chest labelling against the ISO's treasure table."""
+        """Cross-checks the compiled chest labelling against the ISO's treasure table."""
         from ..game_data import chest_table
 
         for room_id in (8, 10, 143, 158):

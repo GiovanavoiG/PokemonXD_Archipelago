@@ -18,11 +18,11 @@ ROOM_TO_REGION: "dict[int, str]" = {
     # The manor is walkable from the start but its chests are not takeable until Verich's cutscene puts the
     # story at 0x53, which is exactly when "Kaminko's House (Robo Groudon)" opens.
     169: "Kaminko's House (Robo Groudon)", 173: "Kaminko's House (Robo Groudon)",
-    171: "Kaminko's House (Robo Groudon)",  # Lower Crane Room (player, 2026-09-13) -- chests 108, 109
+    171: "Kaminko's House (Robo Groudon)",  # Lower Crane Room (2026-09-13) -- chests 108, 109
     146: "Gateon Port", 153: "Gateon Port", 156: "Gateon Port", 158: "Gateon Port", 160: "Gateon Port",
     # --- story ordered -----------------------------------------------------------------------------------
     125: "Agate Village", 126: "Agate Village", 132: "Agate Village",
-    134: "Agate Village",    # Agate shop (player, 2026-09-13)
+    134: "Agate Village",    # Agate shop (2026-09-13)
     20: "Mt. Battle", 21: "Mt. Battle",
     1: "Cipher Lab", 7: "Cipher Lab", 8: "Cipher Lab", 9: "Cipher Lab", 10: "Cipher Lab", 11: "Cipher Lab",
     117: "Pyrite Town", 119: "Pyrite Town", 120: "Pyrite Town", 121: "Pyrite Town",
@@ -32,7 +32,7 @@ ROOM_TO_REGION: "dict[int, str]" = {
     60: "Realgam Tower", 61: "Realgam Tower",
     94: "Phenac City", 95: "Phenac City", 100: "Phenac City",
     98: "Phenac City",       # holds chest 80, the MUSIC DISC -- must NOT sit behind the Music Disc gate
-    107: "Phenac City",      # Phenac Colosseum (player correction, confirmed by the Elevator Key in chest 79)
+    107: "Phenac City",      # Phenac Colosseum (confirmed by the Elevator Key in chest 79)
     97: "Phenac City (Mayor's House)",   # Mayor's House upstairs -- chest 78, the MAYOR'S NOTE
     96: "Phenac City (Mayor's House)",   # Mayor's House downstairs -- where the Music Disc is USED
     103: "Phenac City (Post-Sixes)", 104: "Phenac City (Post-Sixes)",
@@ -53,28 +53,28 @@ ROOM_TO_REGION: "dict[int, str]" = {
 
 EXCLUDED_ROOMS: "dict[int, str]" = {
     175: "debug room -- System Lever x10 and a chest holding item id 0 x10",
-    145: "location unknown; the player's instruction was to skip it",
+    145: "location unknown; skipped",
 }
 
 # Chests whose region is not enough on its own -- an extra item requirement on top of reaching the room.
 CHEST_ITEM_GATES: "dict[int, tuple[str, ...]]" = {
-    27: ("ID Card",),        # player: "27 locked behind ID card"
+    27: ("ID Card",),        # chest 27 is locked behind the ID Card
     # The Cipher Lab half is already the chest's region, so this adds the item half; both names resolve
     # through `items.requirement_to_pool_item` to one pool item. Not self-gating -- the ROM lives in chest 17,
     # and fill_restrictive will not place an item on a location whose own rule demands it.
     23: ("Data ROM", "ID Card"),
-    # ADDENDUM 406: Lovrina's defeat item (chest 17, the ROM's own vanilla home) is gated with her. Player:
-    # "Cipher Lab is not gated by Data Rom - just Lovrina, her defeat item, and chest 23." Only a location with
-    # Key Item Shuffle on; the fill never puts the item that opens a location on that location.
+    # ADDENDUM 406: Lovrina's defeat item (chest 17, the ROM's own vanilla home) is gated with her.
+    # The Cipher Lab itself is not gated by the Data ROM -- only Lovrina, her defeat item, and chest 23. Only a
+    # location with Key Item Shuffle on; the fill never puts the item that opens a location on that location.
     17: ("Data ROM", "ID Card"),
     # ADDENDUM 405: the three ONBS chests (98, 99 in room 110; 100 in room 109) no longer name the Data ROM &
-    # ID Card. Player: "Pyrite Town 2nd visit (ONBS raid) in fact is not gated behind Data Rom at all - this means
-    # it's only gated behind pyrite town and the pokespots." Their region says exactly that.
+    # ID Card. The second Pyrite Town visit (the ONBS raid) is not gated behind the Data ROM at all -- only behind
+    # Pyrite Town and the Poke Spots. Their region says exactly that.
 }
 
 #: ADDENDUM 405 -- chests that used to carry an item gate and must not get it back by accident.
-UNGATED_BY_PLAYER: "frozenset[int]" = frozenset({98, 99, 100})
-assert not UNGATED_BY_PLAYER & set(CHEST_ITEM_GATES), "ADDENDUM 405: an ONBS chest is item-gated again"
+ALWAYS_UNGATED_CHESTS: "frozenset[int]" = frozenset({98, 99, 100})
+assert not ALWAYS_UNGATED_CHESTS & set(CHEST_ITEM_GATES), "ADDENDUM 405: an ONBS chest is item-gated again"
 
 # Gated on a region, not an item: chest 2 opens on story transition 0x6C->0x6E, the same one that opens
 # Citadark Isle, so the Robo Kyogre Part count has one home (the Citadark edge in regions.py) and

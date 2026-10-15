@@ -2,7 +2,7 @@
 
 ADDENDUM 201 found that the chest-flag model was fitted inside one flag cluster and extrapolated across five
 others, and that the original dumps contradicted the extrapolation. This addendum measured the 1130-1149
-cluster live, one chest at a time, on the player's own game.
+cluster live, one chest at a time, on a real game.
 
     chest 98  flag 1875  ->  position 1392     offset 483    (ADDENDUM 173's cluster)
     chest  1  flag 1136  ->  position  440     offset 696    measured
@@ -26,7 +26,7 @@ class TestTheLiveMeasurements(unittest.TestCase):
     """Every one of these is a byte and mask observed on real hardware, not derived."""
 
     MEASURED = {
-        1:  (0x10734, 0x01),   # ADDENDUM 204, HQ Lab exterior -- the chest the player reported
+        1:  (0x10734, 0x01),   # ADDENDUM 204, HQ Lab exterior -- the chest that first failed
         4:  (0x10734, 0x10),   # ADDENDUM 204, Gateon Port -- predicted before it was opened
         80: (0x10778, 0x40),   # ADDENDUM 204, Phenac room 98 -- fixes cluster 1440-1455
         98: (0x107AD, 0x01),   # ADDENDUM 204, the PDA pickup -- confirmed the model and the A200 rename
@@ -95,7 +95,7 @@ class TestTheFenceStillHolds(unittest.TestCase):
             self.assertIsNone(ram_client.chest_is_open_in_block(block, chest_id), chest_id)
 
     def test_the_measured_chests_are_no_longer_fenced(self) -> None:
-        """The point of measuring: chest 1, the player's original report, now works."""
+        """The point of measuring: chest 1, the original failure, now works."""
         for chest_id in (1, 4, 98, 3, 40):
             self.assertTrue(cf.chest_flag_is_validated(chest_id), chest_id)
         self.assertNotIn(ram_client.CHEST_ID_TO_LOCATION[1], ram_client.undetectable_chest_locations())

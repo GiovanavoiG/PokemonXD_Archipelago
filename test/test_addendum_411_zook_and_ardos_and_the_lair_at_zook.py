@@ -1,7 +1,7 @@
 """ADDENDUM 411 (2026-10-03) -- Ardos #1 and Zook #1 send each other, and the Key Lair enters at Zook.
 
-Player: "Drop that 820 another step so that it's at Zook, so we can hopefully fight him there. Make it so if
-ardos 1 fires, zook 1 fires, and vice versa."
+The Key Lair's entry value (820) drops another step so that it sits at Zook, so he can be fought there. Ardos
+#1 firing fires Zook #1, and vice versa.
 """
 from __future__ import annotations
 
@@ -22,8 +22,8 @@ CLIENT = (Path(__file__).resolve().parent.parent / "Client.py").read_text(encodi
 
 
 class TestTheLinkIsRetired(unittest.TestCase):
-    """SUPERSEDED by ADDENDUM 436. Player: "The two fights where the player doesn't act are ardos vs zook in gateon,
-    and zook vs biden in key lair. Make it so those fights DO NOT send a check, remove the #1/#2 checks"."""
+    """SUPERSEDED by ADDENDUM 436. The two fights where the player does not act are Ardos vs Zook in Gateon and
+    Zook vs Biden in the Key Lair. Those fights do NOT send a check, and the #1/#2 checks are removed."""
 
     def test_no_links_and_no_numbered_checks(self) -> None:
         self.assertEqual({}, tr.DEFEAT_LINKS)
@@ -69,7 +69,7 @@ class TestTheLairAtZook(unittest.TestCase):
 
     def test_still_above_gonzap_and_inside_the_window(self) -> None:
         window = sb.REGION_STORY_WINDOW[LAIR]
-        # ADDENDUM 439: AT Gonzap's rung now (the player's call), never below it.
+        # ADDENDUM 439: AT Gonzap's rung now, never below it.
         self.assertGreaterEqual(sb.area_entry_floor(LAIR), 0x64, "below 0x64 the Lair would ask for Gonzap")
         self.assertLessEqual(window.floor, 0x65)
         self.assertLessEqual(0x65, window.ceiling)

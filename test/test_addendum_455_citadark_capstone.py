@@ -1,7 +1,7 @@
 """ADDENDUM 455 (2026-10-09) -- Citadark Isle is path scaling's capstone.
 
-Player: "For path scaling, can we strap citadark at the end of the path every time as an extra area/layer? if the
-current max is 50, can we make citadark 53?"
+For path scaling, Citadark is strapped onto the end of the path every time as an extra area/layer: with the
+ramp's maximum at 50, Citadark is 53.
 """
 from __future__ import annotations
 

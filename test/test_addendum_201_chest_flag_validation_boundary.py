@@ -1,6 +1,6 @@
 """ADDENDUM 201. The chest-open flag model was fitted in one cluster and extrapolated across five others.
 
-Player: "the chest inside worked and sent its location, but the chest outside the HQ lab did not."
+The chest inside the HQ lab sent its location; the chest outside it did not.
 
 The chest inside is chest 3, flag 1886. The chest outside is chest 1, room 143, flag 1136. ADDENDUM 173
 measured two chests, brute-forced a bit layout, and cross-checked it four ways -- and every chest in every one
@@ -36,8 +36,8 @@ class TestTheEvidenceOnlyCoversOneCluster(unittest.TestCase):
         gaps = [b - a for a, b in zip(ids, ids[1:]) if b - a > 40]
         self.assertGreaterEqual(len(gaps), 4, "expected several large gaps between flag-id clusters")
 
-    def test_the_hq_lab_exterior_chest_is_the_reported_one(self) -> None:
-        """Chest 1, room 143, is the chest the player reported. UPDATED by ADDENDUM 204: it is no longer
+    def test_the_hq_lab_exterior_chest_is_the_one(self) -> None:
+        """Chest 1, room 143, is the chest that did not send. UPDATED by ADDENDUM 204: it is no longer
         unvalidated -- it was measured live and now resolves to BB+0x10734 mask 0x01. The fence assertion that
         used to live here moved to a chest in a cluster nobody has measured yet; see
         `test_a_chest_in_a_still_unmeasured_cluster_is_unvalidated` below."""

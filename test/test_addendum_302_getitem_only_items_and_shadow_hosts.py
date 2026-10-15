@@ -1,10 +1,9 @@
-"""ADDENDUM 302 (2026-09-20) -- two halves of one instruction.
+"""ADDENDUM 302 (2026-09-20) -- two halves of one change.
 
-Player: "If shadow_catch_progression is on, exclude missable trainers from the pool that can receive generated
-shadows. Add an item '99 master balls' - don't add it to the pool, but add it so we can !getitem 99 master
-balls".
+With shadow_catch_progression on, missable trainers are excluded from the pool that can receive generated
+Shadows. And a '99 Master Balls' item exists that is never in the pool but can be given with !getitem.
 
-HALF ONE WAS ALREADY TRUE, AND STRONGER THAN ASKED. ADDENDUM 236 passes
+HALF ONE WAS ALREADY TRUE, AND STRONGER THAN NEEDED. ADDENDUM 236 passes
 `missable_trainers.shadow_expansion_excluded_trainer_indices()` into `build_shadow_expansion_plans`, and that
 helper returns `FILLER_ONLY_TRAINER_INDICES` -- every occurrence of every trainer the workbook marks missable,
 plus the one-shot and post-goal sets. So a generated Shadow never lands on a missable trainer at all, whatever
@@ -13,11 +12,11 @@ fenced sets, 0 census-missable, 0 without a region.
 
 THE GAP WAS THE WIRING, NOT THE RULE. ADDENDUM 236's own tests call `build_shadow_expansion_plans` directly and
 hand it the excluded set, which proves the randomizer honours a set it is given -- not that the world hands it
-one. Those are different claims, and only the second is what the player is relying on. The world-level classes
+one. Those are different claims, and only the second is what matters. The world-level classes
 below assert the second, under the option that makes it matter.
 
-NOT MADE CONDITIONAL. The instruction says "if shadow_catch_progression is on"; the guarantee is currently
-unconditional, and narrowing it to that option would be a regression wearing the shape of the request. A
+NOT MADE CONDITIONAL. The guarantee matters most when shadow_catch_progression is on, but it is
+unconditional, and narrowing it to that option would be a regression. A
 generated Shadow on a missable trainer is a catch that can be lost from the seed whether or not the catch is
 progression-eligible -- with the option off it is a filler check the player can never clear, which is the
 ADDENDUM 237 shape, not an acceptable one.
@@ -55,12 +54,12 @@ class _ShadowHostBase(PokemonXDTestBase):
     def _assert_hosts_are_clean(self) -> None:
         hosts = self._hosts()
         self.assertTrue(hosts, "the expansion produced no hosts -- this test would pass vacuously")
-        from ..game_data.missable_indices import PLAYER_RULED_UNMISSABLE   # ADDENDUM 460
+        from ..game_data.missable_indices import CONFIRMED_UNMISSABLE   # ADDENDUM 460
         for host in hosts:
             self.assertNotIn(host, MT.MISSABLE_TRAINER_INDICES, host)
             self.assertNotIn(host, MT.POST_GOAL_TRAINER_INDICES, host)
-            if host in PLAYER_RULED_UNMISSABLE:
-                continue   # ADDENDUM 460: the player ruled these one-time fights unmissable -- allowed hosts
+            if host in CONFIRMED_UNMISSABLE:
+                continue   # ADDENDUM 460: these one-time fights count as unmissable -- allowed hosts
             if host in MT.REFIGHTABLE_FINAL_SHADOW_HOSTS:
                 continue   # ADDENDUM 466: re-fightable, never missable -- a snagged Shadow no longer respawns (465)
             from ..game_data.shadow_mirrors import MIRRORED_SHADOW_HOSTS
@@ -74,7 +73,7 @@ class _ShadowHostBase(PokemonXDTestBase):
 
 
 class TestWithShadowCatchProgressionOn(_ShadowHostBase):
-    """The condition the player named."""
+    """The option under which the guarantee matters most."""
 
     options = {"shadow_pokemon_expansion": 44, "shadow_catch_progression": True,
                "shuffle_trainer_defeats": True}
@@ -126,7 +125,7 @@ class TestTheWorldActuallyPassesTheExclusionSet(unittest.TestCase):
 # ------------------------------------------------------------------------------------------------------------
 class TestTheItemIsRequestable(unittest.TestCase):
     """WIDENED BY ADDENDUM 336 (2026-09-24). This half was written against one name; the category has two now
-    ("99 Rare Candies", same rule, player's words: "the same rule as 99 master balls"). Every statement that
+    ("99 Rare Candies", under the same rule as 99 Master Balls). Every statement that
     is about the CATEGORY loops over `GETITEM_ONLY_ITEM_NAMES`, so a third bundle is covered the day it is
     added rather than the day someone remembers to widen a test. The two statements that are genuinely about
     the Master Ball stay named."""

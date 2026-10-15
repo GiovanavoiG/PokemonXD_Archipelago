@@ -1,7 +1,5 @@
 """ADDENDUM 317 -- a Shadow is never levelled BELOW the unmodified game's.
 
-Player: "floor it at the vanilla level."
-
 Matching a Shadow to its holder's team average runs both ways. Until ADDENDUM 315 the downward half never
 showed, because the six Sixes' Shadows were matched up to a rematch team's 50; with the holder resolved to the
 Cipher Lab fight their teams average 8.8-14 against a vanilla Shadow level of 17, so matching alone made them

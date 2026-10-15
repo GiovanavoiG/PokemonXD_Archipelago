@@ -1,8 +1,8 @@
 """ADDENDUM 426 (2026-10-06) -- every trainer move is one that species can have in Gen III.
 
-Player: "i saw a few pokemon use Focus Punch despite not being able to learn it. Can we ensure that the move pool
-we're using is 1. From Gen 3 and 2. The TM move we teach them is one they actually can learn? Also, allow for them
-to pull from egg/tutor moves as well." ... "Make sure that's all for their gen 3 moveset."
+Some Pokemon were using Focus Punch without being able to learn it. The move pool is (1) from Gen III, and (2)
+any TM move taught is one the species can actually learn. Egg and tutor moves are allowed too -- all of it from
+the species' Gen III moveset.
 """
 from __future__ import annotations
 

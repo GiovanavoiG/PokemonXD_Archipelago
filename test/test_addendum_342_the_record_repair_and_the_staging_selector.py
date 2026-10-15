@@ -346,7 +346,7 @@ class TestAddendum343TheStop(unittest.TestCase):
     `hero_main` is a polling loop whose last instruction jumps to its own top. Vanilla ends the encounter by
     advancing the story variable (instr 2104 of `snatch_put` is `CALL 0x83(800, 964)`), which makes the gate
     at instr 321 false. While that gate is patched the vanilla stop cannot fire, so the fight restarts on
-    every tick the player stands in the zone -- which is exactly what the player reported. The client has to
+    every tick the player stands in the zone -- which is exactly the observed symptom. The client has to
     do the stop itself.
     """
 

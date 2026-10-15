@@ -1,9 +1,8 @@
 """ADDENDUM 465 (2026-10-11) -- snagged Shadows stay gone on a rematch; the save's Shadow list gets real species.
 
-Player: "trainers with shadows have a marker attached to them to indicate which pokemon are shadows. If so, this almost
-certainly is something we are not setting, and it's also probably why our generated shadows are respawning
-infinitely. Can you track down this flag on trainers and see if we can add it for our generated pokemon? Investigate
-around it too and see if there's other behaviors with shadows that we haven't found on trainers."
+Trainers with Shadows carry a marker saying which Pokemon are Shadows. Generated Shadows were missing it, which is
+also why they respawned infinitely. The flag is tracked down on trainers and set for generated Pokemon, and the
+other Shadow behaviours on trainers around it are investigated too.
 """
 from __future__ import annotations
 
@@ -84,7 +83,7 @@ class TestTheRespawnFix(unittest.TestCase):
                         want = SWAP_BLOCK               # snagged/purified: swap deck 0 -> skipped (new)
                     self.assertEqual(want, got, (status, fight, swap))
 
-    @unittest.skipUnless(DOL.is_file(), "needs the player's main.dol")
+    @unittest.skipUnless(DOL.is_file(), "needs a real main.dol")
     def test_against_the_real_dol(self):
         word = _word_reader(DOL.read_bytes())
         for address, vanilla, _new in E.RESPAWN_FIX_WORDS:
@@ -96,7 +95,7 @@ class TestTheRespawnFix(unittest.TestCase):
 
 
 class TestTheDarkPokemonList(unittest.TestCase):
-    @unittest.skipUnless(DOL.is_file(), "needs the player's main.dol")
+    @unittest.skipUnless(DOL.is_file(), "needs a real main.dol")
     def test_the_vanilla_table_is_the_dols(self):
         data = DOL.read_bytes()
         word = _word_reader(data)
@@ -126,7 +125,7 @@ class TestTheDarkPokemonList(unittest.TestCase):
         self.assertEqual((), E.dark_pokemon_list_words({0: 5, 128: 5, 3: 0}))
 
 
-@unittest.skipUnless(DOL.is_file(), "needs the player's main.dol")
+@unittest.skipUnless(DOL.is_file(), "needs a real main.dol")
 class TestTheWritePath(unittest.TestCase):
     """The real main.dol inside a minimal disc image: header field 0x420 points at it, as on the disc."""
 

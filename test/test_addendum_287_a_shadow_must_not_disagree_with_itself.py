@@ -1,9 +1,9 @@
 """ADDENDUM 287 (2026-09-19) -- a Shadow Pokemon stored in two tables must land in both.
 
-Player: "user is reporting a shadow metagross being two-hit by a shadow jumpluff - this seems insane. are we
-managing stats correctly upon generating pokemon/scaling trainers?"
+Symptom: a Shadow Metagross two-hit by a Shadow Jumpluff -- which points at stats being mishandled when Pokemon
+are generated or trainers are scaled.
 
-IT IS INSANE, AND THERE WERE TWO INDEPENDENT BUGS, EITHER OF WHICH ALONE PRODUCES IT.
+THERE WERE TWO INDEPENDENT BUGS, EITHER OF WHICH ALONE PRODUCES IT.
 
 A Shadow's level is stored TWICE: at `+0x02` of the DPKM record its DDPK entry points at, and at `+0x02` of
 the DDPK record itself. `iso_patcher`'s own comment has said since ADDENDUM 198 that "moving one without the
@@ -197,7 +197,7 @@ class TestTheDamageThisCaused(unittest.TestCase):
 
     def test_the_gap_a_path_scaled_seed_opened(self) -> None:
         """Re-derived rather than asserted from memory. A Shadow left at its vanilla level in a seed whose
-        ramp ends at 65 is the reported symptom, and this measures how far apart the two halves got."""
+        ramp ends at 65 is the symptom, and this measures how far apart the two halves got."""
         from ..game_data.real_trainer_data import real_shadow_census, real_trainer_team_census
         from ..randomizer.enhanced_difficulty import shadow_level_assignment
         from ..randomizer.path_level_scaling import build_path_level_plan
@@ -220,7 +220,7 @@ class TestTheDamageThisCaused(unittest.TestCase):
         self.assertGreater(max(gaps), 10, "the two halves really did diverge by tens of levels")
 
     def test_a_shadow_at_its_vanilla_level_is_frail_enough_to_be_two_hit(self) -> None:
-        """The player's own report, as arithmetic. Metagross's base HP is 80; the Gen III formula with the
+        """The symptom, as arithmetic. Metagross's base HP is 80; the Gen III formula with the
         zero IVs and EVs every vanilla trainer Pokemon has gives it 54 HP at level 17 and 179 at level 65."""
         from ..game_data.species_base_hp import base_hp, max_hp
         metagross = base_hp(376)

@@ -1,7 +1,7 @@
 """ADDENDUM 181 (2026-09-13): the client is quiet by default.
 
-Player instruction: "let's remove all of the default-on logging that's in the client. I want it to print
-nothing except for the standard archipelago connection logs, and the checks received/sent."
+By default the client prints nothing except the standard Archipelago connection logs and the checks
+received/sent.
 
 Nothing was deleted -- every narration line is real diagnostic output this project has needed at least once,
 and several are the only evidence that would explain a bad run after the fact. They were routed through
@@ -11,7 +11,7 @@ WHY THIS DOES NOT IMPORT `Client.py` DIRECTLY: the same documented sandbox limit
 test_addendum_109_getitem_command.py -- `Client.py` -> `CommonClient` -> `MultiServer` ->
 `websockets.extensions`. So the default-off guarantee is enforced by parsing the file with `ast`: every
 `logger.*` call that is NOT inside a `_cmd_*` command handler is checked against an explicit allow-list of the
-categories the player named. A new narration line added later fails this test by default, which is the point
+kept categories. A new narration line added later fails this test by default, which is the point
 -- the allow-list is the contract, and widening it has to be a deliberate edit.
 
 The two helpers themselves ARE executed for real (they need nothing but `logger`), so the gate is tested
@@ -30,7 +30,7 @@ SOURCE = CLIENT_PATH.read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE)
 
 
-# The only automatic (non-command) log output the player asked to keep, as substrings of the call's source.
+# The only automatic (non-command) log output that is kept, as substrings of the call's source.
 # Grouped by the reason each one survives, so a future reader can tell "kept on purpose" from "missed."
 ALLOWED_AUTOMATIC = {
     # ADDENDUM 453: a held Ability Patch was used -- once per Pokemon it touches.
@@ -39,7 +39,7 @@ ALLOWED_AUTOMATIC = {
     "Your Items pocket is full",
     # ADDENDUM 428: one-shot guidance, once per received item -- 99 Candy Boxes in a seed with no Candy Box code.
     "99 Candy Boxes: this seed does not have",
-    # -- the connection lifecycle: exactly "the standard archipelago connection logs."
+    # -- the connection lifecycle: exactly the standard Archipelago connection logs.
     "Watching for Dolphin",
     "DOLPHIN_WRONG_GAME",
     "DOLPHIN_NO_SAVE",
@@ -58,7 +58,7 @@ ALLOWED_AUTOMATIC = {
     # item, and only when the backstop has actually been reached.
     "for you to take a step",
     "traceback.format_exc()",
-    # -- "the checks received": one line per item that arrives from the multiworld.
+    # -- the checks received: one line per item that arrives from the multiworld.
     "Received {item_name}",
     "your Itemfinder glitches",
     # ADDENDUM 361: the 5000 Poke Coupons item. Exactly the class of "Received {item_name}" and of the
@@ -67,7 +67,7 @@ ALLOWED_AUTOMATIC = {
     # in a pocket and there is no quantity to notice. One line per delivery, and none on a seed that never
     # rolls one.
     "Poke Coupons added",
-    # -- "the checks sent": the single funnel in _send_checks.
+    # -- the checks sent: the single funnel in _send_checks.
     "Sent {len(fresh)} check(s)",
     # ADDENDUM 376: checks the client sent for chests opened BEFORE it was watching, deduced at connect from
     # the carried berry plus the server's checked list. In the same class as "Sent ... check(s)" and stronger:
@@ -121,11 +121,11 @@ ALLOWED_AUTOMATIC = {
     # argument for the whole category. That branch was already wrapped and already reported through
     # `_note_warn` -- correctly, by the letter of this rule -- and the result was that a `TypeError` on the
     # very first record took the ENTIRE shop-description feature out for months, with the explanation sitting
-    # behind `/verbose` where nobody looked. The player reported it as "descriptions do not have the AP item
-    # listed at all", i.e. as never built.
+    # behind `/verbose` where nobody looked. From the outside it looked as if the descriptions had no AP item
+    # listed at all, i.e. as never built.
     #
     # The distinction this rule actually wants is not cosmetic-vs-load-bearing. It is NARRATION vs "a feature
-    # you asked for is off and will stay off". The first belongs behind `/verbose`; the second has to be said
+    # this seed enabled is off and will stay off". The first belongs behind `/verbose`; the second has to be said
     # once, out loud, or it is not said at all. Fires only when the scout produced nothing AND had problems,
     # so a working seed never sees it.
     "Shop scouting failed",   # ADDENDUM 445
@@ -139,15 +139,13 @@ ALLOWED_AUTOMATIC = {
     # -- the delivery-safety warning that names a real missing companion item (ADDENDUM 179). This one is
     #    the whole reason the Data ROM / ID Card softlock is recoverable, so it is never gated.
     "has not landed yet",   # ADDENDUM 445
-    # -- ADDENDUM 215: the story-byte watch. This is the one automatic line the player asked for BY NAME
-    #    ("Add a toggle to the client for printing out every time the story byte changes"), and it is
-    #    unreachable unless they turn `/storywatch` on -- so it is opt-in output rather than narration. It
+    # -- ADDENDUM 215: the story-byte watch. A client toggle that prints every story-byte change, and it is
+    #    unreachable unless `/storywatch` is turned on -- so it is opt-in output rather than narration. It
     #    deliberately does not go through `_note`: routing it there would let `/verbose off` silence a watch
-    #    the player switched on, which is the opposite of what was asked for.
+    #    the player switched on, which would defeat the toggle.
     "logger.info(line)",
-    # ADDENDUM 294: the ten-minute battle hold firing. The player asked to "double check our item delivery"
-    # precisely because they could not tell a held delivery from a working one, and they could not because
-    # NOTHING was logged when an item crossed that ceiling -- not narration, the absence of a bug report.
+    # ADDENDUM 294: the ten-minute battle hold firing. A held delivery could not be told from a working one,
+    # because NOTHING was logged when an item crossed that ceiling -- not narration, the absence of a bug report.
     # A gate claiming a battle for six hundred unbroken seconds means the gate is wrong, it fires at most once
     # per item, and it names the command that says which roster record is holding it.
     "waited out the full battle hold",   # ADDENDUM 445
@@ -220,7 +218,7 @@ def _automatic_logger_calls() -> "list[tuple[int, str]]":
 
 
 class TestNothingNarratesByDefault(unittest.TestCase):
-    def test_every_automatic_logger_call_is_one_the_player_asked_to_keep(self) -> None:
+    def test_every_automatic_logger_call_is_an_allowed_one(self) -> None:
         unexpected = [
             (line, text.replace("\n", " ")[:120])
             for line, text in _automatic_logger_calls()
@@ -235,7 +233,7 @@ class TestNothingNarratesByDefault(unittest.TestCase):
         )
 
     def test_the_narration_actually_went_somewhere_rather_than_being_deleted(self) -> None:
-        """The player said "remove"; this project kept the lines and gated them instead. If a future edit
+        """The lines were kept and gated rather than removed. If a future edit
         deletes them for real, this is the test that notices the diagnostics are gone."""
         gated = len(re.findall(r"\b_note(?:_warn)?\(", SOURCE))
         # 2 definitions + 1 lambda wiring FstGuard + the converted call sites.

@@ -1,19 +1,18 @@
 """ADDENDUM 364 (2026-09-26): the Key Lair's return floor, and the Snagem decoupling it completes.
 
-SUPERSEDED IN PART BY ADDENDUM 371 (2026-09-27): *"make the key lair floor 0x67 by default."*
+SUPERSEDED IN PART BY ADDENDUM 371 (2026-09-27): the Key Lair floor is 0x67 by default.
 
-The player asked for 0x67 conditionally first and unconditionally a day later, so the CONDITION is gone and the
+0x67 was a conditional floor first and an unconditional one a day later, so the CONDITION is gone and the
 VALUE is the entry floor. This module is kept rather than deleted, retargeted onto what survives -- which is
 most of it. Everything 364 established about 0x67 itself (that it is a rung the game rests on, that it lies
 inside the Lair's window, that it is above the entry floor the icon used to write) is still exactly why this is
-the right number, and the Snagem half at the bottom is untouched and is the half the player asked about. What
+the right number, and the Snagem half at the bottom is untouched. What
 went is the rule object and the two tests about a FIRST visit landing lower than a return one, because there is
 no longer any difference between the two.
 
-The original request, for the record:
-
-Player: *"After Zook is defeated at key lair (0x64 > 0x65) I'd like the floor to be bumped to 0x67. This
-allows us to not need snagem hideout for cipher key lair - did we separate them logically?"*
+The original rule, for the record: after Zook is defeated at the Key Lair (0x64 -> 0x65), the floor is bumped
+to 0x67. That lets the Cipher Key Lair stop needing the Snagem Hideout, provided the two are separated
+logically.
 
 THE LADDER THIS SITS IN. 0x62 -> 0x64 (Gonzap beaten, Gonzap's Key and the Snag Machine back) -> 0x65 (Zook
 beaten at the Lair) -> 0x67 -> 0x69 (entered the Cipher Key Lair) -> 0x6A (System Lever used). ADDENDUM 324's
@@ -25,7 +24,7 @@ mark at or above 0x65 can only mean the GAME moved the byte there while the play
 was really beaten here", not "we wrote 0x64 on arrival". That is the whole reason this is safe to key on, and
 it is what `test_our_own_entry_write_does_not_satisfy_it` pins.
 
-AND THE ANSWER TO THE SECOND HALF: yes, with travel randomization ON. ADDENDUM 332 removed the Key Lair's
+ARE THE TWO SEPARATED LOGICALLY? Yes, with travel randomization ON. ADDENDUM 332 removed the Key Lair's
 `TRAVEL_LOCATION_REQUIRED_REGIONS` entry and the region is `gateway_only`, so its chain edge from Snagem is
 suppressed outright and its only entrance is its own travel gateway. With travel randomization OFF the
 `Snagem Hideout -> Cipher Key Lair` edge is live and Snagem IS required -- which is the unmodified game, and
@@ -41,17 +40,16 @@ from ..game_data import story_bytes as sb
 from . import PokemonXDTestBase
 
 LAIR = "Cipher Key Lair"
-# ADDENDUM 410: "reduce key lair's default floor by one step, remembering that it's more than just a byte" --
-# storyvar 830 -> 820, which presents as 0x66. ADDENDUM 411: "Drop that 820 another step so that it's at Zook" --
-# 810, 0x65. ADDENDUM 438: "Raise the floor for Cipher Key Lair by ONE step" -- 820, 0x66 again. ADDENDUM 439: "I
-# lied. put it to 64" -- 800, 0x64, ADDENDUM 324's value. The tests below were 0x67; what they assert holds.
+# ADDENDUM 410: the Key Lair's default floor dropped one story step (the floor is more than just a byte) --
+# storyvar 830 -> 820, which presents as 0x66. ADDENDUM 411: one more step down, to Zook -- 810, 0x65.
+# ADDENDUM 438: one step back up -- 820, 0x66 again. ADDENDUM 439: down to 0x64 -- 800, ADDENDUM 324's value. The tests below were 0x67; what they assert holds.
 FLOOR = 0x64
 TIERS = ("Cipher Key Lair (exterior)", "Cipher Key Lair", "Cipher Key Lair (deep)")
 
 
 class TestTheFloorItself(unittest.TestCase):
     def test_0x67_is_the_floor_and_carries_no_condition(self) -> None:
-        """ADDENDUM 371. The value the player asked for twice, now stated as a value: no rule, and 0x67 is what
+        """ADDENDUM 371. 0x67, now stated as a value: no rule, and 0x67 is what
         the destination is entered at whatever any area's mark says."""
         self.assertEqual(FLOOR, sb.AREA_ENTRY_FLOOR_OVERRIDES[LAIR])
         self.assertEqual(FLOOR, sb.area_entry_floor(LAIR))
@@ -67,7 +65,7 @@ class TestTheFloorItself(unittest.TestCase):
         unreachable. This is the third time this has happened to a Key Lair/Phenac rule and it is the fence
         working, not three mistakes."""
         # ADDENDUM 410 lowered the floor one story step BELOW 364's 0x67, so a 364-style rule at 0x67 would now
-        # sit above the floor and could bind again -- it is still not revived: the player asked for a value.
+        # sit above the floor and could bind again -- it is still not revived: the floor is a value, not a rule.
         self.assertGreaterEqual(0x67, sb.area_entry_floor(LAIR))
 
     def test_0x67_is_a_byte_the_game_rests_on(self) -> None:
@@ -93,8 +91,8 @@ class TestWhatAVisitNowWrites(unittest.TestCase):
 
     def test_every_visit_arrives_at_the_doorway_including_the_first(self) -> None:
         """RETARGETED BY ADDENDUM 371, and this is the whole behavioural change. Two tests used to live here --
-        a first visit at 0x64 and a return trip at 0x67 -- and they are one test now, because the player asked
-        for 0x67 "by default"."""
+        a first visit at 0x64 and a return trip at 0x67 -- and they are one test now, because 0x67 is the
+        floor by default."""
         self.assertEqual(rc.AreaStoryByteMemory().target_for(LAIR), FLOOR)
 
     def test_a_mark_below_the_floor_cannot_pull_the_arrival_down(self) -> None:
@@ -147,7 +145,7 @@ class TestWhatAVisitNowWrites(unittest.TestCase):
 
 
 # ============================================================================================================
-# "did we separate them logically?"
+# Are the Key Lair and the Snagem Hideout separated logically?
 # ============================================================================================================
 class TestTheLairIsNotBehindSnagem(PokemonXDTestBase):
     options = {"randomize_travel_locations": True}

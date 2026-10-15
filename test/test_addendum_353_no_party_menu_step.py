@@ -1,8 +1,5 @@
 """ADDENDUM 353 (2026-09-25): the party menu step is gone.
 
-Player: "Does this new party structure mean we no longer need them to open the party menu in the setup step?"
-Then: "Go ahead on the party menu work."
-
 WHAT THE STEP WAS. `PARTY_BASE` (0x804280E8) is a 48-byte menu ROW -- name, species, level, HP -- and the
 game does not populate a slot until the Party/Status screen has drawn it. So every boot, until the player
 opened that screen once, the catch scan's party half read all-zero. `_looks_ingame()` existed to notice that,

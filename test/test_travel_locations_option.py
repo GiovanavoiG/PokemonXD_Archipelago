@@ -37,7 +37,7 @@ class TestTravelLocationsOptionOff(PokemonXDTestBase):
     """Default (option off) -- must be byte-for-byte unaffected by ADDENDUM 104's changes."""
 
     # ADDENDUM 196: the named-66 "Defeat - {trainer}" locations this class probes exist only in CUMULATIVE
-    # mode, which stopped being the default when the player's YAML became the template.
+    # mode, which stopped being the default when the template YAML changed.
     options = {"randomize_chests": True, "shuffle_trainer_defeats": True, "trainer_defeat_mode": 0}
 
     def test_no_travel_unlock_items_in_the_pool(self) -> None:
@@ -67,14 +67,14 @@ class TestTravelLocationsOptionOff(PokemonXDTestBase):
     def test_agate_village_needs_the_machine_part_with_the_option_off(self) -> None:
         """RETARGETED 2026-09-13 (ADDENDUM 169), then REVERSED later the SAME DAY, and RENAMED with it -- the
         old name (`test_agate_village_is_open_with_the_option_off_but_mt_battle_is_not`) asserted the exact
-        opposite of the behaviour the player asked for, so leaving it in place would have been worse than the
+        opposite of the intended behaviour, so leaving it in place would have been worse than the
         rename.
 
-        WHY THE SAME-DAY FLIP IS NOT CHURN. ADDENDUM 169's first cut read the player's standing instruction
-        ("the only locations I want open by default are Kaminko, Gateon, Agate and Pokemon HQ Lab") as applying
-        in every mode, and put `("Menu", "Agate Village", ())` into regions.REGION_EDGES. The player corrected
-        that within the day: "Leave Agate, Kaminko and Gateon locked by default if travel randomization is off.
-        Let them unlock normally." The instruction was always about randomize_travel_locations, where every
+        WHY THE SAME-DAY FLIP IS NOT CHURN. ADDENDUM 169's first cut read the always-open rule
+        (the only locations open by default are Kaminko, Gateon, Agate and Pokemon HQ Lab) as applying in every
+        mode, and put `("Menu", "Agate Village", ())` into regions.REGION_EDGES. That was corrected within the
+        day: with travel randomization off, Agate, Kaminko and Gateon stay locked by default and unlock
+        normally. The rule was always about randomize_travel_locations, where every
         OTHER destination is a receivable item and these four are the exceptions -- with travel randomization
         OFF there are no destination items to be an exception to, so there is nothing to open "by default" and
         the player simply walks the vanilla route. So the four-always-open rule now lives ONLY in the
@@ -88,7 +88,7 @@ class TestTravelLocationsOptionOff(PokemonXDTestBase):
 
         WHAT CAME BACK: the Machine Part gates Agate Village, exactly as this test asserted before ADDENDUM
         169 touched it. Both directions are asserted, because each without the other is a different bug: Agate
-        silently unlocked again (the vanilla route collapses and the player's correction is undone), or the
+        silently unlocked again (the vanilla route collapses and the correction is undone), or the
         Machine Part silently demoted to flavour. Mt. Battle is checked alongside it, since it now INHERITS the
         Machine Part through Agate instead of naming it -- an edge that is easy to lose without noticing.
         """
@@ -153,8 +153,8 @@ class TestTravelLocationsOptionOn(PokemonXDTestBase):
             moved to Pyrite Town.
           * ADDENDUM 169 put the Machine Part on the Agate -> Mt. Battle edge, which closed Mt. Battle again,
             so the probe moved back.
-          * The player then corrected ADDENDUM 169 ("Leave Agate, Kaminko and Gateon locked by default if
-            travel randomization is off. Let them unlock normally."), which moved the Machine Part back onto
+          * ADDENDUM 169 was then corrected (with travel randomization off, Agate, Kaminko and Gateon stay
+            locked by default and unlock normally), which moved the Machine Part back onto
             Gateon Port -> Agate Village. With this option ON, Menu -> Agate Village is still unconditional --
             that branch is where ADDENDUM 106's four-always-open rule now exclusively lives -- and Mt. Battle
             hangs off Agate with no requirement of its own, so Mt. Battle is open turn one once more.
@@ -222,7 +222,7 @@ class TestTravelLocationsOptionOn(PokemonXDTestBase):
         unlock is taken back as fast as the game grants it -- and this test went on pinning the old promise,
         which is why the graph kept it for nineteen addenda.
 
-        The property now is the opposite one, and it is the player's: key items alone get you nowhere the map
+        The property now is the opposite one: key items alone get you nowhere the map
         will not take you."""
         self.collect_key_item_chain()
         self.assertFalse(self.can_reach_location(DEEPEST_CHEST),
@@ -236,14 +236,14 @@ class TestTravelLocationsOptionOn(PokemonXDTestBase):
             trainer_defeat_count_location_name(TrainerDefeatCheckCount.range_end)))
 
     def test_gateon_port_is_not_a_travel_unlock_item(self) -> None:
-        # ADDENDUM 106 (2026-09-10, player request: "the only locations I want open by default are Kaminko,
-        # Gateon, Agate and Pokemon HQ Lab") -- Gateon Port moved to always-open, no item at all.
+        # ADDENDUM 106 (2026-09-10: the only locations open by default are Kaminko, Gateon, Agate and
+        # Pokemon HQ Lab) -- Gateon Port moved to always-open, no item at all.
         item_names = {item.name for item in self.multiworld.itempool}
         self.assertNotIn("Travel Unlock - Gateon Port", item_names)
 
     def test_the_four_always_open_areas_are_reachable_with_nothing_collected(self) -> None:
-        """ADDENDUM 106, player request: "the only locations I want open by default are Kaminko, Gateon, Agate
-        and Pokemon HQ Lab." All four must be reachable turn one, with zero items collected.
+        """ADDENDUM 106: the only locations open by default are Kaminko, Gateon, Agate and Pokemon HQ Lab.
+        All four must be reachable turn one, with zero items collected.
 
         RETARGETED 2026-09-13 (ADDENDUM 168) from location-level to REGION-level, which is the level the
         guarantee now lives at. ADDENDUM 168 gave three of the four areas real regions of their own (Pokemon HQ
@@ -252,8 +252,8 @@ class TestTravelLocationsOptionOn(PokemonXDTestBase):
 
         ADDENDUM 169 (2026-09-13) briefly moved ("Menu", "Agate Village", ()) into regions.REGION_EDGES itself,
         making all four areas unconditional in EVERY mode, and this docstring said so. REVERSED later the same
-        day, on the player's correction ("Leave Agate, Kaminko and Gateon locked by default if travel
-        randomization is off. Let them unlock normally."): the four-always-open rule is a randomize_travel_
+        day -- with travel randomization off, Agate, Kaminko and Gateon stay locked by default and unlock
+        normally: the four-always-open rule is a randomize_travel_
         locations rule and nothing else, so THIS class's option is once again exactly what makes the assertion
         below pass, via the unconditional Menu -> Agate Village connection in regions.py's travel block. The
         option-off twin of this test asserts the opposite for Agate and the same for the other three:
@@ -264,7 +264,7 @@ class TestTravelLocationsOptionOn(PokemonXDTestBase):
         Stand" location bucket -- a deliberate tripwire, placed so that the day someone re-bucketed them the
         test would say so rather than quietly passing. ADDENDUM 169's `_REBUCKET_BY_NAME` in locations.py is
         that day: each location now lives in the region its own NAME states. So the assertion flips from
-        "still mis-filed" to the real guarantee the player asked for -- the always-open areas hold checks that
+        "still mis-filed" to the real guarantee -- the always-open areas hold checks that
         are reachable with nothing collected, at LOCATION level and not merely at region level.
         """
         for region_name in ("Pokemon HQ Lab", "Kaminko's House", "Gateon Port", "Agate Village"):
@@ -301,9 +301,8 @@ def _pool_item(requirement: str) -> str:
 
 
 class TestTravelLocationAdjacency(PokemonXDTestBase):
-    """ADDENDUM 105 (2026-09-10, player question: "Did you ensure that outskirt stand is logically locked
-    behind one of the places we discussed, and that the SS Libra location is also logically behind phenac
-    city?") -- exercises the gateway ENTRANCE's own access_rule directly (via can_reach_entrance) rather than
+    """ADDENDUM 105 (2026-09-10: Outskirt Stand is logically locked behind one of its neighbouring places, and
+    the SS Libra location is logically behind Phenac City) -- exercises the gateway ENTRANCE's own access_rule directly (via can_reach_entrance) rather than
     overall region reachability. That distinction matters here: both "Outskirt Stand" and "Phenac City" are
     ALSO the base story chain's own unconditionally-open first two links (regions.MEMOS_REQUIRED[0] ==
     MEMOS_REQUIRED[1] == 0, a deliberate anti-"restrictive-start" design choice -- see regions.py's own
@@ -333,7 +332,7 @@ class TestTravelLocationAdjacency(PokemonXDTestBase):
 
     def test_outskirt_stand_stays_closed_on_the_item_alone_with_no_real_neighbor_yet(self) -> None:
         # No sibling travel item, and Pyrite Town isn't reachable yet -- the item alone must not be enough.
-        # This is the concrete behaviour the player was asking about in ADDENDUM 105.
+        # This is the concrete behaviour ADDENDUM 105 pins.
         self.collect_by_name("Travel Unlock - Outskirt Stand")
         self.assertFalse(self.multiworld.state.can_reach("Outskirt Stand", player=self.player))
 
@@ -373,18 +372,18 @@ class TestTravelLocationAdjacency(PokemonXDTestBase):
         self.assertFalse(self.multiworld.state.can_reach("SS Libra", player=self.player))
 
     def test_ss_libra_really_requires_phenac_city_now(self) -> None:
-        """The constraint the player asked for: "the SS Libra location is also logically behind phenac city".
+        """The constraint: the SS Libra location is logically behind Phenac City.
 
-        RETARGETED 2026-09-14 (ADDENDUM 190), and again (ADDENDUM 324) -- player: "We can still get SS Libra
-        unlock before Phenac, which lets us access phenac out of logic ... ensure that SS Libra is ALWAYS
-        unlocked after phenac." Reaching plain "Phenac City" is no longer enough, because that region is open
+        RETARGETED 2026-09-14 (ADDENDUM 190), and again (ADDENDUM 324): the SS Libra unlock could be had
+        before Phenac, which gave access to Phenac out of logic, so SS Libra is ALWAYS unlocked after Phenac.
+        Reaching plain "Phenac City" is no longer enough, because that region is open
         from turn one; the gate is the CLEARED town, `Phenac City (Post-Sixes)`, which needs the Music Disc
         and the Mayor's Note. Every step of the ladder is asserted so a future loosening shows up here."""
         self.collect_by_name("Travel Unlock - SS Libra")
         self.assertFalse(self.multiworld.state.can_reach("SS Libra", player=self.player),
                          "the item alone must not be enough")
-        # RETARGETED BY ADDENDUM 481. Player: "Gate SS Libra's items logically JUST behind the phenac unlock - we
-        # don't need the phenac clear at all." With travel shuffle, plain "Phenac City" is behind its own unlock.
+        # RETARGETED BY ADDENDUM 481: SS Libra's items are gated logically JUST behind the Phenac unlock -- the
+        # Phenac clear is not needed at all. With travel shuffle, plain "Phenac City" is behind its own unlock.
         self.collect_by_name("Travel Unlock - Phenac City")
         self.assertTrue(self.multiworld.state.can_reach("Phenac City", player=self.player))
         self.assertFalse(self.multiworld.state.can_reach("Phenac City (Post-Sixes)", player=self.player))
@@ -409,8 +408,8 @@ class TestCatchPokemonAreaGating(PokemonXDTestBase):
         """REWRITTEN 2026-09-13 (ADDENDUM 183). This used to read `rules._SPECIES_TO_REGION` -- the ordinary-
         trainer census -- and grant one travel-unlock item. That table no longer drives catch rules at all
         (ADDENDUM 182 found it was the wrong population: it is built from DPKM team slots, and every species
-        with a catch location comes from the DDPK shadow table or a Poke Spot). The contract to test now is the
-        one the player specified: the snag floor AND the holding trainer's own region, ANDed.
+        with a catch location comes from the DDPK shadow table or a Poke Spot). The contract to test now is:
+        the snag floor AND the holding trainer's own region, ANDed.
 
         Order-independence, which the two earlier fixes to this test were both about, is preserved by the same
         means: a candidate is only accepted once it has been checked to be unreachable on an empty state and

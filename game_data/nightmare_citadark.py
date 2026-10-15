@@ -1,12 +1,9 @@
 """ADDENDUM 423 -- Nightmare Citadark: every Citadark Isle trainer fields an Orre Colosseum team at level 100.
 
-Player: "Can we add an option named "Nightmare_Citadark" that replaces every citadark trainer's team with one of
-these teams at level 100? Can we investigate enhancing the AI of the trainers, or utilizing the AI from these
-trainers in their respective games?" Then, on the questions: Shadows -- "Make it so they don't have shadow
-pokemon at all if this option is enabled"; team size -- always 6; AI -- copy it, and research the engine AI.
-ADDENDUM 424: "Greevil's first team is just shadow lugia - don't replace that one. Also, now that those 36 shadow
-pokemon aren't in those spots, can they be shuffled/added into the rest of the trainers?" ... "Obviously still only
-give the shadow pokemon to non-missable trainers."
+The option `Nightmare_Citadark` replaces every Citadark trainer's team with one of these teams at level 100, and
+copies each source trainer's AI. With it enabled, Citadark trainers field no Shadow Pokemon at all; every team has
+six members. Greevil's first team (Shadow Lugia alone) is not replaced, and the Citadark Shadows it displaces are
+moved onto the rest of the trainers -- only ever onto non-missable ones.
 
 GREEVIL #1 (row 199) fields Shadow Lugia and nothing else, and keeps it: 33 trainers take a team, not 34. The
 other 35 Citadark Shadows are RELOCATED, not deleted (`plan_relocations`): each keeps its own DDPK entry and the
@@ -23,8 +20,8 @@ Trainers 1-40 are the low tiers (level 20/40, three to five members) and are not
 For these, generation names the source trainer and its six species, so the patcher can refuse a disc whose deck
 disagrees; the sets and the AI row are copied from that deck at patch time.
 
-THE COLOSSEUM TEAMS. The player's answer to "which teams" was XD + Colosseum, and to "repeats" (2026-10-06)
-"I want every trainer to have a unique team" -- 33 Citadark trainers against XD's 28. Pokemon Colosseum's own Orre
+THE COLOSSEUM TEAMS. The pool is XD + Colosseum, and every trainer gets a unique team -- 33 Citadark trainers
+against XD's 28. Pokemon Colosseum's own Orre
 Colosseum, Lv. 100 Battle Mode, adds sixteen: eight Single rounds and eight Double rounds, every member already
 level 100. They were read off a Colosseum (USA, GC6E) disc's `common.rel` -- Trainer table (0x34/row, rows 559-574)
 and TrainerPokemonData (0x50/row) -- and every field was explicit (no random ability, gender, nature or move). Each
@@ -479,8 +476,8 @@ def plan_relocations(rng: random.Random, free_slot_census: "list[dict]", exclude
 
 
 def assign_teams(rng: random.Random, trainer_indices=None) -> "dict[int, str]":
-    """{citadark trainer index: team key}, every team different -- the player's "I want every trainer to have a
-    unique team". 44 teams for 33 trainers, so eleven sit out each seed."""
+    """{citadark trainer index: team key}, every team different: every trainer has a unique team. 44 teams for 33
+    trainers, so eleven sit out each seed."""
     trainers = sorted(nightmare_trainer_indices() if trainer_indices is None else trainer_indices)
     if len(trainers) > len(TEAM_KEYS):
         raise ValueError(f"{len(trainers)} trainers but only {len(TEAM_KEYS)} Nightmare teams")

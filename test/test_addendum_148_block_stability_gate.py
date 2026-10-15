@@ -1,7 +1,7 @@
 """ADDENDUM 148 (2026-09-11): not polling the save block while the save block is being rewritten.
 
-Player report: "Chests and purifications are still sending upon opening the save menu. I think it temporarily
-writes to the block and then rewrites it -- ways to avoid this?"
+Chests and purifications were still sending upon opening the save menu: the game temporarily writes to the block
+and then rewrites it.
 
 ADDENDUM 98 debounced for 2 polls. ADDENDUM 99 widened that to 4. Both asked "has this value settled?", and a
 write-then-rewrite answers yes for as long as the menu is open, so both lost. This asks a different question --
@@ -144,7 +144,7 @@ class TestTheSaveMenuRewrite(unittest.TestCase):
         self.assertEqual(gate.rebaselines, 1)
 
     def test_a_multi_burst_save_is_never_trusted_in_the_gaps(self) -> None:
-        """The reported bug, directly: "opening the save menu is two writes, but SAVING is three". Quiet polls
+        """The bug, directly: opening the save menu is two writes, but SAVING is three. Quiet polls
         between bursts must not reopen the gate while the content is still wrong."""
         gate, window = self._primed()
         for _burst in range(3):

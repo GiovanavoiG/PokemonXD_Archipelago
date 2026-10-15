@@ -1,7 +1,7 @@
 """ADDENDUM 190. With randomize_travel_locations on, a destination's own item is the ONLY way to it.
 
-The player, reading a generated seed: "Pyrite cannot open of its own shop. All of this logic is busted -- you
-are not accounting for *having access to the region*."
+In a generated seed, Pyrite could not open its own shop: the logic was not accounting for having access to the
+region.
 
 WHAT HAD DRIFTED. ADDENDUM 104 built the travel gateways as an EXTRA entrance alongside the vanilla story
 chain, and said so: turning the option on "can only ever make a region reachable EARLIER". True when written.
@@ -128,9 +128,8 @@ class TestTravelGatewaysAreTheOnlyWayIn(PokemonXDTestBase):
         Cipher Lab and the Poke Spots have a Data ROM requirement on a chain edge that is now suppressed.
         Flying there does not hand you the ID Card, so holding the unlock alone must not be enough.
 
-        NARROWED 2026-09-16 (ADDENDUM 240): Pyrite Town used to be in this list and no longer belongs.
-        Player: "Pyrite vending machine and first shop version are accessible as soon as pyrite town is."
-        Plain Pyrite carries no ROM requirement any more, so flying there on its own unlock SHOULD open it --
+        NARROWED 2026-09-16 (ADDENDUM 240): Pyrite Town used to be in this list and no longer belongs: the Pyrite
+        vending machine and the first shop version are accessible as soon as Pyrite Town is. Plain Pyrite carries no ROM requirement any more, so flying there on its own unlock SHOULD open it --
         that is the feature, not the leak. The test below asserts that directly rather than leaving it
         untested.
         """
@@ -139,9 +138,9 @@ class TestTravelGatewaysAreTheOnlyWayIn(PokemonXDTestBase):
             if item.advancement and item.name.startswith(travel_locations.TRAVEL_UNLOCK_ITEM_PREFIX):
                 state.collect(item, True)
         state.sweep_for_advancements()
-        # ADDENDUM 406: neither carries the ROM any more, so each opens on its own unlock. Player: "Poke spots do
-        # NOT need the data rom. Also, Cipher Lab is not gated by Data Rom - just Lovrina, her defeat item, and
-        # chest 23." The mechanism this test was written for -- a suppressed edge's ITEM moving to the gateway --
+        # ADDENDUM 406: neither carries the ROM any more, so each opens on its own unlock: the Poke Spots do
+        # not need the Data ROM, and in Cipher Lab only Lovrina, her defeat item and chest 23 are gated by it.
+        # The mechanism this test was written for -- a suppressed edge's ITEM moving to the gateway --
         # is still exercised by the Music Disc / Mayor's Note tiers elsewhere.
         for region in ("Cipher Lab", "Poke Spots"):
             self.assertTrue(state.can_reach(region, player=self.player), region)

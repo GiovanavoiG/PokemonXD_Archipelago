@@ -1,8 +1,7 @@
 """ADDENDUM 378 (2026-09-27): "Key Lab" becomes "Key Lair" everywhere, and the basement stops being 5F.
 
-Player: "Rename Cipher Key Lair 5F Chest to Cipher Key Lair Basement Chest. Rename the item 'Travel Unlock -
-Cipher Key Lab' to 'Travel Unlock - Cipher Key Lair'. Make every 'Key Lab' reference 'Key Lair'. Also, the fix
-for Cipher Key Lair 1F Chest 3 worked - remove the debug message."
+Cipher Key Lair 5F Chest is Cipher Key Lair Basement Chest, the item is 'Travel Unlock - Cipher Key Lair', and the
+Cipher Key Lair 1F Chest 3 debug message is gone.
 
 ONE EDIT DID THE ITEM, THE LOCATION AND THE REGION. `TRAVEL_LOCATION_NAMES` is built from the bit table in
 `travel_locations`, and the `Travel Unlock - {name}` item, the `Unlock - {name}` check and regions.py's
@@ -12,10 +11,6 @@ POSITION is what preserves the ids -- `items._table` numbers by index into that 
 The name was always the odd one out: ADDENDUM 91 confirmed the icon and the region are the same place, and every
 other travel name already matched its region. `TRAVEL_LOCATION_TARGET_REGION` now has an identity row for it,
 like eight of its nine neighbours.
-
-WHAT WAS DELIBERATELY NOT RENAMED: three comment lines that QUOTE the player verbatim ("And make Cipher Key
-Lab's floor 0x64"). Editing a quotation falsifies the record, and this project's documentation rests on those
-being exact.
 """
 from __future__ import annotations
 
@@ -48,9 +43,8 @@ class TestTheNewNames(unittest.TestCase):
         self.assertIn("Cipher Key Lair Basement Chest", IDS)
         self.assertNotIn("Cipher Key Lair 5F Chest", IDS)
 
-    def test_no_live_string_still_says_key_lab(self) -> None:
-        """Every remaining occurrence in the shipped modules must be a COMMENT that quotes the player. A live
-        string or an unquoted mention would mean one of the four derived names did not follow the rename.
+    def test_no_shipped_module_still_says_key_lab(self) -> None:
+        """No live string, name or comment in the shipped modules uses the old name.
 
         The `test/` tree is excluded: these modules discuss the rename by name, including this one's own
         docstring, and a test that fails on its own prose is a test about itself."""
@@ -59,24 +53,9 @@ class TestTheNewNames(unittest.TestCase):
             if "test" in path.relative_to(WORLD).parts:
                 continue
             for number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
-                if "Key Lab" not in line:
-                    continue
-                stripped = line.strip()
-                quoting = "0x64" in line or "Make every" in line
-                if not (stripped.startswith("#") and quoting):
-                    offenders.append(f"{path.relative_to(WORLD)}:{number}: {stripped[:90]}")
+                if "Key Lab" in line:
+                    offenders.append(f"{path.relative_to(WORLD)}:{number}: {line.strip()[:90]}")
         self.assertEqual([], offenders)
-
-    def test_the_player_quotes_were_left_verbatim(self) -> None:
-        """The other half, so "sweep everything" cannot later be taken literally. Three comment lines quote the
-        player's own words from ADDENDUM 324 and they must keep saying "Cipher Key Lab" -- editing a quotation
-        falsifies the record that this project's documentation is built on."""
-        quoted = 0
-        for path in sorted(WORLD.rglob("*.py")):
-            if "test" in path.relative_to(WORLD).parts:
-                continue
-            quoted += path.read_text(encoding="utf-8").count("Cipher Key Lab's floor 0x64")
-        self.assertEqual(3, quoted, "the verbatim player quotes were swept along with the prose")
 
 
 class TestEveryIdSurvived(unittest.TestCase):

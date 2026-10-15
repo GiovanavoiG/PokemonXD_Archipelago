@@ -1,8 +1,7 @@
 """ADDENDUM 419 (2026-10-05) -- the Music Disc is a story byte, so Phenac is capped below the pickup without it.
 
-Player: "Apparently the music disc is a fake item, and the action that takes it is actually determined via story
-byte. Let's add a system to ensure that our story byte is forced capped to before the music disc if we don't have
-it in Phenac."
+The Music Disc is a fake item: the action that takes it is determined by the story byte. So in Phenac, without
+the disc, the story byte is held capped below the point where the disc is taken.
 """
 import unittest
 from pathlib import Path

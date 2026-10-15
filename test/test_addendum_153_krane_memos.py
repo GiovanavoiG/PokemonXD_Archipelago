@@ -1,6 +1,6 @@
 """ADDENDUM 153 (2026-09-11): the Krane Memos become real.
 
-Player instruction: "Implement the krane memos", against their own ADDENDUM 152 compilation:
+The Krane Memos, per the ADDENDUM 152 compilation:
     0x10 Story Byte > Krane Memo 1 and 2 > remove from inventory, send 2 AP checks
     0x17 Story Byte > Memo 3 4 and 5 > remove from inventory, send 3 AP checks
 
@@ -42,7 +42,7 @@ class TestConstantsMirrorLocations(unittest.TestCase):
         for n, item_id in locations.KRANE_MEMO_GAME_ITEM_IDS.items():
             self.assertEqual(items.ITEM_TABLE[f"Krane Memo {n}"].game_item_id, item_id)
 
-    def test_the_thresholds_are_the_players_own_numbers(self) -> None:
+    def test_the_thresholds(self) -> None:
         self.assertEqual(locations.KRANE_MEMO_STORY_THRESHOLDS[1], 0x10)
         self.assertEqual(locations.KRANE_MEMO_STORY_THRESHOLDS[2], 0x10)
         for n in (3, 4, 5):
@@ -106,8 +106,8 @@ def _poll(tracker, bag, times=1):
     return fired
 
 
-# ADDENDUM 434: the check is the removal. Player: "don't automatically send the krane memo checks. Let's instead
-# send them when they enter our inventory and are removed." No story byte is read any more.
+# ADDENDUM 434: the check is the removal -- a memo's check is sent when it enters the Bag and is removed, not
+# automatically. No story byte is read any more.
 class TestAwarding(unittest.TestCase):
     def test_nothing_fires_while_the_bag_holds_no_memo(self) -> None:
         tracker, bag = rc.KraneMemoTracker(), _Bag([506])
@@ -279,8 +279,8 @@ class TestWorldWiring(PokemonXDTestBase):
     def test_the_memo_locations_survive_as_checks_while_the_items_are_gone(self) -> None:
         """RETARGETED 2026-09-13 (ADDENDUM 168), was "the memo items still exist and still gate regions".
 
-        That is precisely the model that was retired. The player's objection was that the gating was fiction
-        ("Why do these locations require the memos? They're unrelated."), so regions.py now gates on the real
+        That is precisely the model that was retired. The gating was fiction -- those locations are unrelated to
+        the memos -- so regions.py now gates on the real
         story key items and items.ITEMS_REMOVED_FROM_POOL drops all five memos out of the pool entirely.
 
         The half of ADDENDUM 153 that is still real -- and is the part worth protecting, because it is what the

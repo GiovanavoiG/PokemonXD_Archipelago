@@ -1,6 +1,6 @@
 """ADDENDUM 366 (2026-09-26): Kaminko's House is off the path-scaling ramp.
 
-Player: *"Since we do not scale the first chobin fight, don't include kaminko in the path scaling design."*
+The first Chobin fight is not scaled, so Kaminko is left out of the path scaling design.
 
 WHAT THE RAMP WAS ACTUALLY DOING, measured before anything changed. All SEVEN Chobin fights are placed in
 `Kaminko's House`, which is always-open and therefore tier 0, so every one of them was levelled to
@@ -123,7 +123,7 @@ class TestWhatTheTrainersGetNow(unittest.TestCase):
             self.assertNotIn(index, self.averages, index)
 
     def test_chobin_one_is_still_pinned_to_five(self) -> None:
-        """ADDENDUM 281's instruction, which the exclusion must not have swallowed."""
+        """ADDENDUM 281's pin, which the exclusion must not have swallowed."""
         row = self.rows[15]
         for dpkm_index in row["member_levels"]:
             self.assertEqual(self.levels[dpkm_index], 5, dpkm_index)

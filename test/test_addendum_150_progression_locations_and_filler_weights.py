@@ -1,10 +1,10 @@
 """ADDENDUM 150 (2026-09-11): filler weighting, and letting checks hold progression at all.
 
-Player request: "Can we weight the filler away from the flutes/status heals and towards the various pokeballs?
-Also, can we ensure that every check can be progressive/useful/not filler? It seems like all my trainer defeats
-and chests are guaranteed filler, which I don't want. Check shadow purifies & catches too."
+Filler is weighted away from the flutes/status heals and towards the various Poke Balls, and every check --
+trainer defeats, chests, Shadow purifications and catches -- can hold progression/useful items rather than being
+guaranteed filler.
 
-Both halves are here because they solve the same complaint from opposite ends: one makes the filler better,
+Both halves are here because they solve the same problem from opposite ends: one makes the filler better,
 the other makes there be less of it.
 """
 from __future__ import annotations
@@ -105,7 +105,7 @@ class TestSphereWeightTables(unittest.TestCase):
         self.assertEqual(sum(rules._PURIFICATION_WEIGHT_BY_REGION.values()), locations.VANILLA_SHADOW_COUNT)
 
     def test_a_region_with_no_shadows_and_no_clamped_ones_carries_no_weight(self) -> None:
-        """RETARGETED AGAIN 2026-09-14 (ADDENDUM 184, player: "You can purify in Agate Village"). This used to
+        """RETARGETED AGAIN 2026-09-14 (ADDENDUM 184: you can purify in Agate Village). This used to
         assert Agate Village carried zero, on the grounds that no vanilla shadow is snagged there. That was the
         wrong question: the ladder counts where a shadow can be PURIFIED, and everything snagged before Agate
         can only be purified once Agate is reachable. So Agate now absorbs the seven thresholds that used to
@@ -189,7 +189,7 @@ class TestSphereWeightTables(unittest.TestCase):
         an optional dungeon. The fix at the time was a second table with Mt. Battle forced to 0 and the rest
         rescaled, which was a correction applied to a bad estimate.
 
-        The player's census replaces the estimate with a count, and it says 3. Not 92, and not 0 either -- a
+        The census replaces the estimate with a count, and it says 3. Not 92, and not 0 either -- a
         handful of story fights really do happen at Mt. Battle. So both tables are now the same census, and
         the property worth asserting is the original CONCERN rather than either of the two old numbers: Mt.
         Battle must not carry a meaningful share of the story roster."""
@@ -248,7 +248,7 @@ class _ScopeBase(PokemonXDTestBase):
     """
 
     # ADDENDUM 196: every subclass below probes "Defeat N Trainers", which exists only in CUMULATIVE mode --
-    # no longer the default once the player's own YAML became the template. Pinned here once rather than in
+    # no longer the default once the template YAML changed. Pinned here once rather than in
     # each subclass, since none of them is about the mode.
     options = {"trainer_defeat_mode": 0}
 
@@ -263,7 +263,7 @@ class _ScopeBase(PokemonXDTestBase):
 
 
 class TestEverything(_ScopeBase):
-    """The default, and what was asked for."""
+    """The default."""
 
     options = {
         "trainer_defeat_mode": 0,
@@ -274,15 +274,15 @@ class TestEverything(_ScopeBase):
 
     def test_chests_can_hold_progression(self) -> None:
         """ADDENDUM 174: the deep sample is a Cipher Key Lair chest rather than a Citadark one. Citadark
-        checks now get a per-location progression roll (the player's "weighted AWAY from progressives, it's
-        okay if it CAN happen" instruction), so a Citadark chest is EXCLUDED in most seeds and would make this
+        checks now get a per-location progression roll (weighted AWAY from progression, though it CAN happen),
+        so a Citadark chest is EXCLUDED in most seeds and would make this
         test flaky in a way that looks like a regression. See test_citadark_is_weighted_away_from_progression
         below for the rule that replaced it."""
         self.assert_default(EARLIEST_CHEST)
         self.assert_default(DEEP_NON_CITADARK_CHEST)
 
     def test_citadark_is_weighted_away_from_progression(self) -> None:
-        """The other half of the same instruction: unlikely, but POSSIBLE. Asserting "this one location is
+        """The other half of the same rule: unlikely, but POSSIBLE. Asserting "this one location is
         excluded" would be asserting a coin flip, so this asserts the distribution instead -- with the default
         chance of 10, the overwhelming majority of Citadark locations must be excluded, and the mechanism must
         be a roll rather than a blanket rule."""
@@ -397,8 +397,8 @@ if __name__ == "__main__":
 
 
 class TestPurificationProgressionCap(_ScopeBase):
-    """ADDENDUM 160 (player request: "can we change the 'purify X pokemon' to make it an option of how many are
-    allowed to be progressive/useful? ... This will help mitigate our 'catch every shadow' problem").
+    """ADDENDUM 160: an option sets how many 'Purify X Pokemon' checks are allowed to be progression/useful,
+    which mitigates the 'catch every Shadow' problem.
 
     A purification threshold is the one check category a player can be locked out of by playing normally --
     every other check is something you walk up to. So the high thresholds get a dial of their own, on top of

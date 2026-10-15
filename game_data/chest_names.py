@@ -7,7 +7,7 @@ unlisted keeps the generated "Chest N (Room R)" form. Renaming is safe, renumber
 keeps its frozen id, at the cost of in-flight seeds."""
 from __future__ import annotations
 
-# Names come from the player's room-by-room list, every row checked against the ISO by the fence at the foot
+# Names are assigned room by room, every row checked against the ISO by the fence at the foot
 # of this module. That fence settled three discrepancies, all in the ISO's favour: room 1 holds chests 16 and
 # 20 (17 is room 8's), room 8 holds five (17, 18, 19, 21, 22), and of the Kaminko Crane Room's 110-113 only
 # 113 is an AP location. Chest 98 was "Pickup PDA" until the ISO settled it -- room 110 (ONBS), a Revive,
@@ -108,7 +108,7 @@ CHEST_LOCATION_NAME_OVERRIDES: "dict[tuple[int, ...], str]" = {
     (53,): "Cipher Key Lair 4F Shiny Chest",
     (48,): "Cipher Key Lair Roof Chest",
 
-    # Generated names the player approved. Chest 23 is room 9, generated until a real name arrived later.
+    # Generated names, kept as names. Chest 23 is room 9, generated until a real name arrived later.
     (23,): 'Cipher Lab Krane Chest',
     (4,): 'Gateon Port Chest',
     (78,): "Mayor's House Upstairs Chest",   # room 97 -- the Note is picked up upstairs (ladder 0x43 -> 0x44)

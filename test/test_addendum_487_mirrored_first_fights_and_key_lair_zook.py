@@ -1,9 +1,9 @@
 """ADDENDUM 487 (2026-10-13).
 
-1. Player: "clerr/belish/dosk/dert/raling/labet/doby can be opened with the mirrors. Leave the rest as is." Their first
-   fights may host a Shadow, and the second fight always carries its mirror. Then: "You can open Cail with the mirrors
-   too." -- his first fight hosts, his second and third carry the copy.
-2. Player: "Zook is still rematching us ... Beating him puts it from 64 to 65, but returning put me back at 64." The
+1. Clerr, Belish, Dosk, Dert, Raling, Labet and Doby are opened with the mirrors; the rest stay as they are. Their
+   first fights may host a Shadow, and the second fight always carries its mirror. Cail is opened with the mirrors
+   too -- his first fight hosts, his second and third carry the copy.
+2. Zook kept rematching: beating him moved the byte from 0x64 to 0x65, but returning put it back at 0x64. The
    Key Lair's floor is banked off Zook's defeat itself, wherever it is fought.
 """
 from __future__ import annotations
@@ -98,7 +98,7 @@ class TestKeyLairZook(unittest.TestCase):
 
     def test_the_win_banks_the_floor_and_the_next_visit_is_past_him(self) -> None:
         ctx = self._ctx()
-        self.assertEqual(0x64, ctx.area_story_memory.target_for("Cipher Key Lair"), "the player's report")
+        self.assertEqual(0x64, ctx.area_story_memory.target_for("Cipher Key Lair"), "before the win")
         self._run(ctx, 0x65)
         self.assertEqual(0x65, ctx.area_story_memory.highest_by_region["Cipher Key Lair"])
         self.assertEqual(0x66, ctx.area_story_memory.target_for("Cipher Key Lair"))

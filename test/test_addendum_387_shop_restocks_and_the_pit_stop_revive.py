@@ -1,7 +1,7 @@
 """ADDENDUM 387 (2026-09-28) -- the shop restock lines hold filler, and the Pit Stop sells a Revive from the start.
 
-Player: "Can we make all of the shop expansion items filler for now, they're inaccessible sometimes. Add
-revives to the agate village pit stop in place of something, prior to the expansion. Maybe hyper potions"
+The shop expansion items become filler for now, because they are sometimes inaccessible. The Agate Village
+Pit Stop sells Revives before the expansion, in place of something else -- the Hyper Potion.
 
 Two changes, one cause: a shop is a sequence of MARTS, not one shelf, and anything past the first mart is
 only there after the story restocks the shop.
@@ -11,7 +11,7 @@ PART ONE -- THE RESTOCK LINES. Thirteen shop checks are introduced by a later ma
 shop model -- the mart-to-room mapping is secondary (Bulbapedia, not a census of the ISO), Gateon's earlier
 tiers were deduced BY ELIMINATION rather than matched, and three of its lines are gated only because they
 share a mart with a line that is annotated. A gate that is too loose puts a check in logic before the
-restock that creates it, which is "inaccessible sometimes" seen from the player's chair.
+restock that creates it, which is "sometimes inaccessible" seen from the player's chair.
 
 So they are EXCLUDED: still real locations, still firing on purchase, just never REQUIRED. The tier rules
 stay in place -- they still keep a restock line out of an early sphere, and dropping them would trade one
@@ -20,7 +20,7 @@ wrong answer for another.
 PART TWO -- THE REVIVE. An Agate mart takes lines from the FRONT of `AGATE_PIT_STOP_STOCK`, and Agate's
 three marts are 7, 8 and 9 lines long. The Revive sat at position 8, so the smallest shelf never carried
 one: the item a pit stop most exists to sell was itself behind the expansion. It swaps with the Hyper
-Potion, which is the trade the player named. Nothing left the list.
+Potion. Nothing left the list.
 
 WHY THE SETS ARE DERIVED. Both halves read the mart tiers rather than a typed list, so a shop that gains or
 loses a tier -- or a mart whose patchable line count changes -- is covered the day `shop_stock.py` says so.
@@ -124,7 +124,7 @@ class TestThePitStopRevive(unittest.TestCase):
         self.assertIn(REVIVE, ss.AGATE_PIT_STOP_STOCK[:7])
 
     def test_the_hyper_potion_took_the_revive_s_old_place(self) -> None:
-        """A swap, not a deletion -- the player said 'in place of something', so nothing may fall off."""
+        """A swap, not a deletion -- the Revive goes in place of something, so nothing may fall off."""
         self.assertEqual(HYPER_POTION, ss.AGATE_PIT_STOP_STOCK[7])
         self.assertIn(HYPER_POTION, ss.AGATE_PIT_STOP_STOCK)
 

@@ -1,10 +1,9 @@
 """ADDENDUM 461 (2026-10-10) -- with Randomize Starter on, the first Chobin fight is one the starter can win.
 
-Player: "If we have random starter on, can you make it so that the first Chobin fight has a pokemon that we can
-guaranteed hit for at least half its health (or close to it)? Account for immunity abilities (Levitate, Soundproof,
-Flash Fire, Volt Absorb, Water Absorb, Soundproof, WONDER GUARD CAN ONLY BE HIT BY SUPEREFFECTIVE) and type
-immunities. Also ensure our starter CANT ONLY HAVE explosion/selfdestruct as its attacks. Run battle sims if you
-can and ensure we can win."
+With random starter on, the first Chobin fight fields a Pokemon the starter is guaranteed to hit for at least
+half its health (or close to it), accounting for immunity abilities (Levitate, Soundproof, Flash Fire, Volt
+Absorb, Water Absorb; WONDER GUARD CAN ONLY BE HIT SUPER-EFFECTIVELY) and type immunities. The starter can never
+have only Explosion/Selfdestruct as its attacks. Battle sims confirm the fight is winnable.
 """
 from __future__ import annotations
 
@@ -144,7 +143,7 @@ class TestTheFight(unittest.TestCase):
 
 
 class TestEveryStarterWins(unittest.TestCase):
-    """The battle sims the player asked for, for every species the option can roll."""
+    """Battle sims, for every species the option can roll."""
 
     @classmethod
     def setUpClass(cls):
@@ -231,8 +230,8 @@ class TestPathScalingKeepsIt(PokemonXDTestBase):
 
 
 class TestTheRefusalsAreReopened(unittest.TestCase):
-    """ADDENDUM 461's ruling ("Remove everyone here as shadow candidates except the Snagem trainers and Willie") was
-    reopened by ADDENDUM 466 once a snagged Shadow stopped respawning (465). The list stays defined for a revert."""
+    """ADDENDUM 461's refusals (everyone in this set off the Shadow candidate list except the Snagem trainers and
+    Willie) were reopened by ADDENDUM 466 once a snagged Shadow stopped respawning (465). The list stays defined for a revert."""
 
     def test_the_fence(self):
         from unittest import mock
@@ -244,7 +243,7 @@ class TestTheRefusalsAreReopened(unittest.TestCase):
         self.assertEqual(refused, set(mt.SHADOW_HOST_REFUSED))
         self.assertEqual(["BOST", "CIDA", "DOSK", "RALING", "LABET", "DOBY"],
                          [TRAINERS_BY_INDEX[i]["name"] for i in (13, 21, 22, 66, 67, 68)])
-        self.assertFalse(mi.PLAYER_RULED_UNMISSABLE & mt.shadow_expansion_excluded_trainer_indices())
+        self.assertFalse(mi.CONFIRMED_UNMISSABLE & mt.shadow_expansion_excluded_trainer_indices())
         with mock.patch.object(mt, "SHADOW_REMATCH_FENCES_RELAXED", False):   # the revert switch restores 461
             self.assertLessEqual(refused, mt.shadow_expansion_excluded_trainer_indices())
 

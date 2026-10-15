@@ -1,6 +1,6 @@
 """ADDENDUM 463 (2026-10-10) -- Infinite TMs.
 
-Player: "Can we add an option for TMs to be infinite use?" One main.dol word: `menuUseItemSkill`'s TM branch sets
+An option makes TMs infinite-use. One main.dol word: `menuUseItemSkill`'s TM branch sets
 the "consumed" flag to 0, as its HM branch already does.
 """
 from __future__ import annotations
@@ -36,7 +36,7 @@ class TestTheWord(unittest.TestCase):
     def test_li_r0_1_becomes_li_r0_0(self):
         self.assertEqual(((0x800A5158, 0x38000001, 0x38000000),), T.dol_patch_words())
 
-    @unittest.skipUnless(REAL_DOL.is_file(), "needs the player's main.dol")
+    @unittest.skipUnless(REAL_DOL.is_file(), "needs a real main.dol")
     def test_against_the_real_dol(self):
         data = REAL_DOL.read_bytes()
         word, offs, addrs, sizes = _word_reader(data)

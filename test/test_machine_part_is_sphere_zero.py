@@ -1,7 +1,7 @@
 """ADDENDUM 191. The Machine Part must be obtainable with nothing collected, in every mode.
 
-Player: "The machine part is needed to progress the HQ, which is needed to get the snag machine. It should be
-available in sphere 0 always."
+The Machine Part is needed to progress the HQ, which is needed to get the Snag Machine, so it is always
+available in sphere 0.
 
 WHY THE GRAPH DID NOT ALREADY SAY THIS. regions.REGION_EDGES records one job for the Machine Part -- repair
 the scooter, open Agate Village -- and that is not all it does. Progressing the Pokemon HQ Lab needs it too,
@@ -14,8 +14,8 @@ in the on mode -- so the fill was free to bury it, and did.
 
 These tests assert the guarantee directly rather than trusting either accident.
 
-ADDENDUM 483 (issue #6) RETRACTS the Snag Machine half. Player: "You get snag machine without machine part, therefore
-that logic is wrong." The lab hands over the Snag Machine at 0x0F; the Machine Part is Gateon's 0x16, after it. The
+ADDENDUM 483 (issue #6) RETRACTS the Snag Machine half: the Snag Machine comes without the Machine Part,
+so that logic was wrong. The lab hands over the Snag Machine at 0x0F; the Machine Part is Gateon's 0x16, after it. The
 Part stays sphere zero -- with travel shuffle off it still opens Agate Village and everything past it -- but it no
 longer gates snagging or the purification ladder.
 """

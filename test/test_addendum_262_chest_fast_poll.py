@@ -1,6 +1,6 @@
 """ADDENDUM 262 (2026-09-17): the chest poll joins the fast window, and one of its windows runs backwards.
 
-Player: "Can we separate the chest opening poll and make that faster as well?"
+The chest-opening poll is separated out and made faster as well.
 
 ADDENDUM 259 built the fast sub-poll for shops. Adding chests to it is a small change with one genuinely
 dangerous corner, and this file is mostly about that corner.
@@ -116,7 +116,7 @@ class TestTheDebounceIsAFloor(unittest.TestCase):
 
     def test_and_it_does_credit_on_the_very_next_read(self) -> None:
         """ADDENDUM 375: the second agreeing read is the whole wait. At ADDENDUM 372's 0.05s sub-poll that is
-        one tenth of a second, which is the answer to "just send it the moment we get it"."""
+        one tenth of a second -- effectively sent the moment the chest is opened."""
         tracker = self.bag.tracker()
         step = 0.05                                             # ADDENDUM 372's sub-poll rate
         self.bag.quantities[self.berry] = 0

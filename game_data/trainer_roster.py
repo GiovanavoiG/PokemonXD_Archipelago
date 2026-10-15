@@ -319,10 +319,10 @@ assert RETIRED_UNIQUE_DEFEAT_LOCATIONS == frozenset({"Defeat - Chobin #7"}), (
 
 # ADDENDUM 401 -- the missable trainers' numbered fights are gone, in every seed.
 #
-# Player: "act under the assumption that missable checks are now bad" ... "Leave the Any, remove ALL numbered
-#          fights, not just later ones, for missable trainers."
+# Missable checks are treated as bad: for missable trainers the (Any) stays and ALL numbered fights go, not just
+# the later ones.
 #
-# A trainer is in scope when ANY of its rows is on the player's missable list AND it fights more than once --
+# A trainer is in scope when ANY of its rows is on the missable list AND it fights more than once --
 # 20 surnames (Dosk, Cida, the six Sixes, Aferd, Biden, ...). Every numbered `Defeat - X #N` for those surnames
 # goes, the missable #1 and the later rematches alike: 75 labels. What is kept:
 #
@@ -333,13 +333,14 @@ assert RETIRED_UNIQUE_DEFEAT_LOCATIONS == frozenset({"Defeat - Chobin #7"}), (
 #
 # Retired the same way `Chobin #7` is: out of the location table (the frozen ids stay behind inert, per
 # ADDENDUM 242), out of the dispatch queue below, and out of the missable fence. One set, three consumers.
-# ADDENDUM 409 -- the player's own trim of the roster:
-#   "The resixes fight at many points. Make their #1 at Cipher Lab, and make their #2 at Phenac (missable, behind
-#    disc and note). Remove all their other fights. Remove Cail's rematches, and his normal fight is at pyrite.
-#    Remove all of cida,clerr,belish,dosk, and hebon's rematches. Remove Aferd's rematches. Remove Eagun's
-#    rematch. Remove Finol, Dert, Raling, Labet and Doby's rematches. Remove Eroll, Equin, Willie and Dobit's
-#    rematches. Make Miror B only have one rematch (so up to miror B 2). ... Hordel is not a check, so remove
-#    him, but keep him randomized."
+# ADDENDUM 409 -- a trim of the roster:
+#   * the Sixes fight at many points: their #1 is at Cipher Lab and their #2 at Phenac (missable, behind the disc
+#     and the note); all their other fights are removed;
+#   * Cail's rematches are removed, and his normal fight is at Pyrite;
+#   * the rematches of Cida, Clerr, Belish, Dosk, Hebon, Aferd, Eagun, Finol, Dert, Raling, Labet, Doby, Eroll,
+#     Equin, Willie and Dobit are removed;
+#   * Miror B. keeps only one rematch (up to Miror B. #2);
+#   * Hordel is not a check, but stays randomized.
 # Only CHECKS go: the fights stay in the game, and the trainer data is randomized exactly as before.
 SIXES: "frozenset[str]" = frozenset({"RESIX", "BLUSIX", "BROWSIX", "YELLOSIX", "PURPSIX", "GREESIX"})
 _KEEP_ONLY_FIRST: "frozenset[str]" = frozenset({
@@ -368,18 +369,18 @@ def _ruled_out_labels() -> "frozenset[str]":
 
 
 RULED_OUT_DEFEAT_LOCATIONS: "frozenset[str]" = _ruled_out_labels()
-"""ADDENDUM 409: defeat checks the player removed by name. Not locations in any seed; frozen ids stay inert."""
+"""ADDENDUM 409: defeat checks removed by name. Not locations in any seed; frozen ids stay inert."""
 
-# The Sixes' #2 is missable AND kept: the player placed it ("missable, behind disc and note"), so it is a check
+# The Sixes' #2 is missable AND kept: it is placed (missable, behind the disc and the note), so it is a check
 # the client auto-sends at its area's cap rather than a fight whose check disappears.
 KEPT_MISSABLE_DEFEAT_LOCATIONS: "frozenset[str]" = frozenset(
     trainer_label(t) for t in TRAINERS if t["name"].upper() in SIXES and t["occurrence"] == 2
 )
 
 
-# ADDENDUM 411 -- "Make it so if ardos 1 fires, zook 1 fires, and vice versa."
+# ADDENDUM 411 -- if Ardos #1 fires, Zook #1 fires, and vice versa.
 #
-# Zook #1 (deck 9) and Ardos #1 (deck 10) are back-to-back at Gateon Port. Zook's is on the player's missable list,
+# Zook #1 (deck 9) and Ardos #1 (deck 10) are back-to-back at Gateon Port. Zook's is on the missable list,
 # so ADDENDUM 401 had removed its check; Ardos's is mandatory. Linked, Zook #1 cannot be lost: the fight nobody
 # can skip sends it. So it is a location again, and each of the pair sends the other (`apply_defeat_links`).
 #
@@ -391,18 +392,18 @@ LINKED_MISSABLE_DEFEAT_LOCATIONS: "frozenset[str]" = frozenset()
 
 
 def _removed_missable_labels() -> "frozenset[str]":
-    from .missable_indices import MISSABLE_TRAINER_INDICES as _LISTED, PLAYER_RULED_UNMISSABLE
+    from .missable_indices import MISSABLE_TRAINER_INDICES as _LISTED, CONFIRMED_UNMISSABLE
 
-    # ADDENDUM 460: the fights since ruled unmissable keep the numbered-check removal they had (the player's own
-    # "remove ... rematches" rulings) -- their check is the surname's (Any), or the single fight's own label.
-    MISSABLE_TRAINER_INDICES = _LISTED | PLAYER_RULED_UNMISSABLE
+    # ADDENDUM 460: the fights since marked unmissable keep the numbered-check removal they had (ADDENDUM 409's
+    # rematch removals) -- their check is the surname's (Any), or the single fight's own label.
+    MISSABLE_TRAINER_INDICES = _LISTED | CONFIRMED_UNMISSABLE
     surnames = {
         TRAINERS_BY_INDEX[index]["name"].upper()
         for index in MISSABLE_TRAINER_INDICES
         if index in TRAINERS_BY_INDEX and TRAINERS_BY_INDEX[index]["total_with_name"] > 1
     }
-    # ADDENDUM 406 narrowed this to the MISSABLE fights themselves. Player: "Naps #2 is also gated there, and a
-    # mandatory fight, so make sure the mandatory/nonmissable rematches are still counted." ADDENDUM 401 had taken
+    # ADDENDUM 406 narrowed this to the MISSABLE fights themselves: Naps #2 is also gated there, and a mandatory
+    # fight, so the mandatory/non-missable rematches are still counted. ADDENDUM 401 had taken
     # every numbered fight of these surnames -- 75 labels, 54 of them fights nobody can miss. Those 54 are back.
     return frozenset(
         trainer_label(TRAINERS_BY_INDEX[index])
@@ -417,7 +418,7 @@ Their non-missable rematches keep their checks."""
 
 # A count, not a range: moving off it means the missable list or the roster changed underneath -- worth reading
 # before shipping. 20 surnames' missable first fights, plus Biden #2 (both of Biden's fights are missable).
-# ADDENDUM 409: 15 -- the Sixes' missable fight is now their #2, and the player kept it as a check.
+# ADDENDUM 409: 15 -- the Sixes' missable fight is now their #2, and it is kept as a check.
 # ADDENDUM 411: 14 -- Zook #1 is back, sent by Ardos #1.
 # ADDENDUM 436: 15 -- Zook #1 is unlinked (in). Retired anyway (`RULED_OUT_DEFEAT_LOCATIONS`).
 assert len(REMOVED_MISSABLE_DEFEAT_LOCATIONS) == 15, (
@@ -428,7 +429,7 @@ assert len(KEPT_MISSABLE_DEFEAT_LOCATIONS) == 6
 assert not (KEPT_MISSABLE_DEFEAT_LOCATIONS & RULED_OUT_DEFEAT_LOCATIONS)
 assert all(DEFEAT_LINKS[DEFEAT_LINKS[name]] == name for name in DEFEAT_LINKS), "a defeat link must go both ways"
 
-# ADDENDUM 410 -- "Any trainers that only have 'any' and '#1', just remove the #1."
+# ADDENDUM 410 -- a trainer that has only an (Any) and a #1 loses the #1.
 #
 # After the trims above, six surnames are left with exactly two checks: `Defeat X (Any)` and `Defeat - X #1`. In
 # unique mode a label fires on the Nth DISTINCT team beaten, so a one-label queue's #1 fires on the first win --
@@ -456,7 +457,7 @@ ANY_DUPLICATE_DEFEAT_LOCATIONS: "frozenset[str]" = _any_duplicate_labels()
 
 assert ANY_DUPLICATE_DEFEAT_LOCATIONS == frozenset(
     f"Defeat - {name} #1" for name in ("Cail", "Clerr", "Belish", "Eagun", "Dert", "Dobit")
-), f"ADDENDUM 410 now removes {sorted(ANY_DUPLICATE_DEFEAT_LOCATIONS)} -- the roster or a ruling moved"
+), f"ADDENDUM 410 now removes {sorted(ANY_DUPLICATE_DEFEAT_LOCATIONS)} -- the roster or a removal moved"
 
 #: Every unique-mode label that is not a location, for whatever reason. One set for every consumer.
 REMOVED_DEFEAT_LOCATIONS: "frozenset[str]" = (
@@ -568,7 +569,7 @@ NON_PLAYER_FIGHTS: "dict[str, tuple[tuple[str, ...], frozenset[str]]]" = _non_pl
 # Every surname with a watched fight also has a fight the player DOES fight -- the one its check comes from.
 assert all(len(labels) > len(watched) for labels, watched in NON_PLAYER_FIGHTS.values())
 
-# ADDENDUM 439, player: "zook (any) sent at the gateon fight, which is wrong. Make sure that doesn't happen." Where each
+# ADDENDUM 439: Zook (Any) must never be sent at the Gateon fight. Where each
 # watched fight is staged, as an `AREA_GROUPS` place: a win by that surname in that place is the watched fight, whatever
 # the fingerprints say. Each surname's PLAYED fight is somewhere else -- Zook at the Key Lair, Ardos at Citadark, Biden
 # at Snagem (ADDENDUM 436) -- so the room alone separates them.

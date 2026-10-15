@@ -1,8 +1,8 @@
 """ADDENDUM 171 (2026-09-13): the vanilla travel bits are held clear, and the vanilla unlock becomes a check.
 
-Player instruction: "Mt Battle is vanilla unlocked at story byte 0x23 > 0x24 - if random locations is on, CLEAR
-that access unless we've received it as an item, then send a check. Apply this logic to every location after
-kaminko/agate/gateon/hq lab."
+Mt. Battle is vanilla unlocked at story byte 0x23 > 0x24. With random locations on, that access is CLEARED unless
+it has been received as an item, and the vanilla unlock sends a check instead. The same logic applies to every
+location after Kaminko/Agate/Gateon/HQ Lab.
 
 The half that was missing before: ADDENDUM 104 only ever ADDED travel bits, so the game kept unlocking
 destinations on its own and the travel items gated nothing in practice."""
@@ -84,9 +84,9 @@ class TestClearingABit(unittest.TestCase):
 
 
 class TestTheVanillaUnlockThresholds(unittest.TestCase):
-    def test_mt_battle_is_the_value_the_player_quoted(self) -> None:
-        """The player said "Mt Battle is vanilla unlocked at story byte 0x23 > 0x24". That number comes from
-        their own play notes; this one comes from story_bytes.py's derived region floors. They agree, which is
+    def test_mt_battle_value(self) -> None:
+        """Mt. Battle is vanilla unlocked at story byte 0x23 > 0x24 in play; this value comes from
+        story_bytes.py's derived region floors. They agree, which is
         an independent check on the whole story table rather than just this row."""
         self.assertEqual(tl.vanilla_unlock_story_byte("Mt. Battle"), 0x24)
 
@@ -140,10 +140,9 @@ class TestTheVanillaUnlockThresholds(unittest.TestCase):
         self.assertEqual(0x5D, tl.vanilla_unlock_story_byte("Cipher Key Lair"))
 
     def test_the_three_poke_spots_share_one_unlock(self) -> None:
-        """Player: "Make the Poke Spots one unlock", and later "Make sure poke spots are all one item to unlock
-        them when randomized locations is on."
+        """The Poke Spots are one unlock: one item unlocks all of them when randomized locations is on.
 
-        FINISHED 2026-09-13 (ADDENDUM 177). The first instruction had only been half-done: the three spots
+        FINISHED 2026-09-13 (ADDENDUM 177). This had first been only half-done: the three spots
         shared a REGION, so logic treated them as one place, but each still had its own unlock ITEM and its own
         check -- meaning two of the three items changed nothing about reachability. There is one item now, and
         the three per-spot BITS live behind it (the game keeps a bit per spot, so all three must still be
@@ -161,8 +160,8 @@ class TestTheVanillaUnlockThresholds(unittest.TestCase):
         self.assertEqual(tl.travel_unlock_members("Phenac City"), ("Phenac City",))
 
     def test_orre_colosseum_is_no_longer_a_destination(self) -> None:
-        """ADDENDUM 185 gave Orre Colosseum a region of its own; ADDENDUM 446 removed it outright. Player: "Remove
-        the travel unlock for Orre Colosseum and ensure no checks are there." """
+        """ADDENDUM 185 gave Orre Colosseum a region of its own; ADDENDUM 446 removed it outright: no
+        travel unlock for Orre Colosseum and no checks there."""
         self.assertNotIn("Orre Colosseum", tl.TRAVEL_LOCATION_TARGET_REGION)
         self.assertNotIn("Orre Colosseum", tl.TRAVEL_LOCATION_BITS)
         self.assertNotIn("Orre Colosseum", tl.TRAVEL_UNLOCK_STORY_REGION)
@@ -187,8 +186,8 @@ class TestTheRegionMapIsNowOneToOne(unittest.TestCase):
         self.assertEqual(realgam, {"Realgam Tower"})
 
     def test_no_region_is_the_target_of_two_destinations_except_the_poke_spots(self) -> None:
-        """The Poke Spots share one region on the player's own instruction; nothing else may, because a second
-        key to a region nobody asked to have two keys is a logic hole rather than a feature."""
+        """The Poke Spots share one region by design; nothing else may, because a second key to a region not
+        designed to have two keys is a logic hole rather than a feature."""
         import collections
 
         counts = collections.Counter(tl.TRAVEL_LOCATION_TARGET_REGION.values())

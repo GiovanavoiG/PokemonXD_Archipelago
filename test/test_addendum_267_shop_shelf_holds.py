@@ -1,7 +1,7 @@
 """ADDENDUM 267 (2026-09-17): the shelf must hold through a bad read, and notice a reload in place.
 
-Player: "Current shop is working pretty well - it requires me to purchase an item to update the
-prices/descriptions - also, reopening the shop clears everything and no longer updates."
+Symptoms: the shop needed a purchase before it updated its prices/descriptions, and reopening the shop
+cleared everything and stopped it updating.
 
 Two symptoms, three causes, and the first two are the same mistake made twice.
 

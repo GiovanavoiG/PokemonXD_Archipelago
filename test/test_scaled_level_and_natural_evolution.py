@@ -1,11 +1,9 @@
 """Regression coverage for two ADDENDUM 100 changes that had no dedicated test file yet:
 
-1. `enhanced_difficulty._scaled_level()` -- the player's "Change the difficulty enhancement to make the
-   pokemon 1.33x their level instead - round down if it's not a whole number" request, replacing the old flat
-   `+3` level boost.
-2. `team_shuffle.resolve_natural_evolution()` -- the player's "add logic to the randomization to use the
-   highest possible evolution at that level - for example, if a trainer WOULD randomize to a level 70
-   houndour, instead make it a houndoom" request.
+1. `enhanced_difficulty._scaled_level()` -- the difficulty enhancement makes Pokemon 1.33x their level,
+   rounded down if it's not a whole number, replacing the old flat `+3` level boost.
+2. `team_shuffle.resolve_natural_evolution()` -- the randomization uses the highest possible evolution at
+   that level: a trainer that WOULD randomize to a level 70 Houndour gets a Houndoom instead.
 
 Both were implemented and wired up earlier in this addendum but only verified via static grep of the existing
 suite, never with dedicated unit tests -- this file closes that gap."""
@@ -19,7 +17,7 @@ from ..randomizer.team_shuffle import Species, resolve_natural_evolution
 
 class TestScaledLevel(unittest.TestCase):
     def test_rounds_down_a_non_whole_result(self) -> None:
-        # The player's own example: 1.33x, round down if not whole.
+        # 1.33x, round down if not whole.
         self.assertEqual(_scaled_level(30, 1.33), 39)  # 39.9 -> 39
         self.assertEqual(_scaled_level(50, 1.33), 66)  # 66.5 -> 66
 
@@ -51,13 +49,13 @@ def _species(evolves_into: int | None, evolves_at_level: int | None) -> Species:
 
 class TestResolveNaturalEvolution(unittest.TestCase):
     def _houndour_chain(self) -> dict[int, Species]:
-        # Mirrors the player's own example: Houndour (evolves at 24) -> Houndoom (final form).
+        # Houndour (evolves at 24) -> Houndoom (final form).
         return {
             1: _species(evolves_into=2, evolves_at_level=24),  # Houndour
             2: _species(evolves_into=None, evolves_at_level=None),  # Houndoom
         }
 
-    def test_the_players_own_example_houndour_to_houndoom(self) -> None:
+    def test_the_example_houndour_to_houndoom(self) -> None:
         self.assertEqual(resolve_natural_evolution(1, 70, self._houndour_chain()), 2)
 
     def test_stays_unevolved_below_the_threshold(self) -> None:

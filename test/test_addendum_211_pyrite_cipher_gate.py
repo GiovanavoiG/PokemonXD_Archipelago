@@ -1,14 +1,14 @@
 """ADDENDUM 211. Every Cipher battle in Pyrite is behind the Data ROM & ID Card AND the Poke Spots.
 
-Player: "On location shuffle, all Pyrite town battles should be gated behind Data Rom/ID Card, AND poke
-spots." -- corrected mid-answer to "WAIT - WRONG. all pyrite CIPHER battles".
+On location shuffle, every Pyrite CIPHER battle is gated behind the Data ROM/ID Card AND the Poke Spots. The
+ordinary Pyrite townsfolk are not.
 
 The audit found almost all of it was already true, and exactly one row was not:
 
   * The ten Cipher Peons (trainer class 17) and Exol's occurrence row (class 40) all sit in
     "Pyrite Town (ONBS)" in game_data/trainer_placements, each carrying ('Data ROM',) on top. (ADDENDUM 405
-    removed that tag on the player's word -- "not gated behind Data Rom at all ... only gated behind pyrite town
-    and the pokespots" -- so the region below is now the whole requirement.)
+    removed that tag -- they are not gated behind the Data ROM at all, only behind Pyrite Town and the Poke
+    Spots -- so the region below is now the whole requirement.)
   * The region graph is  Pyrite Town --(Data ROM)--> Poke Spots --> Pyrite Town (ONBS),  so anything in ONBS
     needs the item AND the spots. That is the requirement, stated structurally.
   * `trainer_defeat.TRAINER_DEFEAT_ROSTER` -- a SECOND, parallel table of 66 named trainers -- filed
@@ -31,9 +31,9 @@ CIPHER_TRAINER_CLASSES = frozenset({17, 40})   # Cipher Peon, Cipher Commander
 
 class TestTheGraphPutsONBSBehindBothThings(unittest.TestCase):
     def test_plain_pyrite_is_NOT_behind_the_data_rom(self) -> None:
-        """CORRECTED 2026-09-16 (ADDENDUM 240). This used to assert the opposite. Player: "Pyrite vending
-        machine and first shop version are accessible as soon as pyrite town is... Any chests in ONBS are
-        gated behind the data rom/id card - every other chest is ONLY gated behind pyrite town."
+        """CORRECTED 2026-09-16 (ADDENDUM 240). This used to assert the opposite. The Pyrite vending
+        machine and the first shop version are accessible as soon as Pyrite Town is. Chests in ONBS are gated
+        behind the Data ROM/ID Card; every other chest is gated only behind Pyrite Town.
 
         The ROM requirement was on the wrong edge: it sat on the way INTO Pyrite Town, which put all 39
         plain-Pyrite locations behind it. Pyrite is visited in two halves and only the second is behind the
@@ -45,7 +45,7 @@ class TestTheGraphPutsONBSBehindBothThings(unittest.TestCase):
         self.assertNotIn(("Cipher Lab", "Pyrite Town", ("Data ROM",)), world_regions.REGION_EDGES)
 
     def test_the_spots_are_behind_pyrite(self) -> None:
-        # ADDENDUM 406: behind Pyrite and nothing else. Player (ADDENDUM 406): "Poke spots do NOT need the data rom."
+        # ADDENDUM 406: behind Pyrite and nothing else. The Poke Spots do NOT need the Data ROM.
         self.assertIn(("Pyrite Town", "Poke Spots", ()), world_regions.REGION_EDGES)
 
     def test_onbs_is_behind_the_spots(self) -> None:
@@ -87,12 +87,12 @@ class TestNoCipherBattleInPyriteEscapesTheGate(unittest.TestCase):
         regions = {name: region
                    for region, names in world_locations.LOCATIONS_BY_REGION.items()
                    for name in names if "Exol" in name}
-        # ADDENDUM 414: the cumulative-mode named check left the table ("it should just be a tally"); its roster
+        # ADDENDUM 414: the cumulative-mode named check left the table (it is just a tally); its roster
         # row still says ONBS (test above), and the unique check is the one location left.
         self.assertEqual({"Defeat - Exol": "Pyrite Town (ONBS)"}, regions)
 
     def test_every_cipher_defeat_location_in_pyrite_lives_in_onbs(self) -> None:
-        """The whole answer to the player's question, in one assertion."""
+        """The whole requirement, in one assertion."""
         by_index = {t["index"]: t for t in trainer_roster.TRAINERS}
         cipher_regions = set()
         for index, placement in trainer_placements.PLACEMENTS.items():
@@ -107,17 +107,16 @@ class TestNoCipherBattleInPyriteEscapesTheGate(unittest.TestCase):
 
 
 class TestTheNonCipherPyriteRowsWereLeftAlone(unittest.TestCase):
-    """The player corrected "all Pyrite battles" to "all Pyrite CIPHER battles", so the ordinary townsfolk
-    stay where they are.
+    """Only Pyrite's CIPHER battles are gated, so the ordinary townsfolk stay where they are.
 
     ONE OF THE TWO FLAGGED ROWS HAS SINCE BEEN DECIDED. ADDENDUM 211 left Miror B.'s first encounter in plain
     Pyrite because story_bytes labels transition 0x39 -> 0x3A "Cave Poke Spot unlocked / first Miror B
     encounter" -- the two happen at the same story point and the ORDER was not established, so gating the
-    fight behind the spot risked a cycle. ADDENDUM 241: the player established it ("Wanderer miror B first
-    fight is behind cave poke spot specifically"), and it is not circular, because a Defeat location is a
+    fight behind the spot risked a cycle. ADDENDUM 241 settled it: Wanderer Miror B.'s first
+    fight is behind the Cave Poke Spot specifically, and it is not circular, because a Defeat location is a
     check and never a requirement. That row now reads "Poke Spots".
 
-    Gonzap stays. He is the Snagem Head, not Cipher, and nothing has been said about him."""
+    Gonzap stays. He is the Snagem Head, not Cipher."""
 
     def test_no_roster_row_is_left_in_plain_pyrite(self) -> None:
         """Both flagged rows have now been decided, and neither belonged in Pyrite.

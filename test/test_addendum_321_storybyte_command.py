@@ -1,6 +1,6 @@
 """ADDENDUM 321 -- `/storybyte`, the manual story-byte write.
 
-Player: "can you add a debug command to edit story byte? for example '/storybyte 27' would set it to 0x27"."""
+A debug command that edits the story byte: `/storybyte 27` sets it to 0x27."""
 import unittest
 from unittest import mock
 
@@ -86,7 +86,7 @@ class TestTheCommand(unittest.TestCase):
     def tearDown(self):
         self.live.restore()
 
-    def test_the_players_own_example(self):
+    def test_the_worked_example(self):
         self.processor._cmd_storybyte("27")
         self.assertEqual(0x27, self.live.value)
         self.assertIn("0x15 -> 0x27", "\n".join(self.logged))

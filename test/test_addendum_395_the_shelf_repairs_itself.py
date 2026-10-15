@@ -1,7 +1,7 @@
 """ADDENDUM 395 (2026-09-29) -- the shelf checks its own work, instead of betting nothing else writes there.
 
-Player, after ADDENDUM 394 moved the Outskirt Stand to room 163: "outskirt stand is still sometimes working,
-sometimes not." With a second screenshot of the same shelf back at `AP ITEM 01`..`08`, every price 20.
+After ADDENDUM 394 moved the Outskirt Stand to room 163, the stand still sometimes worked and sometimes did not,
+and the same shelf showed up back at `AP ITEM 01`..`08`, every price 20.
 
 394 WAS REAL AND WAS NOT THE WHOLE STORY. Room 164 is the exterior and the shop is 163; that fixed the case
 where the shelf renamed on the way past and un-renamed on the way in. What it could not explain is
@@ -180,11 +180,10 @@ class TestThePriceWriterRepairsItself(_Case):
 
 
 class TestOneShopCanAnswerToTwoRoomIds(unittest.TestCase):
-    """Player: "Wait, now outskirt stand is showing as room 164. I think Outskirt stand might be a weird case
-    - just make both count as shop room for writes."
+    """The Outskirt Stand also shows up as room 164, so both 163 and 164 count as the shop room for writes.
 
     A room read that flips between two ids from the same spot is a better fit for "sometimes working,
-    sometimes not" than anything else offered, and the stand is one place either way."""
+    sometimes not" than anything else on the table, and the stand is one place either way."""
 
     def test_both_ids_are_the_shop(self) -> None:
         from ..game_data import shops

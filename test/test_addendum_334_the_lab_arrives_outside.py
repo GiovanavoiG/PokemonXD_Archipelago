@@ -1,12 +1,10 @@
 """ADDENDUM 334 (2026-09-24): the Cipher Lab's first visit starts outside.
 
-Player: "Upon loading into cipher lab exterior - if it's our first visit, please write the story byte to 0x25
-and then back to 0x26 upon entry."
+On loading into the Cipher Lab exterior on a first visit, the story byte is written to 0x25 and then moved to
+0x26 upon entry. "Entry" means the bump fires while the player is still standing outside, a beat after the
+load, and ADDENDUM 314's 0x27 is kept for return visits.
 
-Asked where "entry" is, and what becomes of ADDENDUM 314's 0x27: the bump fires while the player is still
-standing outside, a beat after the load, and 0x27 is kept for return visits.
-
-ROOM 11 IS THE EXTERIOR, and it is the player's own measurement -- `room_story_compilation.md` records it as
+ROOM 11 IS THE EXTERIOR, and it is a live measurement -- `room_story_compilation.md` records it as
 "Outside the Cipher Lab (first visit)" against rooms 1/7/8/10 for the inside. `chest_regions` files all of
 them under `Cipher Lab`, so the region key the client already dispatches on covers the whole place and no new
 room table was needed.
@@ -20,7 +18,7 @@ ADDENDUM 350 (2026-09-25) REDUCED THAT TO TWO, by reading `D1_out.fsys` instead 
 The exterior map gates its arrival scene on `storyvar(964) == 310` and ends it with `write(964, 320)`;
 310 is byte 0x26 and 320 is byte 0x28. So the icon drops a first visit at 0x26 -- the value the map tests
 for -- the bump is deleted because the game's own scene does what it was doing, and the return-visit rule
-writes 0x28 on the lab's own mark at 0x28. The player's sentence is unchanged in effect: the first visit
+writes 0x28 on the lab's own mark at 0x28. The behaviour is unchanged in effect: the first visit
 starts outside and the byte moves on entry. What moved is who moves it.
 
 Everything below about room 11, the region key and the rule-must-bind fence is untouched by that.
@@ -67,7 +65,7 @@ class TestTheLoadHalf(unittest.TestCase):
 
 
 class TestTheEntryHalfIsTheGamesNow(unittest.TestCase):
-    """ADDENDUM 350 deleted the bump. Player: "I'd like to see if we can avoid it."
+    """ADDENDUM 350 deleted the bump.
 
     It was carrying 0x25 to 0x26 a beat after the load -- the right destination by the wrong road, and only
     reliable by luck: before the twelve-bit write, "0x26" meant 304..311 and only hit 310 when the save's low
@@ -110,7 +108,7 @@ class TestTheReturnVisit(unittest.TestCase):
         self.assertIsNone(story_bytes.dynamic_region_floor("Cipher Lab", {"Mt. Battle": 0x26}))
 
     def test_the_whole_sequence_through_the_area_memory(self) -> None:
-        """The player's sentence, as the client will actually run it."""
+        """The first-visit sequence, as the client will actually run it."""
         memory = rc.AreaStoryByteMemory()
         self.assertEqual(0x26, memory.target_for("Cipher Lab"), "first visit -- outside, on 310")
         memory.observe("Cipher Lab", 0x28)                      # brother_enter wrote 320 during the visit

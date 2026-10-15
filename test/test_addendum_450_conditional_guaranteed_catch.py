@@ -62,7 +62,7 @@ class TestThePatcherUsesIt(unittest.TestCase):
 
 
 class TestTheConnectRetryIsQuiet(unittest.TestCase):
-    """Player: "Make this error retry silently instead of spamming." The attempt and the failure are each said once
+    """The connect error retries silently instead of spamming. The attempt and the failure are each said once
     per run of failures; later retries go to `!verbose`."""
 
     def test_guarded_by_the_failure_count(self) -> None:
@@ -78,8 +78,8 @@ class TestTheConnectRetryIsQuiet(unittest.TestCase):
 
 
 class TestPurificationRateScalesTheReductions(unittest.TestCase):
-    """Player: "Rather than edit the shadow gauge itself, can we instead increase the values of the things that
-    reduce it? Editing the shadow gauge is breaking it." """
+    """Rather than editing the shadow gauge itself, which broke it, the values of the things that reduce it are
+    increased."""
 
     def test_the_constant_is_the_rate(self) -> None:
         from ..game_data import purification_rate as pr

@@ -1,10 +1,7 @@
 """ADDENDUM 390 (2026-09-28) -- Death Link sends on the game's own annihilation flag, not a window nobody measured.
 
-Player: "Is deathlink functioning? got reports that we weren't SENDING deathlinks at all" -- then, on being
-offered a money-based white-out fingerprint: "Wouldn't this fail if we have no money? Can we base it off of the
-actual whiteout code that runs that we found before?"
-
-Right on both counts. `fightEncountAnnihilationRecovery` calls `heroDecPokedoru(maxPartyLevel * 16)` and that
+Death Links were not being SENT at all. A money-based white-out fingerprint would fail with no money, so the send
+is based on the actual white-out code instead. `fightEncountAnnihilationRecovery` calls `heroDecPokedoru(maxPartyLevel * 16)` and that
 CLAMPS, so a broke player produces no money signature at all. And the real function has a better signal in it.
 
 WHAT WAS ACTUALLY WRONG. Every other link in the chain checks out -- the option reaches slot data, the client
@@ -34,7 +31,7 @@ ALSO FIXED, found while reading:
   * `receive()` set `_ours` BEFORE checking whether it had wiped anything, so a death arriving while the party
     was already down latched the loop fence with no wipe behind it, suppressing the next genuine white-out.
   * `describe()` was dead code -- nothing called it. `sends` sat at zero with no way for a player to report a
-    number, which is exactly why this arrived as "we weren't sending at all". `!deathlink` calls it now.
+    number, which is exactly why this only showed up as nothing being sent at all. `!deathlink` calls it now.
 
 Flag 803 was considered and rejected: `GSflagOff(803)` is in the white-out, but a DOL-wide search for
 `li r3,803` finds it cleared in six places and set in one, so it is battle state and not a white-out marker.

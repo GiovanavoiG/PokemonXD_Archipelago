@@ -1,8 +1,8 @@
 """ADDENDUM 415 (2026-10-04) -- a Purify check per Shadow, a toggle for all of them, and the Greevil goal.
 
-Player: "Defeat Greevil 2 should be the right one, but also just having ever defeated greevil twice should send the
-victory ... The purification checks should be raised, yes. Also, add an option (above the purification number
-count) to turn purifications as a whole on or off as checks."
+Defeat Greevil 2 is the goal, and having ever defeated Greevil twice also sends the victory. The purification
+check count is raised, and an option (above the purification count) turns purifications as a whole on or off as
+checks.
 """
 from __future__ import annotations
 

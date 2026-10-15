@@ -1,10 +1,9 @@
 """
 ADDENDUM 295 (2026-09-20) -- a tier is where the team SITS, not what every member IS.
 
-Player: *"Can we revisit the path level scaling? Seems to just be following vanilla."* and, in the same
-breath, the fix: *"Equate our scaled level to that trainer's average - for each level on their team above or
-below the average, make it that many above or below our scaled level. This still gives trainers level variety
-despite being scaled."*
+Path level scaling seemed to just be following vanilla. The fix: the scaled level becomes the trainer's team
+AVERAGE, and each member sits as many levels above or below the scaled level as it sat above or below that
+average. This still gives trainers level variety despite being scaled.
 
 ## What the ramp was doing, measured before changing anything
 
@@ -25,7 +24,7 @@ Two things at once, and only the second is a defect:
 
 1. **The early tiers sit close to vanilla by arithmetic.** Tier 1 is level 10 and tier 2 is 15, and the
    unmodified game's opening hours run 5–15. A player early in a run is looking at numbers the ramp and the
-   vanilla curve happen to agree on. That is the ramp working as specified — the player chose 10 → 65.
+   vanilla curve happen to agree on. That is the ramp working as specified — 10 → 65.
 2. **Flattening removes the one cue that says anything changed.** Vanilla teams have shape — an ace a level
    or two above the rest. A row of identical numbers is the single most visible tell that a mod touched the
    levels, and the old ramp deleted it, leaving a team that was *both* near-vanilla in magnitude *and*
@@ -76,7 +75,7 @@ from ..randomizer.path_level_scaling import (
 
 class TestTheSpreadItself(unittest.TestCase):
     def test_it_places_the_average_at_the_tier_and_keeps_every_offset(self) -> None:
-        """The player's sentence, as arithmetic. Mean 25.33; offsets -2.33/-0.33/+2.67 onto a tier of 40."""
+        """The rule, as arithmetic. Mean 25.33; offsets -2.33/-0.33/+2.67 onto a tier of 40."""
         out = _spread_over_team(40, {1: 23, 2: 25, 3: 28})
         self.assertEqual(out, {1: 38, 2: 40, 3: 43})
         self.assertAlmostEqual(sum(out.values()) / 3, 40.33, places=2)
@@ -132,7 +131,7 @@ class TestAgainstTheRealCensus(unittest.TestCase):
         self.assertGreater(len(self.levels), 500)
 
     def test_the_ramp_is_not_following_vanilla(self) -> None:
-        """The player's report, tested directly. It was not true before this addendum either -- the mean
+        """The "following vanilla" symptom, tested directly. It was not true before this addendum either -- the mean
         delta is unchanged by the spread, which is the point: placement did not move, shape did."""
         deltas = [self.levels[d] - self.vanilla[d] for d in self.levels]
         # ADDENDUM 296 lowered the ramp from 10-65 to 8-50, which took the mean delta from +14.9 to +5.9.
@@ -187,8 +186,8 @@ class TestAgainstTheRealCensus(unittest.TestCase):
             self.assertAlmostEqual(average, sum(assigned) / len(assigned), places=6)
 
     def test_a_pinned_trainer_is_still_flat_and_still_pinned(self) -> None:
-        """A pin is a single number for that fight, not a band centred on one -- the player's words for
-        Chobin #1 were "always level 5"."""
+        """A pin is a single number for that fight, not a band centred on one -- Chobin #1 is always
+        level 5."""
         for trainer_index, pinned in PINNED_TRAINER_LEVELS.items():
             members = self.team.get(trainer_index) or {}
             if not members:

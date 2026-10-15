@@ -33,8 +33,8 @@ class LocationData:
 
 
 # ADDENDUM 415: the most Shadows a seed can hold -- 83 vanilla + Shadow Pokemon Expansion's maximum of 44 = 127.
-# Was 32, "the player's cap", while `PurificationProgressionCap` already ran to 127 and said "There are 83 + your
-# shadow expansion setting purifications available". Player: "The purification checks should be raised, yes."
+# Was 32, while `PurificationProgressionCap` already ran to 127 and said "There are 83 + your shadow expansion
+# setting purifications available", so the purification checks are raised to match.
 # A seed creates `Purify 1..(83 + the Shadows its expansion really added)`; see `create_regions_and_locations`.
 VANILLA_SHADOW_COUNT = 83
 # ADDENDUM 479: the vanilla Shadows that can be had before the goal -- all but Greevil's seven (Lugia and his six)
@@ -142,8 +142,8 @@ KEY_ITEM_CHEST_LOCATION_NAMES: "frozenset[str]" = frozenset(
 # ADDENDUM 386 (widening ADDENDUM 385): every SHINY chest is filler-only, not just the ID Card's.
 #
 # The chest table carries a model id and there are exactly two. Model 36 is the ordinary box, 90 of them.
-# Model 68 is the shining object -- 25 of them, and the player's own name for one of these locations is
-# "Bonsly Room Shiny Chest", which is where the word comes from. Only six model-68 objects are ever
+# Model 68 is the shining object -- 25 of them, and one of these locations is named "Bonsly Room Shiny
+# Chest", which is where the word comes from. Only six model-68 objects are ever
 # randomized at all: the five key-item chests ADDENDUM 177 punched through ADDENDUM 134's item-id floor,
 # plus chest 30, whose vanilla contents are Leftovers and so never needed punching.
 #
@@ -493,7 +493,7 @@ assert len(_TRAINER_REGION_BY_LOCATION) + len(_UNPLACED_TRAINER_LOCATION_NAMES) 
 ), "the census did not resolve one-to-one onto the roster's location names"
 
 # Per-trainer defeat checks that can be permanently missed, so they must never hold a progression or useful
-# item at any `ProgressionLocations` setting: the player's 47 missables, the 39 non-final occurrences of
+# item at any `ProgressionLocations` setting: the 47 listed missables, the 39 non-final occurrences of
 # repeated story trainers (Mt. Battle's ladder is out of scope) and the 37 census rows marked N/A or blank. An
 # unplaced trainer parks in the always-open "Unique Trainer Defeats" bucket, so an unexcluded one would read as
 # sphere zero and could hold progression for a fight reached late or never.
@@ -506,11 +506,10 @@ _MISSABLE_TRAINER_LOCATION_NAMES: frozenset = frozenset(
 # only applied under `if is_unique_trainer_defeat`. A named location fires on the first win for its surname and
 # cannot say which encounter that was, so if ANY row with that surname is missable it is filler-only -- which
 # fences seven: the Phenac Sixes, Willie and Zook.
-# ADDENDUM 460, player: "Make sure Bost, Dosk, Cida, Labet, Doby, Raling, and all the Snagem trainers can hold
-# progressives in their (Any) or one time defeat checks." Their first fight is now ruled unmissable, and a named
-# location fires on the FIRST win for its surname, so these surnames come off the fence. (Willie was ruled
-# unmissable too, but not into progression.)
-PROGRESSION_RULED_SURNAMES: frozenset = frozenset({
+# ADDENDUM 460: Bost, Dosk, Cida, Labet, Doby, Raling and all the Snagem trainers can hold progression in their
+# (Any) or one-time defeat checks. Their first fight is unmissable, and a named location fires on the FIRST win
+# for its surname, so these surnames come off the fence. (Willie is unmissable too, but not progression-eligible.)
+PROGRESSION_ELIGIBLE_SURNAMES: frozenset = frozenset({
     "BOST", "CIDA", "DOSK", "RALING", "LABET", "DOBY",
     "FUDLO", "GAPLY", "JINOK", "GOLIT", "HOBBLE", "BIDEN",   # Snagem Hideout
 })
@@ -520,7 +519,7 @@ _MISSABLE_SURNAMES: frozenset = frozenset(
     # ADDENDUM 407: the full un-redoable set, not the progression fence -- unchanged by unfencing rematches.
     for _index in missable_trainers.UNREDOABLE_TRAINER_INDICES
     if _index in trainer_roster.TRAINERS_BY_INDEX
-) - PROGRESSION_RULED_SURNAMES
+) - PROGRESSION_ELIGIBLE_SURNAMES
 
 _MISSABLE_NAMED_TRAINER_LOCATIONS: frozenset = frozenset(
     _name for _region, _name, _surname in trainer_defeat.TRAINER_DEFEAT_ROSTER
@@ -561,8 +560,7 @@ _SHOP_LOCATION_NAME_SET: frozenset = frozenset(SHOP_ITEM_LOCATIONS)
 
 SHOP_LOCATION_TO_SHOP_AND_SLOT = shops.location_name_to_shop_and_slot()
 
-# ADDENDUM 387: the shop RESTOCK lines are filler-only. Player: "Can we make all of the shop expansion items
-# filler for now, they're inaccessible sometimes."
+# ADDENDUM 387: the shop RESTOCK lines are filler-only, because they are sometimes inaccessible.
 #
 # A shop is a sequence of marts, not one shelf. The first mart is open the moment the room is; every later
 # one introduces fresh lines when the story restocks it, and `rules.py` gates those on TIER_GATES. Thirteen
@@ -570,8 +568,7 @@ SHOP_LOCATION_TO_SHOP_AND_SLOT = shops.location_name_to_shop_and_slot()
 # certain data in the shop model: the mart-to-room mapping is secondary (Bulbapedia, not a census of the
 # ISO), Gateon's earlier tiers were deduced BY ELIMINATION rather than matched, and three of its lines are
 # gated only because they share a mart with a line that is annotated. A gate that is too loose puts a check
-# in logic before the restock that produces it, which is what "inaccessible sometimes" means from the
-# player's side.
+# in logic before the restock that produces it, which is how a restock line ends up inaccessible in play.
 #
 # So none of them may hold anything a seed needs. They stay real locations and still fire on purchase;
 # EXCLUDED only stops fill from REQUIRING one. The tier rules in rules.py are deliberately LEFT IN PLACE --
@@ -820,8 +817,8 @@ LOCATIONS_BY_REGION: dict[str, list[str]] = {
 
 # Travel-unlock locations (ADDENDUM 171). With travel randomization on the client HOLDS each destination's map
 # bit clear until its item arrives, so the item grants the access and the story only grants the credit.
-# Kaminko's House is absent: one of the four areas the player exempted, and it has no story window of its own.
-# Mt. Battle's threshold resolves to 0x24, exactly the value the player quoted independently. EXCLUDED, since
+# Kaminko's House is absent: one of the four exempted areas, and it has no story window of its own.
+# Mt. Battle's threshold resolves to 0x24. EXCLUDED, since
 # these fire off a story-byte watch and a seed with travel randomization off never fires them.
 TRAVEL_UNLOCK_LOCATION_NAMES: list[str] = [
     travel_locations.travel_unlock_location_name(_name)
@@ -936,11 +933,11 @@ from .game_data.trainer_roster import RETIRED_UNIQUE_DEFEAT_LOCATIONS  # noqa: E
 # ADDENDUM 401: the 75 numbered fights of the 20 missable trainers that fight more than once. Retired by the same
 # filter as Chobin #7 -- see trainer_roster's block on it for which ones and why.
 from .game_data.trainer_roster import REMOVED_DEFEAT_LOCATIONS, REMOVED_MISSABLE_DEFEAT_LOCATIONS  # noqa: E402
-# ADDENDUM 409: the named (cumulative-mode) rematches the player removed with them.
+# ADDENDUM 409: the named (cumulative-mode) rematches removed with them.
 from .trainer_defeat import RULED_OUT_NAMED_LOCATIONS, RETIRED_CUMULATIVE_NAMED_LOCATIONS  # noqa: E402
 
-# ADDENDUM 413: names no seed can contain are not in the table at all. Player, of the catalog's "Never in a seed
-# (119)": "Can we remove these from the location table?" Their frozen ids stay behind inert, like every retirement.
+# ADDENDUM 413: names no seed can contain are not in the table at all -- the catalog's "Never in a seed (119)"
+# are removed from the location table. Their frozen ids stay behind inert, like every retirement.
 #   * "Defeat N Trainers" past `TrainerDefeatCheckCount.range_end` (114): the option cannot ask for N > 114, so
 #     115..232 could never be created. The roster still has 232 trainers -- TRAINER_DEFEAT_COUNT_LOCATION_COUNT
 #     keeps meaning that for rules.py's weight tables -- only the location names stop at the option's maximum.
@@ -2635,8 +2632,8 @@ def create_regions_and_locations(world) -> dict[str, Region]:
     `world._obtainable_species_dex` trims species catches to what this seed can produce; None means no trim."""
     # shuffle_overworld_items was removed as redundant with randomize_chests; overworld items are always in.
     include_overworld = True
-    # ADDENDUM 404: chests are always checks. Player: "make randomize chests default and not an option so the
-    # gen failures are resolved." With chests, shops and trainer defeats all off, Location Shuffle left two
+    # ADDENDUM 404: chests are always checks -- randomized chests are the default and not an option, which
+    # resolves the gen failures. With chests, shops and trainer defeats all off, Location Shuffle left two
     # progression-eligible locations in sphere zero (Catch - Eevee and the Eeveelution) for ~17 progression
     # items, and fill failed on 8-10 seeds in 20. Chests sit in every area including the always-open ones, so
     # sphere zero always has room.
@@ -2831,8 +2828,8 @@ def create_regions_and_locations(world) -> dict[str, Region]:
                 location.progress_type = LocationProgressType.EXCLUDED
                 region.locations.append(location)
                 continue
-            # ADDENDUM 457, player: "If we lose to miror b he leaves. Make it so every Miror B check (including his
-            # team's shadows) are filler." Here, for the ADDENDUM 335 reason above.
+            # ADDENDUM 457: Miror B. leaves if you lose to him, so every Miror B. check (including his team's
+            # Shadows) is filler. Here, for the ADDENDUM 335 reason above.
             if location_name in miror_b_locations:
                 location.progress_type = LocationProgressType.EXCLUDED
                 region.locations.append(location)

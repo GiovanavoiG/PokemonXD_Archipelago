@@ -1,7 +1,7 @@
 """ADDENDUM 288 (2026-09-19) -- the credit was judged against the room the player had LEFT.
 
-Player: "Outskirt stand still sent checks for unlocking every location. Double check our floor/write system
-everywhere."
+Outskirt Stand still sent checks for unlocking every location, which called for a sweep of the floor/write
+system everywhere.
 
 WHY OUTSKIRT STAND MAKES THIS DIAGNOSABLE RATHER THAN MYSTERIOUS. Its own entry floor is 0x5F, and
 `_story_byte_was_earned_here` credits only thresholds STRICTLY above the region's floor (ADDENDUM 270). Of the
@@ -56,7 +56,7 @@ def _client() -> str:
 
 
 class TestTheArithmeticThatIdentifiesTheBug(unittest.TestCase):
-    """No mocking -- just the tables, proving a clean Outskirt Stand reading cannot do what was reported."""
+    """No mocking -- just the tables, proving a clean Outskirt Stand reading cannot do what was seen in play."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -71,10 +71,10 @@ class TestTheArithmeticThatIdentifiesTheBug(unittest.TestCase):
         floor = story_bytes.area_entry_floor("Outskirt Stand")
         eligible = [n for n, t in self.thresholds.items() if floor < t]
         self.assertEqual(["Snagem Hideout"], eligible,
-                         "if this ever grows, the report's arithmetic no longer identifies a stale room")
+                         "if this ever grows, the arithmetic no longer identifies a stale room")
 
     def test_only_four_regions_can_credit_everything(self) -> None:
-        """The regions the guard WAS being asked about. Naming them is what turns the report into a diagnosis
+        """The regions the guard WAS being asked about. Naming them is what turns the symptom into a diagnosis
         -- and the fourth is a small surprise worth pinning: Agate Village's floor is 0x19, below Mt. Battle's
         0x24, so it is as permissive as the always-open three despite not being one of them."""
         lowest = min(self.thresholds.values())
@@ -176,7 +176,7 @@ class TestTheCreditRefusesAStaleRoom(unittest.TestCase):
 
 
 class TestEveryStoryByteWriterRegistersOwnership(unittest.TestCase):
-    """The sweep the player asked for: "double check our floor/write system everywhere"."""
+    """The sweep of the floor/write system, everywhere."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -286,8 +286,8 @@ class TestEveryStoryByteWriterRegistersOwnership(unittest.TestCase):
 
 
 class TestTheLabPassThrough(unittest.TestCase):
-    """Player, ADDENDUM 288: "instead of hq lab going from 0x0D to 0x0F, make it go to 0x0E".
-    Player, ADDENDUM 304: "Make the HQ Lab live bump from 0x0D to 0x0F again."
+    """ADDENDUM 288 changed the HQ Lab bump from 0x0D -> 0x0F to 0x0D -> 0x0E; ADDENDUM 304 made it
+    0x0D -> 0x0F again.
 
     REVERTED, and this class kept rather than deleted: the pairing it asserts (bump and floor move together)
     is the durable fact, and it is the thing that would silently break if only one of them were edited."""
@@ -298,7 +298,7 @@ class TestTheLabPassThrough(unittest.TestCase):
         self.assertEqual((0x0D, 0x0F), (lab[0].when_byte_is, lab[0].becomes))
 
     def test_the_paired_floor_rule_moved_with_it(self) -> None:
-        """They are two halves of one instruction. A floor of 0x0F would push a returning player straight
+        """They are two halves of one change. A floor of 0x0F would push a returning player straight
         back past the value this change exists to stop at."""
         lab = [b for b in story_bytes.LIVE_STORY_BYTE_BUMPS if b.region == "Pokemon HQ Lab"][0]
         self.assertEqual(lab.becomes,
@@ -316,7 +316,7 @@ class TestTheLabPassThrough(unittest.TestCase):
         game reaches the Snag Machine tier by itself.
 
         That is the behaviour ADDENDUM 288 had removed and ADDENDUM 304 restores. Asserted so it is a stated
-        consequence of the player's instruction rather than something discovered in play."""
+        consequence of the 0x0F bump rather than something discovered in play."""
         self.assertEqual(0x0F, travel_locations.ALWAYS_OPEN_GATE_BYTE)
         lab = [b for b in story_bytes.LIVE_STORY_BYTE_BUMPS if b.region == "Pokemon HQ Lab"][0]
         self.assertGreaterEqual(lab.becomes, travel_locations.ALWAYS_OPEN_GATE_BYTE)

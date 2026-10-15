@@ -1,7 +1,7 @@
 """ADDENDUM 232 (2026-09-15) -- only the measured purified value counts as a purification.
 
-Second player report, relayed: "shadow purifications are still being sent out at weird times. Apparently it
-happened upon opening the party/pc, when pokemon were close to purification."
+Shadow purification checks were still being sent at odd times: on opening the party or PC, when Pokemon were
+close to purification.
 
 "CLOSE TO PURIFICATION" IS THE WHOLE DIAGNOSIS. This is a FALSE POSITIVE, not the duplicate ADDENDUM 220
 fixed -- and ADDENDUM 220 makes it worse rather than better, because its species ledger banks the false one

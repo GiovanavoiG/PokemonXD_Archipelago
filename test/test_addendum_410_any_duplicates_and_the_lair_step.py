@@ -1,7 +1,7 @@
 """ADDENDUM 410 (2026-10-03) -- a lone #1 beside its (Any) goes, and the Key Lair floor drops one story step.
 
-Player: "Any trainers that only have 'any' and '#1', just remove the #1. ... Also, reduce key lair's default floor
-by one step, remembering that it's more than just a byte."
+A trainer that has only an (Any) and a #1 loses the #1, and the Key Lair's default floor drops by one story
+step -- which is more than just a byte.
 """
 from __future__ import annotations
 

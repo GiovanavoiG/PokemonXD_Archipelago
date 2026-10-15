@@ -1,7 +1,7 @@
 """ADDENDUM 361 (2026-09-25): 5000 Poke Coupons, as a filler item in its own category.
 
-Player: *"Can you find our pokecoupons field? It should probably be near money as it's just another
-currency."* Then, after a live write proved it: *"Wire it in as a filler item in its own category."*
+The Poke Coupons field sits right next to money, as it is just another currency. After a live write proved it,
+it was wired in as a filler item in its own category.
 
 WHERE IT IS, and it is derived rather than searched for:
 
@@ -10,7 +10,7 @@ WHERE IT IS, and it is derived rather than searched for:
 
 `HERO_OFFSET_FROM_BLOCK` is -0x40, so hero + 0x8E4 is BLOCK_BASE + 0x8A4 -- `MONEY_OFFSET`, measured
 independently long before this. That identity anchors the other two, and 0 -> 5000 showing up on the PDA
-proved it. The player's guess ("probably near money") was exactly right.
+proved it. Looking next to money was exactly right.
 
 BOTH FIELDS ARE RAISED. `heroAddPokecoupon` (0x8014C7F8) bumps hero status 13 AND 14; `heroDecPokecoupon`
 lowers 14 only on a negative delta. So the lifetime total never falls when you spend, and it is what Mt.
@@ -60,7 +60,7 @@ class FakeBlock:
 
 class TestTheOffsets(unittest.TestCase):
     def test_the_coupons_sit_immediately_after_money(self):
-        """The player's guess, and the whole reason the derivation was findable."""
+        """Next to money -- the whole reason the derivation was findable."""
         self.assertEqual(rc.MONEY_OFFSET + 4, rc.POKECOUPON_OFFSET)
         self.assertEqual(rc.MONEY_OFFSET + 8, rc.POKECOUPON_TOTAL_OFFSET)
 
@@ -110,7 +110,7 @@ class TestReadAndAdd(unittest.TestCase):
 
 
 class TestTheItem(unittest.TestCase):
-    def test_it_exists_with_the_name_and_amount_asked_for(self):
+    def test_it_exists_with_its_name_and_amount(self):
         self.assertEqual("5000 Poke Coupons", items.POKECOUPON_ITEM_NAME)
         self.assertEqual(5000, items.POKECOUPON_ITEM_AMOUNT)
         self.assertIn(items.POKECOUPON_ITEM_NAME, items.ITEM_TABLE)
@@ -133,7 +133,7 @@ class TestTheItem(unittest.TestCase):
         self.assertEqual(260, items._FROZEN_ITEM_OFFSETS[items.POKECOUPON_ITEM_NAME])
         self.assertEqual(260, items.ITEM_TABLE[items.POKECOUPON_ITEM_NAME].id_offset)
 
-    def test_it_is_its_own_category_as_asked(self):
+    def test_it_is_its_own_category(self):
         categories = dict(items.FILLER_CATEGORIES)
         self.assertEqual((items.POKECOUPON_ITEM_NAME,), categories["currency"])
         elsewhere = [key for key, names in items.FILLER_CATEGORIES
@@ -141,7 +141,7 @@ class TestTheItem(unittest.TestCase):
         self.assertEqual([], elsewhere)
 
     def test_the_weights_still_read_as_percentages(self):
-        # The player's options.py (2026-10-10) raised Poke Coupons 2 -> 4; the weights are relative, so 102 is fine.
+        # options.py (2026-10-10) raised Poke Coupons 2 -> 4; the weights are relative, so 102 is fine.
         self.assertEqual(102, sum(items.FILLER_CATEGORY_DEFAULT_WEIGHTS.values()))
         self.assertEqual(4, items.FILLER_CATEGORY_DEFAULT_WEIGHTS["currency"])
 

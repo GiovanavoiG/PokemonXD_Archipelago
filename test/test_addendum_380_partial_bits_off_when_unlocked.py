@@ -1,8 +1,7 @@
 """ADDENDUM 380 (2026-09-28): a granted destination has its partial bit CLEARED, every poll.
 
-Player: "Ensure that we're scanning the travel bits periodically with location shuffle - right now, unlocking an
-area in-game breaks the visuals for the map icons. We need to make sure the partial visibility bits are always
-off when we have a location unlocked."
+With location shuffle, the travel bits are scanned periodically: unlocking an area in-game was breaking the
+visuals for the map icons, and the partial visibility bits must always be off for an unlocked location.
 
 TWO HALVES, AND EITHER ALONE WOULD HAVE LEFT THE BUG.
 

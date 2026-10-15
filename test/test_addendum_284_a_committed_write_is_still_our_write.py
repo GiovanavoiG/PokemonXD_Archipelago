@@ -1,9 +1,8 @@
 """ADDENDUM 284 (2026-09-19): a COMMITTED travel write is still a write, and still not progress.
 
-Player, with two screenshots -- seven `Unlock -` checks and seven "found their" lines:
-
-    "All of these sent upon visiting Gateon because I visited Realgam first. The story byte wrote to 0x0F
-    correctly - is our second tracker not updating correctly?"
+Symptom: seven `Unlock -` checks (seven "found their" lines) all sent upon visiting Gateon after visiting
+Realgam first, even though the story byte was correctly written to 0x0F -- so the second tracker was not
+updating correctly.
 
 ## The sequence, and it is exactly seven checks for a reason
 
@@ -11,12 +10,12 @@ Realgam Tower's entry floor is 0x41. Travelling there COMMITS that value -- `lef
 False)` releases `_write_outstanding` precisely because the written byte is what the room is about to be
 built from. So on the arrival tick the byte reads 0x41, no write is outstanding, no override is active, and
 the room is not the map screen: `StoryProgressWitness` banked it as credible. Travel on to Gateon Port and
-the live byte goes back to 0x0F -- correctly, as the player says -- but the high-water mark does not, because
+the live byte goes back to 0x0F -- correctly -- but the high-water mark does not, because
 a high-water mark is the one thing that never comes down.
 
 Then ADDENDUM 268's where-are-you guard waves everything through: it asks whether the player's own region
 sits strictly BEFORE the threshold on the path, and Gateon's floor (0x0F) is before every threshold there is.
-Count the thresholds at or below 0x41 and the answer is seven. It is the screenshot.
+Count the thresholds at or below 0x41 and the answer is seven. It is exactly the symptom.
 
 ## Why the old argument for leaving it was wrong
 
@@ -70,9 +69,9 @@ def _poll(witness, value, room=IN_A_ROOM, write=False, override=False, ours=None
 
 
 class TestTheReportedSequence(unittest.TestCase):
-    """The player's own words, step by step, against the real floor and threshold tables."""
+    """The observed sequence, step by step, against the real floor and threshold tables."""
 
-    def test_realgams_floor_and_the_threshold_count_are_what_was_reported(self) -> None:
+    def test_realgams_floor_and_the_threshold_count(self) -> None:
         """Seven checks is not a round number -- it is how many thresholds sit at or below 0x41. If the data
         changes this test says so rather than letting the reconstruction below drift into fiction."""
         self.assertEqual(0x41, REALGAM_FLOOR)
@@ -93,7 +92,7 @@ class TestTheReportedSequence(unittest.TestCase):
         self.assertIn("client wrote", w.last_reason or "")
 
     def test_travelling_back_to_gateon_credits_nothing(self) -> None:
-        """The whole reported sequence, end to end: Gateon -> map -> Realgam -> map -> Gateon."""
+        """The whole sequence, end to end: Gateon -> map -> Realgam -> map -> Gateon."""
         w = rc.StoryProgressWitness()
         _poll(w, 0x0F, ours=0x0F)
         _poll(w, REALGAM_FLOOR, room=MAP, write=True, ours=REALGAM_FLOOR)   # hovering Realgam
@@ -118,7 +117,7 @@ class TestTheReportedSequence(unittest.TestCase):
                  if (t := travel_locations.vanilla_unlock_story_byte(name)) is not None
                  and w.high_water >= t
                  and (GATEON_FLOOR is None or GATEON_FLOOR < t)]
-        self.assertEqual(6, len(fired), "the screenshot, reproduced (seven before ADDENDUM 446 removed Orre)")
+        self.assertEqual(6, len(fired), "the symptom, reproduced (seven before ADDENDUM 446 removed Orre)")
 
 
 class TestRealProgressIsUntouched(unittest.TestCase):

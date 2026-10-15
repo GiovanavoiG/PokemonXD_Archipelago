@@ -1,7 +1,6 @@
 """ADDENDUM 270 (2026-09-18): the location-shuffle audit.
 
-Player: "Can you go through all our location shuffle details and check for more bugs/issues/things that might
-need changed?" Four parallel read-only audits (graph, client runtime, story-byte writers, item/location
+A sweep of every location shuffle detail for further bugs. Four parallel read-only audits (graph, client runtime, story-byte writers, item/location
 tables); every finding below was re-verified here before anything was changed.
 
 The five that were real, worst first.

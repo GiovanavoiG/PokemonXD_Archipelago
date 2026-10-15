@@ -1,6 +1,6 @@
 """ADDENDUM 437 (2026-10-08) -- Reduce Citadark Grind without Randomize Shops.
 
-Player: "Make it so the reduce grind check works even if randomize shops is off."
+The reduce-grind check works even when Randomize Shops is off.
 """
 from __future__ import annotations
 

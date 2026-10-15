@@ -1,7 +1,6 @@
 """ADDENDUM 175 (2026-09-13): the 232 per-trainer locations get real regions and real gates.
 
-Player instruction: "Obviously place these trainers' logic both behind their area & any required items." Both,
-ANDed -- and the tests that matter are the ones about BOTH halves being present, since a region-only gate on a
+Each trainer's logic sits behind both its area and any required items. Both, ANDed -- and the tests that matter are the ones about BOTH halves being present, since a region-only gate on a
 fight behind the Music Disc reads as available far too early.
 
 The other thing worth pinning hard is the Elevator Key filter. Six census rows name an item that can never
@@ -50,32 +49,32 @@ class TestTheCensusData(unittest.TestCase):
         for name in every_required:
             self.assertIn(name, items.ITEM_TABLE, name)
 
-    def test_the_counts_are_what_the_player_returned(self) -> None:
-        # ADDENDUM 409: "His 1 and 2 can be in either outskirt stand or cave spot interchangeably" -- Miror B. #2
-        # (index 3) is placed now, so 196 placed and 36 region-less.
+    def test_the_counts(self) -> None:
+        # ADDENDUM 409: Miror B.'s #1 and #2 can be in either Outskirt Stand or Cave Poke Spot interchangeably --
+        # Miror B. #2 (index 3) is placed now, so 196 placed and 36 region-less.
         self.assertEqual(len(trainer_placements.PLACED_INDICES), 196)
         self.assertEqual(len(trainer_placements.FILLER_ONLY_INDICES), 36)
         self.assertIn(3, trainer_placements.PLACED_INDICES)
         with_items = [i for i, p in trainer_placements.PLACEMENTS.items() if p.required_items]
-        # 38 from the player's census, +1 for ADDENDUM 312 (row 128, Smarton #1: Music Disc + Mayor's Note),
-        # -11 for ADDENDUM 405 (the ONBS raid's fights no longer name the Data ROM: "only gated behind pyrite town
-        # and the pokespots").
+        # 38 from the census, +1 for ADDENDUM 312 (row 128, Smarton #1: Music Disc + Mayor's Note),
+        # -11 for ADDENDUM 405 (the ONBS raid's fights no longer name the Data ROM: they are gated only behind
+        # Pyrite Town and the Poke Spots).
         self.assertEqual(len(with_items), 28)
         self.assertEqual(trainer_placements.PLACEMENTS[128].required_items, ("Music Disc", "Mayor's Note"))
 
 
 class TestNAMeansFiller(unittest.TestCase):
-    """Player: "Assume anything labelled N/A doesn't matter and can be labelled filler.\""""
+    """Anything labelled N/A doesn't matter and is labelled filler."""
 
     def test_the_na_rows_are_a_brand_new_population_not_a_subset(self) -> None:
         """This test was first written asserting the OPPOSITE -- that the N/A rows would already be in the
-        player's 47-strong missable list -- and it failed, which is the only reason the fence below got built.
+        47-strong missable list -- and it failed, which is the only reason the fence below got built.
         They are entirely disjoint: the N/A rows are the deep rematch tails (Miror B. #2-#7 and #9, the Sixes'
         5th and 6th occurrences, the third fights of Cida/Clerr/Belish/Dosk/Hebon), none of which the missable
         list covers. Pinned as disjoint so nobody "simplifies" one set into the other."""
         na = set(trainer_placements.FILLER_ONLY_INDICES) - {1}   # 1 is Hordel, blank rather than N/A
-        # ADDENDUM 409: Miror B. #2 (index 3) left the N/A population -- the player placed it ("outskirt stand or
-        # cave spot interchangeably") -- so 35 remain.
+        # ADDENDUM 409: Miror B. #2 (index 3) left the N/A population -- it is placed now (Outskirt Stand or
+        # Cave Poke Spot interchangeably) -- so 35 remain.
         self.assertEqual(len(na), 35)
         self.assertNotIn(3, na)
         self.assertEqual(na & set(missable_trainers.MISSABLE_TRAINER_INDICES), set())
@@ -88,7 +87,7 @@ class TestNAMeansFiller(unittest.TestCase):
             self.assertIn(name, locations._MISSABLE_TRAINER_LOCATION_NAMES, name)
 
     def test_hordel_is_the_one_blank_row_and_is_filler_too(self) -> None:
-        """Index 1 came back blank, not N/A. The player chose to treat it as filler rather than have a region
+        """Index 1 came back blank, not N/A. It is treated as filler rather than having a region
         guessed for it -- guessing would have been guessing where a progression-eligible check sits."""
         self.assertIn(1, trainer_placements.FILLER_ONLY_INDICES)
         self.assertIsNone(trainer_placements.region_for(1))
@@ -144,8 +143,8 @@ class TestTheLocationsMoved(unittest.TestCase):
             # ADDENDUM 362: a name the unique-team rule retired keeps its census region -- that is evidence
             # about a real fight and does not stop being true -- but it is no longer a location.
             # ADDENDUM 401: and the same for the removed missable fights.
-            # ADDENDUM 409: and for the ruled-out rematches ("Remove all of cida,clerr,belish,dosk, and hebon's
-            # rematches", ...), which keep their census region but are not locations.
+            # ADDENDUM 409: and for the removed rematches (all of Cida's, Clerr's, Belish's, Dosk's and Hebon's,
+            # ...), which keep their census region but are not locations.
             if (name not in trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS
                     and name not in trainer_roster.REMOVED_DEFEAT_LOCATIONS):
                 self.assertIn(name, locations.LOCATION_TABLE, name)
@@ -176,8 +175,8 @@ class TestTheWeightTablesAreNowACensus(unittest.TestCase):
         )
 
     def test_the_always_open_regions_now_hold_trainers(self) -> None:
-        """ADDENDUM 169's instruction: "Gateon, Kaminko, HQ Lab and Agate should all have checks from their
-        trainer defeats and chests." The old estimate gave the first three none at all."""
+        """Gateon, Kaminko's House, the HQ Lab and Agate all have checks from their trainer defeats and chests.
+        The old estimate gave the first three none at all."""
         for region in ("Pokemon HQ Lab", "Kaminko's House", "Gateon Port", "Agate Village"):
             self.assertGreater(rules._TRAINER_WEIGHT_BY_REGION.get(region, 0), 0, region)
 
@@ -223,7 +222,7 @@ class TestTheItemGates(PokemonXDTestBase):
         self.assertTrue(self.can_reach_location(name))
 
     def test_zook_two_also_needs_snagem_hideout(self) -> None:
-        """The one `required_regions` row. Player: "Must be done with Snagem hideout." Snagem Hideout sits
+        """The one `required_regions` row: the fight needs Snagem Hideout done. Snagem Hideout sits
         LATER in the graph (index 18) than Zook's own Cipher Key Lair (exterior) (16), so reaching the
         exterior genuinely does not imply it -- without this the fight would read as available too early."""
         placement = trainer_placements.PLACEMENTS[147]
@@ -241,7 +240,7 @@ class TestTheElevatorKeyIsFilteredNotRequired(PokemonXDTestBase):
     options = {"shuffle_trainer_defeats": True, "trainer_defeat_mode": 1, "key_item_shuffle": True}
 
     def test_the_census_still_records_it(self) -> None:
-        """Kept in the data on purpose: the player's statement about the game is true, the fight really is
+        """Kept in the data on purpose: the statement about the game is true, the fight really is
         behind that door. The filter is the mechanism's problem, not the data's."""
         naming_it = [i for i, p in trainer_placements.PLACEMENTS.items()
                      if "Elevator Key" in p.required_items]

@@ -1,25 +1,24 @@
 """ADDENDUM 386 (2026-09-28) -- every shiny chest holds filler, widening ADDENDUM 385.
 
-Player: "For now just exclude the ID card 'chest' from progressives." Then, once the control failed:
-"I did receive a report that the bonsly shiny didn't fire." -> "Filler them then investigate."
+ADDENDUM 385 excluded only the ID Card 'chest' from progression. That control failed -- the Bonsly shiny did not
+fire either -- so every shiny chest holds filler while the cause is investigated.
 
 WHAT THE CHEST TABLE SAYS. Every chest carries a model id and there are exactly two of them: 36, the
-ordinary box, 90 of them; and 68, the shining object, 25 of them. The player's own name for one of these
-locations is `Bonsly Room Shiny Chest`, which is where the word comes from.
+ordinary box, 90 of them; and 68, the shining object, 25 of them. One of these locations is named
+`Bonsly Room Shiny Chest`, which is where the word comes from.
 
 Only SIX model-68 objects are ever randomized -- the five key-item chests ADDENDUM 177 punched through
 ADDENDUM 134's item-id floor, plus chest 30, whose vanilla contents are ordinary (Leftovers) and so never
 needed punching. The other nineteen are fenced out incidentally, by the floor, and have never been
 exercised at all.
 
-TWO OF THOSE SIX HAVE INDEPENDENT FAILURE REPORTS. Chest 18 shines in the Cipher Lab and will not be
-interacted with; chest 30's check never fires. None of the 89 boxes has a report against it. One theory
+TWO OF THOSE SIX HAVE INDEPENDENT FAILURES. Chest 18 shines in the Cipher Lab and will not be
+interacted with; chest 30's check never fires. None of the 89 boxes has a failure against it. One theory
 covers both symptoms -- the shining object does not read the ItemID this project patches, so chest 30 hands
 out its Leftovers (no berry moves, so the berry trigger sees no pickup) and chest 18 hands out its ID Card,
 which the player already holds from the packaged AP item, and the game will not give a key item twice.
 
-That theory is UNPROVEN and these tests do not assert it. What they assert is the containment the player
-asked for, which holds whatever the cause turns out to be: none of the six may hold anything a seed needs.
+That theory is UNPROVEN and these tests do not assert it. What they assert is the containment, which holds whatever the cause turns out to be: none of the six may hold anything a seed needs.
 
 DERIVED FROM THE MODEL. ADDENDUM 385 keyed off the one chest id; this keys off `model == 68`, so a chest
 that changes model, or a new shiny object that becomes a location, is covered the day the table says so. The
@@ -70,7 +69,7 @@ class TestTheClassIsReadOffTheTable(unittest.TestCase):
         self.assertIn(L.CHEST_ID_TO_LOCATION[id_card_chest], L.FILLER_ONLY_CHEST_LOCATIONS)
 
     def test_the_bonsly_shiny_is_caught_too(self) -> None:
-        """The one that is not a key-item chest, and the report that widened this."""
+        """The one that is not a key-item chest, and the failure that widened this."""
         self.assertEqual("Bonsly Room Shiny Chest", L.CHEST_ID_TO_LOCATION[30])
         self.assertIn("Bonsly Room Shiny Chest", L.FILLER_ONLY_CHEST_LOCATIONS)
 

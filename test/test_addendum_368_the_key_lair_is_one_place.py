@@ -1,12 +1,11 @@
 """ADDENDA 368/369 (2026-09-26): the Key Lair is one place, and Biden belongs to Snagem.
 
-Player, reporting a real multiworld: "User reported this multiworld gave them Cipher Key Lair as a first
-unlock - but Zook has level 50 pokemon. Why?"
+A real multiworld gave Cipher Key Lair as a first unlock, but Zook had level 50 Pokemon.
 
-Then three rulings, in the order they arrived:
-  * "Key lair interior and exterior should be the same place."                      -> ADDENDUM 368
-  * "Just scale biden to snagem, both of his teams. He doesn't matter in key lair." -> ADDENDUM 369
-  * "Also, just scale zook to key lair (which is now just one place)."              -> satisfied by 368
+Three changes follow:
+  * The Key Lair interior and exterior are the same place.                          -> ADDENDUM 368
+  * Biden is scaled to Snagem, both of his teams; he does not matter in the Key Lair. -> ADDENDUM 369
+  * Zook is scaled to the Key Lair (which is now just one place).                   -> satisfied by 368
 
 WHAT THE SEED SHIPPED, off its own `notes` rather than reasoned about:
 
@@ -103,8 +102,8 @@ class TestZookAndBiden(unittest.TestCase):
 
     def test_zook_one_stays_off_the_ramp(self) -> None:
         """The other Zook is trainer 9 in Gateon Port, which ADDENDUM 367 took off the ramp -- an always-open
-        region cannot say when a fight happens. "Scale zook to key lair" is about the level-50 fight the player
-        reported, and moving the early Gateon fight to the Lair's band would be the opposite of the complaint."""
+        region cannot say when a fight happens. Scaling Zook to the Key Lair is about the level-50 fight at the
+        Lair, and moving the early Gateon fight to the Lair's band would be the opposite of the fix."""
         self.assertEqual("Gateon Port", tp.PLACEMENTS[9].region)
         self.assertIn("Gateon Port", pls.PATH_EXCLUDED_REGIONS)
         self.assertIsNone(self.levels.get(9))
@@ -136,7 +135,7 @@ class TestZookAndBiden(unittest.TestCase):
         self.assertEqual({148} | set(range(39, 45)) | set(range(112, 124)), moved)
 
     def test_no_trainer_is_at_fifty_outside_citadark(self) -> None:
-        """The player's symptom, stated as the thing they would notice. ADDENDUM 455: the 8..50 ramp now ends at
+        """The symptom, stated as the thing a player would notice. ADDENDUM 455: the 8..50 ramp now ends at
         the Key Lair and Citadark Isle sits above it at 53, alone."""
         regions = pls.region_by_trainer_index()
         top = {regions[index] for index, level in self.levels.items() if level > pls.LAST_TIER_LEVEL}

@@ -1,7 +1,6 @@
 """ADDENDUM 444 (2026-10-09) -- finding the save block without the trainer name.
 
-Player: "Any solutions that allow us to increase the yaml name size without losing our search for the player block?"
-Then: "Go ahead and test then build it."
+The yaml name size can grow without losing the search for the player block.
 """
 from __future__ import annotations
 

@@ -1,7 +1,7 @@
 """ADDENDUM 441 (2026-10-09) -- the Music Disc's room holds one story step lower.
 
-Player: "The phenac guard is slightly weird and continuously brings up the music disc dialogue in its room, and I
-couldnt pick up the item. Can we try lowering the guard byte by one?"
+The Phenac guard kept bringing up the Music Disc dialogue in its room, and the item could not be picked up. The
+fix lowers the guard byte by one.
 """
 from __future__ import annotations
 

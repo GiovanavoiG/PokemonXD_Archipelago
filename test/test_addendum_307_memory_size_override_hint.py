@@ -1,9 +1,9 @@
 """ADDENDUM 307 (2026-09-20) -- the memory-size override, and why it cannot be supported from here.
 
-Player: "User reported not being able to connect the client to dolphin after enabling Enable Emulated Memory
-Size Override in Dolphin. Any chance we can make this compatible by default, or an option if necessary?"
+With Enable Emulated Memory Size Override turned on in Dolphin, the client cannot connect to Dolphin. It cannot
+be made compatible, by default or as an option.
 
-THE ANSWER IS NO, AND THE REASON IS STRUCTURAL. `dolphin_memory_engine` does not ask Dolphin where its
+THE REASON IS STRUCTURAL. `dolphin_memory_engine` does not ask Dolphin where its
 emulated RAM is. It walks the process's memory regions and matches one whose SIZE equals the size it expects
 (`info.RegionSize == Common::GetMEM1Size()`, rounded to the next power of two). The override changes that
 size, nothing matches, `hook()` returns false -- and that happens before any address this project knows about
@@ -113,7 +113,7 @@ class TestEveryModuleActuallyCompiles(unittest.TestCase):
 
 
 class TestNothingWorkingChanged(unittest.TestCase):
-    """The player's standing instruction: "Do not break anything that we have working"."""
+    """Nothing that already works may break."""
 
     def test_the_memory_constants_are_untouched(self) -> None:
         self.assertEqual(0x80000000, ram_client.MEM1_START)

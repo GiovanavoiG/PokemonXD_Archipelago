@@ -94,7 +94,7 @@ components.append(
         component_type=Type.CLIENT,
         # Matches PokemonXDContainer.patch_file_ending (patch.py); hardcoded to avoid a worlds.Files import.
         file_identifier=SuffixIdentifier(".appxd"),
-        # No `description=` on purpose -- the player asked for no subtitle line. Do not re-add one unasked.
+        # No `description=` on purpose -- the component has no subtitle line. Do not re-add one.
     )
 )
 
@@ -332,10 +332,9 @@ class PokemonXDWorld(World):
         # ADDENDUM 424: Nightmare Citadark's relocated Shadows still exist, one each, on new holders.
         _relocated_count = len(self._nightmare_removed_dpkm)
         _purifiable = _vanilla_shadow_count + _relocated_count + int(self.options.shadow_pokemon_expansion)
-        # ADDENDUM 406: settings that cannot all be true are ADJUSTED, not refused. Player: "make our refusals
-        # instead auto-adjust to valid settings. Round available kyogre parts up to amount available, round
-        # purifications down if it's greater than possible shadows." Every adjustment is logged and written back
-        # into the options, so slot data -- and Universal Tracker's replay of it -- carries the value actually used.
+        # ADDENDUM 406: settings that cannot all be true are ADJUSTED, not refused: available Kyogre Parts round up
+        # to the amount required, and the purification cap rounds down to the number of Shadows that can exist.
+        # Every adjustment is logged and written back into the options, so slot data -- and Universal Tracker's replay of it -- carries the value actually used.
         if int(self.options.purification_progression_cap) > _purifiable:
             self._adjust_option(
                 "purification_progression_cap", _purifiable,
@@ -1156,7 +1155,7 @@ class PokemonXDWorld(World):
                     continue
                 if name == items.MACGUFFIN_ITEM_NAME:
                     continue  # ADDENDUM 162 -- its count is the option's, added above, not one-each here
-                # ADDENDUM 168: the names the player dropped. Their five LOCATIONS stay.
+                # ADDENDUM 168: the names dropped from the pool. Their five LOCATIONS stay.
                 if name in items.ITEMS_REMOVED_FROM_POOL:
                     continue
                 if name in items.NEVER_SHUFFLED_KEY_ITEM_NAMES:
@@ -1247,8 +1246,8 @@ class PokemonXDWorld(World):
         rules.set_all_rules(self)
 
     def pre_fill(self) -> None:
-        """ADDENDUM 430: no Robo Kyogre Part may sit on Citadark Isle or on anything that needs it. Player: "Make
-        sure ZERO robo kyogre parts can ever go in citadark or anything reliant on it."
+        """ADDENDUM 430: no Robo Kyogre Part may sit on Citadark Isle or on anything that needs it -- zero Parts,
+        ever.
 
         Logic alone forbids only the Parts the gate COUNTS: with more available than required, the spare ones
         were legal on the island. So: with every entrance into Citadark Isle closed, sweep this multiworld with
@@ -1287,8 +1286,8 @@ class PokemonXDWorld(World):
     )
 
     def _bind_parts_to_late_story(self) -> None:
-        """ADDENDUM 435. Player: "Citadark with location shuffle off can be parts-only, but see if you can TRY to
-        make it so that it'll have you complete most of the story most of the time. Exceptions are fine."
+        """ADDENDUM 435. With location shuffle off, Citadark can be Parts-only, but it should still have you
+        complete most of the story most of the time; exceptions are fine.
 
         With location shuffle off, Citadark needs only the Parts (regions.TRAVEL_SHUFFLE_PARTS_SOURCE). On
         `citadark_story_weight` percent of seeds, `available - required + 1` Parts are placed now in this world's
@@ -1584,8 +1583,8 @@ class PokemonXDWorld(World):
             }
 
             # Runs AFTER shuffle_teams(), so movesets are drawn for each slot's FINAL species. ADDENDUM 427: always,
-            # not behind an option -- the player: "separate the TM/move functionality from our enhanced difficulty
-            # options - just make it default, not attached to any option."
+            # not behind an option -- the TM/move functionality is separate from the enhanced difficulty options
+            # and is on by default.
             level_up_moves = load_level_up_moves()
             if level_up_moves is not None:
                 # move_count omitted on purpose -- assign_movesets' own MOVESET_SHUFFLE_DEFAULT_MOVE_COUNT
@@ -2074,7 +2073,7 @@ class PokemonXDWorld(World):
                     "trainer levels/team sizes were left untouched."
                 )
 
-        # ADDENDUM 427: "Give the shadows legal movesets please." A Shadow's four ordinary moves are its DPKM
+        # ADDENDUM 427: Shadows get legal movesets. A Shadow's four ordinary moves are its DPKM
         # record's, and with its species randomized they were the replaced Shadow's -- often moves the new species
         # cannot know. Drawn here, after every level pass, for the species and level it is really fought at, by
         # the same rule as every other trainer Pokemon. A vanilla-species Shadow keeps the moves the game gave it.

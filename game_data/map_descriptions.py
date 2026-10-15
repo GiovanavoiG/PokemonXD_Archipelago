@@ -1,8 +1,7 @@
 """ADDENDUM 454 -- one description per place on the world map.
 
-Player: "when hovering locations on the map, the location description text jumps as we write the story byte. Can we
-just rewrite all the descriptions in the iso to be the same (whatever the first/earliest one is) so that when it
-"rewrites" it's just the same text anyway?"
+When hovering locations on the map, the location description text jumped as the client wrote the story byte. Every
+record's descriptions are now the same (the first/earliest one), so a "rewrite" lands on the same text anyway.
 
 THE TABLE (measured in three MEM1 dumps -- mapsel_s1_phenac, reboot_phenac, vis_dump3_snagem -- at three different
 heap addresses, with relocated code right before it storing its address, so it is a REL module's data): 22 records
@@ -18,8 +17,8 @@ is open, the hovered text flips between records.
 
 THE PATCH writes one set of 18 ids (`TARGET_IDS`) into every record (thresholds untouched): same size, same file,
 every record now names the same text. That set is the first record's -- the earliest wording -- except for the three
-places whose first wording hides them. Player: "Switch Libra, Cipher Lab and Key Lair to their first clear one (so
-make it cipher lab, and give the other two their first ones with real descriptions/name":
+places whose first wording hides them. Libra, Cipher Lab and Key Lair use their first clear wording instead (Cipher
+Lab by name, the other two their first records with a real name and description):
 
     Cipher Lab  d4eb "MYSTERY FACILITY"  -> d4fd "CIPHER LAB / CIPHER's old lab back in operation. ..."
     S.S. Libra  d4ed "???"               -> d4ff "S.S. LIBRA / The POKeMON cargo ship that went missing ..."

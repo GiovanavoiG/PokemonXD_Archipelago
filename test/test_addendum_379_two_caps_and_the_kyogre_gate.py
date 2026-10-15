@@ -1,10 +1,10 @@
 """ADDENDUM 379 (2026-09-27): Gateon's first visit is 0x10, Phenac's window reaches 0x41, and neither is the
 Robo Kyogre gate.
 
-Player: "Also, raise Gateon's cap by one on first visit. Also make sure Gateon's cap doesn't interfere with the
-kyogre parts. Raise Phenac City's cap by one as well."
+Gateon's cap goes up by one on first visit without interfering with the Kyogre Parts, and Phenac City's cap goes
+up by one as well.
 
-TWO DIFFERENT NUMBERS ARE CALLED "GATEON'S CAP", and the middle instruction is why that has to be said out loud:
+TWO DIFFERENT NUMBERS ARE CALLED "GATEON'S CAP", and the Kyogre Parts are why that has to be said out loud:
 
     ALWAYS_OPEN_FIRST_VISIT["Gateon Port"]   0x0F -> 0x10   the byte a FIRST visit writes  <- this one moved
     ram_client.GATEON_STORY_CEILING          0x6E           the Robo Kyogre gate           <- untouched
@@ -18,7 +18,7 @@ PHENAC'S RAISE CLOSED A REAL INCONSISTENCY, found while measuring rather than re
 was 0x3E..0x40 while ADDENDUM 331's entry-floor override writes 0x41 on every arrival -- so the byte this client
 puts in Phenac sat one rung ABOVE the window the module calls Phenac's. And 0x40 is not a rung the game rests on
 at all (`byte_is_reachable(0x40)` is False): the ladder runs 0x3E -> 0x3F -> 0x41, and the derived minus-one rule
-landed on the gap. 0x41 is the player's "+1", the byte already being written, and a real rung.
+landed on the gap. 0x41 is the "+1", the byte already being written, and a real rung.
 """
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ class TestGateonsFirstVisit(unittest.TestCase):
 
 
 class TestTheKyogreGateIsUntouched(unittest.TestCase):
-    """The instruction that matters most, because getting it wrong gives away a progression unlock."""
+    """The constraint that matters most, because getting it wrong gives away a progression unlock."""
 
     def test_the_clamp_and_the_lift_are_what_they_were(self) -> None:
         self.assertEqual(0x6E, rc.GATEON_STORY_CEILING)
@@ -85,8 +85,7 @@ class TestTheKyogreGateIsUntouched(unittest.TestCase):
 
     def test_the_two_gateon_caps_cannot_be_mistaken_for_each_other(self) -> None:
         """They are different numbers for different jobs, and this addendum moved one of them. If they ever
-        became equal or adjacent, "raise Gateon's cap" would be genuinely ambiguous in the source as well as in
-        the request."""
+        became equal or adjacent, "raise Gateon's cap" would be genuinely ambiguous in the source."""
         self.assertLess(sb.ALWAYS_OPEN_FIRST_VISIT[GATEON] + 1, rc.GATEON_STORY_CEILING)
 
     def test_the_override_owns_the_byte_while_it_is_active(self) -> None:
@@ -125,7 +124,7 @@ class TestPhenacsWindow(unittest.TestCase):
     def test_the_other_phenac_tiers_did_not_move(self) -> None:
         self.assertEqual((0x44, 0x45), (sb.REGION_STORY_WINDOW["Phenac City (Mayor's House)"].floor,
                                         sb.REGION_STORY_WINDOW["Phenac City (Mayor's House)"].ceiling))
-        # RETARGETED by ADDENDUM 391: Post-Sixes' ceiling moved 0x4D -> 0x4E at the player's instruction. What
+        # RETARGETED by ADDENDUM 391: Post-Sixes' ceiling moved 0x4D -> 0x4E. What
         # this test is for is that ADDENDUM 379's Phenac City change did not drag the other tiers with it, and
         # the FLOOR is what proves that -- so the floor stays pinned and the ceiling reads from the override.
         self.assertEqual(0x46, sb.REGION_STORY_WINDOW["Phenac City (Post-Sixes)"].floor)

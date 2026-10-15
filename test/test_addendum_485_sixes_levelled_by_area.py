@@ -1,7 +1,7 @@
 """ADDENDUM 485 (2026-10-13) -- the Sixes are levelled by where each fight really is.
 
-Player: "user reported sixes being mostly the same level at cipher lab vs phenac. Can we make their fights in each
-area levelled to the area, separately?" (with path scaling)
+The Sixes were mostly the same level at Cipher Lab and at Phenac. With path scaling, their fights in each area are
+now levelled to that area, separately.
 """
 from __future__ import annotations
 

@@ -1,7 +1,6 @@
 """ADDENDUM 280 (2026-09-18): Agate and Gateon wait for the lab to reach 0x0F.
 
-Player: *"For location shuffle, let's only unlock Agate and Gateon upon HQ Lab reaching 0x0F. This fixes
-plenty of softlocks."*
+For location shuffle, Agate and Gateon unlock only once HQ Lab reaches 0x0F. This fixes plenty of softlocks.
 
 ADDENDUM 106 made the pair free from turn one, which is right about the ITEM POOL -- neither is a travel
 unlock and neither should be. It was wrong about WHEN the map should offer them: the client wrote their bits
@@ -161,9 +160,9 @@ class TestTheGateReadsTheMarkNotTheLiveByte(unittest.TestCase):
 
 
 class TestAddendum282TheGateCanActuallyOpen(unittest.TestCase):
-    """Player: *"Lab and story byte reached 0x0F - gateon and agate didn't unlock. why?"*
+    """Symptom: the lab and the story byte reached 0x0F, yet Gateon and Agate did not unlock.
 
-    Because ADDENDUM 280 read the lab's MARK, and ADDENDUM 277 had already made that mark unable to reach
+    The cause: ADDENDUM 280 read the lab's MARK, and ADDENDUM 277 had already made that mark unable to reach
     0x0F: it routes the live bump's `0x0D -> 0x0F` through `last_written_*`, so `observe` refuses it -- and
     refuses a GAME-set 0x0F too, since the two are the same value in the same region. The mark goes straight
     from absent to 0x10.

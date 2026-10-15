@@ -1,6 +1,6 @@
 """ADDENDUM 275 (2026-09-18): a byte written FOR one destination never becomes another one's mark.
 
-Player: *"Hovering Agate is triggering hq lab bytes to progress and skip forward too far."*
+Hovering Agate was pushing the HQ Lab's byte forward too far.
 
 ADDENDUM 229 stopped `observe()` recording a hover write WHILE it was outstanding. It did not cover what
 happens when that write is **committed** -- and a commit is not a promise that the player went where the
@@ -23,8 +23,8 @@ client, re-applied on every future entry.
 
 The lab has **no static entry floor at all** -- `area_entry_floor("Pokemon HQ Lab")` is None. Its target comes
 entirely from rules that top out at 0x17, and from the high-water mark. So a poisoned mark does not compete
-with anything; it simply wins, and the lab is entered at a byte past the end of its own ladder. *"Skip forward
-too far"* is the precise description.
+with anything; it simply wins, and the lab is entered at a byte past the end of its own ladder: it skips
+forward too far.
 
 ## The rule
 
@@ -155,11 +155,11 @@ class TestEveryDestinationPairThatCouldDoThis(unittest.TestCase):
                              f"a committed {name} hover (0x{floor:02X}) still reaches the lab's mark")
 
 
-class TestAddendum277TheCycleTheUserDescribed(unittest.TestCase):
-    """ADDENDUM 277. Player: *"doing any story progress in Agate is writing to HQ Lab and sending checks early
-    again ... I think this applies to our whole system - later areas are writing to the areas before them."*
+class TestAddendum277TheCycle(unittest.TestCase):
+    """ADDENDUM 277. Story progress in Agate was writing to the HQ Lab and sending checks early again, and the
+    same applies to the whole system: later areas were writing to the areas before them.
 
-    The diagnosis was right and the loop is a CYCLE, not a one-way write:
+    The loop is a CYCLE, not a one-way write:
 
       1. a LATER area's mark satisfies an `AreaFloorRule` for an EARLIER one (Gateon 0x16 raises the lab to
          0x17) -- working as designed;
@@ -215,7 +215,7 @@ class TestAddendum277TheCycleTheUserDescribed(unittest.TestCase):
         self.assertEqual([1, 2, 3, 4, 5], earned(mem), "and the next real advance pays them all out")
 
     def test_no_area_can_have_its_mark_set_by_a_write_for_any_other_area(self) -> None:
-        """The general form of the player's 'this applies to our whole system'. Derived over every ordered
+        """The general form: no later area writes to an earlier one, anywhere in the system. Derived over every ordered
         pair of regions the memory can write for, so a new area is covered the day it is added."""
         from .. import travel_locations as tl
 
@@ -233,7 +233,7 @@ class TestAddendum277TheCycleTheUserDescribed(unittest.TestCase):
 
 
 class TestAddendum279TheLabsZeroIsAValue(unittest.TestCase):
-    """The lab's first-visit byte is 0x00 (player, 2026-09-18), and 0 is falsy in Python.
+    """The lab's first-visit byte is 0x00 (2026-09-18), and 0 is falsy in Python.
 
     This table exists to replace a None that meant "no floor at all", so the one way to reintroduce that bug
     is for some consumer to test truthiness instead of `is None`. Every one of them was checked by hand when

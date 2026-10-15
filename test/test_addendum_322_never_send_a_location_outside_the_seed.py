@@ -1,10 +1,10 @@
 """ADDENDUM 322 -- a check the seed does not contain is never offered to the server.
 
-Player, with the server's own log:
+The server's own log:
 
     [11:11:52]: 'No location 3821605 for player 1'
     KeyError: 'No location 3821605 for player 1'
-    Notice (all): Gioig (Team #1) has left the game.
+    Notice (all): Player1 (Team #1) has left the game.
 
 3821605 is `Agate Village Shop AP Item 1`. The seed was generated with Agate Village Pit Stop on, which
 removes Agate's shop checks -- so the location exists in the datapackage (identical in every seed) and not in

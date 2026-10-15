@@ -1,9 +1,8 @@
 """ADDENDUM 465 -- what the engine does with a trainer's Shadow Pokemon, and the two places this project fell short.
 
-Player: "I've been informed that trainers with shadows have a marker attached to them to indicate which pokemon are
-shadows. If so, this almost certainly is something we are not setting, and it's also probably why our generated
-shadows are respawning infinitely. Can you track down this flag on trainers and see if we can add it for our
-generated pokemon? Investigate around it too and see if there's other behaviors with shadows that we haven't found."
+The hypothesis checked here: trainers with Shadows carry a marker saying which of their Pokemon are Shadows, and a
+marker left unset on generated Shadows would explain them respawning infinitely. Below: the marker, the real cause
+of the respawn, and the engine's other Shadow behaviours.
 
 THE MARKER IS SET. A trainer row (DTNR) marks its Shadow slots with `shadowMask` at +0x04 (bit i = slot i is a DDPK
 index), and `write_shadow_multi_trainer_patch` sets the bit for every slot it fills. The Shadow record (DDPK) marks
@@ -113,8 +112,8 @@ assert struct.calcsize(">H") * DARK_POKEMON_LIST_LENGTH == 0x100   # the map's s
 
 
 # ---- ADDENDUM 468 ------------------------------------------------------------------------------------------------
-# Player (on ADDENDUM 467's copies): "if you beat it, it should go to Miror B. ... I want it removed from all teams
-# whether it's defeated or snagged - if defeated, go to miror b."
+# A Shadow (including ADDENDUM 467's copies) leaves every ordinary trainer's team once it is defeated or snagged; a
+# defeated one goes to Miror B.
 #
 # A beaten, unsnagged Shadow gets status 2 (`_darkPokemonSetUnderTaker`, at the end of a battle the player WON -- or
 # any battle when the record's +0x15 flag is set -- and only when the record's +0x00 "worth" byte is non-zero). The

@@ -1,9 +1,9 @@
 """ADDENDUM 305 (2026-09-20) -- always-catch, folded into the max_catch_rate option.
 
-Player: "I want it baked into the max catch rate option so that it works."
+Always-catch is baked into the max catch rate option so that it works.
 
-WHAT IT WRITES, and where every number came from. The player supplied a community Action Replay code
-(06QM-1V0H-C6RG9 / DB0T-3ZXB-NUH6D) which Dolphin decrypts to `04219324 48000154`. AR type 04 is a 32-bit
+WHAT IT WRITES, and where every number came from. The source is a community Action Replay code
+(06QM-1V0H-C6RG9 / DB0T-3ZXB-NUH6D), which Dolphin decrypts to `04219324 48000154`. AR type 04 is a 32-bit
 RAM write and the address field ORs with 0x80000000, so the target is 0x80219324; the value 0x48000154 is a
 PowerPC `b +0x154`, an unconditional branch 85 instructions forward, replacing a conditional so the capture
 never takes its failure path.

@@ -1,13 +1,9 @@
 """ADDENDUM 333 (2026-09-24): two Shadows snagged in one battle locked the catch tracker forever.
 
-Player, relaying a report:
-
-> my pokemon apparently stopped registering at one point and then fixed itself ... They stopped sending, and
-> then started sending after i got some pokemon out of the pc. And they just stopped sending again, but that
-> may be bc of long cutscenes.
-
-And, on the follow-up: "moving the pokemon into his party sends the check even in the pc screen ... any small
-changes we can do to notice the pokemon without needing to move it?"
+Symptom: caught Pokemon stopped registering at one point and then recovered -- the checks stopped sending,
+started again after some Pokemon were taken out of the PC, then stopped again (long cutscenes were a suspect).
+Moving a Pokemon into the party sent its check even from the PC screen; the goal is to notice the Pokemon
+without needing to move it.
 
 THE TRIGGER NEEDS NO CUTSCENE. `SpeciesCatchTracker` guard 2 discarded any box poll that gained more than one
 species at once, justified in its own comment as "a catch, a deposit and a withdrawal each move exactly one
@@ -19,7 +15,7 @@ failed identically, forever.
 ADDENDUM 290 fixed the same loop and cannot reach this case: its repair is `gained & self.seen`, species
 ALREADY credited, and here the gained species are new.
 
-THE PLAYER'S REPORT CONTAINS THE PROOF. Withdrawing from the PC fired the checks because the PARTY path
+THE SYMPTOM CONTAINS THE PROOF. Withdrawing from the PC fired the checks because the PARTY path
 bypasses the boxes entirely -- the box baseline was never unstuck, which is why it stopped again on the very
 next straight-to-PC catch.
 """
@@ -67,7 +63,7 @@ class TestTheReportedStall(unittest.TestCase):
         self.assertEqual(1, tracker.multi_gain_polls)
 
     def test_no_withdrawal_is_needed(self) -> None:
-        """The player's follow-up, stated as the assertion: the party is never touched in this test."""
+        """No move needed, stated as the assertion: the party is never touched in this test."""
         tracker = _primed()
         fired = []
         for _ in range(tracker._MULTI_GAIN_CONFIRM_STREAK + 2):
@@ -123,7 +119,7 @@ class TestCorroborationOutranksTheSlowWindow(unittest.TestCase):
         self.assertEqual([PARAS], fired, "the save-block party corroborated it -- ordinary window")
 
     def test_the_party_still_fires_on_the_very_same_poll(self) -> None:
-        """Guard 1 is untouched, which is why the player's withdrawal worked even while the box was stuck."""
+        """Guard 1 is untouched, which is why a withdrawal worked even while the box was stuck."""
         tracker = _primed()
         tracker.poll(set(FULL_PARTY), {PARAS, GROWLITHE})
         self.assertEqual([PARAS], tracker.poll(set(FULL_PARTY) | {PARAS}, {GROWLITHE}))

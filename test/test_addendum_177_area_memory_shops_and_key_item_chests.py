@@ -1,4 +1,4 @@
-"""ADDENDUM 177 (2026-09-13): five things the player asked for after the open-issues review.
+"""ADDENDUM 177 (2026-09-13): five changes from the open-issues review.
 
 The one worth reading carefully is the KeyItemShuffle fix. That option has been DefaultOnToggle for days while
 doing only half its job -- it put key items in the pool and never took them out of their chests -- so the tests
@@ -21,9 +21,9 @@ from ..tools import xd_rel_format as rel
 # ================================================================================================ Poke Spots
 class TestThePokeSpotsAreOneUnlock(unittest.TestCase):
     def test_one_item_one_check_three_bits(self) -> None:
-        """Player: "Make sure poke spots are all one item to unlock them when randomized locations is on."
+        """With randomized locations on, the Poke Spots are all one item to unlock.
 
-        The instruction was given once before ("Make the Poke Spots one unlock") and only half-done: the three
+        This was attempted once before and only half-done: the three
         spots already shared a REGION, so logic treated them as one place, but each kept its own item and check
         -- meaning two of the three items changed nothing whatsoever about reachability."""
         self.assertIn("Poke Spots", tl.TRAVEL_LOCATION_NAMES)
@@ -61,7 +61,7 @@ class TestThePokeSpotItemOpensTheRegion(PokemonXDTestBase):
         to a Poke Spot does not hand you the ID Card. So the unlock is still ONE item for all three spots,
         which is what this test is about, and it is now ANDed with the ROM like the chain edge always was."""
         # ADDENDUM 406: and nothing else -- the chain edge carries no ROM now, so the gateway carries none.
-        # Player (ADDENDUM 406): "Poke spots do NOT need the data rom."
+        # The Poke Spots do NOT need the Data ROM.
         self.assertFalse(self.multiworld.state.can_reach("Poke Spots", player=self.player))
         self.collect_by_name(tl.travel_unlock_item_name("Poke Spots"))
         self.assertTrue(self.multiworld.state.can_reach("Poke Spots", player=self.player))
@@ -70,8 +70,7 @@ class TestThePokeSpotItemOpensTheRegion(PokemonXDTestBase):
 # ========================================================================================= key-item chests
 class TestKeyItemChestsBecomeChecks(unittest.TestCase):
     def test_the_five_pool_bound_chests_are_the_ones_converted(self) -> None:
-        """Player: "Replace those Key Item chests with AP checks if Key_Item_Shuffle is on, except for Elevator
-        Key." Five of the 24 fenced chests hold an item that actually enters the pool, and those five are
+        """With Key_Item_Shuffle on, the Key Item chests become AP checks, except for the Elevator Key. Five of the 24 fenced chests hold an item that actually enters the pool, and those five are
         exactly where the double-source bug lived."""
         self.assertEqual(sorted(key_item_chests.SHUFFLED_KEY_ITEM_CHESTS), [17, 18, 42, 78, 80])
         for chest_id, item_name in key_item_chests.SHUFFLED_KEY_ITEM_CHESTS.items():
@@ -90,8 +89,8 @@ class TestKeyItemChestsBecomeChecks(unittest.TestCase):
         )
         self.assertNotEqual(locations.CHEST_ID_TO_LOCATION[17], locations.CHEST_ID_TO_LOCATION[18])
 
-    def test_the_elevator_key_chest_is_the_players_exception_and_also_unsafe(self) -> None:
-        """Both reasons hold independently: the player named it, AND the Elevator Key is in
+    def test_the_elevator_key_chest_is_an_exception_and_also_unsafe(self) -> None:
+        """Both reasons hold independently: it is the named exception, AND the Elevator Key is in
         NEVER_SHUFFLED_KEY_ITEM_NAMES so it never enters the pool -- dummying it would delete it from the seed
         with nothing to replace it."""
         self.assertNotIn(79, key_item_chests.SHUFFLED_KEY_ITEM_CHESTS)
@@ -99,7 +98,7 @@ class TestKeyItemChestsBecomeChecks(unittest.TestCase):
         self.assertIn("Elevator Key", items.NEVER_SHUFFLED_KEY_ITEM_NAMES)
 
     def test_the_miror_radar_chest_is_excluded_on_the_same_softlock_reasoning(self) -> None:
-        """NOT named by the player, so this is a judgement and is recorded as one. The Radar is not in the pool
+        """NOT a named exception, so this is a judgement and is recorded as one. The Radar is not in the pool
         and is the in-game gate for the Oasis and Cave Poke Spots -- converting chest 77 would delete the only
         copy, which is the exact failure ADDENDUM 134 exists because of."""
         self.assertNotIn(77, key_item_chests.SHUFFLED_KEY_ITEM_CHESTS)
@@ -107,8 +106,8 @@ class TestKeyItemChestsBecomeChecks(unittest.TestCase):
 
     def test_the_battle_cd_chests_are_untouched(self) -> None:
         """Sixteen of the fenced chests hold Battle CDs, which are flavour rather than key items, so the
-        instruction does not reach them. Converting them would trade sixteen CDs for sixteen checks -- a real
-        trade, and the player's to make rather than a side effect of this one."""
+        conversion does not reach them. Converting them would trade sixteen CDs for sixteen checks -- a real
+        trade, and a decision of its own rather than a side effect of this one."""
         by_id = {c["chest"]: c for c in chest_table.CHESTS}
         cd_chests = [c for c, chest in by_id.items()
                      if chest["item"] >= rel.KEY_ITEM_ID_FLOOR
@@ -172,10 +171,9 @@ class TestKeyItemChestsExistWithTheOptionOn(PokemonXDTestBase):
 # ================================================================================================== shops
 class TestOnlyConfirmedShops(unittest.TestCase):
     def test_every_shop_row_is_confirmed(self) -> None:
-        """Three rounds in one day: "just add checks for our confirmed rooms" (I read that as a live `!room`
-        reading -> 2), "I gave you pyrite shop, pyrite vending machine, agate shop, phenac shop as well" (-> 6),
-        "Go ahead and add those four extras as well" (-> 10). Each round promoted only the rooms actually named,
-        which is why it took three."""
+        """Three rounds in one day: the rooms with a live `!room` reading (-> 2), then the Pyrite shop, Pyrite
+        vending machine, Agate shop and Phenac shop (-> 6), then four extras (-> 10). Each round promoted only
+        rooms with a source behind them, which is why it took three."""
         # ADDENDUM 238: every ROW is still confirmed -- the Battle CD shop is confirmed AND excluded,
         # which are deliberately different states. CONFIRMED_SHOPS is what ships.
         self.assertEqual(len(shops.SHOPS), 10)
@@ -191,22 +189,21 @@ class TestOnlyConfirmedShops(unittest.TestCase):
 
     def test_every_confirmed_shop_records_why_it_is_trusted(self) -> None:
         """`source` is now the ONLY place the distinction survives, which is why it is worth having: two rooms
-        have an actual live `!room` reading behind them and eight rest on the player's own compilation. Both
-        create checks -- but if a shop's checks never fire in play, the eight "player" rooms are where to look and
+        have an actual live `!room` reading behind them and eight rest on a hand compilation. Both
+        create checks -- but if a shop's checks never fire in play, the eight "compiled" rooms are where to look and
         21/156 are the control."""
         by_source: "dict[str, list[int]]" = {}
         for shop in shops.SHOPS:
             by_source.setdefault(shop.source, []).append(shop.room_id)
-        # ADDENDUM 394 added 163: the Outskirt Stand's room was `player`-sourced and WRONG (164 is the
+        # ADDENDUM 394 added 163: the Outskirt Stand's room was `compiled`-sourced and WRONG (164 is the
         # exterior), which is precisely the risk this distinction exists to record. It is measured now.
         self.assertEqual(sorted(by_source["live"]), [21, 156, 163])
-        self.assertEqual(sorted(by_source["player"]), [50, 61, 103, 104, 119, 121, 134])
+        self.assertEqual(sorted(by_source["compiled"]), [50, 61, 103, 104, 119, 121, 134])
         for room_id in by_source["live"]:
             self.assertIn("shop", rc.KNOWN_ROOM_IDS[room_id].lower(), room_id)
 
     def test_each_shop_has_checks_equal_to_its_randomized_stock(self) -> None:
-        """ADDENDUM 178, player instruction: "Give each confirmed shop room ID checks equal to its randomized
-        items." The flat 12 was a made-up number applied identically to an 18-line TM shop and a 4-line vending
+        """ADDENDUM 178: each confirmed shop room has as many checks as it has randomized items. The flat 12 was a made-up number applied identically to an 18-line TM shop and a 4-line vending
         machine, so every shop was wrong in one of two directions at once."""
         # ADDENDUM 238c: Agate 8 -> 9 (its Great Ball line arrives with the ONBS crisis and is invisible to a
         # one-shelf count). Every other row already equalled the union across that shop's tiers.
@@ -265,16 +262,16 @@ class TestOnlyConfirmedShops(unittest.TestCase):
 
     def test_room_119_holding_a_chest_too_is_not_a_conflict(self) -> None:
         """A RETRACTION, pinned so it is not re-derived. An earlier comment called room 119 suspect because the
-        player's compilation lists it twice -- vending machine AND "Pyrite Town Outside" (chest 93) -- and said
+        room compilation lists it twice -- vending machine AND "Pyrite Town Outside" (chest 93) -- and said
         both could not be true. They can: a vending machine and a chest can share an outdoor area, and the chest
         table really does put chest 93 in room 119."""
         self.assertIn(119, shops.SHOP_ROOM_IDS)
         self.assertIn(119, {c["room"] for c in chest_table.CHESTS})
         self.assertEqual([c["chest"] for c in chest_table.CHESTS if c["room"] == 119], [93])
 
-    def test_the_phenac_shop_region_follows_the_players_own_room_table(self) -> None:
+    def test_the_phenac_shop_region_follows_the_room_table(self) -> None:
         """Corrected with the promotion. This row said "Phenac City" on my own claim that the shop is usable on
-        the first visit, which I never had a source for. Their room table puts 103 in Post-Sixes, and the later
+        the first visit, which I never had a source for. The room table puts 103 in Post-Sixes, and the later
         region is the safe direction if the guess was wrong."""
         from ..game_data import chest_regions
 
@@ -302,7 +299,7 @@ class TestOnlyConfirmedShops(unittest.TestCase):
 # ======================================================================================= purification census
 class TestPurificationWeightsAreACensus(unittest.TestCase):
     def test_every_vanilla_shadow_resolves_to_a_region(self) -> None:
-        """Player: "Use Vanilla shadow pokemon placement & their trainer locations to gate this." All 83."""
+        """Gated by vanilla Shadow Pokemon placement and their trainers' locations. All 83."""
         self.assertEqual(shadow_regions.total_shadow_count(), 83)
 
     def test_the_weights_sum_to_the_ladder_length(self) -> None:
@@ -317,8 +314,8 @@ class TestPurificationWeightsAreACensus(unittest.TestCase):
             self.assertIn(region, regions.REGION_NAMES, region)
 
     def test_the_four_unresolvable_shadows_are_named_not_defaulted(self) -> None:
-        """Three of their trainers are not in the 232-story roster, and one is Hordel, whose census row the
-        player deliberately left filler-only. Their `area` text is unambiguous, so it is read from there --
+        """Three of their trainers are not in the 232-story roster, and one is Hordel, whose census row is
+        deliberately filler-only. Their `area` text is unambiguous, so it is read from there --
         explicitly, rather than silently falling back to a region."""
         self.assertEqual(len(shadow_regions._AREA_FALLBACK), 4)
         self.assertEqual(shadow_regions._AREA_FALLBACK["Hordel"], "Outskirt Stand")
@@ -336,10 +333,10 @@ class TestPurificationWeightsAreACensus(unittest.TestCase):
 # ================================================================================= per-area story-byte memory
 class TestAreaStoryByteMemoryRule(unittest.TestCase):
     def test_a_first_visit_uses_the_areas_floor(self) -> None:
-        """Player: "If it's our first time entering the area, use the byte marked as the first visit."
+        """The first time entering an area uses the byte marked as its first visit.
 
         RETARGETED BY ADDENDUM 331: Phenac is the one area whose icon now deliberately does NOT enter at its
-        window floor -- the player asked for the unlocked town on every landing -- so it is the wrong example
+        window floor -- it enters as the unlocked town on every landing -- so it is the wrong example
         for the general rule. Pyrite is an ordinary area and makes the same point; Phenac's own behaviour is
         asserted right below, so the exception is pinned rather than dropped."""
         memory = rc.AreaStoryByteMemory()
@@ -347,9 +344,9 @@ class TestAreaStoryByteMemoryRule(unittest.TestCase):
                          story_bytes.region_floor("Pyrite Town"))
 
     def test_phenac_is_entered_at_the_unlocked_town_not_its_window_floor(self) -> None:
-        """ADDENDUM 331, the exception the test above used to be written on. Player: "raise the floor and its
-        current byte the moment we land in the phenac room id, so that the return trip doesn't kick us out
-        again"."""
+        """ADDENDUM 331, the exception the test above used to be written on: the floor and the current byte are
+        raised the moment the Phenac room id is reached, so that the return trip does not kick the player out
+        again."""
         memory = rc.AreaStoryByteMemory()
         self.assertEqual(0x3E, story_bytes.region_floor("Phenac City"))
         self.assertEqual(0x41, memory.target_for("Phenac City"))
@@ -373,8 +370,8 @@ class TestAreaStoryByteMemoryRule(unittest.TestCase):
         memory = rc.AreaStoryByteMemory()
         # ADDENDUM 279: Gateon has a first-visit byte now -- it always did, this project had just never
         # recorded it. "Nothing to say" was the assumption that let the player walk in carrying another area's
-        # byte, which is the whole run of reports 277-279. ADDENDUM 379 moved the value 0x0F -> 0x10 on the
-        # player's instruction; what this test is about is that the answer is not None.
+        # byte, which is the whole run of ADDENDA 277-279. ADDENDUM 379 moved the value 0x0F -> 0x10; what
+        # this test is about is that the answer is not None.
         self.assertEqual(0x10, memory.target_for("Gateon Port"))
         self.assertIsNotNone(memory.target_for("Gateon Port"), "the ADDENDUM 279 property, value aside")
         self.assertIsNone(memory.target_for(None))
@@ -447,9 +444,8 @@ class TestAreaStoryByteMemoryWiring(unittest.TestCase):
     def test_it_is_armed_by_travel_randomization_alone(self) -> None:
         """REWRITTEN 2026-09-14 (ADDENDUM 196), was "it needs both options".
 
-        There is no second option any more. The player: "Fold the Story_Byte yaml option into location
-        shuffle - it is a feature built exclusively for location shuffle." They are right, and the old test
-        says why without noticing: with travel randomization OFF the player reaches every area by playing, so
+        There is no second option any more: the Story_Byte option is folded into location shuffle, since it is a
+        feature built exclusively for location shuffle. The old test says why without noticing: with travel randomization OFF the player reaches every area by playing, so
         the global byte is already correct everywhere and the memory has nothing to do. The two flags were
         ANDed at all three call sites and there was never a reason to set them differently."""
         start = self.source.index("async def check_area_story_memory(ctx: PokemonXDContext) -> None:")
@@ -458,7 +454,7 @@ class TestAreaStoryByteMemoryWiring(unittest.TestCase):
         self.assertNotIn("story_byte_area_memory", body)
 
     def test_the_option_is_gone_entirely(self) -> None:
-        """Not merely defaulted off -- removed, so the generated template matches the player's own YAML."""
+        """Not merely defaulted off -- removed, so the generated template matches the reference YAML."""
         from ..options import PokemonXDOptions
 
         self.assertNotIn("story_byte_area_memory", PokemonXDOptions.type_hints)

@@ -1,7 +1,7 @@
 """ADDENDUM 259 (2026-09-17): the shop path gets its own poll rate, and its debounce stops depending on one.
 
-Player: "What's the poll rate on the shop data -- can we make it only running in shops so we can make it a
-fast poll?"
+The question was what the poll rate on the shop data is, and whether it can run only in shops so it can be a
+fast poll.
 
 THE ANSWER TO THE FIRST HALF was that the shop path had no rate of its own: `check_shops()` is one call in
 the single poll body, so it ran at POLL_INTERVAL_INGAME -- once a second -- in a shop and everywhere else.
@@ -150,12 +150,12 @@ class TestTheWindowItself(unittest.TestCase):
     def test_shops_keep_the_post_gate_width_and_chests_are_now_shorter(self) -> None:
         """RETARGETED 2026-09-27 (ADDENDUM 373). This asserted the two were EQUAL, on the reasoning that both
         are Bag-quantity watchers behind ADDENDUM 148's gate so neither should carry a wider second line. That
-        reasoning was right and is not what changed: the player asked for the CHEST wait specifically
-        ("Shorten the 2 seconds"), and said nothing about shops.
+        reasoning was right and is not what changed: the CHEST wait specifically was shortened from 2 seconds,
+        and shops were left alone.
 
         So the relationship is broken deliberately rather than by dragging shops along. A shop purchase is not
         the case the player is waiting on -- they are standing at a counter, not running out of a room -- and
-        pulling its window down would be a latency change nobody asked for on the one tracker whose failure
+        pulling its window down would be an unneeded latency change on the one tracker whose failure
         mode is spending money for nothing. What is asserted now is the ordering plus a real floor on each, so
         a future edit still cannot turn either one off."""
         windows = ram_client.CONFIRM_WINDOW_SECONDS
@@ -189,7 +189,7 @@ class TestTheSubLoop(unittest.TestCase):
         self.assertGreater(value("POLL_INTERVAL_FAST"), 0.0)
 
     def test_the_shop_half_only_runs_in_a_shop_room(self) -> None:
-        """"Only running in shops" is the player's own framing, and it is also what makes this affordable:
+        """Running only in shops is the point of the feature, and it is also what makes this affordable:
         nothing outside a shop pays anything at all for the shop half.
 
         NARROWED 2026-09-17 (ADDENDUM 262). This used to check that the LOOP only entered the window in a
@@ -218,7 +218,7 @@ class TestTheSubLoop(unittest.TestCase):
     def test_it_replaces_the_wait_rather_than_adding_time_to_the_tick(self) -> None:
         """The sub-loop is handed `sleep_time` and returns what is LEFT of it. If it were called without
         consuming the budget, a shop room would stretch the outer tick to two seconds and every other check
-        in the loop would get slower in a shop -- the exact opposite of the request."""
+        in the loop would get slower in a shop -- the exact opposite of the goal."""
         call = self.source.index("fast_poll_window(ctx, sleep_time)")
         assignment = self.source.rindex("sleep_time = ", 0, call + 1)
         self.assertLess(assignment, call, "the return value must be assigned back to sleep_time")

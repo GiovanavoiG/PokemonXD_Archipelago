@@ -1,8 +1,7 @@
 """ADDENDUM 462 (2026-10-10) -- Shadow Pokemon Inherit Replaced Moves.
 
-Player: "Do you remember our bug we fixed recently where shadow pokemon had illegal moves depending on what they
-replaced? Can we make it an option to re-add that as a feature?" The fix was ADDENDUM 427's legal Shadow movesets;
-this option turns that pass off, so each randomized Shadow keeps its DPKM record's vanilla ordinary moves.
+An option re-adds, as a feature, the old bug where Shadow Pokemon kept illegal moves depending on what they
+replaced. The fix was ADDENDUM 427's legal Shadow movesets; this option turns that pass off, so each randomized Shadow keeps its DPKM record's vanilla ordinary moves.
 """
 from __future__ import annotations
 

@@ -1,7 +1,6 @@
 """ADDENDUM 174 (2026-09-13): the "Open N Chests" ladder is replaced by per-chest locations.
 
-Player instruction: "Replace Open N Chests with those chest ID checks, and integrate their logic using their
-locations and the gates I've given you."
+"Open N Chests" is replaced by one check per chest ID, with logic from each chest's location and its item gates.
 
 The tests worth having here are the ones about the SEAM, not about the formula -- ADDENDUM 173's suite already
 pins the bit maths. What can go wrong in a migration like this is: an id shifting under a location that
@@ -159,7 +158,7 @@ class TestTheFormerlySharedFlagPair(unittest.TestCase):
     meant two checks for one chest and, far worse, a progression item on 113 released the moment the player
     opened 108 in an earlier region.
 
-    SPLIT AGAIN 2026-09-15 (ADDENDUM 224, player: "Split 108 and 113"). ADDENDUM 218 took the flag array out
+    SPLIT AGAIN 2026-09-15 (ADDENDUM 224: 108 and 113 are split). ADDENDUM 218 took the flag array out
     of identity entirely: 108 is in room 171 and 113 in room 172, they hold different berries, and
     (room, berry) names each one exactly. The reason for the merge is gone, so the merge is gone -- and the
     danger it guarded against is gone with it, because opening 108 can no longer credit 113."""
@@ -235,7 +234,7 @@ class TestTheClientAndTheWorldAgree(unittest.TestCase):
         # region, because regions are a logic decision this project has revised more than once and a name is
         # frozen forever by its id -- so an encoded region can become a lie the table has to keep telling.
         #
-        # That rule cannot survive the player naming the chests themselves: they named them after the places
+        # That rule cannot survive hand-written chest names: they are named after the places
         # ("Cipher Lab Left Door Chest 1"), which is the whole point of a human label. The risk is accepted
         # deliberately and is smaller than it looks -- these are PLACE names, not graph-node names, and a
         # re-bucketing moves which region node a chest belongs to without moving the chest.
@@ -244,7 +243,7 @@ class TestTheClientAndTheWorldAgree(unittest.TestCase):
         # region, because those are the ones a future edit could produce automatically and without thought.
         for chest_id, name in locations.CHEST_ID_TO_LOCATION.items():
             if chest_names.chest_location_name_override((chest_id,)) is not None:
-                continue   # a name the player chose -- exempt, see above
+                continue   # a hand-written name -- exempt, see above
             region = locations.CHEST_LOCATION_TO_REGION.get(name)
             if region is not None:
                 self.assertNotIn(region, name)
@@ -272,7 +271,7 @@ class TestTheItemGates(PokemonXDTestBase):
     options = {"randomize_chests": True, "key_item_shuffle": True}
 
     def test_the_id_card_chest_needs_the_card_on_top_of_reaching_the_room(self) -> None:
-        """The player's own rule: "27 locked behind ID card".
+        """Chest 27 is locked behind the ID Card.
 
         RESHAPED 2026-09-13 (ADDENDUM 179): the ID Card now ships packaged with the Data ROM, and the Data ROM is
         the chain's second link -- so "collect the whole chain, the chest is still shut" is no longer possible.
@@ -307,8 +306,8 @@ class TestTheRoboKyogreChest(PokemonXDTestBase):
     options = {"randomize_chests": True, "robo_kyogre_parts_unlock_citadark": False}
 
     def test_the_master_ball_chest_needs_the_story_chain_even_with_no_parts_in_the_pool(self) -> None:
-        """REWRITTEN 2026-09-14 (ADDENDUM 186, player: "Kyogre parts should be IRRELEVANT to any logic except
-        being need for citadark/the goal").
+        """REWRITTEN 2026-09-14 (ADDENDUM 186: Kyogre Parts are IRRELEVANT to any logic except being needed for
+        Citadark/the goal).
 
         This used to assert the chest was reachable on an EMPTY state whenever the Parts option was off, which
         was true of the old rule and wrong about the game: the Master Ball chest opens on the story transition

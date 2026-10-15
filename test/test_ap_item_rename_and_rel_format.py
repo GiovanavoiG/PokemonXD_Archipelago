@@ -7,7 +7,7 @@ synthetic-REL scaffolding and the same subject matter.
 Everything here guards code that writes to (or decides where to write in) a real game ISO, so the merge was
 deliberately conservative: every "skipped safely / not written" path of `apply_item_name_rename` and its text-
 search fallback, every bounds check, every 20-bit masking rule, and every regression whose comment records a
-live player report is preserved verbatim.
+live failure is preserved verbatim.
 
 WHAT WAS DROPPED (64 -> 44 tests), and why:
   * `test_expected_names_match_case_and_trailing_space_insensitively` (114) -- an exact duplicate of the text-
@@ -91,7 +91,7 @@ def _build_synthetic_common_rel(
 
     `string_entries`: `[(masked_or_raw_id, raw_string_bytes_including_terminator_or_escape_sentinel), ...]` --
     packed in order starting right after the record array. Each entry's stored offset is relative to the
-    TABLE'S OWN HEADER START (ADDENDUM 125 -- verified against the player's real REL bytes: the first string's
+    TABLE'S OWN HEADER START (ADDENDUM 125 -- verified against real REL bytes: the first string's
     stored offset is exactly `0x10 + entry_count * 8`), i.e. `header_size + records_size + running total of
     every earlier entry's byte length` -- mirrors how the real table is laid out.
     `item_entries`: `{items_table_index: name_id_to_store}` -- ALREADY the real array index (post-remap, if
@@ -234,7 +234,7 @@ def _build_minimal_valid_rel(is_common: bool = False) -> bytes:
 
 
 def _build_undersized_garbage_rel() -> bytes:
-    """ADDENDUM 115, reproducing the REAL player report exactly: a 544-byte container (far too small to be real
+    """ADDENDUM 115, reproducing the REAL failure exactly: a 544-byte container (far too small to be real
     REL pointer-table data) with a garbage import-table offset in the real REL header that dereferences
     WAY out of bounds ("unpack_from requires a buffer of at least 369098756 bytes ... actual buffer size is
     544")."""
@@ -243,7 +243,7 @@ def _build_undersized_garbage_rel() -> bytes:
     return bytes(data)
 
 
-# The real `pocket_menu.fsys` entry list from the player's report (2026-09-11, ADDENDUM 112), as a minimal
+# The real `pocket_menu.fsys` entry list from a failed patch's error (2026-09-11, ADDENDUM 112), as a minimal
 # fixture -- only the names matter for `_find_rel_entry`, so each entry's "value" is an unused placeholder dict.
 REAL_POCKET_MENU_ENTRIES: dict[str, dict] = {
     name: {}
@@ -344,7 +344,7 @@ class TestCheckItemStructResolutionSample(unittest.TestCase):
 
 
 class TestFindCandidateItemStringTables(unittest.TestCase):
-    """ADDENDUM 123 (2026-09-11, player report: a live dump of the confirmed pointer-116 string table --
+    """ADDENDUM 123 (2026-09-11: a live dump of the confirmed pointer-116 string table --
     1931 entries -- had zero matches for any of 27 known real item names, but plenty of recognizable move/
     species name fragments) -- `find_candidate_item_string_tables` scans every pointer index for one that
     actually holds known item names, instead of assuming items share pointer 116's table."""
@@ -410,8 +410,8 @@ class TestStringTableIdOffsets(unittest.TestCase):
         )
 
     def test_stored_offsets_are_relative_to_the_table_header_start_not_the_data_region(self) -> None:
-        # ADDENDUM 125 regression guard for the real root cause of every live 0/27 rename result: on the
-        # player's real REL, the FIRST string's stored offset is exactly 0x10 + entry_count * 8 (the record
+        # ADDENDUM 125 regression guard for the real root cause of every live 0/27 rename result: on a
+        # real REL, the FIRST string's stored offset is exactly 0x10 + entry_count * 8 (the record
         # array's own size), i.e. offsets count from the table header, not from the data region after the
         # records. Measuring from the data region lands every lookup one whole record-array-size too far.
         rel = _mk_rel()
@@ -457,8 +457,7 @@ class TestItemTableIndexRemap(unittest.TestCase):
 
 
 class TestApplyItemNameRename(unittest.TestCase):
-    """The in-game rename itself. Player request, when shop randomization was first proposed: "Try to rename
-    those to 'AP Item'." ADDENDUM 113 was research-only (no ISO write attempted); ADDENDUM 114 implements the
+    """The in-game rename itself: the dummy items are renamed to 'AP Item'. ADDENDUM 113 was research-only (no ISO write attempted); ADDENDUM 114 implements the
     equal-byte-length string-replacement approach that research de-risked. Every "skipped" case below must
     leave the buffer byte-identical -- a partial or over-long write here corrupts the player's ISO."""
 
@@ -547,7 +546,7 @@ class TestApplyItemNameRename(unittest.TestCase):
 class TestApplyItemNameRenameTextSearch(unittest.TestCase):
     """ADDENDUM 121's text search, now the FALLBACK behind the original struct path (ADDENDUM 125 -- the real
     root cause of every live 0/27 was `string_table_id_offsets`'s wrong offset base, fixed and verified against
-    the player's real REL bytes; with it fixed the struct path resolves everything, so it's primary again and
+    real REL bytes; with it fixed the struct path resolves everything, so it's primary again and
     the text search only runs when it fails or mismatches). See `apply_item_name_rename`'s docstring."""
 
     def test_struct_path_is_primary_and_wins_when_it_matches(self) -> None:
@@ -673,7 +672,7 @@ class TestApItemRenameTargetNames(unittest.TestCase):
             items.AP_ITEM_RENAME_TARGET_NAMES[items.CHEST_DUMMY_GAME_ITEM_ID], items.CHEST_DUMMY_GAME_ITEM_NAME
         )
         self.assertEqual(items.CHEST_DUMMY_GAME_ITEM_NAME, "Rabuta Berry")
-        self.assertEqual(items.AP_ITEM_DISPLAY_TEXT, "AP Item")  # the player-requested replacement text
+        self.assertEqual(items.AP_ITEM_DISPLAY_TEXT, "AP Item")  # the replacement text
 
 
 # ---------------------------------------------------------------------------------------------------------
@@ -700,7 +699,7 @@ class TestFindRelEntryBasenameFallback(unittest.TestCase):
     """ADDENDUM 112 (2026-09-11) -- the base-name-match fallback for containers whose REL entry name does NOT
     follow `common.fsys`'s "base name + _rel suffix" convention.
 
-    Player report that triggered this fix: a real patch attempt against `pocket_menu.fsys` failed with "has no
+    What triggered this fix: a real patch attempt against `pocket_menu.fsys` failed with "has no
     entry with 'rel' in its name," and the error message's own entry dump (the real container's own entry names)
     showed there IS no `*_rel`-suffixed entry at all. Every non-'pocket_menu' name reads as a UI texture/panel/
     status asset, leaving 'pocket_menu' itself -- named identically to the container's own base name, no suffix
@@ -723,7 +722,7 @@ class TestFindRelEntryBasenameFallback(unittest.TestCase):
             _find_rel_entry(REAL_POCKET_MENU_ENTRIES, "pocket_menu.fsys", container_basename="not_a_real_entry")
 
     def test_the_error_message_includes_the_full_entry_list_for_debugging(self) -> None:
-        # This dump is how the real container's entry names reached the player report in the first place.
+        # This dump is how the real container's entry names were seen in the first place.
         with self.assertRaises(KeyError) as ctx:
             _find_rel_entry(REAL_POCKET_MENU_ENTRIES, "pocket_menu.fsys")
         self.assertIn("uv_str_item_00", str(ctx.exception))
@@ -749,7 +748,7 @@ class TestRelFileValidConstruction(unittest.TestCase):
 
 
 class TestRelFileBoundsCheckedErrors(unittest.TestCase):
-    """Player report: a real patch attempt crashed with a cryptic "unpack_from requires a buffer of at least
+    """A real patch attempt crashed with a cryptic "unpack_from requires a buffer of at least
     369098756 bytes for unpacking 4 bytes at offset 369098752 (actual buffer size is 544)" while constructing a
     RelFile for `pocket_menu.fsys`'s `pocket_menu` entry (ADDENDUM 112's fallback guess for that container) --
     544 bytes is far too small to be real REL pointer-table data, so the garbage value read out of it as a

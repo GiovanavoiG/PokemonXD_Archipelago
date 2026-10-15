@@ -1,8 +1,6 @@
 """ADDENDUM 289 (2026-09-19) -- a chest credits on evidence now, not on a clock.
 
-Player: "Can we speed up the chest polling?"
-
-THE POLL RATE WAS NEVER WHAT WAS SLOW, and ADDENDUM 262 already established that: chests have run on the 0.1s
+Chest checks needed to credit faster. THE POLL RATE WAS NEVER WHAT WAS SLOW, and ADDENDUM 262 already established that: chests have run on the 0.1s
 fast sub-loop since then. The two seconds a player waits are `_CONFIRM_SECONDS`, and ADDENDUM 262 deliberately
 made that window rate-proof -- two seconds is two seconds however often you look. Which is exactly the wall
 ADDENDUM 259 hit for shops, and it gets ADDENDUM 263's answer: replace the window with BETTER EVIDENCE rather
@@ -224,8 +222,8 @@ class TestTheSlowPathIsUntouched(unittest.TestCase):
     """ADDENDUM 262's two windows keep their opposite treatments -- that asymmetry is load-bearing."""
 
     def test_the_slow_path_still_has_a_real_window_and_a_real_streak(self) -> None:
-        """RETARGETED 2026-09-27 (ADDENDUM 373), which took this window from 2.0 to 0.5 on the player's
-        instruction. This addendum's point is not the NUMBER -- it is that the flag pair short-circuits the
+        """RETARGETED 2026-09-27 (ADDENDUM 373), which took this window from 2.0 to 0.5. This addendum's
+        point is not the NUMBER -- it is that the flag pair short-circuits the
         slow path while the slow path stays intact behind it for the ~19 chests with no measured flag. So what
         is asserted is that the slow path is still really there: a window above zero, and the two-read streak
         that `set_poll_interval` could otherwise have collapsed to one when the window went below the poll
@@ -257,7 +255,7 @@ class TestTheSlowPathIsUntouched(unittest.TestCase):
 
 
 class TestAddendum344TheWindowSpansTheAnimation(unittest.TestCase):
-    """Player, with ADDENDUM 289 already running: "Please speed up the chest polling again."
+    """Chest polling, faster again with ADDENDUM 289 already running.
 
     ADDENDUM 289's fast path was correct and was firing almost never, because `_FLAG_CORROBORATION_SECONDS`
     was 1.0s and the berry does not reach the Bag within a second of the chest opening. The flip was seen,

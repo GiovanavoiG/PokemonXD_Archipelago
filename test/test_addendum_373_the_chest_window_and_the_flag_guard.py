@@ -1,7 +1,7 @@
 """ADDENDA 373/374 (2026-09-27): the chest window is 0.5s, and the room overrules a wrong flag.
 
-Player: "Shorten the 2 seconds." Then: "there are two chests with the same label - one in key lair and one in
-snagem. They are both labelled snagem 3f chest 1. That's what I want fixed."
+The 2-second chest window is shortened. Separately, two chests -- one in the Key Lair and one in Snagem -- both
+sent as "Snagem 3F Chest 1".
 
 ADDENDUM 373 -- `CONFIRM_WINDOW_SECONDS["chest_berry"]` 2.0 -> 0.5. ADDENDUM 372 measured that this window is
 the whole remaining wait for the ~19 chests with no measured open-flag; a flagged chest short-circuits it on
@@ -111,7 +111,7 @@ class TestTheWindowCameDownWithoutTakingTheStreakWithIt(unittest.TestCase):
 
 
 class TestTheRoomOverrulesAWrongFlag(unittest.TestCase):
-    """ADDENDUM 374. Built on the real pair the player met: chests 49 (Cipher Key Lair 1F, room 64) and 106
+    """ADDENDUM 374. Built on the real pair seen in play: chests 49 (Cipher Key Lair 1F, room 64) and 106
     (Snagem 3F, room 167) both carry berry 161, and 106 has a measured flag while the Key Lair 1F chests 43, 44
     and 56 have none."""
 
@@ -133,7 +133,7 @@ class TestTheRoomOverrulesAWrongFlag(unittest.TestCase):
         return world, tracker
 
     def test_a_flag_naming_a_chest_in_another_room_loses_to_the_room(self) -> None:
-        """The reported symptom, reproduced as the mechanism: Snagem chest 106's bit flips while the player is
+        """The symptom, reproduced as the mechanism: Snagem chest 106's bit flips while the player is
         standing in Cipher Key Lair 1F. Before this addendum the flag won and "Snagem 3F Chest 1" fired in the
         Key Lair; now the room's own chest is credited and the disagreement is reported."""
         world, tracker = self._tracker()
@@ -201,8 +201,8 @@ class TestTheClientSurfacesIt(unittest.TestCase):
     survived, which is ADDENDUM 345's own closing note."""
 
     def test_the_disagreement_list_is_drained_rather_than_left_to_grow(self) -> None:
-        """RETARGETED BY ADDENDUM 378. This asserted the disagreement was PRINTED as a warning, and the player
-        has since had it removed: "the fix for Cipher Key Lair 1F Chest 3 worked - remove the debug message."
+        """RETARGETED BY ADDENDUM 378. This asserted the disagreement was PRINTED as a warning; once the fix for
+        Cipher Key Lair 1F Chest 3 was shown to work, that debug message was removed.
 
         What has to stay true is the part that was never about the message. The list is appended to on every
         disagreement, so a client that stopped reading it would leak -- and the COUNTER has to survive, because

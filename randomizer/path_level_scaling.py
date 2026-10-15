@@ -20,12 +20,12 @@ from __future__ import annotations
 import math
 
 
-# The player's endpoints. Endpoints and not a table of levels, so the ramp re-spaces when a tier moves.
+# The endpoints. Endpoints and not a table of levels, so the ramp re-spaces when a tier moves.
 FIRST_TIER_LEVEL = 8
 LAST_TIER_LEVEL = 50
 
-# ADDENDUM 455, player: "For path scaling, can we strap citadark at the end of the path every time as an extra
-# area/layer? if the current max is 50, can we make citadark 53?" Citadark Isle is no longer a rung of the 8..50
+# ADDENDUM 455: path scaling straps Citadark on at the end of the path every time as an extra area/layer -- with
+# the current max at 50, Citadark is 53. Citadark Isle is no longer a rung of the 8..50
 # ramp: it is a capstone tier after it, ALWAYS last (whatever sphere this seed opens it in), at the ramp's top plus
 # this. The other tiers re-space over 8..50 among themselves, so the last of them (the Key Lair) is the 50.
 CITADARK_REGION = "Citadark Isle"
@@ -76,7 +76,7 @@ def tier_level(index: int, tiers: "list[int | None]",
 
 # ADDENDUM 329: the ramp asks each REGION where it sits (`story_bytes.region_floor`), not `area_entry_floor`,
 # which answers a map-ICON question and hands every region of an `AREA_GROUPS` place the place's FIRST tier.
-# One icon instruction ("make Cipher Key Lab's floor 0x64") silently re-ordered the level ramp: the 0x5D tier
+# Moving the Cipher Key Lair icon's floor to 0x64 silently re-ordered the level ramp: the 0x5D tier
 # disappeared, the ramp went 15 tiers to 12, and the Key Lair exterior jumped above Outskirt Stand and Snagem.
 # The region floors the ramp reads instead:
 #     Pyrite Town (ONBS)         0x30 -> 0x3C   its own tier, above Pyrite Town
@@ -103,17 +103,17 @@ PATH_EXCLUDED_REGIONS: "frozenset[str]" = frozenset({
 # "where is this region on the path", so merged regions are ONE group and cannot be ordered apart. The target
 # is the INTERIOR (0x64) and the direction matters: 0x64 is when you get inside, keeping the Lair above
 # Outskirt Stand (0x5F) and Snagem Hideout (0x62), where merging the other way drags seventeen interior
-# trainers below Snagem. Scoped to the Key Lair on the player's wording -- the two Phenac and two SS Libra
-# regions split the same way and are NOT merged, being later STORY MOMENTS in the same place. Pyrite's two
-# visits were merged later, on the player's own instruction (ADDENDUM 407).
+# trainers below Snagem. Scoped to the Key Lair -- the two Phenac and two SS Libra regions split the same way
+# and are NOT merged, being later STORY MOMENTS in the same place. Pyrite's two visits were merged later
+# (ADDENDUM 407).
 PATH_FLOOR_MERGES: "dict[str, str]" = {
     # The doorway and the inside of one building. Zook (147/148) stands in the exterior.
     "Cipher Key Lair (exterior)": "Cipher Key Lair",
     # No trainer is placed in `(deep)` today, so this row binds on nothing. Kept because its floor (0x6A) is
     # its own, so the day the census moves a fight there the split comes straight back.
     "Cipher Key Lair (deep)": "Cipher Key Lair",
-    # ADDENDUM 407, player: "please make sure that pyrite visit 1 and 2 are the same level scaling, rather than
-    # separated." Merged onto visit 1's floor (0x30): the group's place on the path is its EARLIEST member, the
+    # ADDENDUM 407: Pyrite visits 1 and 2 share the same level scaling rather than being separated.
+    # Merged onto visit 1's floor (0x30): the group's place on the path is its EARLIEST member, the
     # same rule `sphere_tier_order` applies to a group, and ADDENDA 405/406 opened the ONBS raid on nothing but
     # Pyrite Town and the Poke Spots -- so a visit-2 fight is no longer a later-sphere fight in logic either.
     "Pyrite Town (ONBS)": "Pyrite Town",
@@ -181,9 +181,9 @@ def _round_half_up(value: float) -> int:
 # fight Grezle #1 (149) in deck order, and that row is what the access rules, `region_for_room` and ADDENDUM
 # 327's anchor derivation read. Only his LEVEL is wrong, so the override is scoped to the ramp.
 RAMP_REGION_OVERRIDES: "dict[int, str]" = {
-    148: "Snagem Hideout",   # Defeat - Biden #2 -- player ruling, 2026-09-26
-    # ADDENDUM 485. Player: "user reported sixes being mostly the same level at cipher lab vs phenac. Can we make
-    # their fights in each area levelled to the area, separately?" Each Six has four deck rows, two per place: the
+    148: "Snagem Hideout",   # Defeat - Biden #2 -- 2026-09-26
+    # ADDENDUM 485. The Sixes were mostly the same level at Cipher Lab and Phenac; their fights in each area are
+    # levelled to that area, separately. Each Six has four deck rows, two per place: the
     # Cipher Lab fight (33-38, carrying the Shadow; 39-44 the same team once that Shadow is snagged, vanilla 9-14)
     # and the Mayor's House fight (112-117 with the Shadow; 118-123 without, vanilla 18-20 -- the census's "Phenac
     # Area Cipher Peons" teams, member for member). The placements (ADDENDUM 409) file them by the DEFEAT LABEL --
@@ -270,7 +270,7 @@ def level_by_trainer_index(first: int = FIRST_TIER_LEVEL,
 
 # ADDENDUM 281: the tutorial fight keeps its vanilla level. Chobin #1 is `trainer_index` 15, one Sunkern,
 # level 5 in the real deck data (`data/deckdata_story_trainers.json`), and the ramp was doubling him.
-# Kaminko's House has since come off the ramp, which would leave him the same 5, but the player asked for a
+# Kaminko's House has since come off the ramp, which would leave him the same 5, but the pin stays a
 # literal. `build_path_level_plan` reads the pin BEFORE its no-tier skip, so an exclusion cannot retire it.
 PINNED_TRAINER_LEVELS: "dict[int, int]" = {
     15: 5,   # Defeat - Chobin #1, the tutorial fight at Kaminko's House
@@ -380,7 +380,7 @@ def _check_ramp_region_overrides() -> None:
 _check_ramp_region_overrides()
 
 
-# ADDENDUM 297 took Citadark Isle off the ramp and the player reversed it the same day; the mechanism was
+# ADDENDUM 297 took Citadark Isle off the ramp and it was reversed the same day; the mechanism was
 # removed rather than left empty. `pokemon-xd-addendum-297-*.md` has the design if an area comes off again.
 
 

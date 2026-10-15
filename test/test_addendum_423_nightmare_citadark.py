@@ -1,11 +1,9 @@
 """ADDENDUM 423 (2026-10-06) -- Nightmare Citadark.
 
-Player: "Can we add an option named "Nightmare_Citadark" that replaces every citadark trainer's team with one of
-these teams at level 100? Can we investigate enhancing the AI of the trainers, or utilizing the AI from these
-trainers in their respective games?" Answers: XD + Colosseum teams; "Make it so they don't have shadow pokemon at
-all if this option is enabled"; always six; copy the AI. Then: "I want every trainer to have a unique team, and I
-also want their moves to NOT be overwritten by the TM enhanced difficulty. Also make sure they're 100 and not
-scaled higher from our options."
+The Nightmare_Citadark option replaces every Citadark trainer's team with one of these teams at level 100: XD +
+Colosseum teams, no Shadow Pokemon at all while the option is enabled, always six, and the AI copied from those
+trainers in their respective games. Every trainer has a unique team, their moves are NOT overwritten by the TM
+enhanced difficulty, and they stay at 100 rather than being scaled higher by other options.
 """
 from __future__ import annotations
 

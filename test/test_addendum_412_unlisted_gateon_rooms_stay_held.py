@@ -1,8 +1,7 @@
 """ADDENDUM 412 (2026-10-04) -- a room reached from Gateon without the map is still Gateon, unless it is the ride.
 
-Player: "user reported having access to citadark despite having only 6/8 kyogre parts." ... "Yes, put that in.
-Make sure the first citadark travel doesnt reset the story byte, as that doesn't go through the map screen. It
-should be noticeable from the big jump in room IDs, but we may have it recorded somewhere."
+Citadark was reachable with only 6/8 Kyogre Parts. The first Citadark travel must not reset the story byte, as it
+does not go through the map screen; it is recognisable from the big jump in room IDs.
 """
 import unittest
 

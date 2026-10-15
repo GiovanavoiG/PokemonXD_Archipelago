@@ -1,12 +1,11 @@
-"""ADDENDUM 329 (2026-09-23): a map-icon instruction must never re-order the level ramp.
+"""ADDENDUM 329 (2026-09-23): a map-icon floor must never re-order the level ramp.
 
-Player: "With path scaling, Biden in Snagem was level 40 but the rest of snagem was 15/16 - is this due to
-his fight in the Key Lair? did it scale him to key lair levels? Can we fix this issue here and in other areas
-too?"
+With path scaling, Biden in Snagem was level 40 while the rest of Snagem was 15/16. The suspicion: his fight in
+the Key Lair had scaled him to Key Lair levels, and the same could happen in other areas.
 
 It did. `path_level_scaling._path_floor` asked `story_bytes.area_entry_floor`, which answers the MAP-ICON
 question -- one number for a whole `AREA_GROUPS` place, and since ADDENDUM 324 an `AREA_ENTRY_FLOOR_OVERRIDES`
-entry on top of it. The player's "make Cipher Key Lair's floor 0x64" therefore told every Key Lair region,
+entry on top of it. ADDENDUM 324's Key Lair floor of 0x64 therefore told every Key Lair region,
 including the exterior at 0x5D, that it entered at 0x64 -- above Outskirt Stand and above Snagem.
 
 These tests are the fence rather than a re-statement of today's numbers: the ordering assertions are written
@@ -25,8 +24,8 @@ class TestTheRampAsksTheRegion(PokemonXDTestBase):
         return set(pls.region_by_trainer_index().values())
 
     def test_the_exterior_keeps_its_own_story_floor_but_shares_the_lairs_tier(self) -> None:
-        """SUPERSEDED IN PART BY ADDENDUM 368 (2026-09-26), on the player's ruling: "Key lair interior and
-        exterior should be the same place."
+        """SUPERSEDED IN PART BY ADDENDUM 368 (2026-09-26): the Key Lair's interior and exterior are the same
+        place.
 
         This test used to assert the opposite -- `exterior < interior` -- and that was right about the STORY
         and wrong about the PLAYER. It stayed right about the story: `region_floor` still says 0x5D and 0x64,
@@ -70,11 +69,11 @@ class TestTheRampAsksTheRegion(PokemonXDTestBase):
         self.assertEqual(order["Cipher Key Lair (exterior)"], order["Cipher Key Lair"], order)
 
     def test_both_bidens_sit_in_the_snagem_band_and_zook_sits_at_the_lair(self) -> None:
-        """THE PLAYER SPLIT THIS TEST IN TWO (2026-09-26): "Just scale biden to snagem, both of his teams. He
-        doesn't matter in key lair", and "just scale zook to key lair (which is now just one place)".
+        """SPLIT IN TWO (2026-09-26): Biden scales to Snagem, both of his teams -- he does not matter in the Key
+        Lair -- and Zook scales to the Key Lair (which is now just one place).
 
         It used to assert that trainers 143 and 147 both landed at or below the Snagem band, which was the
-        ADDENDUM 329 complaint stated as fights. Two things have happened since. ADDENDUM 330 found the two
+        ADDENDUM 329 symptom stated as fights. Two things have happened since. ADDENDUM 330 found the two
         Biden rows swapped, so the Biden the player actually meets in the hideout is 143 and it is placed there;
         and ADDENDUM 369 takes Biden #2 (148) out of the ramp's view of the Lair doorway, leaving Zook #2 (147)
         as the one fight there.

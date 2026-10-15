@@ -233,7 +233,7 @@ _GUARANTEED_EEVEE_DEX = 133  # locations.GUARANTEED_SPECIES_LOCATION's species -
 
 _SNAG_FLOOR_REGIONS: "tuple[str, ...]" = ("Pyrite Town", "Poke Spots")
 _MIROR_RADAR_CHEST_ID = 77          # its vanilla home, and why "Poke Spots" is in the floor above
-_EEVEELUTION_REGION = "Gateon Port"  # player: "Eeveelution is accessible so long as gateon is, which is always"
+_EEVEELUTION_REGION = "Gateon Port"  # Eeveelution is reachable whenever Gateon is, which is always
 
 
 def _catch_gates_for_species(world) -> "tuple[dict[int, list], set[int]]":
@@ -284,8 +284,8 @@ def _catch_gates_for_species(world) -> "tuple[dict[int, list], set[int]]":
     return gates, unplaceable
 
 
-# ADDENDUM 457, player: "make wild pokemon (the catches that are not shadows) gated behind either Pyrite Town OR
-# Outskirt Stand". A Poke Spot catch keeps its Poke Spots requirement and ALSO needs ONE of these.
+# ADDENDUM 457: wild Pokemon (the catches that are not Shadows) are gated behind either Pyrite Town OR the Outskirt
+# Stand. A Poke Spot catch keeps its Poke Spots requirement and ALSO needs ONE of these.
 WILD_CATCH_ANY_REGIONS: "tuple[str, ...]" = ("Pyrite Town", "Outskirt Stand")
 
 
@@ -410,8 +410,8 @@ assert sum(_UNIQUE_TRAINER_WEIGHT_BY_REGION.values()) == locations.TRAINER_DEFEA
 # room's own region, so the region IS the rule. Nothing models money any more.
 
 # ADDENDUM 483 (issue #6) removed `_has_snag_machine`. It required the Machine Part on the reasoning that the HQ Lab
-# needs it before handing over the Snag Machine. Player: "You get snag machine without machine part, therefore that
-# logic is wrong." The ladder agrees: the lab's 0x0F is the Snag Machine tier, the Machine Part is Gateon's 0x16,
+# needs it before handing over the Snag Machine, but the Snag Machine comes without the Machine Part, so that logic
+# was wrong. The ladder agrees: the lab's 0x0F is the Snag Machine tier, the Machine Part is Gateon's 0x16,
 # after it. Snagging -- Shadow catches and the purification ladder -- needs no item. With travel shuffle off the
 # Machine Part still gates Agate Village (`regions.REGION_EDGES`), and so the Purify Chamber and everything past it.
 
@@ -498,9 +498,8 @@ def _set_remaining_sphere_rules(world) -> None:
     It used to be a ladder: threshold N gated on the ONE region where the Nth Shadow of a fixed story-order list
     sat. That is only honest when the regions open in story order. With Location Shuffle they do not -- reaching
     Phenac said nothing about the Pyrite and Poke Spot Shadows below it on the list -- and the list itself filed
-    every multi-appearance trainer's Shadows at their FIRST appearance. Player: "if agate, gateon and the lab only
-    give us 13 shadow pokemon, any purifications past 13 should be logically gated behind other areas. Otherwise
-    we can get softlocked." """
+    every multi-appearance trainer's Shadows at their FIRST appearance. If Agate, Gateon and the lab hold only 13
+    Shadows, every purification past 13 has to be gated behind other areas, or the seed can softlock."""
     from BaseClasses import LocationProgressType
 
     from .game_data.shadow_regions import POST_GOAL_EVENT_ITEM
@@ -538,7 +537,7 @@ def shadow_regions_floor() -> str:
     # does now, so they live in their real regions and get real gates (`_set_trainer_census_rules`).
 
 
-# ADDENDUM 174: the chest item gates. Region membership covers most chests; the rest are the player's own
+# ADDENDUM 174: the chest item gates. Region membership covers most chests; the rest carry their own
 # requirements, in chest_regions.CHEST_ITEM_GATES. Chest 2, the HQ Lab Master Ball chest that the Robo Kyogre
 # parts open by flipping Gateon's story byte 0x6C -> 0x6E, is in CHEST_REGION_GATES instead. With
 # key_item_shuffle off the ID Card is not pooled, and reaching the room already implies holding it.
@@ -599,7 +598,7 @@ def _set_chest_rules(world) -> None:
         attach(chest_id, (), tuple(regions_needed))
 
 
-# ADDENDUM 175: the per-trainer gates, from the player's own census -- area AND items, ANDed. The region half
+# ADDENDUM 175: the per-trainer gates, from the trainer census -- area AND items, ANDed. The region half
 # is locations.py's filing; this adds the census's `required_items` (38 trainers) and `required_regions` (one:
 # Zook #2 is in Cipher Key Lair (exterior) but must be done with Snagem Hideout, which sits LATER in the graph
 # -- index 18 against the exterior's 16 -- so reaching the exterior does not imply it). The Elevator Key is
@@ -721,7 +720,7 @@ def _set_repeatable_trainer_rules(world) -> None:
 NAMED_DEFEAT_ITEM_GATES: "dict[str, tuple[str, ...]]" = {
     "Defeat - Cipher Peon Smarton": ("Music Disc", "Mayor's Note"),
     "Defeat - Cipher Admin Snattle": ("Music Disc", "Mayor's Note"),
-    # ADDENDUM 449. Player: "make Laken gated behind the machine part." Every Laken check -- his two Gateon
+    # ADDENDUM 449. Laken is gated behind the Machine Part. Every Laken check -- his two Gateon
     # rematches and his (Any) -- needs the Machine Part. Always-open Gateon gave them no gate at all. They stay
     # filler-only (ADDENDUM 362), so this only moves when they count as in logic.
     "Defeat - Laken #2": ("Machine Part",),

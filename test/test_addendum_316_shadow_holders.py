@@ -1,7 +1,7 @@
 """ADDENDUM 316 -- who holds each Shadow is decided once, up front, and every level reads that.
 
-Player: "Can we preemptively do the determination of which trainers get shadows, then use that to determine the
-occurrence, that team's level, and match it to that?"
+Which trainers get Shadows is determined up front; that determination fixes the occurrence and that team's
+level, and each Shadow is matched to it.
 
 ADDENDUM 315 fixed the symptom (Resix's Shadow matched to his level-50 rematch tail). This pins the structure
 that prevents the next one: `game_data/shadow_holders.py` resolves the fight, and the census, the level
@@ -29,7 +29,7 @@ class TestTheResolution(unittest.TestCase):
             self.assertEqual(min(rows), self.holders[ddpk].trainer_index, ddpk)
 
     def test_the_occurrence_comes_with_it(self) -> None:
-        """The player asked for the occurrence, not just the trainer row."""
+        """The resolution names the occurrence, not just the trainer row."""
         holder = self.holders[14]
         self.assertEqual((33, "RESIX", 1), (holder.trainer_index, holder.surname, holder.occurrence))
         self.assertEqual(6, holder.total_with_name)

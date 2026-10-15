@@ -1,7 +1,7 @@
 """ADDENDUM 443 -- Randomize Starter.
 
-Player: "add a setting to randomize our starter pokemon. Make it have 3 options, off, random_no_legendary, and
-true_random." Then: "And ensure that the randomized starter has at least one attacking move."
+Three options: off, random_no_legendary and true_random. The randomized starter always has at least one attacking
+move.
 
 WHERE THE EEVEE COMES FROM. `_menuTopNewGame` calls the new-game routine at 0x801CE9A4, which (on the retail ROM
 version) builds a `HeroPokemonGetParam` on its stack and hands it to `Hero::pokemonGet`:
@@ -100,8 +100,8 @@ def is_reliable_attack(move: int) -> bool:
 
 
 def ensure_attacking(moves: "list[int]", internal_species: int, learnset: "list[tuple[int, int]]") -> "list[int]":
-    """At least one RELIABLE attack (ADDENDUM 461; ADDENDUM 443 asked only for a damaging one): the player, "ensure
-    our starter CANT ONLY HAVE explosion/selfdestruct as its attacks". Adds into an empty slot, else replaces the
+    """At least one RELIABLE attack (ADDENDUM 461; ADDENDUM 443 required only a damaging one): the starter can never have
+    only Explosion/Selfdestruct as its attacks. Adds into an empty slot, else replaces the
     last status move, else the last move; never more than four. The pick is the species' own: a level-up move it
     knows by the starter's level first, then any level-up move, then a tutor/egg/TM move, and Tackle only when the
     species has nothing at all."""

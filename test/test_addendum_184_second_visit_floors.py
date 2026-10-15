@@ -1,11 +1,11 @@
-"""ADDENDUM 184 (2026-09-14): three corrections from the player, all about WHEN a place is really usable.
+"""ADDENDUM 184 (2026-09-14): three corrections, all about WHEN a place is really usable.
 
-  1. "You can purify in Agate Village. Don't worry about the purification chamber unlock."
-  2. "Kaminko Manor's chests are ALL inaccessible until story byte 0x53, which is after the first SS Libra
-     visit/after completing Phenac city. You can visit early, but the chests are actually mid-game, not early
-     game."
-  3. "Some of our second visits need special adjustment if randomize_travel is on." -- followed by five rules,
-     each of which is a row in story_bytes.AREA_FLOOR_RULES and a test below.
+  1. Purification is available in Agate Village; the purification chamber unlock is not needed for it.
+  2. Kaminko Manor's chests are ALL inaccessible until story byte 0x53, which is after the first SS Libra
+     visit / after completing Phenac City. The manor can be visited early, but its chests are mid-game, not
+     early game.
+  3. Some second visits need special adjustment when randomize_travel is on -- five rules, each of which is a
+     row in story_bytes.AREA_FLOOR_RULES and a test below.
 
 (1) and (2) are logic corrections and change which sphere a check lands in. (3) is a CLIENT correction -- it
 changes what byte the area memory writes when the player picks a destination off the map, and touches no
@@ -103,7 +103,7 @@ class TestKaminkoManorIsMidGame(unittest.TestCase):
 
 
 class TestSecondVisitFloorRules(unittest.TestCase):
-    """(3) The five rules the player wrote, each asserted at its own byte."""
+    """(3) The five second-visit rules, each asserted at its own byte."""
 
     def test_phenac_no_longer_waits_on_realgam_for_its_floor(self) -> None:
         """RETARGETED BY ADDENDUM 331, and the retarget IS the bug report.
@@ -113,8 +113,8 @@ class TestSecondVisitFloorRules(unittest.TestCase):
         the game's own route. With travel locations shuffled it is not a route the player necessarily takes:
         Realgam is its own destination behind its own unlock item, so a player can hold Phenac and never earn
         a Realgam mark at all. The rule then never bound, the hover fell back to the entry floor, and every
-        return trip rebuilt the town at 0x3E -- the LOCKED first visit. Player: "the return trip doesn't kick
-        us out again".
+        return trip rebuilt the town at 0x3E -- the LOCKED first visit. A return trip must not kick the
+        player out again.
 
         So the conditional rule is gone and the floor is unconditional. What is asserted now is that no mark
         anywhere is needed for Phenac to be entered at the open town."""
@@ -159,21 +159,21 @@ class TestSecondVisitFloorRules(unittest.TestCase):
     def test_kaminko_gets_its_rule_tier_once_gateon_and_the_lab_both_say_so(self) -> None:
         """TIGHTENED 2026-09-18 (ADDENDUM 277). Gateon 0x52 alone was a SINGLE witness, and a Gateon mark is
         exactly what the pre-277 bug could fabricate -- one bad mark there handed Kaminko 0x53 on every hover,
-        in an always-open area reachable from the start. Player: "Kaminko is also being written too early -
-        should only be written to after HQ Lab is at 0x0F as well" (0x12 corrected to 0x0F in play)."""
+        in an always-open area reachable from the start. Kaminko's floor is now written only once HQ Lab is
+        also at 0x0F (0x12 corrected to 0x0F in play)."""
         lab = {"Pokemon HQ Lab": 0x0F}
         self.assertIsNone(story_bytes.dynamic_region_floor("Kaminko's House", {"Gateon Port": 0x51, **lab}))
         self.assertIsNone(story_bytes.dynamic_region_floor("Kaminko's House", {"Gateon Port": 0x52}),
                           "Gateon alone is no longer enough")
-        # ADDENDUM 338 (2026-09-24), retracted by ADDENDUM 350; player was: "Instead of writing to 0x53, kaminko should write to 0x54
-        # with the gateon/lab condition." Only the VALUE moved -- both witnesses above are untouched, which
+        # ADDENDUM 338 (2026-09-24) moved Kaminko's value under the Gateon/lab condition from 0x53 to 0x54;
+        # ADDENDUM 350 retracted it. Only the VALUE moved -- both witnesses above are untouched, which
         # is what ADDENDUM 277 tightened and what this test is really for.
         self.assertEqual(story_bytes.dynamic_region_floor("Kaminko's House",
                                                           {"Gateon Port": 0x52, **lab}), 0x53)
 
     def test_gateon_inherits_0x57_when_kaminko_forces_the_player_back(self) -> None:
-        """Player: "If Kaminko reaches 0x56, we get FORCED BACK TO GATEON - this is FINE. we want Gateon to
-        then inherit this story byte - it will be 0x57 as we enter"."""
+        """When Kaminko reaches 0x56 the game forces the player back to Gateon, which is fine: Gateon then
+        inherits that story byte, which is 0x57 on entry."""
         marks = {"Gateon Port": 0x52, "Kaminko's House": 0x56}
         self.assertEqual(story_bytes.dynamic_region_floor("Gateon Port", marks), 0x57)
 
@@ -185,9 +185,9 @@ class TestSecondVisitFloorRules(unittest.TestCase):
         self.assertIsNone(story_bytes.dynamic_region_floor("SS Libra", {"Gateon Port": 0x5A}))
 
     def test_the_key_lair_has_no_rule_at_all_and_enters_at_its_floor(self) -> None:
-        """RETARGETED TWICE. ADDENDUM 324, player: "And make Cipher Key Lair's floor 0x64" -- which deleted the
-        conditional 0x64 rule this originally asserted. ADDENDUM 371, player: "make the key lair floor 0x67 by
-        default" -- which deleted ADDENDUM 364's conditional 0x67 rule the same way.
+        """RETARGETED TWICE. ADDENDUM 324 made Cipher Key Lair's floor 0x64 -- which deleted the conditional
+        0x64 rule this originally asserted. ADDENDUM 371 made the Key Lair's floor 0x67 by default -- which
+        deleted ADDENDUM 364's conditional 0x67 rule the same way.
 
         Kept as an inverted assertion both times, the shape ADDENDUM 273 used when the SS Libra rule went away:
         the Lair's floor must be a value, not a condition. A conditional rule reappearing here would mean the
@@ -197,7 +197,7 @@ class TestSecondVisitFloorRules(unittest.TestCase):
         # ADDENDUM 476: Zook beaten at the Lair (its own mark 0x65) raises it two story steps, to 0x66 (820).
         marks["Cipher Key Lair"] = 0x65
         self.assertEqual(0x66, story_bytes.dynamic_region_floor("Cipher Key Lair", marks))
-        # ADDENDUM 410: one story step lower, 830 -> 820 ("reduce key lair's default floor by one step").
+        # ADDENDUM 410: the Key Lair's default floor is one story step lower, 830 -> 820.
         self.assertEqual(0x64, story_bytes.area_entry_floor("Cipher Key Lair"))   # ADDENDUM 439: 800
 
     def test_every_rule_names_regions_and_areas_that_exist(self) -> None:
@@ -233,7 +233,7 @@ class TestSecondVisitFloorRules(unittest.TestCase):
 
     def test_a_typo_below_the_ladder_is_still_rejected(self) -> None:
         """The fence would be worthless if it simply allowed anything below 0x10."""
-        # ADDENDUM 288: 0x0E is now on the allowlist (the player moved the lab pass-through onto it), so
+        # ADDENDUM 288: 0x0E is now on the allowlist (the lab pass-through moved onto it), so
         # the example of a value the fence still rejects moves down one.
         self.assertFalse(story_bytes.floor_is_accounted_for(0x0C))
         self.assertFalse(story_bytes.floor_is_accounted_for(0x01))
@@ -244,8 +244,7 @@ class TestTheMemoryUsesThoseFloors(unittest.TestCase):
 
     def test_gateon_enters_at_its_own_mark_until_its_rule_fires(self) -> None:
         """RETARGETED 2026-09-18 (ADDENDUM 278). This asserted None with the comment "an always-open area with
-        no satisfied rule has nothing honest to write". That premise was wrong, and it is what the player
-        reported: the area's OWN high-water mark is the most honest thing there is -- it is where they left
+        no satisfied rule has nothing honest to write". That premise was wrong: the area's OWN high-water mark is the most honest thing there is -- it is where they left
         it. Writing nothing meant the room was built from whatever byte they walked in carrying.
 
         The rule still outranks the mark the moment it fires, which is the half that was always right."""
@@ -280,9 +279,9 @@ class TestTheMemoryUsesThoseFloors(unittest.TestCase):
         """REVISED by ADDENDUM 293, and the revision is a reversal of the first two assertions.
 
         This used to assert that the manor's own mark (0x20) was its target -- ADDENDUM 278's rule, that an
-        area's high-water mark is a floor in its own right. The player has since asked for the opposite at
-        this one area: "after Kaminko reaches 0x03, stop writing its floor until it hits one of our gates
-        that modifies it". 0x20 is not a byte the manor asked for; it is whatever the player was carrying
+        area's high-water mark is a floor in its own right. This one area now does the opposite: once Kaminko
+        reaches 0x03, its floor is not written again until one of the floor gates that modifies it fires.
+        0x20 is not a byte the manor asked for; it is whatever the player was carrying
         when they last wandered past. So the answer between the front door and the 0x53 tier is now NO
         ANSWER, and `poll` writes nothing.
 

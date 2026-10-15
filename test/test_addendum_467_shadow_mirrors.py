@@ -1,7 +1,7 @@
 """ADDENDUM 467 (2026-10-11) -- a Shadow given to a trainer goes on every occurrence of that trainer.
 
-Player: "If you're giving them a shadow pokemon, give it to the #1, #2, etc., the same pokemon. Then, if it's caught
-from ANY, remove it from all."
+A Shadow given to a trainer goes to their #1, #2, etc. as the same Pokemon, and once it is caught from ANY of them it
+is removed from all.
 
 The copies share the host's DDPK index, so the save's one Shadow record covers them all and ADDENDUM 465's patch
 skips it on every row once it is snagged.

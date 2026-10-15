@@ -1,16 +1,16 @@
 """ADDENDUM 246 (2026-09-16) -- chest 98 is ONBS 3F's first chest, and the ONBS chests name the ROM.
 
-Player: "Pickup PDA is in hq lab right by chest 3, not pyrite town - it also didn't fire on my latest seed."
-Then: "Go ahead with the rename. ... Since it's onbs, it's behind data rom/id card."
+The Pickup PDA is in the HQ lab right by chest 3, not in Pyrite Town, and the chest labelled "Pickup PDA" did
+not fire. The ONBS chests are renamed, and since they are in ONBS they sit behind the Data ROM/ID card.
 
-THE LABEL WAS ON THE WRONG CHEST FOR TWO ADDENDA. ADDENDUM 200 renamed chest 98 to "Pickup PDA" on an explicit
-instruction. ADDENDUM 219's room list from the same player called it "CNBS 3F Chest 1". The disagreement was
-pinned in favour of 200 because a rename invalidates in-flight seeds -- and the ISO, which nobody asked, had
-the answer the whole time: chest 98 is in ROOM 110, beside chest 99, and rooms 109/110 are ONBS.
+THE LABEL WAS ON THE WRONG CHEST FOR TWO ADDENDA. ADDENDUM 200 renamed chest 98 to "Pickup PDA". ADDENDUM
+219's room list called it "CNBS 3F Chest 1". The disagreement was pinned in favour of 200 because a rename
+invalidates in-flight seeds -- and the ISO, which nobody consulted, had the answer the whole time: chest 98 is
+in ROOM 110, beside chest 99, and rooms 109/110 are ONBS.
 
 THE HQ LAB CANNOT HOLD A PDA LOCATION, which is the fact that settles it rather than merely supporting it.
 The lab's rooms (138-143) contain exactly THREE treasure boxes in the 115-box table: chest 1 (room 143), chest
-2 (room 142) and chest 3 (room 138). Room 138 holds chest 3 and nothing else. So whatever the player picks up
+2 (room 142) and chest 3 (room 138). Room 138 holds chest 3 and nothing else. So whatever is picked up
 beside chest 3 is not a randomizable box, has no AP location, and never did.
 
 THE GATE IS BELT AND BRACES AND THE TEST SAYS SO. The ONBS chests are already behind the Data ROM through
@@ -46,7 +46,7 @@ class TestTheIsoWasAlwaysTheTieBreaker(unittest.TestCase):
         self.assertEqual([1, 2, 3], boxes)
 
     def test_room_138_holds_only_chest_3(self) -> None:
-        """The player's own reference point -- "right by chest 3"."""
+        """The PDA's reference point -- right by chest 3."""
         self.assertEqual([3], sorted(c["chest"] for c in chest_table.CHESTS if c["room"] == 138))
 
 
@@ -73,16 +73,15 @@ class TestTheRename(unittest.TestCase):
 
 class TestTheGateIsNamedAndInherited(unittest.TestCase):
     def test_no_onbs_chest_names_the_rom_itself(self) -> None:
-        """ADDENDUM 405 reversed this. Player, 2026-10-03: "Pyrite Town 2nd visit (ONBS raid) in fact is not gated
-        behind Data Rom at all - this means it's only gated behind pyrite town and the pokespots." The region is
-        now the whole requirement."""
+        """ADDENDUM 405 reversed this (2026-10-03). The Pyrite Town 2nd visit (ONBS raid) is not gated behind the
+        Data ROM at all -- only behind Pyrite Town and the Poke Spots. The region is now the whole requirement."""
         for chest in ONBS_CHESTS:
             self.assertIsNone(chest_regions.CHEST_ITEM_GATES.get(chest), f"chest {chest}")
-            self.assertIn(chest, chest_regions.UNGATED_BY_PLAYER)
+            self.assertIn(chest, chest_regions.ALWAYS_UNGATED_CHESTS)
 
     def test_the_region_path_still_carries_it_too(self) -> None:
         """Both belts. If this edge ever moves, the explicit gate above is what survives."""
-        # ADDENDUM 406: and the path carries no ROM either. Player (ADDENDUM 406): "Poke spots do NOT need the data rom."
+        # ADDENDUM 406: and the path carries no ROM either -- the Poke Spots do not need the Data ROM.
         self.assertIn(("Pyrite Town", "Poke Spots", ()), world_regions.REGION_EDGES)
         self.assertIn(("Poke Spots", "Pyrite Town (ONBS)", ()), world_regions.REGION_EDGES)
 
@@ -234,7 +233,7 @@ class TestTheBackfillNotice(unittest.TestCase):
         self.assertNotIn(mine, tracker.backfill_candidates(frozenset({mine})))
 
     def test_the_notice_does_not_break_normal_crediting_afterwards(self) -> None:
-        """The one thing that must not regress: the player's standing rule that checks fire."""
+        """The one thing that must not regress: checks fire."""
         berry = self._berry_of(3)
         self.bag[berry] = 1
         tracker = rc.ChestBerryTracker()

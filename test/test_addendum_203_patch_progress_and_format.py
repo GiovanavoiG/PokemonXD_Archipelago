@@ -1,14 +1,12 @@
 """ADDENDUM 203. The patcher no longer goes silent for minutes, and it says what image format it detected.
 
-Player: "patching is hanging here" -- with a screenshot of the console stopped right after the Mt. Battle
-line. It was not hanging. The next step LZSS re-encodes the whole of `common_rel` (704,448 bytes on a real
+The console looked hung right after the Mt. Battle line. It was not hanging. The next step LZSS re-encodes the whole of `common_rel` (704,448 bytes on a real
 ISO, measured at 29.3s in pure Python on a fast machine, plausibly minutes on a slower one) and printed
 NOTHING for its entire duration, while every other step in the patch announces itself.
 
-Then: "Could the issue be that I did not name it .ciso? Can you make the patch enforce a .ciso file
-extension?" -- no, and deliberately not. `_detect_and_open` reads the file's MAGIC BYTES. The extension has
+The patch does not enforce a .ciso file extension, deliberately. `_detect_and_open` reads the file's MAGIC BYTES. The extension has
 never been consulted and must not be: a CISO with no extension is valid input, and enforcing a name would
-break plain .iso/.gcm, which this tool explicitly supports. The fix for "I couldn't tell what it detected" is
+break plain .iso/.gcm, which this tool explicitly supports. When the detected format is unclear, the fix is
 to print what it detected."""
 from __future__ import annotations
 
@@ -36,7 +34,7 @@ class TestFormatComesFromMagicNotTheName(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
 
     def test_a_ciso_with_no_extension_is_still_a_ciso(self) -> None:
-        """Exactly the player's file: no extension at all."""
+        """A file with no extension at all."""
         path = self._write("finalTest2Chests", iso_patcher.CISO_MAGIC)
         reader = iso_patcher.open_reader(path)
         try:

@@ -1,8 +1,7 @@
 """ADDENDUM 273 (2026-09-18): the Scooter Upgrade.
 
-Player: *"Let's add a scooter item that raises our floor for SS Libra to 0x5A - this would need to be active
-with location shuffle on AND off - but SS libra is the only one that needs modified with it off. This also
-means that unless we have the scooter item, SS Libra should be set to 0x4E on the map screen."*
+A Scooter Upgrade item raises the SS Libra floor to 0x5A. It is active with location shuffle on AND off, and
+with it off SS Libra is the only area it modifies. Without the item, the map screen sets SS Libra to 0x4E.
 
 SS Libra is one map ICON over two REGIONS (`story_bytes.AREA_GROUPS`): the stranded first visit at 0x4E and
 the real ship at 0x5A. The ladder names the step between them -- `0x57 -> 0x5A, "scooter upgraded in Gateon --
@@ -11,8 +10,8 @@ in for it.
 
 ## The rule it replaces
 
-`AreaFloorRule("SS Libra", 0x5A, (("Gateon Port", 0x5A),))` is DELETED, on the player's call ("Scooter item
-replaces it entirely"). Keeping it as an alternative would have meant a player who walked Gateon far enough
+`AreaFloorRule("SS Libra", 0x5A, (("Gateon Port", 0x5A),))` is DELETED; the Scooter item replaces it
+entirely. Keeping it as an alternative would have meant a player who walked Gateon far enough
 got the real ship whether or not the multiworld ever sent the item -- the item gating nothing, which is the
 defect ADDENDUM 270 found in `Travel Unlock - Kaminko's House`.
 
@@ -155,7 +154,7 @@ class TestTheByteTheMapScreenWrites(unittest.TestCase):
         self.assertGreater(mem.target_for("SS Libra"), rc.SS_LIBRA_STRANDED_FLOOR)
 
     def test_no_other_area_is_touched(self) -> None:
-        """*"SS libra is the only one that needs modified."*"""
+        """SS Libra is the only area the item modifies."""
         before = rc.AreaStoryByteMemory(scooter_held=True)
         after = rc.AreaStoryByteMemory(scooter_held=False)
         for region in ("Pyrite Town", "Phenac City", "Agate Village", "Cipher Lab", "Realgam Tower",

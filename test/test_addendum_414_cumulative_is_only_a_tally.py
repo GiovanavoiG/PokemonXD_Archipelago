@@ -1,6 +1,6 @@
 """ADDENDUM 414 (2026-10-04) -- cumulative mode is the Defeat N Trainers tally and nothing else.
 
-Player: "Cumulative mode should not have the 64 names and any checks - it should just be a tally."
+Cumulative mode has none of the 64 named checks -- it is just a tally.
 """
 from __future__ import annotations
 

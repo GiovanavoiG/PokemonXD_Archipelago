@@ -1,6 +1,6 @@
 """ADDENDUM 435 -- legendaries and the Shadow roster.
 
-Player: "an option to DISABLE legendaries as shadow pokemon, and an option to make sure shadow lugia is shuffled."
+One option keeps legendaries out of the Shadow roster; another makes sure Shadow Lugia is shuffled.
 
 Two passes over the vanilla Shadow pool (`real_shadow_data.load_real_shadow_pool`), run after the species shuffle
 (when it is on) and before anything reads the pool -- the catch labels, the obtainable-species set and the

@@ -1,6 +1,6 @@
 """ADDENDUM 435 -- Text Speed, Hold B To Advance, Battle Speed (main.dol words).
 
-Player: "Build the instant text option if it doesn't exist." Built from the 2026-10-05 investigation
+An instant-text option, built from the 2026-10-05 investigation
 (`pokemon-xd-instant-text-investigation-2026-10-05.md`); every vanilla word below was re-read from the real USA
 main.dol and agrees with six MEM1 dumps.
 

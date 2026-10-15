@@ -1,10 +1,9 @@
 """ADDENDA 318/319 -- purifications are read from the party AND the PC, and Shadow species are never wild.
 
-Player: "Some purifications aren't sending checks - also, the purification chamber doesn't send any checks when
-a pokemon is purified. Can we add a purification check to our pc/party scan, still maintaining our species
-clause, so that we're better at catching them?" ... "if we know a shadow pokemon exists in the seed, then
-finding it as a normal pokemon anywhere will count as a purification." ... "Please make it so that shadow
-pokemon and wild spot pokemon can never overlap for this reason."
+Some purifications were not sending checks, and the Purification Chamber sent none at all. The PC/party scan
+now detects purifications, still under the species clause. If a Shadow Pokemon is known to exist in the seed,
+finding that species as a normal Pokemon anywhere counts as a purification -- which is why Shadow species and
+wild Poke Spot species can never overlap.
 
 THE OFFSETS HERE ARE MEASURED, against this project's own dumps: the Teddiursa purification bracket
 (dump_pre/post_purify_teddiursa_20260903.bin) and the PC deposit (dump_post_teddiursa_pc_20260902.bin). Party
@@ -123,7 +122,7 @@ class TestTheLedgerAndTheRules(unittest.TestCase):
         self.assertEqual(1, self.tracker.total_purified)
 
     def test_rule_two_a_shadow_species_owned_as_an_ordinary_pokemon(self) -> None:
-        """The player's own rule, and the one that catches a purification from before the client connected."""
+        """Rule 2, and the one that catches a purification from before the client connected."""
         crossed = self._settle([self._rec("box", 3, TEDDIURSA_DEX, 0, 0),
                                 self._rec("party", 0, 133, 0, 0)],
                                seed_shadow_dex={TEDDIURSA_DEX},
@@ -233,8 +232,8 @@ class TestTheShadowIdLedgerAndItsGuards(unittest.TestCase):
         record whose species field did not convert could still be counted -- and that was the right call
         while the only records reaching here were real ones.
 
-        The player's report settled it the other way: three purification checks before catching anything, off
-        box slots of leftover bytes. A species field that does not convert is far more often a bad read than
+        Live play settled it the other way: three purification checks before catching anything, off box slots
+        of leftover bytes. A species field that does not convert is far more often a bad read than
         a rare Pokemon, and there are 360 box slots to be wrong about. So the species has to resolve, along
         with four other fields that a real record agrees with itself on. Under-counting a genuinely unreadable
         Pokemon is recoverable -- it is read again every second; a wrong check is not."""
@@ -317,8 +316,8 @@ class TestTheShadowIdLedgerAndItsGuards(unittest.TestCase):
 
 
 class TestRuleTwoDoesNotFireOnAGiftedSpecies(unittest.TestCase):
-    """ADDENDUM 325 -- player: "My second purification sent two checks ... I only purified three pokemon, but
-    the third one also sent the fourth check."
+    """ADDENDUM 325 -- the second purification sent two checks, and after only three purifications the third
+    also sent the fourth check.
 
     Rule 2 reads "you own a Shadow species as an ordinary Pokemon" as proof of a purification. That holds only
     while such a species cannot be had another way. Two ways it can: this seed's Poke Spot species (forbidden
@@ -396,8 +395,7 @@ class TestGenerationKeepsTheGiftLineOutOfTheShadowPool(PokemonXDTestBase):
 
 
 class TestJunkBoxSlotsAreNotPurifications(unittest.TestCase):
-    """ADDENDUM 328 -- player report, relayed: "User reported getting 3 purify checks before even catching a
-    pokemon", with `!purifications` showing all three counted by rule 2 for species 22, 25 and 71, and the
+    """ADDENDUM 328 -- three purify checks fired before anything had been caught, with `!purifications` showing all three counted by rule 2 for species 22, 25 and 71, and the
     level guard having rejected 76 records in the same session.
 
     The scan walks 360 box slots. On a fresh save almost none of them hold a record, and a slot of leftover

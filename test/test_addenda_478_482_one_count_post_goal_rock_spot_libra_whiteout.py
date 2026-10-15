@@ -108,7 +108,7 @@ class TestOneCountPerPokemon(unittest.TestCase):
 
 
 class TestNeverMoreChecksThanPokemon(unittest.TestCase):
-    """The property the player asked for, driven at random: N distinct purified Pokemon, seen in any order, by
+    """The property itself, driven at random: N distinct purified Pokemon, seen in any order, by
     flip and scan, in party and box, before and after evolving, with and without their ids -- never more than N
     counts. And when each one is eventually seen by its id, exactly N."""
 

@@ -1,11 +1,10 @@
 """ADDENDUM 213 (2026-09-14) -- the live in-area story-byte bump.
 
-Player instruction, verbatim: "for the 0x0F check, I need it immediately - while you're in the lab. Increase
-the floor to 0x0F too."
+The 0x0F check fires immediately, while the player is in the lab, and the floor is raised to 0x0F as well.
 
 ADDENDUM 212 built the 0x0D -> 0x0F rule as a FLOOR, which takes effect on the next arrival at the lab. This
 addendum adds the second half: a write that happens while the player is standing in the room. Both are needed,
-and "too" in the instruction is what says so -- so the first class here pins that the floor survived.
+so the first class here pins that the floor survived.
 """
 import struct
 import unittest
@@ -15,12 +14,12 @@ from .. import ram_client
 
 
 class TestTheFloorRuleIsStillThere(unittest.TestCase):
-    """"Increase the floor to 0x0F too" -- the bump is in addition to ADDENDUM 212's floor, not instead of it.
+    """The floor is raised to 0x0F as well -- the bump is in addition to ADDENDUM 212's floor, not instead of it.
     Without this test a later refactor could reasonably conclude the floor had been superseded."""
 
     def test_the_lab_still_has_its_pass_through_floor(self):
         """ADDENDUM 288 moved the target from 0x0F to 0x0E. Read from the bump table rather than written
-        twice, so the floor and the bump cannot drift apart again -- they are two halves of one instruction."""
+        twice, so the floor and the bump cannot drift apart again -- they are two halves of one rule."""
         self.assertEqual(story_bytes.dynamic_region_floor("Pokemon HQ Lab", {"Pokemon HQ Lab": 0x0D}),
                          self._lab_bump().becomes)
 
@@ -48,7 +47,7 @@ class TestTheBumpTable(unittest.TestCase):
     def test_the_lab_bump_is_declared(self):
         lab = [b for b in story_bytes.LIVE_STORY_BYTE_BUMPS if b.region == "Pokemon HQ Lab"]
         self.assertEqual(len(lab), 1)
-        # ADDENDUM 304, player: "Make the HQ Lab live bump from 0x0D to 0x0F again". (0x0F was the
+        # ADDENDUM 304: the HQ Lab live bump goes from 0x0D to 0x0F again. (0x0F was the
         # original ADDENDUM 212/213 target; ADDENDUM 288 moved it to 0x0E for a day.)
         self.assertEqual((lab[0].when_byte_is, lab[0].becomes), (0x0D, 0x0F))
 

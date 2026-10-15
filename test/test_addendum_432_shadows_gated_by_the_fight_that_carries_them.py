@@ -1,11 +1,12 @@
 """ADDENDUM 432 (2026-10-08) -- every Shadow gated by the FIGHT that carries it; purifications counted.
 
-Player: "Make sure purification counts are logically gated behind areas that provide us enough shadow pokemon?
-E.g. if agate, gateon and the lab only give us 13 shadow pokemon, any purifications past 13 should be logically
-gated behind other areas. ... Lovrina had a shadow pokemon catch in logic too early - it thought it was behind
-cipher lab (her first appearance) but it was actually in her citadark team ... The same happened with Ardos ...
-Fix Ardos, Zook, Lovrina and Biden" -- then: "make sure to fix that for just any character who appears multiple
-times, miror b etc".
+Purification counts are logically gated behind areas that provide enough Shadow Pokemon: if Agate, Gateon and
+the lab only give 13 Shadow Pokemon, any purification past 13 is logically gated behind other areas.
+
+A Shadow is gated by the fight that actually carries it. Lovrina's Shadow catch was in logic too early -- it
+was placed behind the Cipher Lab (her first appearance) but was actually on her Citadark team -- and the same
+happened with Ardos. The fix covers Ardos, Zook, Lovrina and Biden, and every character who appears more than
+once (Miror B. etc.).
 """
 from __future__ import annotations
 
@@ -41,7 +42,7 @@ class TestTheGates(unittest.TestCase):
         self.assertIn("Snagem Hideout", zook.required_regions)
 
     def test_every_multi_appearance_trainer(self):
-        """"just any character who appears multiple times, miror b etc" -- Snattle, Gorigan, Smarton, Miror B."""
+        """Every character who appears more than once -- Snattle, Gorigan, Smarton, Miror B."""
         self.assertEqual({"Citadark Isle"}, _regions(61) | _regions(62))   # Snattle, not Phenac
         self.assertEqual({"Citadark Isle"}, _regions(66) | _regions(67))   # Gorigan, not the Key Lair
         self.assertEqual({"Cipher Key Lair"}, _regions(41))                # Smarton, not the SS Libra
@@ -64,7 +65,7 @@ class TestTheGates(unittest.TestCase):
     def test_the_no_snag_rows(self):
         names = {trainer_roster.TRAINERS_BY_INDEX[i]["name"] for i in SR.NO_SNAG_TRAINER_INDICES}
         self.assertEqual({"ZOOK", "ARDOS", "BIDEN"}, names)
-        # ADDENDUM 433, player: "Biden's KEY LAIR fight is uncatchable. Snagem is fine."
+        # ADDENDUM 433: Biden's KEY LAIR fight is uncatchable; his Snagem fight is fine.
         self.assertIn(148, SR.NO_SNAG_TRAINER_INDICES)
         self.assertNotIn(143, SR.NO_SNAG_TRAINER_INDICES)
         self.assertEqual("Cipher Key Lair (exterior)", trainer_placements.region_for(148))

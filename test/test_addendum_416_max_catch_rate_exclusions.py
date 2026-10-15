@@ -1,6 +1,6 @@
 """ADDENDUM 416 (2026-10-04) -- Max Catch Rate can spare Citadark Isle and/or Greevil.
 
-Player: "Can we add options to make it so that catch rate maxing doesn't work on 1. Citadark Isle 2. Greevil?"
+Options keep catch-rate maxing from applying to 1. Citadark Isle and 2. Greevil.
 """
 from __future__ import annotations
 

@@ -1,10 +1,8 @@
 """ADDENDUM 427 (2026-10-06) -- Reduce Citadark Grind: a Rare Candy for 1 and the CANDY BOX.
 
-Player: "Add an option called "reduce_citadark_grind" that makes one of the gateon expansion items a guaranteed
-rebuyable rare candy that costs only 1 dollar. ... investigate making a NEW ITEM (Candy Box), or repurposing one,
-that allows you to level up a pokemon X amount of times - see if we can make it apply multiple rare candies at
-once using the rare candy's function, to save time. If you can't make a prompt, make it put the pokemon to level
-100 OR 99 if it needs to evolve twice, so it can still evolve from levelup."
+The `reduce_citadark_grind` option makes one of Gateon's expansion-tier shop lines a guaranteed, rebuyable Rare
+Candy that costs 1, and adds a Candy Box: an item that applies many Rare Candies at once through the Rare Candy's own
+routine, taking a Pokemon to level 100, or to 99 when it can still evolve, so the level-up evolution still fires.
 
 THE SHELF. Gateon Port Shop's last tier (mart 15, after Gorigan) introduces lines 12-15. Line 15 (Full Restore in
 vanilla) becomes a real Rare Candy and line 14 (Max Potion) the Candy Box. Both are ordinary mart lines, so both
@@ -39,7 +37,7 @@ address or stores it as data -- it is reachable only from the debug menu, which 
 checks every original word it replaces, so a different build is refused rather than corrupted.
 
 No quantity prompt: XD's party-menu item flow has no number entry for a use, and building one is a UI the game
-does not have. The fallback the player named is what ships.
+does not have, so the Candy Box goes straight to the target level instead.
 """
 from __future__ import annotations
 
@@ -51,7 +49,7 @@ CANDY_BOX_ITEM_ID = 50
 CANDY_BOX_NAME_ID = 5050
 CANDY_BOX_VANILLA_NAME = "YELLOW SHARD"
 CANDY_BOX_NAME = "CANDY BOX"
-#: Both cost 1, per the request.
+#: Both cost 1.
 GRIND_PRICE = 1
 
 #: Items-table row offsets (0x28-byte rows; ADDENDUM 304's layout plus `itemDataBios*` accessors in the DOL).
@@ -114,11 +112,11 @@ LEVEL_EVOLUTION_METHODS = frozenset({4, 8, 9, 10, 11, 12, 13})
 TRADE_BY_LEVEL_TWO_STAGE: "tuple[int, ...]" = (60, 63, 66, 74, 92, 116)
 
 
-#: ADDENDUM 451. Player: "i used candy box on azurill, and it went to 100, not leaving space for azumarill. Ensure
-#: that they never go above 99 if they have another evolution left using candy box." Every internal species with at
-#: least one evolution entry in XD's own species table (any method -- level, stone, trade, friendship, key item),
-#: read off a RAM dump and re-checked against it by the test. 172 of 415. Trade and friendship evolutions becoming
-#: level-ups changes no species' membership, so one list serves every option.
+#: ADDENDUM 451. The Candy Box never takes a species above 99 while it has an evolution left (an Azurill at 100 would
+#: leave no level-up for Azumarill). Every internal species with at least one evolution entry in XD's own species table
+#: (any method -- level, stone, trade, friendship, key item), read off a RAM dump and re-checked against it by the test.
+#: 172 of 415. Trade and friendship evolutions becoming level-ups changes no species' membership, so one list serves
+#: every option.
 EVOLVES_FURTHER: "tuple[int, ...]" = (
     1, 2, 4, 5, 7, 8, 10, 11, 13, 14, 16, 17, 19, 21, 23, 25, 27, 29, 30, 32, 33, 35, 37, 39, 41, 42, 43, 44, 46,
     48, 50, 52, 54, 56, 58, 60, 61, 63, 64, 66, 67, 69, 70, 72, 74, 75, 77, 79, 81, 84, 86, 88, 90, 92, 93, 95, 96,
@@ -275,8 +273,6 @@ def cave_bytes(trade_by_level: bool = False, entry_level: "int | None" = None) -
 
 
 # --- ADDENDUM 440: every level-up move the Candy Box passes -----------------------------------------------------
-# Player: "any chance we can make the candy box allow us to learn the level up moves we pass?"
-#
 # `menuUseItemListLVUp` (the Rare Candy's field routine, which the Candy Box runs) learns moves after the level-up
 # with one loop: `level = pokemonBiosGetLevel(pkm)`, then `pokemonGetOboeWazaDataId(pkm, level, &cursor)` hands
 # back each learnset move at EXACTLY that level, and each one the Pokemon does not know goes through

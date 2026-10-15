@@ -1,9 +1,6 @@
 """ADDENDUM 475 -- Death Link sends off the game's own white-out, not off a read of the party.
 ADDENDUM 484 -- counted at the TOP of the white-out, the moment the game decides it, not at the recovery call.
 
-Player (475): "Can we base SENDING a deathlink off of the code instead of reading party?"
-Player (484): "make sure it sends at the top of the annihilation function, not at the end."
-
 WHERE THE GAME WHITES YOU OUT. Two places, and only two, run the white-out: `fightEncountCheckZenmetu` ("zenmetu",
 annihilation -- 0x801F0D9C, called from `fightMain` as a battle ends) and `fightEncount` (0x801F0E94, at the next
 encounter). Each tests the encounter's annihilation flag and that the player did NOT win, and only then runs the
@@ -50,7 +47,7 @@ HOOK_SITES = (
 )
 HOOK_VANILLA_WORDS = {site: vanilla for site, vanilla, _imm in HOOK_SITES}
 
-# The vanilla debug-function words the stubs and counter overwrite, from the player's main.dol.
+# The vanilla debug-function words the stubs and counter overwrite, from a retail main.dol.
 COUNTER_VANILLA_WORD = 0x38A00001
 STUB_VANILLA_WORDS = (
     (0x38C0FFFF, 0x480E569D, 0x7FE3FB78, 0x38800243, 0x38A00001, 0x38C0FFFF),   # +0x718

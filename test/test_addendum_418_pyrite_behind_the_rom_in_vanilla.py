@@ -1,7 +1,7 @@
 """ADDENDUM 418 (2026-10-05) -- with travel shuffle off, Pyrite Town and everything past it need the Data ROM.
 
-Player: "Every pyrite town item in vanilla locations should also be gated behind Data Rom & ID Card" ... "As should
-everything after pyrite town, which is EVERYTHING EXCEPT agate, gateon, mt battle, and cipher lab"
+Every Pyrite Town item in vanilla locations is gated behind the Data ROM & ID Card, and so is everything after
+Pyrite Town, which is EVERYTHING EXCEPT Agate, Gateon, Mt. Battle and the Cipher Lab.
 """
 from __future__ import annotations
 

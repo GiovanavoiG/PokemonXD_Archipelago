@@ -1,10 +1,10 @@
 """ADDENDUM 180 (2026-09-13): key items are reconciled every poll, not delivered once.
 
-Player instruction: "Can we just continuously poll for key items and clear them if we shouldn't have them / write
-them if we should have them and don't? I'd rather that than rely on the item delivery system."
+Key items are polled continuously: cleared when they should not be held, written when they should be and are not,
+rather than relying on the item delivery system.
 
-They asked for the clearing half once before and it went unbuilt -- `key_items.POLLED_GAME_ITEM_IDS` had been
-sitting unused since ADDENDUM 167 with their words in its comment. These tests cover BOTH directions, the
+The clearing half went unbuilt once before -- `key_items.POLLED_GAME_ITEM_IDS` had been sitting unused since
+ADDENDUM 167. These tests cover BOTH directions, the
 hand-off from give_items, and the one visible behaviour change (a used key item comes back).
 """
 from __future__ import annotations
@@ -117,7 +117,7 @@ class TestItIsIdempotentAndSelfHealing(unittest.TestCase):
         self.assertEqual(bag.contents[SYSTEM_LEVER], 1)
 
     def test_a_used_key_item_is_written_back(self) -> None:
-        """The one visible behaviour change, and it follows straight from the instruction. ADDENDUM 134 confirmed
+        """The one visible behaviour change, and it follows straight from the design. ADDENDUM 134 confirmed
         the ID Card is consumed on use. For a gating item this is the safe direction -- Archipelago says the
         player owns it, and an item they own must not become the reason they are stuck -- but it does mean these
         stop behaving like consumables."""

@@ -1,9 +1,7 @@
 """ADDENDUM 489 -- where each trainer-defeat check is fought, in its hint.
 
-Player: "Can you make it so the trainer checks/defeat hints show their location, like the catch hints?"
-
-Same channel as `catch_sources`: `World.extend_hint_information`, the text AP shows beside the location in hints and
-the spoiler.
+Trainer-defeat hints show where the fight is, like the catch hints do. Same channel as `catch_sources`:
+`World.extend_hint_information`, the text AP shows beside the location in hints and the spoiler.
 
   * `Defeat - X` / `Defeat - X #N`: the location's own region -- the one its logic uses, so the hint and the rule
     never disagree.

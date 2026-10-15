@@ -1,7 +1,7 @@
 """ADDENDUM 149 (2026-09-11): Aferd's first two fights are permanently excluded.
 
-Player instruction: "Please make it so the first two Aferd fights do not get difficulty boosted and cannot get
-shadow pokemon - double check chobin also cannot receive shadow pokemon."
+The first two Aferd fights do not get difficulty boosted and cannot get Shadow Pokemon, and Chobin cannot receive
+Shadow Pokemon either.
 
 The exclusion set is applied by BOTH randomizers directly (not via their callers' `excluded_trainer_indices`),
 so these tests exercise both paths rather than just asserting the constant -- an exclusion that only holds in
@@ -47,7 +47,7 @@ class TestTheIndicesAreTheRightFights(unittest.TestCase):
         self.assertIn(CHOBIN_FIRST, rtd.PERMANENTLY_EXCLUDED_TRAINER_INDICES)
         self.assertEqual(trainer_roster.TRAINERS_BY_INDEX[CHOBIN_FIRST]["name"], "CHOBIN")
 
-    def test_the_set_is_exactly_what_was_asked_for(self) -> None:
+    def test_the_set_is_exact(self) -> None:
         self.assertEqual(rtd.PERMANENTLY_EXCLUDED_TRAINER_INDICES, frozenset({8, 15, 69}))
 
 

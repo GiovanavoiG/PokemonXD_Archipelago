@@ -1,11 +1,9 @@
 """ADDENDUM 243 (2026-09-16) -- the fence for the bug class that has now bitten four times.
 
-Player: "Go ahead and build the fence."
-
 TWO INDEPENDENT TABLES PRODUCE `Defeat -` LOCATIONS.
 
   * `trainer_defeat.TRAINER_DEFEAT_ROSTER` -- 66 rows, hand-maintained, (region, name, surname).
-  * `game_data/trainer_placements.PLACEMENTS` -- 232 rows, generated from the player's workbook,
+  * `game_data/trainer_placements.PLACEMENTS` -- 232 rows, generated from the trainer workbook,
     index -> (region, required_items, required_regions).
 
 A fight can be correctly regioned in one and wrongly in the other, and nothing checked that they agreed. That
@@ -136,8 +134,8 @@ class TestTheRosterIsNeverLooserThanTheOccurrenceTable(PokemonXDTestBase):
         a future change that breaks the join (a renamed surname, a reshaped table) fails loudly here rather
         than quietly turning the assertion above into a no-op."""
         pairs = self._pairs()
-        # ADDENDUM 409: "His 1 and 2 can be in either outskirt stand or cave spot interchangeably" gave Miror B.'s
-        # second encounter a region, so the named rematch now joins a placed occurrence row: 41 -> 42.
+        # ADDENDUM 409: Miror B.'s first and second encounters can each be at either the Outskirt Stand or
+        # the Cave Spot, interchangeably, which gave his second encounter a region, so the named rematch now joins a placed occurrence row: 41 -> 42.
         self.assertEqual(len(pairs), 42)
         self.assertIn("Defeat - Wanderer Miror B. (rematch)", {name for name, _region, _placement in pairs})
 
@@ -172,7 +170,7 @@ class TestTheFourKnownInstances(PokemonXDTestBase):
         """RE-RETARGETED BY ADDENDUM 341 -- and this is the test predicting its own future correctly.
 
         ADDENDUM 337 fenced Gonzap and rewrote this test to assert the fence's REASON, ending with: "if the
-        Snag Machine ruling is ever lifted, this line fails and ADDENDUM 242's progression-eligible reading
+        Snag Machine fence is ever lifted, this line fails and ADDENDUM 242's progression-eligible reading
         comes back." ADDENDUM 341 lifted it, this line failed, and the original reading is back.
 
         The REGION half -- which is what ADDENDUM 243 is actually about -- was never touched by either."""

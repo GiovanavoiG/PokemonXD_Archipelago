@@ -1701,7 +1701,7 @@ class PokemonXDContext(CommonContext):
     # location id set (`missing_locations | checked_locations`), which IS the seed's location list, so this needs
     # no slot data and works on seeds older than the fingerprint below.
     #
-    # Only one direction is dangerous: ids in the SEED this build lacks can never fire (one reported unwinnable
+    # Only one direction is dangerous: ids in the SEED this build lacks can never fire (one unwinnable
     # seed had 63 of 685 rows naming retired locations, five of them progression). Ids this BUILD has that the
     # seed lacks are harmless, so they go to `/seedcheck` and stay silent. It warns, it does not refuse.
     def _warn_about_a_seed_from_another_build(self, slot_data: dict) -> None:
@@ -2426,11 +2426,10 @@ def _always_open_gate_is_open(ctx: PokemonXDContext) -> bool:
     return True
 
 
-#: ADDENDUM 474. Player: "a user was able to use SS Libra to get to phenac again. Can we ensure that SS Libra is never
-#: accessible unless we have Phenac, either logically or hard coded?" Logic requires Phenac
+#: ADDENDUM 474. SS Libra must never be usable as a way back into Phenac without Phenac itself. Logic requires Phenac
 #: (`travel_locations.TRAVEL_LOCATION_REQUIRED_REGIONS`); this is the hard half. The stranded ship's own cutscene ends
 #: by putting the player in Phenac, so an SS Libra icon usable without Phenac was a way INTO Phenac.
-#: ADDENDUM 481: "we don't need the phenac clear at all" -- the icon now waits for the Phenac UNLOCK, not the Sixes.
+#: ADDENDUM 481: the Phenac clear is not needed at all -- the icon now waits for the Phenac UNLOCK, not the Sixes.
 SS_LIBRA_TRAVEL_NAME = "SS Libra"
 PHENAC_TRAVEL_NAME = "Phenac City"
 PHENAC_CLEARED_REGION = "Phenac City (Post-Sixes)"     # ADDENDUM 474's condition, kept for `_phenac_cleared`
@@ -2642,8 +2641,8 @@ async def check_purifications(ctx: PokemonXDContext) -> None:
             # when two checks arrive for one purification.
             for line in ctx.purification_tracker.last_counts:
                 _note(ctx, f"Purification counted from {line}")
-            # ADDENDUM 407: a PID the game changed at purification (the Unown letter report). Loud, because it is
-            # the evidence that report needs and it happens once per Shadow at most.
+            # ADDENDUM 407: a PID the game changed at purification (the Unown letter case). Loud, because it is
+            # the evidence that case needs and it happens once per Shadow at most.
             for line in ctx.purification_tracker.new_pid_changes:
                 _note_warn(ctx, f"Purification changed this Pokemon's PID -- {line}. Please report it with "
                                 "`/purifications`.")
@@ -2677,8 +2676,8 @@ def scooter_upgrade_held(ctx: PokemonXDContext) -> bool:
     cutscene, so it has its own toggle covering both travel modes."""
     if not ctx.shuffle_scooter_upgrade:
         return True
-    # ADDENDUM 474: LATCHED and persisted. Player: "SS Libra not letting them in even with scooter upgrade
-    # sometimes -- guard that story byte floor hard". `items_received` is empty for the first ticks after a
+    # ADDENDUM 474: LATCHED and persisted. SS Libra sometimes refused entry even with the scooter upgrade held, so the
+    # story byte floor is guarded hard. `items_received` is empty for the first ticks after a
     # (re)connect, and in that window this said False: the SS Libra icon wrote the STRANDED tier (0x4E) and the story
     # hold pulled a byte on the real ship (0x58-0x5B) back to 0x57. Once the item has been seen, it is held for good.
     if getattr(ctx, "scooter_upgrade_seen", False):
@@ -3141,11 +3140,11 @@ def _lab_hold_inputs_ready(ctx: PokemonXDContext) -> bool:
 
 
 async def check_lab_memo_hold(ctx: PokemonXDContext) -> None:
-    """ADDENDUM 452. Player: "When we gain the machine part, set HQ Lab's floor to 0x16. HOLD IT THERE NO MATTER WHAT
-    until we've received krane memo 3, 4, and 5." Runs LAST of the story-byte writers, so in an HQ Lab room nothing
+    """ADDENDUM 452. Once the Machine Part is obtained, HQ Lab's floor is 0x16 and is HELD there no matter what until
+    Krane Memos 3, 4 and 5 have been received. Runs LAST of the story-byte writers, so in an HQ Lab room nothing
     else's write can stand; the lab's map-hover target is pinned to 0x16 as well. See `ram_client.LabMemoStoryHold`."""
     hold = ctx.lab_memo_hold
-    # ADDENDUM 458: the hold reported broken -- the lab read 0x19 with Memos 3-5 never handed over. The arming used to
+    # ADDENDUM 458: the hold was found broken -- the lab read 0x19 with Memos 3-5 never handed over. The arming used to
     # be recomputed from scratch every tick, so any tick where `machine_part_obtained` read False (right after a
     # (re)connect, before the server has re-sent the received items) RELEASED the hold, and the release gave back the
     # byte it had pulled back from -- 0x19, persisted from an earlier session. Now: (1) nothing happens before the
@@ -3154,8 +3153,8 @@ async def check_lab_memo_hold(ctx: PokemonXDContext) -> None:
     if not _lab_hold_inputs_ready(ctx):
         return
     memos = lab_memos_received(ctx)
-    # ADDENDUM 464: "ONLY clamp to 16 when we've already reached 0x0F on the HQ lab story byte and we have the machine
-    # part", then "just if it's at 0x0F at all, and we've received both memo 1 and 2". The lab's 0x0F is latched;
+    # ADDENDUM 464: clamp to 0x16 ONLY when the HQ Lab story byte has reached 0x0F at all and Memos 1 and 2 have both
+    # been received. The lab's 0x0F is latched;
     # memos 1-2 are the server's record. Without both nothing below arms, whatever the Machine Part says.
     if ctx.block_base is not None and not hold.lab_reached:
         try:
@@ -3373,8 +3372,7 @@ async def reconcile_key_items(ctx: PokemonXDContext) -> None:
 
 async def check_krane_memos(ctx: PokemonXDContext) -> None:
     """ADDENDUM 434: each "Story - Krane Memo N" check is sent when the game puts that memo in the Bag and this
-    client takes it back out -- not off the story byte. Player: "don't automatically send the krane memo checks.
-    Let's instead send them when they enter our inventory and are removed." Both travel modes; the memos are out
+    client takes it back out -- not off the story byte. Both travel modes; the memos are out
     of the item pool, so every copy in the Bag is the story's. See `ram_client.KraneMemoTracker`."""
     if ctx.block_base is None:
         return
@@ -3701,7 +3699,7 @@ async def fast_poll_window(ctx: PokemonXDContext, budget_seconds: float) -> floa
             room_id = ram_client.read_room_id()
             # ADDENDUM 400: the one thing in this window that is NOT a Bag check. A white-out's window is the
             # end-of-battle sequence -- flag set, party healed -- and the outer loop's 1.0s cadence can sit
-            # across the whole of it, which is why "we weren't SENDING deathlinks at all". Sampled at 0.05s
+            # across the whole of it, which is why no Death Link was being SENT at all. Sampled at 0.05s
             # here it is twenty looks instead of one, for one bulk read of the encounter records.
             #
             # It only ARMS here. The send and the region bookkeeping stay in the outer loop, so the ordering
@@ -3846,8 +3844,8 @@ async def check_trainer_defeats(ctx: PokemonXDContext) -> None:
                 await ctx.declare_goal_complete()
 
 
-#: ADDENDUM 487. Player: "Zook is still rematching us - are we writing the byte AND the floor at key lair, or just the
-#: byte? ... Beating him puts it from 64 to 65, but returning put me back at 64." Only the byte, and only sometimes:
+#: ADDENDUM 487. Zook kept rematching: beating him moved the byte from 0x64 to 0x65, but returning wrote 0x64 again.
+#: The Key Lair's floor was not being banked -- only the byte was written, and only sometimes:
 #: ADDENDUM 476's bump (0x65 -> 0x66, banking 0x65 as the Lair's mark so its floor rule enters later visits at 0x66)
 #: fires while the player stands in a room `region_for_room` calls "Cipher Key Lair" -- the 1F-4F and roof rooms.
 #: Zook is fought in the courtyard outside them, which resolves to no region, so leaving from there banked nothing and
@@ -3888,8 +3886,7 @@ def _bank_key_lair_zook(ctx: PokemonXDContext) -> None:
 #
 # ADDENDUM 415: unique mode too. This set used to hold the cumulative queue's name only, so a unique-mode seed
 # dispatched "Defeat - Greevil #2" and never matched it -- those seeds finished on the story-byte backstop alone.
-# Player: "Defeat Greevil 2 should be the right one, but also just having ever defeated greevil twice should send
-# the victory." Both are here: the unique labels past #1, and a plain count of Greevil wins (`GREEVIL_WINS_FOR_GOAL`).
+# Matching the #2 label is right, and having ever defeated Greevil twice also sends the victory. Both are here: the unique labels past #1, and a plain count of Greevil wins (`GREEVIL_WINS_FOR_GOAL`).
 _GREEVIL_REMATCH_LOCATION_NAMES: "frozenset[str]" = frozenset(
     name for name in (list(trainer_defeat.SURNAME_TO_LOCATION_QUEUE.get("Greevil", ()))
                       + list(trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE.get("GREEVIL", ())))
@@ -4093,8 +4090,8 @@ async def enforce_travel_locks(ctx: PokemonXDContext) -> None:
 
 
 def observe_travel_reveals(ctx: PokemonXDContext) -> None:
-    """ADDENDUM 434. Player: "instead of sending location unlock checks via story byte, instead do it when we detect
-    a partial bit of any kind for travel visibility."
+    """ADDENDUM 434. Location unlock checks are sent when a partial travel-visibility bit of any kind is detected,
+    not off the story byte.
 
     Read-only, and it must run FIRST in the tick -- before `sync_travel_locations` re-asserts granted destinations
     (clearing their partial bit) and before `enforce_travel_locks` clears the rest, since either write erases the
@@ -4490,8 +4487,7 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                 ctx.fst_guard.reset()
                 ctx.block_stability.reset()
                 # ADDENDUM 450: the attempt and the failure are said once per run of failures, then the retry is
-                # silent (`/verbose` still shows each one). Player: "Make this error retry silently instead of
-                # spamming."
+                # silent (`/verbose` still shows each one) instead of spamming the log.
                 if ctx._hook_failures == 0 and not ctx._dolphin_missing_logged:
                     logger.info("Attempting to connect to Dolphin...")
                 else:

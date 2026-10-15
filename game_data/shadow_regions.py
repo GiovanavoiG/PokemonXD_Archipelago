@@ -6,13 +6,13 @@ skeleton, and still carried a `"_retired Relic Forest": 0` tombstone.
 
 Two joins against data already here: `data/shadow_pokemon_list.json` (83 shadows) names the TRAINER holding
 each one as a display label ("Spy Naps"), and `trainer_roster.TRAINERS` plus `trainer_placements` turn that
-surname into a region from the player's own census (ADDENDUM 175). The surname is matched by LONGEST SUFFIX
+surname into a region from the census (ADDENDUM 175). The surname is matched by LONGEST SUFFIX
 rather than by splitting on spaces, because "Miror B." is a two-word surname with a period in it. A trainer
 fought more than once gets the EARLIEST of their regions in graph order -- a shadow is obtainable from the
 first fight that offers it, and taking the latest would make the ladder harder than the game.
 
 Four shadows resolve by `area` text instead, listed below rather than silently defaulted: three of their
-trainers are not in the 232-story roster and one is (Hordel, whose census row the player left filler-only).
+trainers are not in the 232-story roster and one is (Hordel, whose census row is filler-only).
 Hordel's shadow area reads "Outskirt Stand", which his census row does not claim -- the census answers where
 his DEFEAT check is and this file where his shadow is obtainable -- but it is the hint if that row is
 revisited.
@@ -129,8 +129,8 @@ def trainer_label_from_location(location_name: str) -> str:
 
 def gate_for_label(label: str) -> "TrainerGate | None":
     """The full gate for whoever holds a shadow, or None when this project has no region for them. None is a
-    real answer callers must honour: 37 of the 232 census rows are `region=None` because the player marked
-    them filler-only, and inventing a region would put a fake requirement on a check. ADDENDUM 182 found the
+    real answer callers must honour: 37 of the 232 census rows are `region=None` because they are marked
+    filler-only, and inventing a region would put a fake requirement on a check. ADDENDUM 182 found the
     opposite failure -- ungated AND progression-eligible -- so None must mean filler-only."""
     roster = _roster_by_surname()
     order = _region_order_cached()
@@ -181,18 +181,18 @@ def gate_for_trainer_index(index: int) -> "TrainerGate | None":
 # every Shadow of a trainer who appears more than once was gated at their first appearance whether or not that
 # fight carried it: Lovrina's Citadark pair at the Cipher Lab, Ardos's three at Gateon Port, Snattle's and
 # Gorigan's Citadark pairs at Phenac and the Key Lair, Smarton's Arbok at the SS Libra, Miror B.'s post-game
-# Dragonite at the Poke Spots. Player: "make sure to fix that for just any character who appears multiple times".
+# Dragonite at the Poke Spots. The fix covers every character who appears more than once.
 #
-# The rows a Shadow cannot be snagged from at all, even though they carry or could carry one. Player: Ardos "shows
-# up in gateon, but you actually can't catch his team at all until citadark", and the same for Zook and Biden.
-# ADDENDUM 433 corrected Biden's row. Player: "Biden's KEY LAIR fight is uncatchable. Snagem is fine."
+# The rows a Shadow cannot be snagged from at all, even though they carry or could carry one. Ardos shows up in
+# Gateon, but his team cannot be caught at all until Citadark, and the same holds for Zook and Biden.
+# ADDENDUM 433 corrected Biden's row: his KEY LAIR fight is uncatchable; his Snagem fight is fine.
 NO_SNAG_TRAINER_INDICES: "frozenset[int]" = frozenset({
     9,     # Zook #1, Gateon Port -- his Zangoose is snagged at the Cipher Key Lair (row 147)
     10,    # Ardos #1, Gateon Port
     148,   # Biden #2, Cipher Key Lair (exterior) -- his Snagem Hideout fight (row 143) is snaggable
 })
 
-# The three Shadows whose every carrying row has no census region (the player left those rows filler-only), with
+# The three Shadows whose every carrying row has no census region (those rows are filler-only), with
 # the region the Shadow is really obtainable in. A decision per Shadow, not a default.
 DDPK_REGION_FALLBACK: "dict[int, tuple[str, str]]" = {
     29: ("Poke Spots", "Miror B.'s Voltorb, at the Cave Poke Spot"),
@@ -200,14 +200,14 @@ DDPK_REGION_FALLBACK: "dict[int, tuple[str, str]]" = {
     81: ("Outskirt Stand", "Hordel's Togepi, at the Outskirt Stand"),
 }
 
-# ADDENDUM 473: Shadows only obtainable AFTER the goal. Player: "Treat Miror B's dragonite as after goal, yes."
+# ADDENDUM 473: Shadows only obtainable AFTER the goal.
 # Miror B.'s Dragonite (DDPK 80) is his post-game Gateon rematch. Its Citadark fallback above stays -- it is still
 # where the island's ladder files it -- but rules.py adds the goal itself ("Victory") to every way of getting it:
 # its catch location and every `Purify N` that needs it are reachable only after the goal, and are filler-only.
 #
-# ADDENDUM 479: and every Shadow Greevil carries. Player: "please remove all post-game/post-greevil checks - the
-# trainers can stay randomized, but don't give their shadows checks or else we can potentially softlock." Shadow
-# Lugia (his first fight, DDPK 73) and the six of his second (DDPK 74-79, the goal fight itself) can only be
+# ADDENDUM 479: and every Shadow Greevil carries. Post-game/post-Greevil Shadows get no checks, since a check on one
+# could softlock; their trainers stay randomized.
+# Shadow Lugia (his first fight, DDPK 73) and the six of his second (DDPK 74-79, the goal fight itself) can only be
 # PURIFIED once Greevil is beaten. These Shadows now have no checks at all: no `Catch - X` for a species only they
 # carry, and no `Purify N` counted for them -- this seed's purification ladder is one rung per Shadow that can be
 # had before the goal. Their trainers are untouched. A Shadow MOVED off Greevil (Remove Greevil Shadows, which
@@ -305,7 +305,7 @@ def is_post_goal_ddpk(ddpk: int) -> bool:
 # ADDENDUM 184: where you CATCH a shadow and where you can PURIFY it are different questions, and this
 # ladder answers the second. Without a floor, thresholds 1-7 file under Pokemon HQ Lab and Gateon Port,
 # where their shadows are snagged -- both always open, so they read as sphere zero and can hold the Machine
-# Part, which is the key to Agate Village, the only place that purifies. Per the player's instruction the
+# Part, which is the key to Agate Village, the only place that purifies. The
 # floor is Agate Village itself; the Purify Chamber's own unlock is deliberately not modelled on top.
 PURIFICATION_FLOOR_REGION = "Agate Village"
 

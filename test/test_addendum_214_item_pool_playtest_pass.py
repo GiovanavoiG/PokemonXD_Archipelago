@@ -1,9 +1,7 @@
-"""ADDENDUM 214 (2026-09-15) -- three item-pool corrections from the playtest issue list.
-
-Player, verbatim:
-    "Remove the cologne case from the pool entirely - it's redundant."
-    "Move Rare Candies into the medicine category of filler items."
-    "Remove HMs from the pool - they don't exist."
+"""ADDENDUM 214 (2026-09-15) -- three item-pool corrections from the playtest issue list:
+    the Cologne Case is out of the pool entirely (redundant);
+    Rare Candies are in the medicine category of filler items;
+    HMs are out of the pool (they don't exist in this game's pool).
 
 The first of those turned up a fourth bug with a wider blast radius, which is tested here too: `create_items`
 consulted ITEMS_REMOVED_FROM_POOL only in its PROGRESSION pass, so every `useful`-classified name in that set
@@ -34,7 +32,7 @@ class TestTheCologneCaseIsGone(unittest.TestCase):
     def test_the_phenac_location_of_the_same_name_was_never_the_item(self):
         """RETARGETED BY ADDENDUM 335. `Phenac City - Cologne's Item` was a LOCATION that happened to share a
         word with the removed Cologne Case ITEM, and this test guarded it against being caught by a broad
-        rename. The player has since played it and ruled it not real, so it is retired at the census -- but
+        rename. Play has since shown it is not real, so it is retired at the census -- but
         the property still worth pinning is that it left for its OWN reason, by name, and took no item offset
         with it."""
         from .. import locations
@@ -72,7 +70,7 @@ class TestRareCandyIsMedicineFiller(unittest.TestCase):
         self.assertEqual(items.ITEM_TABLE["Rare Candy"].id_offset, 41)
 
     def test_pp_up_stayed_useful(self):
-        """Only Rare Candy was asked for. PP Up shared its spec list and must not have been dragged along."""
+        """Only Rare Candy moved. PP Up shared its spec list and must not have been dragged along."""
         self.assertIn("PP Up", items.USEFUL_ITEMS)
         self.assertEqual(items.ITEM_TABLE["PP Up"].classification.name, "useful")
 

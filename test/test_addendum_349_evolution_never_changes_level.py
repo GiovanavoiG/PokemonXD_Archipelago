@@ -1,9 +1,9 @@
 """ADDENDUM 349 (2026-09-25) -- Eevee lost levels when it evolved.
 
-Player: "Users and myself experienced eevee losing levels upon evolution."
+Eevee lost levels upon evolution.
 
 A Pokemon's level is DERIVED from its experience total through its species' experience curve. Change the
-curve and the same experience reads as a different level -- which is what the player saw, at the exact moment
+curve and the same experience reads as a different level -- which is what showed in play, at the exact moment
 the species changed.
 
 Measured against the real stats table before the fix, at the shipped option values:
@@ -115,7 +115,7 @@ class TestAFamilyIsNeverSplit(unittest.TestCase):
             self.assertEqual(1, len(curves), f"rate {rate} split the Eevee line across {curves}")
 
     def test_evolving_never_changes_the_level_at_any_rate_or_level(self):
-        """THE PLAYER'S BUG, stated directly."""
+        """THE BUG, stated directly."""
         line = self._eevee_line()
         for rate in range(100, 501, 25):
             plan = ss.plan_experience_rate(line, rate)

@@ -1,7 +1,6 @@
-"""Regression coverage for ADDENDUM 99's item-pool changes (player request, verbatim: "Add a '10 pokeballs'
-item to the filler to receive, as well as '5 greatballs' and '3 ultra balls'. Remove White Flute, Heart Scale,
-Razz Berry, Shoal Salt, all repel levels, and all of the colored shards (blue, green, etc) from the items I can
-receive."). Pure data-table checks against items.py -- no MultiWorld/generation needed."""
+"""Regression coverage for ADDENDUM 99's item-pool changes: '10 pokeballs', '5 greatballs' and '3 ultra balls'
+are added as receivable filler, and White Flute, Heart Scale, Razz Berry, Shoal Salt, all repel levels, and all of
+the colored shards (blue, green, etc) are removed from the receivable items. Pure data-table checks against items.py -- no MultiWorld/generation needed."""
 from __future__ import annotations
 
 import unittest
@@ -76,7 +75,7 @@ class TestRemovedItems(unittest.TestCase):
 
     def test_items_not_named_for_removal_are_untouched(self) -> None:
         # As of ADDENDUM 99, Escape Rope was NOT a "repel level" and Shoal Shell was NOT a "colored shard" --
-        # neither was named by the player for removal at the time, so both survived this addendum's pass.
+        # neither was named for removal at the time, so both survived this addendum's pass.
         # (Both were later removed by ADDENDUM 107 on separate "forbidden"/non-functional grounds -- see
         # test_addendum_107_item_removals.py -- so they are deliberately NOT asserted present here anymore.)
         # Every OTHER berry in the previously-kept Cheri-Iapapa range (all but the removed Razz) must survive.

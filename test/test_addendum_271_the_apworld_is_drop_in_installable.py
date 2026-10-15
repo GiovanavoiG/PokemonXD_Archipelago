@@ -1,8 +1,8 @@
 """ADDENDUM 271 (2026-09-18): the apworld has to survive being dragged into a folder.
 
-Player, relaying another player: *"the XD client isn't showing in launcher and yaml isnt generating - they
-dropped the apworld into the custom_worlds folder but did not open the file. Can we make it so that everything
-works even if the file is dropped in rather than opened?"*
+A player dropped the apworld into the custom_worlds folder without opening it, and the XD client did not
+show in the Launcher and no YAML was generated. Everything has to work when the file is dropped in rather than
+opened.
 
 Both symptoms at once -- no Launcher button AND no template -- mean one thing: **the world module never
 imported.** Components are registered by the module, and so is the options dataclass the template is built
@@ -176,7 +176,7 @@ class TestTheBuiltApworldIsDropInInstallable(unittest.TestCase):
 
 
 class TestTheSetupGuideDoesNotTeachTheBrokenInstall(unittest.TestCase):
-    """The guide is what the reporting player followed. Prose cannot be asserted, but the one string that was
+    """The guide is what that player followed. Prose cannot be asserted, but the one string that was
     actively wrong can be kept from coming back."""
 
     @classmethod

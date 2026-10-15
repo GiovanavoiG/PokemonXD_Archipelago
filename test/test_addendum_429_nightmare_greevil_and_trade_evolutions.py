@@ -1,8 +1,7 @@
 """ADDENDUM 429 (2026-10-06) -- Nightmare Greevil, and trade evolutions by level.
 
-Player: "Make an option that makes ONLY Greevil gain one of those nightmare teams. Nightmare_Greevil - also, can
-we make an option so that we can evolve trade evolutions by levelup instead, with the same logic as our trainer
-team evolutions?"
+Nightmare_Greevil is an option that gives ONLY Greevil one of the nightmare teams. A second option evolves trade
+evolutions by level-up instead, with the same logic as the trainer team evolutions.
 """
 from __future__ import annotations
 
@@ -38,7 +37,7 @@ class TestTheOptions(unittest.TestCase):
     def test_both_exist_off_by_default_and_are_in_the_template(self):
         fields = options.PokemonXDOptions.__dataclass_fields__
         text = (Path(__file__).resolve().parent.parent / "data" / "reference_template.yaml").read_text()
-        # Trade Evolutions By Level is default ON since the player's options.py of 2026-10-10.
+        # Trade Evolutions By Level is default ON since the options.py of 2026-10-10.
         for name, cls, default in (("nightmare_greevil", options.NightmareGreevil, 0),
                                    ("trade_evolutions_by_level", options.TradeEvolutionsByLevel, 1)):
             self.assertIn(name, fields)
@@ -201,7 +200,7 @@ if __name__ == "__main__":
 
 
 class TestFriendshipByLevel(unittest.TestCase):
-    """ADDENDUM 451. Player: "Change friendship evolutions to just be by level." """
+    """ADDENDUM 451. Friendship evolutions are just by level."""
 
     def test_levels_follow_the_trainer_table(self):
         from ..game_data import evolution_data

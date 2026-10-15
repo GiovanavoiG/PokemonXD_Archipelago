@@ -1,6 +1,5 @@
-"""Regression coverage for ADDENDUM 108 (2026-09-10, player request, verbatim: "Go ahead and modify our code to
-put all REMAINING berries in the BERRIES pocket. I don't care that you think they go in the items pocket - put
-them in berries."). Pure arithmetic checks against `ram_client.resolve_item_pocket` -- no live Dolphin
+"""Regression coverage for ADDENDUM 108 (2026-09-10): every REMAINING berry goes in the BERRIES pocket, not the
+items pocket. Pure arithmetic checks against `ram_client.resolve_item_pocket` -- no live Dolphin
 connection needed (this module is deliberately loadable standalone, see its own module docstring).
 
 WHY THIS TEST STUBS `dolphin_memory_engine`: same reason as test_chest_count_tracker_debounce.py/test_ram_

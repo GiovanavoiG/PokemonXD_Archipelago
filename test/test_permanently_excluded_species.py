@@ -1,5 +1,5 @@
-"""Regression coverage for ADDENDUM 101 (player request: "Remove munchlax from the pool of randomizable
-pokemon. While you're at it, get rid of lugia and bonsly too."). Confirms `real_species_pool()` -- the single
+"""Regression coverage for ADDENDUM 101 (Munchlax, Lugia and Bonsly are removed from the pool of randomizable
+Pokemon). Confirms `real_species_pool()` -- the single
 shared source every real candidate-species list in this project draws from (ordinary trainer-team shuffling,
 the Shadow Pokemon Expansion new-member picker, and Enhanced Difficulty's new-member picker) -- never returns
 Lugia, Bonsly, or Munchlax as a possible randomization target."""

@@ -1,7 +1,7 @@
 """ADDENDUM 176 (2026-09-13): hard region prerequisites, and shops named after shops.
 
-Player instruction: "Gate Cipher Key Lair logically behind Snagem. Gate Snagem logically behind full SS Libra
-access. Implement the shops. Replace our current shop checks with those."
+Cipher Key Lair was gated logically behind Snagem, and Snagem behind full SS Libra access; and the shops were
+implemented, replacing the old shop checks.
 
 The gating half needed a test precisely because the BASE chain already satisfied it and the travel-shuffle
 gateway did not -- so "does the graph do this" has two different answers depending on one option, and only one
@@ -19,13 +19,12 @@ from ..game_data import shops
 
 
 class TestTheHardPrerequisiteTable(unittest.TestCase):
-    def test_it_says_what_the_player_asked_for(self) -> None:
+    def test_it_says_what_it_should(self) -> None:
         """UPDATED by ADDENDUM 293, then EMPTIED of ADDENDUM 176's own two entries by ADDENDUM 332.
 
-        Both halves of the original instruction -- "Gate Cipher Key Lair logically behind Snagem. Gate Snagem
-        logically behind full SS Libra access." -- have since been withdrawn by the player who gave them: the
-        Snagem half in ADDENDUM 293, the Key Lair half in ADDENDUM 332 ("Decouple Key Lair from snagem - we no
-        longer need snagem to access key lair").
+        Both original gates -- Cipher Key Lair behind Snagem, Snagem behind full SS Libra access -- have since
+        been withdrawn: the Snagem half in ADDENDUM 293, the Key Lair half in ADDENDUM 332 (the Key Lair is
+        decoupled from Snagem, which is no longer needed to reach it).
 
         The TABLE is not empty and the mechanism is not gone: ADDENDUM 324 put the SS Libra's entry in it. So
         what this test guards now is that neither withdrawn constraint has crept back, and that the one live
@@ -96,8 +95,8 @@ class TestTheGatewayBypassIsClosed(PokemonXDTestBase):
     off Menu whose only requirement is holding that destination's travel-unlock item -- so the Snagem item alone
     opened Snagem with no SS Libra anywhere, and the Key Lair item opened the Key Lair with no Snagem.
 
-    ADDENDUM 293 (2026-09-20): the Snagem half of that is no longer a bug, because the player withdrew the
-    requirement it enforced. The Key Lair half stands. Both are still tested here, one for each direction, so
+    ADDENDUM 293 (2026-09-20): the Snagem half of that is no longer a bug, because the requirement it
+    enforced was withdrawn. The Key Lair half stands. Both are still tested here, one for each direction, so
     the file records the reversal instead of quietly losing a test."""
 
     options = {"randomize_travel_locations": True}
@@ -106,15 +105,15 @@ class TestTheGatewayBypassIsClosed(PokemonXDTestBase):
         """REVERSED by ADDENDUM 293, and named so the reversal is impossible to read as a regression.
 
         ADDENDUM 176 made this assert the OPPOSITE -- the Snagem travel item alone must not open Snagem,
-        because SS Libra was a hard prerequisite. The player has withdrawn that prerequisite ("Snagem is no
-        longer gated behind SS libra"), so the item alone is the whole requirement now, and it matches what
+        because SS Libra was a hard prerequisite. That prerequisite is withdrawn (Snagem is no longer gated
+        behind the SS Libra), so the item alone is the whole requirement now, and it matches what
         the client can deliver: the icon appears on the item, the hover writes 0x62, the player walks in."""
         self.collect_by_name(tl.travel_unlock_item_name("Snagem Hideout"))
         self.assertTrue(self.multiworld.state.can_reach("Snagem Hideout", player=self.player))
 
     def test_the_key_lair_item_alone_is_now_enough(self) -> None:
-        """RETARGETED BY ADDENDUM 332, and the flip is the instruction. Player: "Decouple Key Lair from
-        snagem - we no longer need snagem to access key lair."
+        """RETARGETED BY ADDENDUM 332, which decoupled the Key Lair from Snagem: Snagem is no longer needed to
+        reach the Key Lair.
 
         This used to assert the opposite -- the item alone was NOT enough -- which was ADDENDUM 176's gate.
         What made it safe to drop is that the state the gate stood in for is now WRITTEN on arrival: the Key
@@ -142,7 +141,7 @@ class TestTheGatewayBypassIsClosed(PokemonXDTestBase):
 
     def test_an_unrelated_destination_is_unaffected(self) -> None:
         """The prerequisite table must be narrow. Phenac City has no entry, so its item alone still works --
-        the two constraints came from the player's knowledge of the game, not from a general rule."""
+        the two constraints came from specific knowledge of the game, not from a general rule."""
         self.collect_by_name(tl.travel_unlock_item_name("Phenac City"))
         self.assertTrue(self.multiworld.state.can_reach("Phenac City", player=self.player))
 
@@ -153,8 +152,8 @@ class TestTheShopTable(unittest.TestCase):
         for shop in shops.SHOPS:
             self.assertIn(shop.region, regions.REGION_NAMES, shop.name)
 
-    def test_the_name_format_is_the_players_own(self) -> None:
-        """Verbatim from the request: "'Gateon Port Shop AP Item 1' etc.\""""
+    def test_the_name_format(self) -> None:
+        """Shop locations are named after the shop and the slot: "Gateon Port Shop AP Item 1" and so on."""
         self.assertEqual(shops.shop_location_name("Gateon Port Shop", 1), "Gateon Port Shop AP Item 1")
         self.assertIn("Gateon Port Shop AP Item 1", locations.LOCATION_TABLE)
 
@@ -169,9 +168,9 @@ class TestTheShopTable(unittest.TestCase):
         self.assertIsNone(shops.shop_for_room(138), "the HQ Lab interior is not a shop")
 
     def test_the_count_is_the_cap_times_the_CONFIRMED_shops(self) -> None:
-        """ADDENDUM 177 settled this over three rounds: "just add checks for our confirmed rooms" (I read that as
-        a live `!room` reading and shipped 2), then "I gave you pyrite shop, pyrite vending machine, agate shop,
-        phenac shop as well" (6), then "Go ahead and add those four extras as well" (10).
+        """ADDENDUM 177 settled this over three rounds: checks for the confirmed rooms only (read as a live
+        `!room` reading, which shipped 2), then the Pyrite shop, Pyrite vending machine, Agate shop and Phenac
+        shop as well (6), then four extras on top (10).
 
         The COUNT is not the interesting assertion -- it moved three times in one day. The relationship is: the
         location count is the cap times however many shops are confirmed, whatever that number is."""
@@ -180,7 +179,7 @@ class TestTheShopTable(unittest.TestCase):
                          sum(shop.slot_count for shop in shops.CONFIRMED_SHOPS))
         self.assertEqual(len(shops.CONFIRMED_SHOPS) + len(shops.UNCONFIRMED_SHOPS)
                          + len(shops.EXCLUDED_SHOPS), len(shops.SHOPS))
-        # 2026-09-15, player: "Exclude the whole battle CD shop." Room 61's nine Battle CD lines leave the
+        # 2026-09-15: the whole Battle CD shop is excluded. Room 61's nine Battle CD lines leave the
         # location table; the row survives in SHOPS so the mart mapping and the 104-line reconciliation below
         # still hold, but it creates no checks. 104 - 9 = 95.
         # ADDENDUM 238c: 95 -> 96. Agate Village went from 8 lines to 9 once the count became the union
@@ -190,7 +189,7 @@ class TestTheShopTable(unittest.TestCase):
 
     def test_the_two_known_shop_rooms_agree_with_the_live_room_names(self) -> None:
         """21 and 156 are the two rooms this project has actually confirmed in game (ram_client's own
-        KNOWN_ROOM_IDS calls them a shop). The other eight come from the player's compilation."""
+        KNOWN_ROOM_IDS calls them a shop). The other eight come from a manual compilation."""
         for room_id in (21, 156):
             self.assertIn(room_id, shops.SHOP_ROOM_IDS)
             self.assertIn("shop", rc.KNOWN_ROOM_IDS[room_id].lower())

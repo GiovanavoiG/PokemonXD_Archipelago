@@ -1,9 +1,9 @@
 """ADDENDA 370/371 (2026-09-27): Shadows follow the ramp, and the Lair's floor is 0x67.
 
-Player: *"Apparently many trainers shadows are not matched to their team level at all. Please investigate. Also,
-make the key lair floor 0x67 by default."*
+Many trainers' Shadows were not matched to their team level at all. Separately, the Key Lair floor becomes
+0x67 by default.
 
-ADDENDUM 370 -- WHAT WAS WRONG, measured on their seed (AP_84192203482497242093; path scaling on, ED off)
+ADDENDUM 370 -- WHAT WAS WRONG, measured on the affected seed (AP_84192203482497242093; path scaling on, ED off)
 before anything was changed. `max(tier_level, vanilla_shadow_level)` predicted 76 of the 76 checkable shipped
 Shadow levels, and 57 of the 83 Shadows had the vanilla half win:
 
@@ -29,8 +29,7 @@ avg 11.5" for a Cipher Lab Shadow in a seed whose Cipher Lab tier was 40), becau
 other number. So the notes described a level nobody was writing and the bug looked fine on paper. It now states
 the level actually assigned, which is the property that found ADDENDUM 315.
 
-ADDENDUM 371 -- the floor the player asked for conditionally on 2026-09-26 and unconditionally a day later. The
-value moves from `AREA_FLOOR_RULES` to `AREA_ENTRY_FLOOR_OVERRIDES`; see `test_addendum_364_*`, retargeted, for
+ADDENDUM 371 -- the Key Lair floor at 0x67, unconditionally since 2026-09-27. The value moves from `AREA_FLOOR_RULES` to `AREA_ENTRY_FLOOR_OVERRIDES`; see `test_addendum_364_*`, retargeted, for
 why 0x67 is the right rung, and the override's own comment for what it costs at Zook #2.
 """
 from __future__ import annotations
@@ -128,11 +127,11 @@ class TestTheWholeCensusUnderTheRamp(unittest.TestCase):
 
     def test_the_bug_is_reproducible_by_dropping_the_mark(self) -> None:
         """A probe rather than a claim: without `level_source` the census diverges, and every divergence is
-        upward, which is the direction the player reported.
+        upward, which is the direction seen in play.
 
         On the INTENDED path the damage is small -- each region's tier is roughly where its vanilla levels
         already were, which is why this went unnoticed for so long. `TestTheReportedSeed` below runs the same
-        probe on the ordering the player's seed actually had."""
+        probe on the ordering the affected seed actually had."""
         fixed, broken = self._assign(mark=True), self._assign(mark=False)
         differ = {ddpk for ddpk in fixed if fixed[ddpk] != broken[ddpk]}
         self.assertTrue(differ, "the floor no longer changes any level, so the fix is untested here")
@@ -201,7 +200,7 @@ class TestTheReportedSeed(unittest.TestCase):
                 ddpk = record["ddpk_index"]
                 self.assertEqual(rung_level, fixed[ddpk], f"{region} ddpk {ddpk} is off its own rung")
             self.assertTrue(any(broken[record["ddpk_index"]] > rung_level for record in rows),
-                            f"{region} shows none of the reported damage, so this is the wrong fixture")
+                            f"{region} shows none of the observed damage, so this is the wrong fixture")
 
     def test_no_shadow_ever_outranks_its_own_areas_tier(self) -> None:
         """Stated as the thing the player would see: a Shadow standing on a team the ramp moved must not be
@@ -281,7 +280,7 @@ class TestTheKeyLairFloor(unittest.TestCase):
 
     def test_it_cannot_move_a_single_trainer_level(self) -> None:
         """ADDENDUM 329's fence, re-checked because this addendum is exactly the kind of change that broke it
-        the first time: an icon instruction ("make Cipher Key Lair's floor 0x64") silently re-ordered the level
+        the first time: an icon floor change (the Key Lair's floor to 0x64) silently re-ordered the level
         ramp, because `_path_floor` was asking `area_entry_floor`. It asks `region_floor` now."""
         before = pls.level_by_trainer_index()
         original = dict(sb.AREA_ENTRY_FLOOR_OVERRIDES)
@@ -298,13 +297,13 @@ class TestTheKeyLairFloor(unittest.TestCase):
         relied on.
 
         It is already filler-only, and not by accident that needed a new list entry: Zook #1 (9) is on the
-        player's own missable compilation and ADDENDUM 188 widened that fence to every occurrence of a marked
+        missable compilation and ADDENDUM 188 widened that fence to every occurrence of a marked
         surname. This asserts the two facts together, so that un-fencing Zook later cannot quietly put
         progression behind a fight this floor skips -- the failure would otherwise be an unwinnable seed every
         time rather than a probability."""
         self.assertEqual("Cipher Key Lair (exterior)", tp.PLACEMENTS[147].region)
-        # ADDENDUM 411 brought the floor down to 0x65 itself, "so we can hopefully fight him there"; ADDENDUM 439
-        # took it to 0x64, the rung BEFORE his fight, on the player's instruction. Whether he stands there is
+        # ADDENDUM 411 brought the floor down to 0x65 itself, so that he can be fought there; ADDENDUM 439
+        # took it to 0x64, the rung BEFORE his fight. Whether he stands there is
         # unconfirmed in play, so the fence stays until a play test says he does. Below 0x64 the Lair would be
         # asking for Gonzap's chain -- the Snagem coupling ADDENDUM 332 removed.
         self.assertGreaterEqual(sb.area_entry_floor(LAIR), 0x64,

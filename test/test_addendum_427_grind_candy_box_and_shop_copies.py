@@ -1,11 +1,10 @@
 """ADDENDUM 427 (2026-10-06) -- Reduce Citadark Grind, the Candy Box, Realgam's shelf text, legal Shadow moves.
 
-Player: "Add an option called "reduce_citadark_grind" that makes one of the gateon expansion items a guaranteed
-rebuyable rare candy that costs only 1 dollar. Also, Realgam shop broke and was very slow to write for me. Please
-fix. Also, investigate making a NEW ITEM (Candy Box) ... If you can't make a prompt, make it put the pokemon to
-level 100 OR 99 if it needs to evolve twice, so it can still evolve from levelup. Give the shadows legal movesets
-please. Also, separate the TM/move functionality from our enhanced difficulty options - just make it default, not
-attached to any option."
+The "reduce_citadark_grind" option makes one of the Gateon expansion items a guaranteed rebuyable Rare Candy that
+costs only 1. The Realgam shop was broken and very slow to write. A NEW ITEM, the Candy Box, puts a Pokemon at
+level 100, OR 99 if it still has an evolution ahead, so it can still evolve from a level-up. Shadows get legal
+movesets. The TM/move functionality is separate from the enhanced difficulty options -- on by default, not
+attached to any option.
 """
 from __future__ import annotations
 
@@ -179,7 +178,7 @@ class TestTheLevelTable(unittest.TestCase):
         self.assertEqual(99, table[4])      # Charmander
         self.assertEqual(99, table[5])      # Charmeleon -- one evolution left, so it stops at 99 too
         self.assertEqual(100, table[6])     # Charizard
-        self.assertEqual(99, table[350])    # Azurill -- the player's report
+        self.assertEqual(99, table[350])    # Azurill
 
     @unittest.skipUnless(RAM_DUMP.is_file(), "needs a RAM dump with XD's species table")
     def test_it_matches_the_games_own_evolution_data(self):
@@ -487,7 +486,7 @@ class TestThePatcherHalves(unittest.TestCase):
 
 
 class TestNinetyNineCandyBoxes(unittest.TestCase):
-    """ADDENDUM 428: "Can you add candy box as a fake item like the 99 rare candies to getitem them?" """
+    """ADDENDUM 428: the Candy Box is a fake `/getitem` item, like the 99 Rare Candies."""
 
     def test_it_is_a_getitem_only_bundle_of_the_candy_box_id(self):
         from .. import items as I
@@ -516,7 +515,7 @@ class TestNinetyNineCandyBoxes(unittest.TestCase):
 
 
 class TestShadowMovesAreUntouched(unittest.TestCase):
-    """Player: "Do the shadow pokemon still have their shadow moves? I don't want to remove those."
+    """Shadow Pokemon keep their Shadow moves.
 
     The legal-moveset channel writes the four ORDINARY move slots of a DPKM record in DeckData_Story.bin (+0x14,
     the moves a Shadow Pokemon reveals as it is purified). Shadow moves live in the DDPK records of

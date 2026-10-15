@@ -1,7 +1,7 @@
 """ADDENDUM 147 (2026-09-11): reading the party out of the save block, not the party menu.
 
-Player report: "I still have to open the party screen to get catch checks -- pc is working perfectly. Can we fix
-the party?" The asymmetry is the whole diagnosis: the PC-box scan reads BLOCK_BASE-relative save data and needs
+Catch checks for the party only arrived after opening the party screen, while the PC worked perfectly. The
+asymmetry is the whole diagnosis: the PC-box scan reads BLOCK_BASE-relative save data and needs
 no player action, while the party half read PARTY_BASE -- a 0x30-byte record holding name/species/level/HP,
 i.e. a menu row, which evidently does not populate a slot until the party screen has drawn it.
 """

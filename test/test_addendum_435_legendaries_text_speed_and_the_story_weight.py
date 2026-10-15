@@ -1,10 +1,9 @@
 """ADDENDUM 435 (2026-10-08) -- legendary options, text and battle speed, the white-out latch, and Citadark's weight.
 
-Player: "Let's add an option to enable legendaries as NORMAL pokemon trainers can have, an option to DISABLE
-legendaries as shadow pokemon, and an option to make sure shadow lugia is shuffled. ... We found out how to wipe us
-midbattle, so implement that. ... Build the instant text option if it doesn't exist. Citadark with location shuffle
-off can be parts-only, but see if you can TRY to make it so that it'll have you complete most of the story most of
-the time."
+Options to allow legendaries as NORMAL Pokemon on trainers' teams, to DISABLE legendaries as Shadow Pokemon,
+and to make sure Shadow Lugia is shuffled. A mid-battle white-out, now that the way to trigger one is known. An
+instant text option. And Citadark with location shuffle off may be parts-only, but should usually require
+completing most of the story.
 """
 from __future__ import annotations
 

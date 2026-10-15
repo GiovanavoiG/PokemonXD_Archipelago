@@ -1,9 +1,9 @@
 """ADDENDUM 311 -- Agate Village Pit Stop, per-category filler weights, stones and TMs demoted to filler.
 
-Player: "Can you add an option called 'Agate Village Pit Stop' that, instead of giving Agate AP items, gives a
-list of purchasable medicines/poke balls/great balls/ultra balls? Also, can we add a suite of options to control
-what item categories (TMs, medicine, pokeballs, stones etc) are allowed in the filler pool and what their weights
-are for appearing? Also, move evolution stones from progressive to filler, and tms to filler."""
+The 'Agate Village Pit Stop' option makes Agate sell purchasable medicines, Poke Balls, Great Balls and Ultra
+Balls instead of AP items. A suite of options controls which item categories (TMs, medicine, Poke Balls, stones
+etc.) are allowed in the filler pool and how heavily each is weighted. Evolution stones and TMs are filler, not
+progression."""
 import collections
 import random
 import struct

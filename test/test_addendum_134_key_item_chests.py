@@ -1,6 +1,5 @@
 """ADDENDUM 134 (2026-09-11): chest randomization must never overwrite a chest whose vanilla contents are a
-key item. Player report, verbatim: "key items are turned into berries but are not in the item pool,
-softlocking me." The ID Card (game item id 506, confirmed live -- it vanished from a written sweep the moment
+key item: a key item turned into a berry, and missing from the item pool, is a softlock. The ID Card (game item id 506, confirmed live -- it vanished from a written sweep the moment
 the player used it) lives in chest 18, room 8, the Cipher Lab; the old code replaced it with a dummy berry and
 the seed had no way to ever give it back."""
 from __future__ import annotations

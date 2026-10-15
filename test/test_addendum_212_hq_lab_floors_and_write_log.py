@@ -1,10 +1,10 @@
 """ADDENDUM 212 (2026-09-14) -- the three early-game HQ Lab floors, and the manual story-byte write log.
 
-Player instruction, verbatim:
-    "For location shuffle, If Kaminko reaches 0x07, and HQ Lab is below it, IMMEDIATELY set HQ lab to 0x07. If
-     HQ Lab reaches 0x0D, IMMEDIATELY change it to 0x0F. If Gateon reaches 0x16, set HQ lab to 0x17.
-     Please add a command that will print a log of all of our MANUAL story byte overwrites throughout a run -
-     just keep a running list."
+For location shuffle:
+    * If Kaminko reaches 0x07 and HQ Lab is below it, HQ Lab is set to 0x07 immediately.
+    * If HQ Lab reaches 0x0D, it is changed to 0x0F immediately.
+    * If Gateon reaches 0x16, HQ Lab is set to 0x17.
+    * A command prints a running log of every MANUAL story byte overwrite made during the run.
 
 Two features, one addendum, because the second exists to make the first auditable: the whole point of a write
 log is that a player who ends up at a byte they did not expect can see which rule put them there.
@@ -39,8 +39,8 @@ class TestTheThreeHQLabFloors(unittest.TestCase):
 
     def test_the_lab_skips_its_own_0x0D_pass_through(self):
         self.assertEqual(self.floor({"Pokemon HQ Lab": 0x0C}), None)
-        # ADDENDUM 288: the pass-through target is 0x0E now (player, 2026-09-19). Read from the bump table
-        # so the floor rule and the live bump cannot drift -- they are two halves of one instruction.
+        # ADDENDUM 288: the pass-through target is 0x0E now (2026-09-19). Read from the bump table
+        # so the floor rule and the live bump cannot drift -- they are two halves of one rule.
         self.assertEqual(self.floor({"Pokemon HQ Lab": 0x0D}), _PASS_THROUGH)
 
     def test_the_self_referential_rule_is_idempotent(self):
@@ -56,7 +56,7 @@ class TestTheThreeHQLabFloors(unittest.TestCase):
     def test_gateon_0x16_raises_the_lab_to_0x17(self):
         """TIGHTENED 2026-09-15 (ADDENDUM 227): the lab must ALSO have reached its own 0x0F first.
 
-        ADDENDUM 277 did not change this VALUE. 0x0F is the Snag Machine tier (player, 2026-09-18), which is
+        ADDENDUM 277 did not change this VALUE. 0x0F is the Snag Machine tier (2026-09-18), which is
         exactly the right thing to ask for. What changed is what can SATISFY it: the live bump (ADDENDUM 213,
         0x0D -> 0x0F) is a CLIENT write, and a client write is no longer eligible to become the lab's mark. So
         "the lab reached 0x0F" now means the game put it there, and this rule stopped being satisfiable by
@@ -101,7 +101,7 @@ class TestTheThreeHQLabFloors(unittest.TestCase):
 
 
 class TestARuleOnlyEverRaises(unittest.TestCase):
-    """The player's "and HQ Lab is below it" clause is not implemented as a condition -- it falls out of
+    """The "and HQ Lab is below it" clause of the Kaminko rule is not implemented as a condition -- it falls out of
     `target_for` taking a max. That is only true if this holds, so it is asserted rather than assumed."""
 
     def test_a_lab_already_past_the_floor_keeps_its_own_value(self):
@@ -345,8 +345,8 @@ class TestTheCommandExists(unittest.TestCase):
         # census: a persister added without this count moving would mean a writer whose log never reaches disk.
         # ADDENDUM 293 added the fifth: the vanilla-travel bump (`_bump_in_vanilla_travel`), which is a
         # story-byte write like any other and has to reach the same log.
-        # ADDENDUM 321 added the sixth: the `!storybyte` debug command, which writes the byte on the player's
-        # own instruction and so has to land in the same log as every automatic writer.
+        # ADDENDUM 321 added the sixth: the `!storybyte` debug command, which writes the byte on demand
+        # and so has to land in the same log as every automatic writer.
         # ADDENDUM 332 added the seventh: the Snagem battle hold, whose drop and restore are story-byte writes
         # like any other -- and the only ones that go DOWNWARD, so a log that never reached disk would lose
         # the one record showing the value was put back.

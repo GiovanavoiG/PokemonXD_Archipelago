@@ -1,7 +1,7 @@
 """ADDENDUM 237. The Overworld Items census: retire the duplicates, exclude the unverified.
 
-Player: "where is the 'Agate Village - eagun's item' check? what does that represent?" -- then, after the
-census: "Retire the duplicates and mark anything we aren't certain on as excluded."
+The census asks what the 'Agate Village - Eagun's Item' check represents, then retires the duplicates and
+marks anything not certain as excluded.
 """
 from __future__ import annotations
 
@@ -14,9 +14,9 @@ from ..game_data import chest_table, overworld_item_census as census
 class TestTheCensusItself(unittest.TestCase):
     def test_the_two_sets_are_disjoint(self) -> None:
         """UPDATED BY ADDENDUM 335. The second set used to be `UNCERTAIN_EXCLUDED_LOCATIONS` -- names this
-        census could not vouch for, kept and marked EXCLUDED. The player has since played every one of them
-        ("None of these are real"), so they are retired under their own reason and the pairing is now two
-        RETIREMENTS that must not overlap."""
+        census could not vouch for, kept and marked EXCLUDED. Every one of them has since been played and none
+        is real, so they are retired under their own reason and the pairing is now two RETIREMENTS that must
+        not overlap."""
         self.assertEqual(frozenset(),
                          census.RETIRED_DUPLICATE_LOCATIONS & census.RETIRED_UNREAL_LOCATIONS)
         self.assertEqual(len(census.RETIRED_LOCATIONS),
@@ -64,8 +64,8 @@ class TestRetirement(unittest.TestCase):
         """RETARGETED BY ADDENDUM 335, and the flip is the finding.
 
         This asserted that the fourteen unverified names SURVIVE -- which was right while they were unknown,
-        because retiring a real location loses a check. They are not unknown any more: the player played
-        every one and none exists. What the test guards now is that they really left the table, and that
+        because retiring a real location loses a check. They are not unknown any more: every one has been
+        played and none exists. What the test guards now is that they really left the table, and that
         ADDENDUM 26's rule held while they did."""
         for name in census.RETIRED_UNREAL_LOCATIONS:
             self.assertNotIn(name, L.LOCATION_TABLE, name)
@@ -73,13 +73,13 @@ class TestRetirement(unittest.TestCase):
                           f"{name}'s id must stay recorded and never be reassigned")
 
     def test_eaguns_item_is_retired_after_all(self) -> None:
-        """The player's own question, and its eventual answer. ADDENDUM 237 began with "where is the 'Agate
-        Village - eagun's item' check? what does that represent?" -- it was kept as a bare "... Item" name
+        """The census's opening question, and its eventual answer. ADDENDUM 237 began by asking what the
+        'Agate Village - Eagun's Item' check represents -- it was kept as a bare "... Item" name
         the census could not place. ADDENDUM 335 answers it: nowhere, because it is not there."""
         self.assertIn("Agate Village - Eagun's Item", census.RETIRED_UNREAL_LOCATIONS)
         self.assertNotIn("Agate Village - Eagun's Item", L.LOCATION_TABLE)
 
     def test_the_uncertain_mechanism_is_gone_rather_than_empty(self) -> None:
         """ADDENDA 247/298's rule: a condition that can never bind reads as a guarantee. With every name
-        ruled on, an empty uncertain set still wired into `locations.py` would claim to protect something."""
+        resolved, an empty uncertain set still wired into `locations.py` would claim to protect something."""
         self.assertFalse(hasattr(census, "UNCERTAIN_EXCLUDED_LOCATIONS"))

@@ -1,13 +1,12 @@
 """ADDENDUM 332 (2026-09-23): the Key Lair leaves Snagem behind, and the hideout fights one rung lower.
 
-Player, in one message:
+Two changes, both for location shuffle only:
 
-> Decouple Key Lair from snagem - we no longer need snagem to access key lair. Also, upon fighting a trainer
-> in snagem, please temporarily drop the story byte back to 0x62 unless it's Gonzap or the trainer right
-> before him. This lets us properly load snagem, but currently gonzap won't fight the trainer - so we need to
-> go back one bit to fix him. The floor can stay at 0x63, but once a fight happens we need 0x62.
-
-Followed by: "that's SPECIFICALLY FOR LOCATION SHUFFLE btw".
+  * The Key Lair is decoupled from Snagem -- Snagem is no longer needed to access the Key Lair.
+  * Fighting a trainer in Snagem temporarily drops the story byte back to 0x62, except for Gonzap and the
+    trainer right before him. The 0x63 floor is what lets Snagem load properly, but at 0x63 Gonzap will not
+    fight, so a fight needs the byte one rung lower. The floor stays at 0x63; once a fight happens the byte is
+    0x62.
 
 Two unrelated changes that share a scope, so they share a file.
 """
@@ -38,7 +37,7 @@ class TestTheKeyLairIsDecoupled(PokemonXDTestBase):
         self.assertTrue(self.multiworld.state.can_reach("Cipher Key Lair", player=self.player))
 
     def test_it_no_longer_needs_snagem_reachable(self) -> None:
-        """Stated as the player stated it: Snagem is not on the path any more."""
+        """Stated plainly: Snagem is not on the path any more."""
         from BaseClasses import CollectionState
 
         state = CollectionState(self.multiworld)
@@ -66,7 +65,7 @@ class TestTheKeyLairIsDecoupled(PokemonXDTestBase):
 
 
 class TestVanillaTravelStillChainsThroughSnagem(PokemonXDTestBase):
-    """"That's SPECIFICALLY FOR LOCATION SHUFFLE." With the option off the story chain is the only route and
+    """Both changes are for location shuffle ONLY. With the option off the story chain is the only route and
     the game's own route really does run through the hideout, so nothing above may leak into this mode."""
 
     options = {"randomize_travel_locations": False, "key_item_shuffle": True}
@@ -246,8 +245,8 @@ class TestItIsAlwaysPutBack(_HoldBase):
 class TestItIsWiredForLocationShuffleOnly(unittest.TestCase):
     def test_the_poll_lives_on_the_travel_shuffle_path(self) -> None:
         """The hold is only ever called from the branch that runs with travel shuffle on -- the same branch
-        the area memory and the in-area bump live on. A second call site on the vanilla path would be the
-        leak the player's "SPECIFICALLY FOR LOCATION SHUFFLE" rules out.
+        the area memory and the in-area bump live on. A second call site on the vanilla path would be a
+        leak, because the hold is for location shuffle only.
 
         Read off the file rather than imported: `Client` pulls in the websocket stack, which a data-only test
         has no business needing."""

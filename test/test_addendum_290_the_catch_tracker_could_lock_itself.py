@@ -1,7 +1,6 @@
 """ADDENDUM 290 (2026-09-19) -- a flaky read locked the catch tracker, permanently.
 
-Player: "After two or three catches in the PC, the checks stop sending automatically. Can we double check our
-block structure and that we're actually polling consistently? Is it breaking?"
+After two or three catches in the PC, the checks stopped sending automatically.
 
 It was breaking, and it was reproducible in nine lines against `SpeciesCatchTracker` alone -- no emulator, no
 block structure, no poll-rate question. Three catches, ONE poll where a couple of slot reads fail, and no
@@ -70,7 +69,7 @@ def _primed(*caught: int) -> rc.SpeciesCatchTracker:
 
 
 class TestTheReportedStall(unittest.TestCase):
-    """The player's sequence, start to finish."""
+    """The stalling sequence, start to finish."""
 
     def test_three_catches_then_a_flaky_poll_then_a_fourth_catch(self) -> None:
         tracker = _primed(PIKACHU, DITTO, SNORLAX)

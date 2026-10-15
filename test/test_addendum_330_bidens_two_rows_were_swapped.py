@@ -1,7 +1,6 @@
 """ADDENDUM 330 (2026-09-23): the two Biden rows had their regions the wrong way round.
 
-Player: "With path scaling, Biden in Snagem was level 40 but the rest of snagem was 15/16 - is this due to
-his fight in the Key Lair? did it scale him to key lair levels?"
+With path scaling, Biden in Snagem was level 40 while the rest of Snagem was 15/16 -- scaled to Key Lair levels.
 
 ADDENDUM 329 fixed the mechanism (the Cipher Key Lair ICON's floor was reaching the level ramp). This is the
 residue: the fight the player met in the Snagem Hideout is `Defeat - Biden #1`, trainer 143, and the census
@@ -48,7 +47,7 @@ class TestTheTwoBidenRows(PokemonXDTestBase):
                          "149 is where the interior begins -- 147/148 are the last two rows outside it")
 
     def test_the_reported_fight_is_levelled_with_its_neighbours(self) -> None:
-        """The player's actual complaint, on the intended path: Biden must not tower over the Snagem block."""
+        """The actual symptom, on the intended path: Biden must not tower over the Snagem block."""
         levels = pls.level_by_trainer_index()
         snagem = [levels[index] for index, place in tp.PLACEMENTS.items()
                   if place.region == "Snagem Hideout" and index in levels]

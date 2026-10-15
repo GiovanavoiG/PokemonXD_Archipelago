@@ -1,8 +1,6 @@
 """ADDENDUM 207. Every chest in the game is accounted for, and this test keeps it that way.
 
-Player: "Are we certain EVERY chest in the game is accounted for? Double check."
-
-Checked against the real ISO on 2026-09-14, from the player's own extracted `common_rel`:
+Checked against the real ISO on 2026-09-14, from an extracted `common_rel`:
 
   * `XDTreasureBoxData` declares **116** entries.
   * Entry 0 is all 28 bytes zero -- the sentinel `xd_rel_format.chest_raw_count` had flagged as a hypothesis
@@ -108,7 +106,7 @@ class TestTheLocationCountReconciles(unittest.TestCase):
     def test_the_split_pair_kept_one_id_and_minted_one(self) -> None:
         """108 keeps the merged pair's frozen id so existing seeds still point at the same check; 113 is a
         genuinely new location and takes a fresh id above everything that existed."""
-        # The generated names were replaced by the player's own labels in ADDENDUM 230; the IDS are what this
+        # The generated names were replaced by hand-written labels in ADDENDUM 230; the IDS are what this
         # test is about, and they are unchanged by a rename -- which is the whole point of the frozen table.
         self.assertEqual(world_locations.LOCATION_TABLE["Kaminko Crane Room Chest 1"].id_offset, 1520)
         self.assertEqual(world_locations._FROZEN_LOCATION_OFFSETS["Chest 108+113 (Room 171)"], 1520,

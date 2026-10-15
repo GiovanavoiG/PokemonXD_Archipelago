@@ -19,7 +19,7 @@ table" is the authoritative source for every entry below.
 
 ALWAYS OPEN BY DESIGN, never items (ADDENDUM 106): Kaminko Mansion and the HQ Lab have no gating bit at all
 (ADDENDUM 84; the lab was never a separate destination), while Agate Village (`+0x09` `0x20`) and Gateon Port
-(`+0x08` `0x08`) do and are written proactively. "The Under" is not a reachable area in XD (player correction,
+(`+0x08` `0x08`) do and are written proactively. "The Under" is not a reachable area in XD (corrected
 2026-09-09) and never had a bit; Citadark Isle goes through the story byte, not this bitmask.
 
 Adjacency is confirmed for Outskirt Stand and SS Libra only (ADDENDUM 105). For the other twelve no source solid
@@ -95,9 +95,8 @@ TRAVEL_LOCATION_BITS: dict[str, TravelBit] = {
     "Phenac City": TravelBit(0x0A, 0x80),
     "Oasis Poke Spot": TravelBit(0x0D, 0x02),
     "Realgam Tower": TravelBit(0x0E, 0x02),
-    # ADDENDUM 378, player: "Make every 'Key Lab' reference 'Key Lair'." This key is the one edit that does it: the
-    # item, the `Unlock -` location and regions.py's `Travel Gateway -` region all derive from
-    # `TRAVEL_LOCATION_NAMES`, which comes from this table. Its POSITION is unchanged, which keeps the ids.
+    # ADDENDUM 378: the item, the `Unlock -` location and regions.py's `Travel Gateway -` region all derive from
+    # `TRAVEL_LOCATION_NAMES`, which comes from this table. This key's POSITION is unchanged, which keeps the ids.
     "Cipher Key Lair": TravelBit(0x0E, 0x08),
     "Rockground Poke Spot": TravelBit(0x0E, 0x80),
     # "Kaminko's House" (`TravelBit(0x0F, 0x02)`) removed 2026-09-25, ADDENDUM 356. Its item gated nothing:
@@ -107,8 +106,8 @@ TRAVEL_LOCATION_BITS: dict[str, TravelBit] = {
     "Cipher Lab": TravelBit(0x0F, 0x08),
     "Mt. Battle": TravelBit(0x0F, 0x20),
     "SS Libra": TravelBit(0x0F, 0x80),
-    # "Orre Colosseum" (`TravelBit(0x11, 0x04)`) removed 2026-10-09, ADDENDUM 446. Player: "Remove the travel unlock
-    # for Orre Colosseum and ensure no checks are there." Its item opened an empty region that led nowhere, and its
+    # "Orre Colosseum" (`TravelBit(0x11, 0x04)`) removed 2026-10-09, ADDENDUM 446, along with every check there.
+    # Its item opened an empty region that led nowhere, and its
     # only check was `Unlock - Orre Colosseum`. The client no longer touches the bit, so the game reveals the icon
     # at its own vanilla moment. Frozen item id 253 and location id 1431 are retired, never reused.
 }
@@ -164,7 +163,7 @@ ALWAYS_OPEN_TRAVEL_BITS: dict[str, TravelBit] = {
 
 # Which existing regions.py region a travel item unlocks reachability to (see create_and_connect_regions). Since
 # ADDENDUM 171/168 gave the graph 21 real regions, 13 of 14 are exact 1:1 matches rather than the old
-# seven-region approximations; the one merge is the player's own, all three Poke Spots on one region.
+# seven-region approximations; the one merge is deliberate, all three Poke Spots on one region.
 #
 # ADDENDUM 185 gave Orre Colosseum a region of its own that held nothing and led nowhere; ADDENDUM 446 removed the
 # destination, its item, its check and that region.
@@ -187,8 +186,8 @@ TRAVEL_LOCATION_TARGET_REGION: dict[str, str] = {
     "SS Libra": "SS Libra",
 }
 
-# ADDENDUM 171: the vanilla unlock moment becomes a CHECK. The player's own example -- "Mt Battle is vanilla
-# unlocked at story byte 0x23 > 0x24" -- applies to every destination after Kaminko/Agate/Gateon/HQ Lab. The GAME
+# ADDENDUM 171: the vanilla unlock moment becomes a CHECK. Mt. Battle, for example, is unlocked in vanilla at story
+# byte 0x23 > 0x24; the same applies to every destination after Kaminko/Agate/Gateon/HQ Lab. The GAME
 # still unlocks destinations as the story advances, and ADDENDUM 104 only ever added bits, so progressing
 # normally gave every destination free. Now an
 # unreceived destination's bit is held clear every tick, and the byte that would have unlocked it in the
@@ -392,9 +391,8 @@ TRAVEL_LOCATION_ADJACENCY: dict[str, AdjacencyRequirement] = {
 # being looser than the unmodified game, and the Disc and Note land on every path to the ship. With travel
 # randomization off none of this applies -- `ScooterStoryHold` keeps the ship before Snagem there.
 #
-# ADDENDUM 481 relaxed it to the town itself. Player: "Gate SS Libra's items logically JUST behind the phenac unlock -
-# we don't need the phenac clear at all. SS Libra can be just logically behind phenac unlock and scooter upgrade if
-# it's enabled." With travel shuffle the "Phenac City" region's one entrance is its own gateway, so this is exactly
+# ADDENDUM 481 relaxed it to the town itself: SS Libra's items are logically behind JUST the Phenac unlock (no Phenac
+# clear), plus the Scooter Upgrade when that is shuffled. With travel shuffle the "Phenac City" region's one entrance is its own gateway, so this is exactly
 # "hold Travel Unlock - Phenac City"; the Scooter Upgrade stays where ADDENDUM 273 put it, on the SS Libra region.
 # REVERT: `("Phenac City (Post-Sixes)",)`.
 TRAVEL_LOCATION_REQUIRED_REGIONS: dict[str, tuple[str, ...]] = {
@@ -540,8 +538,8 @@ def write_travel_location_bit(record_base: int, location_name: str) -> None:
 def revealed_by_game(record_base: int, location_name: str, received: bool) -> bool:
     """ADDENDUM 434: has the GAME revealed `location_name` on the map? The moment it does is the `Unlock -` check.
 
-    Player: "instead of sending location unlock checks via story byte, instead do it when we detect a partial bit
-    of any kind for travel visibility." The game sets a destination's bits itself when the story reveals it
+    Location unlock checks are sent when a partial travel-visibility bit of any kind is detected, not off the story
+    byte. The game sets a destination's bits itself when the story reveals it
     (ADDENDUM 380 saw it set the partial bit), and this client owns every other write to them, so a bit we would
     not have left there is the game's reveal:
 

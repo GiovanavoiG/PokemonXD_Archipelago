@@ -1,7 +1,7 @@
 """ADDENDUM 447 (2026-10-09) -- one catch option, and the YAML in sections.
 
-Player: "Can you fold the max catch rate/catch rate scaling options into one? Also, please reorder the yaml options so
-that related/similar options are near each other and in a sensible order."
+The max catch rate and catch rate scaling options are folded into one, and the YAML options are reordered so related
+options sit near each other in a sensible order.
 """
 from __future__ import annotations
 

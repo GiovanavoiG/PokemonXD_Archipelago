@@ -1,8 +1,7 @@
 """ADDENDUM 310 -- catch-location sources in hints and !catches; Phenac Colosseum chests 1-3 behind the Sixes.
 
-Player: "for Catch - Luvdisc etc, can we add the trainer that received them & the location to the check name so
-that the players know where it's at? Also, Phenac colosseum chest 1 2 and 3 should be locked behind music disc
-and mayor's note - currently they are not"."""
+A `Catch -` check (Catch - Luvdisc etc.) names the trainer that received the Pokemon and its location, so players
+know where it is. Phenac Colosseum chests 1, 2 and 3 are locked behind the Music Disc and the Mayor's Note."""
 import unittest
 
 from . import PokemonXDTestBase

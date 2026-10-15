@@ -1,15 +1,13 @@
 """ADDENDUM 309 (2026-09-22) -- item delivery starts on a step, not on the absence of a detected battle.
 
-Player: "Can we attach item delivery to the step counter incrementing? seems much safer than battle
-scanning. Check ngc-rando to see if they found the step counter, otherwise scan our dumps - it should mostly
-increment and then maybe reset to 0 at intervals."
+Item delivery is attached to the step counter incrementing, which is much safer than battle scanning.
 
 NOTHING PUBLISHED. Neither rotobash's randomizer nor the public XD RAM research documents a step counter, so
 it was found in this project's own MEM1 corpus by requiring the shape a step counter MUST have: unchanged
 across every battle and idle pair (nobody walks in a battle), changed across walk pairs. Across the whole save
 block exactly one offset qualified -- `+0x908`, u32BE.
 
-The player expected it might reset at intervals. It does not: a plain running total, 0 on a new save and
+It might have reset at intervals. It does not: a plain running total, 0 on a new save and
 climbing monotonically through at least 14,765 steps. That makes the gate simpler, not harder.
 
 WHY THIS IS SAFER THAN WHAT IT REPLACES. The battle gate is a detector that can only fail by missing, and
@@ -138,7 +136,7 @@ class TestTheWiring(unittest.TestCase):
         self.assertIn("battle_says_safe = ctx.battle_state_tracker.poll(", self.body)
 
     def test_the_ten_minute_backstop_still_applies(self) -> None:
-        """"Never block sending items" -- a player idling in a menu still receives, eventually."""
+        """Item sending is never blocked -- a player idling in a menu still receives, eventually."""
         self.assertIn("waited < ITEM_DELIVERY_MAX_BATTLE_WAIT_SECONDS", self.body)
 
     def test_the_context_owns_one_gate(self) -> None:

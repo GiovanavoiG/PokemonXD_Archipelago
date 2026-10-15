@@ -10,11 +10,8 @@ The original record follows unchanged.
 
 ADDENDUM 397 (2026-10-01) -- `world_checks` falls back to `everything` when it names nothing.
 
-Player: "Shops are progression eligible. ... rethink this whole thing"
-        "there's so many eligible progression items. go tally them and mark them"
-        "Even with all the options off."
-
-They were right on every count, and ADDENDUM 396 had stopped one rung short of the cause.
+Shops are progression eligible, and there are a great many eligible progression items -- even with all the
+options off. ADDENDUM 396 had stopped one rung short of the cause.
 
 WHAT 396 GOT RIGHT: every fill failure in a 500-seed roll had more progression items than non-EXCLUDED
 locations. WHAT IT GOT WRONG: it called that the bug. It is the symptom. The cause is that

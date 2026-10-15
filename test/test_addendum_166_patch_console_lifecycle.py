@@ -1,7 +1,6 @@
 """ADDENDUM 166 (2026-09-13): the patch console is released when the patch ends.
 
-Player request: "Make the patch console not connect to the server - let it end with 'Patch Complete. Press
-Enter to close.'"
+The patch console never connects to the server, and it ends with 'Patch Complete. Press Enter to close.'
 
 The console never connected to anything. `_ensure_visible_console()` repoints THIS process's streams -- and
 this process is the Archipelago Launcher -- so the redirection outlived the patch and the window titled
@@ -98,7 +97,7 @@ class _ConsoleFixture:
 
 
 class TestReleasingTheConsole(unittest.TestCase):
-    def test_it_prints_the_exact_message_the_player_asked_for(self) -> None:
+    def test_it_prints_the_exact_message(self) -> None:
         with _ConsoleFixture() as fixture:
             lp._release_console(SUCCESS_MESSAGE)
             printed = fixture.console_output

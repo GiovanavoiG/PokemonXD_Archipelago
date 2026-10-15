@@ -1,6 +1,6 @@
 """ADDENDUM 233. Every Shadow Pokemon gets at least one move that actually deals damage.
 
-Player: "just ensure every shadow pokemon has at least one attacking move, drawn uniformly is fine."
+Every Shadow Pokemon has at least one attacking move, and the moves are still drawn uniformly.
 
 WHY THIS MATTERS AND WHY IT IS NOT JUST A NICETY. A Shadow Pokemon cannot use the ordinary moves on its DPKM
 entry until the heart gauge opens, so the (up to) four ids in its DDPK record are its entire offense for most
@@ -60,7 +60,7 @@ class TestChooseShadowMovesAlwaysAttacks(unittest.TestCase):
                 self.assertEqual([], sms.illegal_placements(moves), f"{moves} sits in a wrong slot")
 
     def test_the_draw_is_still_uniform_over_slot_zero(self) -> None:
-        """The player asked for the guarantee, not for a reweighting -- every slot-0 move must still show up."""
+        """A guarantee, not a reweighting -- every slot-0 move must still show up."""
         rng = random.Random(7)
         seen = {sms.choose_shadow_moves(rng, 2)[0] for _ in range(4000)}
         self.assertEqual(seen, set(sms.MOVES_LEGAL_IN_SLOT[0]))

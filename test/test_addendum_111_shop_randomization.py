@@ -8,9 +8,9 @@ This file merges the five previously separate ADDENDUM 111 test modules into one
   * test_addendum_111_shop_purchase_tracker.py     -- ram_client.ShopPurchaseTracker's debounce behaviour
   * test_addendum_111_mart_rel_helpers.py          -- tools/xd_rel_format.apply_mart_randomization
 
-The player request this addendum implements: "utilize all of our individual useless berries as dummy
-items... Make it so purchasing each item ONCE sends an AP check - we can change the order of the berries
-between each shop so that we can identify each unique shop at runtime." Collectively this supersedes
+What this addendum implements: the individual useless berries become dummy items, purchasing each item ONCE
+sends an AP check, and the order of the berries changes between shops so that each unique shop can be
+identified at runtime. Collectively this supersedes
 ADDENDUM 110's single-SHOP_DUMMY_GAME_ITEM_ID/ShopCountTracker design, whose test modules are already gone.
 
 WHAT THE MERGE DROPPED, AND WHY (54 test functions -> 32). Nothing that covered a distinct behaviour, an
@@ -35,8 +35,8 @@ and its docstring's reasoning were folded into the test that kept the behaviour:
     reset; the two ADDENDUM 148 block-stability-gate assertions; the ProgressionLocations=0 escape hatch's
     two halves).
 
-DELIBERATELY NOT DROPPED even though they look small: the Enigma Berry removal check (a live player
-report, and the SECOND time that item has been pulled for being bugged in-game), every ShopPurchaseTracker
+DELIBERATELY NOT DROPPED even though they look small: the Enigma Berry removal check (the SECOND
+time that item has been pulled for being bugged in-game), every ShopPurchaseTracker
 debounce/glitch/cap path, both mart write-bound tests (ADDENDUM 127's live junk slot 34888 and ADDENDUM
 128's declared-pool-size bound -- these are the ones standing between a patch pass and a corrupt ISO), and
 both ProgressionLocations behaviours.
@@ -219,7 +219,7 @@ class TestUselessBerrySpecs(unittest.TestCase):
         load-bearing, not cosmetic: generate_output() ships `list(items.USELESS_BERRY_IDS)` into seed.json and
         apply_mart_randomization rotates through that list positionally, so a reshuffle silently changes which
         berry lands in which shop slot."""
-        # NARROWED 2026-09-15 (ADDENDUM 218, player: "The shops do not need every dummy berry"). Ganlon (169)
+        # NARROWED 2026-09-15 (ADDENDUM 218: the shops do not need every dummy berry). Ganlon (169)
         # through Starf (174) moved to items.CHEST_BERRY_SPECS, where they give each chest its own identity.
         expected = set(range(148, 169)) - {161}
         self.assertEqual(set(items.USELESS_BERRY_IDS), expected)
@@ -244,8 +244,8 @@ class TestUselessBerrySpecs(unittest.TestCase):
         )
 
     def test_enigma_berry_was_removed_2026_09_11_for_being_bugged_in_game(self) -> None:
-        # ADDENDUM 117 follow-up, player request: "remove Enigma berry as one of our dummies, as it's bugged
-        # in-game" -- the second time this specific item has been pulled for being bugged (ADDENDUM 31 already
+        # ADDENDUM 117 follow-up: the Enigma Berry is no longer one of the dummies, as it's bugged
+        # in-game -- the second time this specific item has been pulled for being bugged (ADDENDUM 31 already
         # swapped it out as CHEST_DUMMY_GAME_ITEM_ID for the same reason).
         self.assertNotIn(175, items.USELESS_BERRY_IDS)
         self.assertNotIn("Enigma Berry", items.USELESS_BERRY_ID_TO_NAME.values())
@@ -344,8 +344,8 @@ class TestShopRandomizationOptionOn(PokemonXDTestBase):
         self.assertNotIn(locations.SHOP_ITEM_LOCATIONS[0], locations.LOCATION_NAME_GROUPS["Overworld Items"])
 
     def test_shop_item_locations_can_hold_progression_by_default(self) -> None:
-        """CHANGED 2026-09-11 (ADDENDUM 150). These used to be asserted EXCLUDED unconditionally. The player
-        asked for the opposite -- "ensure that every check can be progressive/useful/not filler" -- so at
+        """CHANGED 2026-09-11 (ADDENDUM 150). These used to be asserted EXCLUDED unconditionally. Now every
+        check can be progressive/useful/not filler, so at
         `ProgressionLocations`' default they are DEFAULT, and rules.py gives each occurrence a real region
         rule instead of leaving it reachable from turn one. The old behaviour is still available and is
         covered by the ProgressionLocations tiers in test_addendum_150."""

@@ -1,6 +1,7 @@
 """ADDENDUM 458 (2026-10-10) -- the HQ Lab hold no longer lets go on a blind tick.
 
-Player: "Our HQ lab guard to hold to 16 - it didn't work. I was at 19 despite not having received the krane memos yet."
+The HQ Lab guard is meant to hold the byte at 0x16, but it let go: the byte reached 0x19 before the Krane Memos had
+been received.
 
 The arming was recomputed every tick from `machine_part_obtained`, which reads False until the server has re-sent the
 slot's items after a (re)connect. That tick RELEASED the hold, and the release gave back the byte it had pulled the
@@ -41,7 +42,7 @@ class TestTheGiveBack(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def test_an_unarmed_tick_without_the_memos_gives_nothing_back(self) -> None:
-        """The reported failure: lab at our 0x16, 0x19 remembered, hold not armed for a tick, memos NOT handed over."""
+        """The failure seen in play: lab at our 0x16, 0x19 remembered, hold not armed for a tick, memos NOT handed over."""
         hold = rc.LabMemoStoryHold(armed=False, declined_value=0x19)
         self.assertIsNone(hold.poll(BASE, 0x16, LAB_ROOM, memos_received=False))
         self.assertEqual([], self.story.writes)

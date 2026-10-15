@@ -80,12 +80,12 @@ class TestSphereLogicDefaultOptions(PokemonXDTestBase):
         RETARGETED BACK to "reachable from the start" the same day (ADDENDUM 169); now RETARGETED AGAIN, still
         the same day, because ADDENDUM 169's always-open Agate Village was itself reversed.
 
-        SAME-DAY REVERSAL, and why it is not churn. ADDENDUM 169 first read the player's standing "the only
-        locations I want open by default are Kaminko, Gateon, Agate and Pokemon HQ Lab" as applying in every
-        mode and put `("Menu", "Agate Village", ())` in regions.REGION_EDGES. The player corrected that within
-        the day -- "Leave Agate, Kaminko and Gateon locked by default if travel randomization is off. Let them
-        unlock normally." -- so the four-always-open rule now lives ONLY in the randomize_travel_locations-on
-        branch of regions.py, and the default graph walks the vanilla route:
+        SAME-DAY REVERSAL, and why it is not churn. ADDENDUM 169 first applied the rule that only Kaminko,
+        Gateon, Agate and the Pokemon HQ Lab are open by default in every mode, and put
+        `("Menu", "Agate Village", ())` in regions.REGION_EDGES. That was corrected within the day -- with
+        travel randomization off, Agate, Kaminko and Gateon stay locked by default and unlock normally -- so
+        the four-always-open rule now lives ONLY in the randomize_travel_locations-on branch of regions.py,
+        and the default graph walks the vanilla route:
         Pokemon HQ Lab -> Kaminko's House -> Gateon Port -> (Machine Part) -> Agate Village.
 
         What this test protects is unchanged across all three versions, and is a census property, not a
@@ -97,7 +97,7 @@ class TestSphereLogicDefaultOptions(PokemonXDTestBase):
         """
         # RETARGETED AGAIN 2026-09-13 (ADDENDUM 175), and this time the answer got better rather than just
         # different. The old estimate gave the four always-open starting regions no trainers at all, so the
-        # first threshold sat in Agate Village, one key item in. The player's census puts 5 trainers in the
+        # first threshold sat in Agate Village, one key item in. The census puts 5 trainers in the
         # Pokemon HQ Lab and 9 in Gateon Port, so "Defeat 1 Trainers" is reachable from the start again -- for
         # the real reason this time, not because the bucket happened to be parked off Menu.
         first_region, _ = _first_region_holding_any(rules._TRAINER_WEIGHT_BY_REGION)
@@ -108,14 +108,14 @@ class TestSphereLogicDefaultOptions(PokemonXDTestBase):
         # INVERTED 2026-09-13 (ADDENDUM 175). This used to assert that the always-open starting regions carry
         # NO trainer weight, which was true of the estimate and is false of the census -- they hold 21 between
         # them. So the property flips: the bottom of the ladder is open on an empty state precisely BECAUSE
-        # those regions hold trainers, which is the outcome the player asked for in ADDENDUM 169 ("Gateon,
-        # Kaminko, HQ Lab and Agate should all have checks from their trainer defeats and chests").
+        # those regions hold trainers, which is the outcome ADDENDUM 169 set out: Gateon, Kaminko, the HQ Lab
+        # and Agate all have checks from their trainer defeats and chests.
         for region_name in ("Pokemon HQ Lab", "Kaminko's House", "Gateon Port"):
             self.assertTrue(self.multiworld.state.can_reach(region_name, player=self.player), region_name)
         self.assertGreater(
             sum(rules._TRAINER_WEIGHT_BY_REGION.get(r, 0)
                 for r in ("Pokemon HQ Lab", "Kaminko's House", "Gateon Port")),
-            0, "the always-open regions must hold trainer checks -- ADDENDUM 169's instruction")
+            0, "the always-open regions must hold trainer checks -- ADDENDUM 169")
 
         self.assertTrue(self.multiworld.state.can_reach(first_region, player=self.player))
 
@@ -132,7 +132,7 @@ class TestSphereLogicDefaultOptions(PokemonXDTestBase):
         self.assertFalse(self.can_reach_location(trainer_defeat_count_location_name(TRAINER_CEILING)))
 
     def test_open_115_chests_requires_citadark_isle_specifically(self) -> None:
-        """Player request: "Make citadark isle the last sphere possible." Confirms the highest-N chest
+        """Citadark Isle is the last sphere possible. Confirms the highest-N chest
         location becomes reachable exactly when Citadark Isle itself does, not any region before it.
 
         RETARGETED 2026-09-13 (ADDENDUM 168): "5 Krane Memos, this skeleton's own Citadark Isle entrance

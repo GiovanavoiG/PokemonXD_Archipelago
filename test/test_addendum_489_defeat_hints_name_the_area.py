@@ -1,6 +1,4 @@
 """ADDENDUM 489 (2026-10-13) -- trainer-defeat hints name where the fight is, like the catch hints.
-
-Player: "Can you make it so the trainer checks/defeat hints show their location, like the catch hints?"
 """
 from __future__ import annotations
 

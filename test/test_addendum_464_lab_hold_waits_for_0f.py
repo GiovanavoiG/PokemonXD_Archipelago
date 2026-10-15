@@ -1,8 +1,7 @@
 """ADDENDUM 464 (2026-10-11) -- the HQ Lab hold waits for 0x0F and Krane Memos 1-2.
 
-Player: "Our clamp for machine part activates too early. ONLY clamp to 16 when we've already reached 0x0F on the HQ
-lab story byte and we have the machine part." Then: "How about just if it's at 0x0F at all, and we've received both
-memo 1 and 2?"
+The Machine Part clamp activated too early. The clamp to 0x16 now applies only once the HQ Lab story byte has
+reached 0x0F, the Machine Part is held, and both Krane Memo 1 and Memo 2 have been received.
 """
 from __future__ import annotations
 

@@ -76,13 +76,13 @@ class TestTravelLocationBitData(unittest.TestCase):
         self.assertIsNone(travel_locations.travel_location_name_from_item("Travel Unlock - Not A Real Place"))
 
     def test_the_under_has_no_bit_entry(self) -> None:
-        # Player correction, 2026-09-09: "The Under" is not a real, reachable area in this game.
+        # 2026-09-09: "The Under" is not a real, reachable area in this game.
         for name in travel_locations.TRAVEL_LOCATION_NAMES:
             self.assertNotIn("under", name.lower())
 
     def test_always_open_locations_are_never_randomizable(self) -> None:
-        # ADDENDUM 106 (2026-09-10, player request: "the only locations I want open by default are Kaminko,
-        # Gateon, Agate and Pokemon HQ Lab") -- none of the four should ever be a "Travel Unlock - " item.
+        # ADDENDUM 106 (2026-09-10): the only locations open by default are Kaminko, Gateon, Agate and
+        # Pokemon HQ Lab -- none of the four should ever be a "Travel Unlock - " item.
         # "Kaminko" here is Kaminko Mansion (Chobin's intro battle), NOT the late-game "Kaminko's House" travel
         # destination -- those are two distinct real locations (see travel_locations.py's own docstring).
         for name in ("Kaminko Mansion", "Gateon Port", "Agate Village"):
@@ -90,7 +90,7 @@ class TestTravelLocationBitData(unittest.TestCase):
         # UPDATED 2026-09-25 (ADDENDUM 356). "Kaminko's House" (late-game, distinct from Kaminko Mansion) used
         # to remain a real item-gated destination. It is retired: being always open, its item gated nothing --
         # its region kept an unconditional chain edge, so holding the item changed no location's reachability.
-        # So the rule this test states now covers all four names the player gave rather than three of them.
+        # So the rule this test states now covers all four default-open names rather than three of them.
         self.assertNotIn("Kaminko's House", travel_locations.TRAVEL_LOCATION_NAMES)
 
     def test_always_open_travel_bits_covers_exactly_gateon_port_and_agate_village(self) -> None:
@@ -136,7 +136,7 @@ class TestWriteTravelLocationBit(unittest.TestCase):
             self.assertTrue(travel_locations.read_travel_location_unlocked(self.record_base, name))
 
     def test_gateon_port_is_no_longer_an_item_gated_location(self) -> None:
-        # ADDENDUM 106 (player request, 2026-09-10): Gateon Port moved to ALWAYS_OPEN_TRAVEL_BITS and is no
+        # ADDENDUM 106 (2026-09-10): Gateon Port moved to ALWAYS_OPEN_TRAVEL_BITS and is no
         # longer a randomizable "Travel Unlock - " item.
         self.assertNotIn("Gateon Port", travel_locations.TRAVEL_LOCATION_BITS)
         with self.assertRaises(KeyError):

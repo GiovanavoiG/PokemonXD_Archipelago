@@ -1,7 +1,7 @@
-"""Regression coverage for the Goal option's live auto-detection (2026-09-09, ADDENDUM 94, player request:
-"detect the battle with name 'Greevil' or the 100th mt battle trainer, then upon defeat (the function we
-already have) send the goal option"; extended by ADDENDUM 95, player request: "find a walkthrough that gives
-the 100th trainer's name and search for it in the file, then fire goal upon defeat").
+"""Regression coverage for the Goal option's live auto-detection (2026-09-09, ADDENDUM 94: detect the battle
+against Greevil or the 100th Mt. Battle trainer and, on that defeat, send the goal through the existing defeat
+function; extended by ADDENDUM 95: the 100th trainer's name, taken from a walkthrough and found in the file,
+fires the goal on defeat).
 
 WHY THIS TEST STUBS `dolphin_memory_engine`: `ram_client.py` (the module `TrainerBattleDefeatTracker` and
 `BattleRosterRecord` live in) does `import dolphin_memory_engine as dme` at module level -- that real package
@@ -72,9 +72,8 @@ class TestGreevilLocationName(unittest.TestCase):
         )
 
     def test_first_greevil_kill_is_a_decoy_and_does_not_dispatch_the_location(self) -> None:
-        """ADDENDUM 102 (player report, live-tested: "It did not goal. Also, ensure that the first battle with
-        him doesn't goal - he only has one pokemon (where lugia should be). Only goal after the second
-        battle."): Greevil's real battle-roster surname is identical across both of his Citadark Isle
+        """ADDENDUM 102 (live-tested: the goal did not fire; and the first battle with Greevil must not goal --
+        he has only one Pokemon there, where Lugia should be -- only the second battle does): Greevil's real battle-roster surname is identical across both of his Citadark Isle
         encounters, so the FIRST confirmed kill (the single-Pokemon decoy battle) must produce no named
         location -- only the cumulative count bucket, same as any other ordinary trainer defeat."""
         tracker = ram_client.TrainerBattleDefeatTracker()

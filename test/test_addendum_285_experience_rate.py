@@ -1,8 +1,8 @@
 """ADDENDUM 285 (2026-09-19) -- the experience rate, and the byte that caps it.
 
-Player: "I still feel as though I'm receiving really low xp for defeating things - are there any fields in the
-structs for trainer pokemon that we don't know the meaning of?" then "let's make an exp rate option for normal
-or scaled exp - allow options between 1 and 5x - can we use decimals?"
+Experience for defeating things felt very low, which raised two questions: are there fields in the trainer
+Pokemon structs whose meaning is unknown, and can an experience-rate option offer normal or scaled experience
+between 1x and 5x, decimals included?
 
 THE ANSWER TO THE FIRST QUESTION IS NO, AND THAT IS WHY THE SECOND ONE NEEDED A HUNT. The DPKM record is 32
 bytes and all 32 are named -- censused against every one of the 823 records in a real DeckData_Story.bin with
@@ -16,7 +16,7 @@ THE TESTS THAT MATTER MOST ARE THE ONES THAT SAY WHAT CANNOT HAPPEN:
   * nothing is ever written outside the table's own declared extent;
   * and an unproven table is refused rather than written to.
 
-The dump-backed class at the end re-derives the whole feature from the player's real `common_rel` on every run
+The dump-backed class at the end re-derives the whole feature from a real `common_rel` dump on every run
 where that dump is present, and skips (not silently passes) where it is not -- the ADDENDUM 239 standard.
 """
 import os
@@ -129,7 +129,7 @@ class TestTheCurveIsOnlyAskedForTheShortfall(unittest.TestCase):
 
     def test_the_curve_never_overshoots_the_request(self) -> None:
         """Asking for 1.10x must not buy a 1.77x curve. Overshooting is not free -- it is a levelling change
-        the player did not ask for."""
+        beyond the chosen rate."""
         for base, rate in ((100, ss.EXP_RATE_SLOW), (255, ss.EXP_RATE_FLUCTUATING)):
             plan = ss.plan_experience_rate({1: (base, rate)}, 110)
             self.assertLessEqual(plan["achieved_max"], 1.10 + 1e-9, f"{base}/{rate} overshot")
@@ -224,7 +224,7 @@ class TestTheWriterRefusesRatherThanGuessing(unittest.TestCase):
 
 
 class TestAgainstTheRealCommonRel(unittest.TestCase):
-    """Re-derived from the player's own `common_rel` dump on every run where it is present."""
+    """Re-derived from a real `common_rel` dump on every run where it is present."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -282,7 +282,7 @@ class TestAgainstTheRealCommonRel(unittest.TestCase):
 
 
 class TestTheOption(unittest.TestCase):
-    def test_it_exists_with_the_players_range_and_a_vanilla_default(self) -> None:
+    def test_it_exists_with_its_range_and_a_vanilla_default(self) -> None:
         from ..options import ExperienceRate, PokemonXDOptions
         self.assertEqual(100, ExperienceRate.range_start)
         # ADDENDUM 384 raised the ceiling from 500 to 1000. The old ceiling was set by the byte lever
@@ -305,7 +305,7 @@ class TestTheOption(unittest.TestCase):
         level 50. That claim is asserted ABSENT as well, so reinstating it fails here rather than in
         someone's game.
 
-        RETARGETED 2026-09-26: the player rewrote this option's text in their own words (see
+        RETARGETED 2026-09-26: this option's text was rewritten (see
         USER_FACING_TEXT.md's section A), so what is pinned here is the CODE's ceiling, not the prose.
 
         ADDENDUM 384: the ceiling moved because the lever changed. The divisor in the game's own

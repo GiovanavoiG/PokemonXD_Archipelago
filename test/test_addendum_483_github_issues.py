@@ -5,7 +5,7 @@
 #3  (already fixed by ADDENDUM 470 -- pre_fill no longer touches the itempool.)
 #4  "Krane Memos"/"Voice Cases" groups replaced by "Key Items".
 #5  the Master Ball is useful, still exactly one per seed; the placeholder rule is gone.
-#6  the Snag Machine needs no Machine Part -- player: "You get snag machine without machine part". Shadow catches
+#6  the Snag Machine needs no Machine Part -- the game gives it without one. Shadow catches
     and the purification ladder are not behind it (vanilla travel still gates Agate Village, so purifying, on it).
 #7  client messages name client commands with `/`.
 #8  the debug catch command is `/catchscan`, so `/catches` no longer replaces it.

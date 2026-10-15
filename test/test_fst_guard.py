@@ -128,7 +128,7 @@ class TestValidateFst(unittest.TestCase):
         """A damaged FST must never be accepted as the baseline we later repair *towards*, so the four
         reject cases below are each a shape seen live:
 
-        * all zeros -- the boot-time case the player's watch log caught at 02:48, where the whole region
+        * all zeros -- the boot-time case a live watch log caught at 02:48, where the whole region
           reads as zeros before the apploader has filled it in;
         * an embedded NUL in a name -- the exact live damage from ADDENDUM 130: 'am' -> 00 01 inside
           wzx_hataku_damage.fsys. The truncated name is still printable, so this is caught by the
@@ -399,8 +399,8 @@ class TestReadDiscFst(unittest.TestCase):
 
 
 class TestWithoutDolphinMemoryEngine(unittest.TestCase):
-    """Player request: 'ensure the client still functions even if the user doesn't have python installed.'
-    The practical form of that is a missing/broken native `dolphin_memory_engine`: it must degrade to one
+    """The client must still function even without a Python installation. The practical form of that is a
+    missing/broken native `dolphin_memory_engine`: it must degrade to one
     clear message, not a raw traceback that makes the whole apworld look broken."""
 
     def test_the_guard_is_pure_python_and_needs_no_emulator_package(self) -> None:

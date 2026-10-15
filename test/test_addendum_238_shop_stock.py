@@ -1,7 +1,7 @@
 """ADDENDUM 238. Every shop's real stock, its tiers, and the berry labels each tier introduces.
 
-Player: "check EVERY shop for stock that isn't available immediately" and, on Agate: "Agate does show mart 5,
-which adds label 4 after receiving aidan's email - this happens after the first mt battle visit."
+Every shop is checked for stock that is not available immediately. Agate shows mart 5, which adds label 4
+after Aidan's email arrives -- after the first Mt. Battle visit.
 """
 from __future__ import annotations
 
@@ -31,20 +31,20 @@ class TestTheRotationIsReproducible(unittest.TestCase):
             self.assertEqual(len(items) - kept, len(S.MART_LABELS[mart]), f"mart {mart}")
 
 
-class TestAgateMatchesWhatThePlayerSaw(unittest.TestCase):
+class TestAgateMatchesTheGame(unittest.TestCase):
     """The one shop whose tier ladder is confirmed from live play rather than inferred."""
 
-    def test_the_middle_tier_is_what_the_player_reported(self) -> None:
-        """Player: "checks 4-11 are available and 1-3 are not"."""
+    def test_the_middle_tier(self) -> None:
+        """Lines 4-11 are available in the middle tier and 1-3 are not."""
         self.assertEqual((4, 5, 6, 7, 8, 9, 10, 11), S.MART_LABELS[12])
 
     def test_the_early_tier_lacks_label_four(self) -> None:
-        """Player: "Agate does show mart 5, which adds label 4 after receiving aidan's email"."""
+        """Agate shows mart 5 first; label 4 arrives with the next tier, after Aidan's email."""
         self.assertNotIn(4, S.MART_LABELS[5])
         self.assertIn(4, S.MART_LABELS[12])
 
     def test_labels_one_to_three_appear_only_in_the_last_tier(self) -> None:
-        """Player: "1-3 will not open till later - therefore needing a later sphere of logic"."""
+        """Lines 1-3 open only later, so they need a later sphere of logic."""
         for label in (1, 2, 3):
             self.assertNotIn(label, S.MART_LABELS[5])
             self.assertNotIn(label, S.MART_LABELS[12])
@@ -90,7 +90,7 @@ class TestTierStructure(unittest.TestCase):
             if entry["room"] is None:
                 continue
             if entry.get("excluded"):
-                # 2026-09-15, player: "Exclude the whole battle CD shop." The mart mapping is kept so the
+                # 2026-09-15: the whole Battle CD shop is excluded. The mart mapping is kept so the
                 # three-tier structure is not lost, but the room is no longer a shop room.
                 self.assertNotIn(entry["room"], shops.SHOPS_BY_ROOM, name)
                 continue
@@ -98,10 +98,9 @@ class TestTierStructure(unittest.TestCase):
 
 
 class TestPokeSnacksAreNeverACheck(unittest.TestCase):
-    """Player: "do not involve poke snacks in checks whatsoever" / "Ensure poke snacks do not affect any
-    shop." It holds by construction -- the Snack is in SHOP_EXCLUDED_ITEM_IDS, so the patcher never converts
-    it and it never gets a shelf label -- but it is asserted here because it is a standing instruction and a
-    silent regression would turn a Snack line into a buyable check."""
+    """Poke Snacks are never involved in checks and never affect any shop. It holds by construction -- the
+    Snack is in SHOP_EXCLUDED_ITEM_IDS, so the patcher never converts it and it never gets a shelf label --
+    but it is asserted here because a silent regression would turn a Snack line into a buyable check."""
 
     def test_the_snack_is_excluded_from_conversion(self) -> None:
         from ..items import POKE_SNACK_ITEM_ID
@@ -121,11 +120,11 @@ class TestPokeSnacksAreNeverACheck(unittest.TestCase):
             self.assertEqual(len(items) - snacks - scents, len(S.MART_LABELS[mart]), f"mart {mart}")
 
 
-class TestThePlayerSurvey(unittest.TestCase):
-    """The mart-to-shop mapping the player read off the shelves, and the gates they reported."""
+class TestTheShopSurvey(unittest.TestCase):
+    """The mart-to-shop mapping as read off the shelves in live play, and the gates observed there."""
 
     def test_the_shops_they_identified(self) -> None:
-        # ADDENDUM 238c: Phenac 1F is mart 1 ALONE. The player's own stock table lists exactly mart 1's
+        # ADDENDUM 238c: Phenac 1F is mart 1 ALONE. The live stock table lists exactly mart 1's
         # thirteen lines and puts its only "after meeting Duking in Pyrite Town" note on the POKE SNACK line
         # -- the same note Agate's Snack line carries, so it is the game-wide Snack unlock, not a restock.
         # The earlier (14, 1) reading mistook that per-line note for a mart swap; mart 14 is unassigned again.
@@ -151,7 +150,7 @@ class TestThePlayerSurvey(unittest.TestCase):
         pyrite = S.TIER_GATES[("Pyrite Town Shop", 13)]
         self.assertEqual(agate["regions"], pyrite["regions"])
         self.assertEqual(agate["items"], pyrite["items"])
-        # ADDENDUM 239b added the region graph's own name for the event alongside the player's two, so the
+        # ADDENDUM 239b added the region graph's own name for the event alongside the other two, so the
         # gate follows the graph if that edge ever gains a requirement. Today all three are equivalent.
         self.assertEqual(agate["regions"], ("Pyrite Town", "Poke Spots", "Pyrite Town (ONBS)"))
         self.assertEqual(agate["items"], ())   # ADDENDUM 406: the ONBS raid is not behind the ROM
@@ -160,7 +159,7 @@ class TestThePlayerSurvey(unittest.TestCase):
             self.assertIn(name, _regions.REGION_NAMES)
 
     def test_gateon_is_no_longer_parked(self) -> None:
-        """ADDENDUM 238d: the player's Gateon stock table matched mart 15 line for line, and marts 6 and 14
+        """ADDENDUM 238d: the live Gateon stock table matched mart 15 line for line, and marts 6 and 14
         were the only ones left unclaimed, so the ladder is 6 -> 14 -> 15 by elimination. PENDING_TIER_GATES
         is gone -- both gates are now real entries in TIER_GATES and wired into rules.py."""
         self.assertEqual(S.UNRESOLVED_SHOPS, ())

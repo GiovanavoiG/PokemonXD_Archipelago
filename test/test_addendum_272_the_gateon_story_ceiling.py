@@ -1,7 +1,7 @@
 """ADDENDUM 272 (2026-09-18): the Robo Kyogre gate needed a ceiling, not just a lift.
 
-Player: *"Set our byte to 0x6E at max in gateon - live-read our story bytes and ENSURE it never goes above
-that in the area unless we have kyogre parts."*
+In Gateon the story byte is held to 0x6E at most: the client live-reads the story byte and ensures it never goes
+above that in the area unless the Kyogre Parts are held.
 
 ADDENDUM 271's verification had just established that without the Parts this client writes **nothing** in
 Gateon. That makes the gate one-directional: it holds only while the player's own story byte is below the ride
@@ -32,9 +32,9 @@ value it saved a moment earlier; a clamp writes a lower number into save data.
    0x78 down to 0x6E would erase it, permanently if the player saved there. A won game does not need the Robo
    Kyogre gated, so the clamp declines.
 
-## And the one that makes it mean what the player asked
+## And the one that makes it mean "never above"
 
-*"ENSURE it never goes above that in the area"* is not the same as "clamp it on the way in". A byte that RISES
+Never going above the ceiling in the area is not the same as "clamp it on the way in". A byte that RISES
 while the player is standing in Gateon has to be caught too, which is `_hold`. Re-clamping is only safe
 because `saved_byte` is raised to the new high FIRST -- the progress is kept for the restore and only the live
 value is held down. Without that ordering, re-clamping would quietly eat every advance made inside Gateon.
@@ -114,7 +114,7 @@ class TestTheNumbersThemselves(unittest.TestCase):
                                 "the ceiling must not sit below the Master Ball chest / Gateon restock tier")
 
     def test_the_ceiling_is_never_the_unlock_value(self) -> None:
-        """Player: "ONLY write to 0x77 if we have the kyogre parts." """
+        """0x77 is written ONLY when the Kyogre Parts are held."""
         self.assertNotEqual(rc.STORY_OVERRIDE_VALUE, rc.GATEON_STORY_CEILING)
 
     def test_it_cannot_reach_victory(self) -> None:
@@ -157,7 +157,7 @@ class TestWithoutTheParts(unittest.TestCase):
         self.assertEqual([], cap.writes)
 
     def test_a_byte_that_rises_inside_gateon_is_caught(self) -> None:
-        """*"ENSURE it never goes above that in the area"* -- not just on the way in."""
+        """The byte never goes above the ceiling anywhere in the area -- not just on the way in."""
         ov = rc.StoryByteOverride(armed=False)
         cap = _WriteCapture(0x77)
         w, r = cap.patch()
@@ -192,7 +192,7 @@ class TestWithTheParts(unittest.TestCase):
         self.assertEqual(0, ov.clamps)
 
     def test_a_player_holding_parts_above_the_ceiling_is_not_held_down(self) -> None:
-        """The clause in the request: *"unless we have kyogre parts"*. A byte at 0x77 with the Parts in hand
+        """The exception: with the Kyogre Parts the ceiling does not apply. A byte at 0x77 with the Parts in hand
         is already where the override would put it, so nothing is written at all."""
         ov = rc.StoryByteOverride(armed=True)
         cap, _ = _run(ov, rc.STORY_OVERRIDE_VALUE, ("room", GATEON_ROOM))

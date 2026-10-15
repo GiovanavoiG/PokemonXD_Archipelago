@@ -1,7 +1,7 @@
 """ADDENDUM 234. The dummy shop berries are renamed in RAM, live, to name the check they will send.
 
-Player: "Investigate if we can make descriptions or names at runtime, which would allow us to show the exact
-check that's going to be sent out." Then: "Do the runtime rename and name them by number."
+Item names are rewritten at runtime so each one shows the exact check that will be sent, and the berries are
+named by number.
 
 The addresses these tests lean on were measured, not guessed -- see `game_data/item_name_strings.py` for the
 two independent derivations of common_rel's 0x80B18DC0 load base.
@@ -127,8 +127,8 @@ class TestRenameWrites(unittest.TestCase):
             self.assertEqual(0, self.renamer.poll(156), "a second poll in the same room must write nothing")
             # REVERSED 2026-09-17 (ADDENDUM 267). This used to assert that `poll(None)` restored the plain
             # numbered names, i.e. that an unreadable room cleared the shelf. It does the opposite now, and
-            # the old assertion was pinning the live bug the player reported ("reopening the shop clears
-            # everything and no longer updates"): `read_room_id` answers None around transitions -- opening a
+            # the old assertion was pinning a live bug (reopening the shop cleared every label and they
+            # no longer updated): `read_room_id` answers None around transitions -- opening a
             # shop menu is one -- so a single unreadable poll wiped every label, and if the room stayed
             # unreadable while the menu was open it stayed wiped.
             #

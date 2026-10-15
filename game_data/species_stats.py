@@ -73,7 +73,7 @@ EXP_RATE_NAMES: "dict[int, str]" = {
 
 assert set(EXP_RATE_NAMES) == set(EXP_RATE_TOTAL_TO_100), "every group needs a name and a total"
 
-#: Percent, because Archipelago's `Range` is integer-only and the player asked for decimals: 250 is 2.50x
+#: Percent, because Archipelago's `Range` is integer-only and the rate needs decimals: 250 is 2.50x
 #: and 1% steps make 1.75x and 3.33x both expressible. Every use below divides by this, never by 100 inline.
 RATE_SCALE = 100
 RATE_MIN = 100

@@ -1,11 +1,8 @@
-"""ADDENDA 218 and 219 (2026-09-15) -- the berry IS the chest, and the player's own chest names.
+"""ADDENDA 218 and 219 (2026-09-15) -- the berry IS the chest, and the chests get real names.
 
-Player, verbatim:
-    "Chests are completely broken. Use our recent probes and dumps to derive another system that is 100%
-     accurate - place unique berries in the chest like the plan was before, if needed. The shops do not need
-     every dummy berry."
-    "Below is a list of room IDs, followed by an area descriptor, then chests and suggested chest names. ONLY
-     use this to rename chests & reaffirm our logic of what's required."
+Chest identity is derived from probes and dumps so it is exact: each chest holds a unique berry, and the shops
+do not need every dummy berry. A table of room IDs, area descriptors and chest names is used only to rename
+chests and to reaffirm the logic of what each one requires.
 
 The tests that matter here are about the INVARIANT and the SEAM, not about the assignment algorithm: what can
 go wrong is two chests in a room sharing a berry, a berry shared with the shops or the item pool, a location
@@ -148,7 +145,7 @@ class TestTheTrackerCreditsExactlyOneChest(unittest.TestCase):
         self.assertEqual(names, [rc.CHEST_ID_TO_LOCATION[expected]])
 
     def test_an_unreadable_room_holds_the_pickup_rather_than_dropping_it(self):
-        """The player's standing rule is that checks must not fail to fire. This honours it by DEFERRING --
+        """Checks must not fail to fire. This holds by DEFERRING --
         which is different from guessing, and is the whole reason nothing has to be guessed."""
         tracker = rc.ChestBerryTracker()
         self.settle(tracker, 8)
@@ -358,8 +355,7 @@ class TestAPendingPickupRemembersWhereItHappened(unittest.TestCase):
 
 
 class TestTheReadWindowCoversWhereTheGameActuallyPutsTheBerry(unittest.TestCase):
-    """ADDENDUM 231 (player: chests "are saying that there's 2 AP items in them ... worse, they're not sending
-    checks at all").
+    """ADDENDUM 231: chests showed two AP items in them and, worse, did not send checks at all.
 
     The tracker paired the berry sub-window's BASE (array slot 82) with the whole array's slot COUNT (190).
     Two failures from one mispairing: it never looked at slots 0-81, which is where the game's own item-add
@@ -385,7 +381,7 @@ class TestTheReadWindowCoversWhereTheGameActuallyPutsTheBerry(unittest.TestCase)
                              "the read ran past the array into money and beyond")
 
     def test_a_berry_in_a_low_slot_is_found(self):
-        """The reported bug, reproduced at the level it actually happened. Slot 3 is the kind of place a Bag
+        """The bug, reproduced at the level it actually happened. Slot 3 is the kind of place a Bag
         filling from the bottom puts a berry, and the old window began at slot 82."""
         base, slots = self.window(161)
         first = (base - self.BLOCK - rc.POKEBALL_POCKET_OFFSET) // 4
@@ -419,8 +415,8 @@ class TestTheReadWindowCoversWhereTheGameActuallyPutsTheBerry(unittest.TestCase)
 
 
 class TestEveryChestGivesExactlyOne(unittest.TestCase):
-    """ADDENDUM 231. The player saw "2 AP items" in a chest. ADDENDUM 44 settled this on their own
-    instruction -- one chest, one item, one check -- and the quantity dimension broke it for nothing."""
+    """ADDENDUM 231. A chest showed two AP items. ADDENDUM 44 settled this -- one chest, one item, one
+    check -- and the quantity dimension broke it for nothing."""
 
     def test_no_chest_gives_more_than_one(self):
         for chest, (_berry, quantity) in chest_berries.CHEST_BERRY_ASSIGNMENT.items():
@@ -469,19 +465,19 @@ class TestTheRenames(unittest.TestCase):
             self.assertIn(client_name, locations.LOCATION_TABLE, chest_id)
 
     def test_the_iso_disagreements_were_resolved_in_the_isos_favour(self):
-        """Three rows of the player's list did not match the real treasure table. Pinned individually because
+        """Three rows of the chest-name list did not match the real treasure table. Pinned individually because
         'we checked' is worth nothing without saying what the answer was."""
         room = {c["chest"]: c["room"] for c in chest_table.CHESTS}
         self.assertEqual(room[20], 1, "the second Cipher Lab Left Door chest is 20, not 17")
         self.assertEqual(room[17], 8, "chest 17 is in room 8")
         self.assertEqual(sorted(chest_berries.chests_in_room(8)), [17, 18, 19, 21, 22])
 
-    def test_chest_98_finally_took_the_players_own_list_name(self):
+    def test_chest_98_takes_its_list_name(self):
         """ADDENDUM 246 settles the disagreement this test used to pin the other way. ADDENDUM 200 said
         "Pickup PDA", the ADDENDUM 219 list said "CNBS 3F Chest 1", and the ISO was always the tie-breaker:
-        chest 98 is in ROOM 110 with chest 99, and rooms 109/110 are ONBS. The player confirmed it from the
-        game -- "Pickup PDA is in hq lab right by chest 3, not pyrite town" -- and the lab's three boxes are
-        chests 1, 2 and 3, none of them in room 110."""
+        chest 98 is in ROOM 110 with chest 99, and rooms 109/110 are ONBS. In game the Pickup PDA is in the
+        HQ Lab right by chest 3, not Pyrite Town, and the lab's three boxes are chests 1, 2 and 3, none of
+        them in room 110."""
         self.assertEqual(chest_names.chest_location_name_override((98,)), "ONBS 3F Chest 1")
         self.assertEqual(chest_names.chest_location_name_override((99,)), "ONBS 3F Chest 2")
         room = {c["chest"]: c["room"] for c in chest_table.CHESTS}
@@ -499,20 +495,20 @@ class TestTheRenames(unittest.TestCase):
         self.assertNotIn("Pickup PDA", locations.LOCATION_TABLE)
         self.assertNotIn("ONBS 3F Chest", locations.LOCATION_TABLE)
 
-    def test_the_citadark_numbering_is_the_one_that_was_approved(self):
+    def test_the_citadark_numbering(self):
         """ADDENDUM 230. The 19 Citadark chests are numbered by room order, which means the numbering is a
         FUNCTION of the chest table rather than a list someone typed. If that table ever gains or loses a
         Citadark chest, every later number shifts and 19 locations get silently renamed at once -- so the
-        order the player actually approved is pinned here as literals."""
+        current order is pinned here as literals."""
         approved = [75, 59, 60, 61, 62, 63, 64, 65, 66, 57, 67, 68, 69, 70, 71, 72, 73, 74, 58]
         for index, chest in enumerate(approved, 1):
             self.assertEqual(chest_names.chest_location_name_override((chest,)),
                              f"Citadark Isle Chest {index}", f"chest {chest}")
 
     def test_chest_23_finally_has_its_real_name(self):
-        """ADDENDUM 230 left this one generated on purpose -- "Leave 23 for now" -- because room 9 was the one
-        Cipher Lab room the player's table did not cover, so any name would have been a guess about WHICH room
-        it is, and a name describing the wrong room is worse than none. ADDENDUM 242: the player supplied it.
+        """ADDENDUM 230 left this one generated on purpose, because room 9 was the one Cipher Lab room the
+        chest-name table did not cover, so any name would have been a guess about WHICH room it is, and a name
+        describing the wrong room is worse than none. ADDENDUM 242 gave it its name.
 
         The ID IS THE THING THAT MATTERS, not the label. `_FROZEN_LOCATION_OFFSETS` is keyed by name, so a
         rename that does not carry its entry across leaves the location free to move and silently repoints
@@ -537,19 +533,18 @@ class TestTheRenames(unittest.TestCase):
         self.assertIn("ONBS 2F Chest", names)
 
     def test_the_logic_the_list_reaffirms_still_holds(self):
-        """The list's second purpose: "reaffirm our logic of what's required." Nothing needed changing -- so
-        the point of this test is that it stays that way."""
+        """The chest logic was re-checked against the chest-name list and nothing needed changing -- so the
+        point of this test is that it stays that way."""
         from ..game_data import chest_regions
 
         self.assertEqual(chest_regions.CHEST_ITEM_GATES.get(27), ("ID Card",))
         self.assertEqual(chest_regions.CHEST_REGION_GATES.get(2), ("Citadark Isle",))
         for chest in (98, 99, 100):
             self.assertEqual(chest_regions.CHEST_TO_REGION[chest], "Pyrite Town (ONBS)",
-                             "ONBS is reached only through Data ROM -> Poke Spots, which is the "
-                             "'Data Rom AND all three Poke Spots' requirement the list states")
-            # ADDENDUM 405 reversed ADDENDUM 246's explicit gate. Player: "Pyrite Town 2nd visit (ONBS raid) in
-            # fact is not gated behind Data Rom at all - this means it's only gated behind pyrite town and the
-            # pokespots." The region is the whole requirement now.
+                             "ONBS is reached only through Data ROM -> Poke Spots")
+            # ADDENDUM 405 reversed ADDENDUM 246's explicit gate. Pyrite Town's 2nd visit (the ONBS raid) is not
+            # gated behind the Data ROM at all, only behind Pyrite Town and the Poke Spots. The region is the
+            # whole requirement now.
             self.assertIsNone(chest_regions.CHEST_ITEM_GATES.get(chest), f"chest {chest}")
 
 

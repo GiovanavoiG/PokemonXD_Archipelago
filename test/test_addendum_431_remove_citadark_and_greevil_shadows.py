@@ -1,7 +1,7 @@
 """ADDENDUM 431 (2026-10-06) -- Remove Citadark Shadows, Remove Greevil Shadows.
 
-Player: "Make an option to remove shadows from citadark, and an option to remove shadows from greevil. Make sure
-both of these redistribute the shadow pokemon amongst the rest of the game."
+One option removes Shadows from Citadark Isle and another removes them from Greevil. Both redistribute those
+Shadow Pokemon amongst the rest of the game.
 """
 from __future__ import annotations
 

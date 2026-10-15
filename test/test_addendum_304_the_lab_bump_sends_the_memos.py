@@ -1,9 +1,9 @@
 """ADDENDUM 304 (2026-09-20) -- the lab bump goes back to 0x0F, and takes the skipped checks with it.
 
-Player: "Make the HQ Lab live bump from 0x0D to 0x0F again - make sure to send the checks for krane memo 1
-and 2 when this happens."
+The HQ Lab live bump goes from 0x0D to 0x0F again, and the checks for Krane Memos 1 and 2 are sent when it
+happens.
 
-THE SECOND CLAUSE IS THE LOAD-BEARING ONE. A bump SKIPS story tiers, and every check this client sends is a
+THE SECOND HALF IS THE LOAD-BEARING ONE. A bump SKIPS story tiers, and every check this client sends is a
 threshold watcher -- so a tier the player never stands in is a tier whose checks never fire. 0x0D -> 0x0F
 steps over the beat the first two Krane Memos hang off (`KRANE_MEMO_STORY_THRESHOLDS` puts them at 0x10,
 judged against the area's high-water mark, which by ADDENDUM 277 never records our own writes). The memos
@@ -32,7 +32,7 @@ class TestTheBumpItself(unittest.TestCase):
         self.assertEqual((0x0D, 0x0F), (_lab_bump().when_byte_is, _lab_bump().becomes))
 
     def test_the_paired_floor_rule_moved_with_it(self) -> None:
-        """Two halves of one instruction. A floor below the bump's target would push a returning player back
+        """Two halves of one change. A floor below the bump's target would push a returning player back
         through the tier the bump exists to skip -- which is how ADDENDUM 288 had to move both at once."""
         self.assertEqual(_lab_bump().becomes,
                          story_bytes.dynamic_region_floor("Pokemon HQ Lab", {"Pokemon HQ Lab": 0x0D}))
@@ -46,8 +46,8 @@ class TestTheBumpItself(unittest.TestCase):
 
 class TestWhatItDeclaresItSkips(unittest.TestCase):
     def test_the_declared_names_are_the_real_memo_locations(self) -> None:
-        """SUPERSEDED by ADDENDUM 434. Player: "don't automatically send the krane memo checks. Let's instead send
-        them when they enter our inventory and are removed." The bump declares nothing now; the memos go out when
+        """SUPERSEDED by ADDENDUM 434. The Krane Memo checks are no longer sent automatically; they are sent
+        when the memos enter the inventory and are removed. The bump declares nothing now; the memos go out when
         the game's copy is taken out of the Bag, which the bump does not skip -- it lands at 0x0F, below the
         0x10 handover, so the game still hands them over."""
         self.assertEqual((), _lab_bump().awards_locations)

@@ -1,9 +1,8 @@
 """ADDENDUM 434 (2026-10-08) -- `Unlock -` checks on the game's travel bits, Krane Memos on removal.
 
-Player: "Did we change it so that the partial bits are what send the location unlock checks? If not, instead of
-sending location unlock checks via story byte, instead do it when we detect a partial bit of any kind for travel
-visibility. Also, don't automatically send the krane memo checks. Let's instead send them when they enter our
-inventory and are removed."
+The location unlock checks are sent when any partial travel-visibility bit is detected, rather than via the
+story byte. The Krane Memo checks are not sent automatically; each is sent when its memo enters the inventory
+and is removed.
 """
 from __future__ import annotations
 

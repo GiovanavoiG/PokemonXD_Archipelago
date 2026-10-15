@@ -82,7 +82,7 @@ NATIONAL_DEX_LEVEL_EVOLUTIONS: dict[int, tuple[int, int]] = {
     218: (219, 38),
     220: (221, 33),
     223: (224, 25),
-    228: (229, 24),  # Houndour -> Houndoom, the player's own example
+    228: (229, 24),  # Houndour -> Houndoom
     231: (232, 25),
     238: (124, 30),  # Smoochum -> Jynx
     239: (125, 30),  # Elekid -> Electabuzz
@@ -150,8 +150,8 @@ def national_dex_to_internal_level_evolutions() -> dict[int, tuple[int, int]]:
     return result
 
 
-# ADDENDUM 425: the evolutions a trainer's Pokemon could never take. Player: "some pokemon are NOT evolved on trainer
-# teams despite being at a suitable level to evolve." The table above holds level-up evolutions only, and it agrees
+# ADDENDUM 425: the evolutions a trainer's Pokemon could never take, which left some Pokemon on trainer teams
+# unevolved despite being at a suitable level to evolve. The table above holds level-up evolutions only, and it agrees
 # with the game's own species data on every one (checked against XD's live table, `pokemonDataBiosGetPtr`, method 4,
 # all 135 entries). What it could not express were the 38 species whose next stage takes a stone, a trade, a held
 # item, friendship, beauty or a branch -- so a level-60 Kadabra, Pikachu, Golbat, Haunter or Eevee stayed one.

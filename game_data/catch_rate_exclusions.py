@@ -1,6 +1,6 @@
 """ADDENDUM 416 -- the fights whose Shadows keep their vanilla catch rate under Max Catch Rate.
 
-Player: "Can we add options to make it so that catch rate maxing doesn't work on 1. Citadark Isle 2. Greevil?"
+Options exclude two places from catch-rate maxing: Citadark Isle and Greevil.
 
 A Shadow's catch rate is ONE byte on its DDPK record (`catch_rate_override`, +0x01), shared by every fight that
 carries that record. So the rate cannot differ by place; it follows the record. These are TRAINER indices -- the

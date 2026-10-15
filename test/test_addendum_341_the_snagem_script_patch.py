@@ -297,7 +297,7 @@ class TestThePatcherAcrossPolls(unittest.TestCase):
         self.assertIsInstance(ram_client.SnagemScriptPatcher().describe(), str)
 
 
-class TestTheRulingIsLifted(unittest.TestCase):
+class TestTheFenceIsLifted(unittest.TestCase):
     def test_wakin_and_gonzap_can_hold_progression_again(self):
         from ..game_data import missable_trainers
 

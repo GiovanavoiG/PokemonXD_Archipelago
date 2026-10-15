@@ -1,8 +1,8 @@
 """ADDENDUM 365 (2026-09-26): a ceiling per area, so a foreign byte cannot settle in it.
 
-Player: *"can you add a guard to ensure that areas don't get poisoned? for example, we know cipher lab's byte
-doesn't go past 0x2E - if we ever detect it higher in that location, we should write it back to the highest
-valid byte that we saw in that area. Do this only for areas you're confident on the range."*
+A guard keeps areas from being poisoned. For example, the Cipher Lab's byte never goes past 0x2E, so a higher
+byte detected there is written back to the highest valid byte seen in that area. It applies only to areas
+whose range is known with confidence.
 
 This is the repair for ADDENDUM 363 Part 3 -- a save standing in the Cipher Lab reading 0x3C, six story beats
 above anything the lab can reach, with "was 0x28" beside it.
@@ -19,7 +19,7 @@ THE TWO HALVES, and the second is the one that makes it safe to ship:
     Outskirt Stand into Snagem at 0x6C. So the value must ALSO be one this client writes as a floor somewhere
     else, which is exactly the ADDENDUM 363 ratchet's signature.
 
-NOTHING IS HAND-TYPED, the player's own 0x2E included: the lab's ceiling comes out of the ladder as 0x2F and
+NOTHING IS HAND-TYPED, the 0x2E above included: the lab's ceiling comes out of the ladder as 0x2F and
 is widened to 0x30 by its own exit transition. Loose is the safe direction -- a ceiling too high misses some
 poisoning, which is the status quo; one too low ends a run.
 """

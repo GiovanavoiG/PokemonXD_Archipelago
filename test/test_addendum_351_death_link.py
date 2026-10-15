@@ -1,8 +1,7 @@
 """ADDENDUM 351 (2026-09-25): Death Link, and the only white-out this game has.
 
-Player: "I want it for deathlink to force out a whiteout." Then, having been shown that a white-out is only
-reachable by losing a battle: "Implement option 1. Make deathlink an option in the yaml. Send it whenever we
-whiteout, but don't start a loop."
+A received Death Link forces a white-out. A white-out is only reachable by losing a battle, so Death Link is a
+YAML option that sends a death whenever the party whites out, without starting a loop.
 
 WHY IT CANNOT BE INSTANT, restated here because it is the constraint the whole design sits on.
 `fightEncountCheckZenmetu` (main.dol 0x801F0D9C) is the entire white-out -- heal, money penalty, warp -- and
@@ -206,14 +205,14 @@ class TestTheBridge(unittest.TestCase):
         self.assertEqual(1, self.bridge.receipts)
 
     def test_our_own_wipe_is_never_re_broadcast(self):
-        """The loop, which is the whole design problem. Player: "don't start a loop.\""""
+        """The loop, which is the whole design problem: a received death must never start one."""
         self.bridge.receive(BLOCK, "Bob")
         for _ in range(5):
             self.assertEqual((False, None), self.bridge.poll(BLOCK))
         self.assertEqual(0, self.bridge.sends)
         self.assertEqual(1, self.bridge.suppressed)
 
-    def test_the_players_own_wipe_sends_exactly_one_death(self):
+    def test_our_own_wipe_sends_exactly_one_death(self):
         for index in range(2):
             start = index * rc.POKEMON_STRIDE + rc.POKEMON_HP_OFFSET
             struct.pack_into(">H", self.party.cells, start, 0)
@@ -244,10 +243,10 @@ class TestTheBridge(unittest.TestCase):
     # ========================================================================================================
     # ADDENDUM 366 (2026-09-26): the gap between the wipe and the white-out
     # ========================================================================================================
-    # Player, checking rather than reporting: "if we get sent a deathlink, and auto-white-out in the next
-    # battle, we will NOT send a deathlink, correct? Verify."
+    # The property: after a Death Link is received, the white-out it causes in the next battle must NOT send a
+    # Death Link back.
     #
-    # WHY THE EXISTING TESTS DID NOT ANSWER IT. `test_our_own_wipe_is_never_re_broadcast` polls five times
+    # WHY THE EXISTING TESTS DID NOT COVER IT. `test_our_own_wipe_is_never_re_broadcast` polls five times
     # straight after the receive, which models a white-out that resolves immediately. The real sequence does
     # not: `wipe_party` sets the party to 0 HP and the note says so out loud -- "the white-out lands when the
     # game next resolves a battle" -- so the player can walk around, open menus, ride the scooter and save,

@@ -1,8 +1,6 @@
 """ADDENDUM 382 (2026-09-28) -- the census checked against live RAM, because a save state outlives the patch.
 
-Player: "It's possible save stats broke them. Can the guard save us on load state?"
-
-No, and that was the right question. ADDENDUM 381's fence lives in `iso_patcher`: it snapshots the two status
+A save state may have broken them, and the patch-time guard cannot catch a loaded state. ADDENDUM 381's fence lives in `iso_patcher`: it snapshots the two status
 bytes of every move, lets the mutation pass run, and refuses to write the blob if either moved. It has done
 its job before the player ever boots. A Dolphin save state restores the whole of MEM1, `common_rel` included,
 at runtime -- load one made under a different ISO and the move table in memory is that build's. Nothing on

@@ -1,8 +1,7 @@
 """ADDENDUM 400 (2026-10-01) -- the white-out latch: one event, two jobs.
 
-Player: "White outs arent sending deathlinks. Also I'd like for deathlinks to kill us IN battle too. Also
-         dying sends us back to HQ lab and breaks story order. When we white out we need to lock HQ lab's
-         floor"
+Four problems: white-outs were not sending DeathLinks; an incoming DeathLink should kill IN battle too; dying
+sends the player back to the HQ Lab and breaks story order; and a white-out needs to lock the HQ Lab's floor.
 
 Three of those four are the same event seen from different places, so one latch serves them. The fourth
 (killing IN battle) is NOT in this addendum -- see the last section.
@@ -13,7 +12,7 @@ was not: `DeathLinkBridge.poll` is driven from the main loop at `POLL_INTERVAL_I
 A white-out's whole window is the end-of-battle sequence -- `fightEncountCheckZenmetu` sets `zenmetuFlag`,
 `fightEncountAnnihilationRecovery` heals the party, both inside that sequence -- and at 1 Hz the client can
 sit between polls across the entire thing. 390 measured the signal and never measured the rate it was read
-at, which is why the fix shipped and the report came back unchanged.
+at, which is why the fix shipped and the symptom came back unchanged.
 
 The signal is sampled in `fast_poll_window` now, at `POLL_INTERVAL_FAST` (0.05s), out of time the loop was
 already going to spend waiting. Twenty looks a second instead of one. Two supporting changes come with it:
@@ -191,7 +190,7 @@ class TestTheBridgeReadsTheLatch(unittest.TestCase):
         rc.read_annihilation_flag = self._flag
 
     def test_an_armed_latch_fires_a_send_even_though_the_direct_read_says_clear(self) -> None:
-        """Exactly the reported failure: the flag has already cleared by the time the slow loop looks."""
+        """Exactly the failure seen in play: the flag has already cleared by the time the slow loop looks."""
         self.latch.armed = True
         should_send, note = self.bridge.poll(0x80000000)
         self.assertTrue(should_send)

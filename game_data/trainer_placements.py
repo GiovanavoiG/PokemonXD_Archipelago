@@ -1,4 +1,4 @@
-"""Per-trainer regions and item gates, generated from the player's filled-in census workbook (232 rows).
+"""Per-trainer regions and item gates, generated from the filled-in census workbook (232 rows).
 
 `region` and `required_items` are ANDed: a trainer needs its area AND the listed items. `region=None` means
 "unknown, filler only" -- 37 rows (36 marked N/A in the workbook, plus index 1, left blank). locations.py still
@@ -29,7 +29,7 @@ class TrainerPlacement:
     required_regions: "tuple[str, ...]" = ()
 
 
-# GENERATED from pokemon_xd_trainers.xlsx as returned by the player. Do not hand-edit: re-export the workbook.
+# GENERATED from the filled-in pokemon_xd_trainers.xlsx. Do not hand-edit: re-export the workbook.
 PLACEMENTS: "dict[int, TrainerPlacement]" = {
     1: TrainerPlacement(None, (), ()),   # Defeat - Hordel
     2: TrainerPlacement('Poke Spots', (), ()),   # Defeat - Miror B. #1
@@ -158,8 +158,8 @@ PLACEMENTS: "dict[int, TrainerPlacement]" = {
     125: TrainerPlacement("Kaminko's House", (), ()),   # Defeat - Chobin #4
     126: TrainerPlacement('Pyrite Town', (), ()),   # Defeat - Cail #3
     127: TrainerPlacement("Kaminko's House", (), ()),   # Defeat - Chobin #5
-    # Items added, region left at SS Libra: a requirement can only push a check later, so both player
-    # statements hold. Only bites with travel randomization, where SS Libra is flown to directly.
+    # Items added, region left at SS Libra: a requirement can only push a check later, so the region
+    # and the items both hold. Only bites with travel randomization, where SS Libra is flown to directly.
     128: TrainerPlacement('SS Libra', ('Music Disc', "Mayor's Note"), ()),   # Defeat - Smarton #1
     129: TrainerPlacement('Phenac City (Post-Sixes)', ('Music Disc', "Mayor's Note", 'Elevator Key'), ()),   # Defeat - Quelor
     130: TrainerPlacement('Phenac City (Post-Sixes)', ('Music Disc', "Mayor's Note", 'Elevator Key'), ()),   # Defeat - Teslor
@@ -273,7 +273,7 @@ PLACEMENTS: "dict[int, TrainerPlacement]" = {
 # Zook #2 just before the Key Lair interior. Overridden rather than edited in place because PLACEMENTS is
 # generated; the asserts reject an override naming a missing row, a region-less row, or an unchanged region.
 PLACEMENT_REGION_OVERRIDES: "dict[int, str]" = {
-    143: 'Snagem Hideout',               # Defeat - Biden #1 (player + deck order, 2026-09-23)
+    143: 'Snagem Hideout',               # Defeat - Biden #1 (deck order, 2026-09-23)
     148: 'Cipher Key Lair (exterior)',   # Defeat - Biden #2, beside Zook #2 on the post-Snagem return
 }
 
@@ -293,9 +293,8 @@ for _index, _region in PLACEMENT_REGION_OVERRIDES.items():
 del _index, _region
 
 
-# ADDENDUM 405. Player, 2026-10-03: "Pyrite Town 2nd visit (ONBS raid) in fact is not gated behind Data Rom at all
-# - this means it's only gated behind pyrite town and the pokespots." The workbook (and ADDENDUM 211, on the
-# player's word at the time) put ('Data ROM',) on every ONBS fight. Dropped here rather than edited in place,
+# ADDENDUM 405. Pyrite Town's second visit (the ONBS raid) is not gated behind the Data ROM at all -- only behind
+# Pyrite Town and the Poke Spots. The workbook (and ADDENDUM 211) put ('Data ROM',) on every ONBS fight. Dropped here rather than edited in place,
 # because PLACEMENTS is generated. The region still carries "Pyrite Town and the Poke Spots": ONBS hangs off
 # `Poke Spots` in regions.REGION_EDGES, and the Poke Spots need Pyrite Town in both travel modes.
 PLACEMENT_ITEM_REMOVALS: "dict[str, frozenset[int]]" = {
@@ -306,7 +305,7 @@ PLACEMENT_ITEM_REMOVALS: "dict[str, frozenset[int]]" = {
 }
 assert len(PLACEMENT_ITEM_REMOVALS["Data ROM"]) == 11, (
     "ADDENDUM 405 expected the 11 ONBS fights (ten Cipher Peons and Exol) to carry the Data ROM -- the workbook "
-    "changed, so re-read the player's instruction before trusting this table"
+    "changed, so re-check the ONBS gating before trusting this table"
 )
 for _item, _indices in PLACEMENT_ITEM_REMOVALS.items():
     for _index in _indices:
@@ -316,12 +315,12 @@ for _item, _indices in PLACEMENT_ITEM_REMOVALS.items():
         )
 del _item, _indices, _index, _old
 
-# ADDENDUM 409 -- the player's placements, applied over the generated census.
-#   * Sixes #2 (39-44): "make their #2 at Phenac (missable, behind disc and note)". Filed in the Post-Sixes tier,
+# ADDENDUM 409 -- placements applied over the generated census.
+#   * Sixes #2 (39-44): their second fight is at Phenac, missable, behind the Disc and the Note. Filed in the Post-Sixes tier,
 #     whose edge already requires the Music Disc AND the Mayor's Note -- the fight is the one that walks the
 #     player out of the Mayor's House -- so the region carries both items and adds no new level tier.
-#   * Miror B. #2 (3): "His 1 and 2 can be in either outskirt stand or cave spot interchangeably, or the colosseum
-#     if his radar fires." A label fires on the Nth DISTINCT team, so #1 is whichever comes first and #2 needs a
+#   * Miror B. #2 (3): his #1 and #2 can each be met at the Outskirt Stand or the Cave spot, interchangeably, or at
+#     the colosseum if his radar fires. A label fires on the Nth DISTINCT team, so #1 is whichever comes first and #2 needs a
 #     second meeting: logic asks for BOTH places, the one assumption that is never early. #1 stays at the spots.
 _SIXES_SECOND = (39, 40, 41, 42, 43, 44)
 _MIROR_B_SECOND = 3

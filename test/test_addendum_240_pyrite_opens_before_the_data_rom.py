@@ -1,9 +1,8 @@
 """ADDENDUM 240 (2026-09-16) -- plain Pyrite Town is not behind the Data ROM. Only its second half is.
 
-Player: "Pyrite is half before data rom, half after. So the first shop is NOT gated behind data rom/id card,
-but the expansions are." Then, asked which of three readings was right: "Pyrite vending machine and first shop
-version are accessible as soon as pyrite town is. The expansion items are after ONBS/data rom/id card. Any
-chests in ONBS are gated behind the data rom/id card - every other chest is ONLY gated behind pyrite town."
+Pyrite is half before the Data ROM and half after. The vending machine and the first shop version are
+accessible as soon as Pyrite Town is; the expansion items come after ONBS/the Data ROM/ID Card. Chests in ONBS
+are gated behind the Data ROM/ID Card; every other chest is gated only behind Pyrite Town.
 
 THE REQUIREMENT WAS ON THE WRONG EDGE. `("Cipher Lab", "Pyrite Town", ("Data ROM",))` put all of plain Pyrite
 behind the ROM -- the shop's twelve lines, the vending machine's four, and every chest and trainer in the
@@ -28,12 +27,12 @@ from .. import regions as world_regions
 class TestTheEdgeMoved(unittest.TestCase):
     def test_the_way_into_pyrite_is_free_and_the_way_out_is_not(self) -> None:
         self.assertIn(("Cipher Lab", "Pyrite Town", ()), world_regions.REGION_EDGES)
-        # ADDENDUM 406: the way out is free too. Player (ADDENDUM 406): "Poke spots do NOT need the data rom."
+        # ADDENDUM 406: the way out is free too. The Poke Spots do NOT need the Data ROM.
         self.assertIn(("Pyrite Town", "Poke Spots", ()), world_regions.REGION_EDGES)
         self.assertIn(("Poke Spots", "Pyrite Town (ONBS)", ()), world_regions.REGION_EDGES)
 
 
-class TestTheSplitIsWhereThePlayerSaidItIs(PokemonXDTestBase):
+class TestTheSplitIsWhereItBelongs(PokemonXDTestBase):
     options = {"shuffle_trainer_defeats": True}
 
     def _state(self, held):
@@ -53,8 +52,8 @@ class TestTheSplitIsWhereThePlayerSaidItIs(PokemonXDTestBase):
                 onbs.append(location)
         return plain, onbs
 
-    # ADDENDUM 418: with travel shuffle off the ROM is back on the way IN. Player: "Every pyrite town item in
-    # vanilla locations should also be gated behind Data Rom & ID Card". So the town state is the Machine Part AND
+    # ADDENDUM 418: with travel shuffle off the ROM is back on the way IN: every Pyrite Town item in
+    # vanilla locations is also gated behind the Data ROM & ID Card. So the town state is the Machine Part AND
     # the ROM, and the Machine Part alone opens neither half. Travel mode keeps ADDENDUM 406's free Pyrite
     # (test_addendum_406's TestTravelShuffleToo).
     TOWN = ["Machine Part", "Data ROM & ID Card"]
@@ -79,8 +78,8 @@ class TestTheSplitIsWhereThePlayerSaidItIs(PokemonXDTestBase):
             self.assertTrue(location.can_reach(town), location.name)
 
     def test_the_chests_split_exactly_as_described(self) -> None:
-        """Player: "Any chests in ONBS are gated behind the data rom/id card - every other chest is ONLY gated
-        behind pyrite town." With 418 Pyrite itself is behind the ROM, so both halves open together."""
+        """Chests in ONBS are gated behind the Data ROM/ID Card; every other chest is gated only behind
+        Pyrite Town. With 418 Pyrite itself is behind the ROM, so both halves open together."""
         plain, onbs = self._by_region()
         town = self._state(self.TOWN)
         plain_chests = [l for l in plain if "Chest" in l.name]

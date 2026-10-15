@@ -1,8 +1,8 @@
 """ADDENDUM 468 (2026-10-11) -- a beaten Shadow goes to Miror B. and leaves every trainer's team.
 
-Player: "No, if you beat it, it should go to Miror B. The intention here is if you come later in the story and your
-first fight against them is their second team, you can encounter the shadow the same way as if it was their first
-team. But I want it removed from all teams whether it's defeated or snagged - if defeated, go to miror b."
+A beaten Shadow goes to Miror B. The point of copying it onto later teams is that a player who arrives later in
+the story, and whose first fight against a trainer is that trainer's second team, still meets the Shadow just as
+on the first team. Once it is defeated or snagged it is removed from every team; if defeated, it goes to Miror B.
 """
 from __future__ import annotations
 
@@ -93,7 +93,7 @@ class TestTheDecisionTable(unittest.TestCase):
         self.assertEqual(0x801FAB4C, 0x801FABA8 + (disp - 0x04000000 if disp & 0x02000000 else disp))
 
 
-@unittest.skipUnless(DOL.is_file(), "needs the player's main.dol")
+@unittest.skipUnless(DOL.is_file(), "needs a real main.dol")
 class TestAgainstTheRealDol(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -135,7 +135,7 @@ def _branch_target_b(address: int, w: int) -> int:
     return address + (disp - 0x04000000 if disp & 0x02000000 else disp)
 
 
-@unittest.skipUnless(DOL.is_file(), "needs the player's main.dol")
+@unittest.skipUnless(DOL.is_file(), "needs a real main.dol")
 class TestTheWritePath(unittest.TestCase):
     def test_after_465(self) -> None:
         import tempfile

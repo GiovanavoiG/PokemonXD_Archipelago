@@ -1,8 +1,7 @@
-"""ADDENDUM 236. Two live reports, two fixes.
+"""ADDENDUM 236. Two live bugs, two fixes.
 
-Player: "shadow purifications are still sending at weird times, including in battle now." And: "when
-rematching Resix etc, a user reported that rematching them allowed them to respawn their shadow pokemon even
-after being caught - leading to infinite catches on rematches, which is unintended."
+Shadow purification checks were sending at the wrong times, including in battle. And rematching Resix and the
+like respawned their shadow Pokemon even after it had been caught, which allowed infinite catches on rematches.
 """
 from __future__ import annotations
 
@@ -168,7 +167,7 @@ class TestRecapPairingMustMatch(unittest.TestCase):
 
 
 class TestAPartyChangeResetsPendingStreaks(unittest.TestCase):
-    """Player: "depositing pokemon into the pc is also causing purification checks to send randomly." A
+    """Depositing Pokemon into the PC was also sending purification checks at random. A
     deposit compacts the party, so every slot is paired with the previous occupant's recap record for a
     while."""
 

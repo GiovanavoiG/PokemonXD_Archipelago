@@ -1,7 +1,7 @@
 """ADDENDUM 261 (2026-09-17). The `LocationInfo` reply does not hold dicts, and never did.
 
-Player: "shop descriptions do not have the AP item that it's sending listed at all - the title is fine as
-is, but can we modify the description to have what we're sending out listed?"
+Shop descriptions did not list the AP item being sent at all, while the title was fine. A shop description
+must list what the line sends out.
 
 The title being fine is the clue that narrows it: `ItemNameRenamer` writes the shelf LABEL and was working,
 so RAM writes, the room, the berry numbering and the shop tables were all fine. Only the half that needs the
@@ -172,7 +172,7 @@ class TestTheClientWiring(unittest.TestCase):
 
     def test_a_failed_scout_is_reported_where_the_player_will_see_it(self) -> None:
         """`_note_warn` is `!verbose`-gated (ADDENDUM 181), which is correct for noise and wrong for "a
-        feature you asked for is off". The empty-scout-with-problems case goes to `logger.warning`."""
+        switched-on feature is not working". The empty-scout-with-problems case goes to `logger.warning`."""
         start = self.source.index('elif cmd == "LocationInfo":')
         body = self.source[start:self.source.index('elif cmd == "Connected":', start)]
         self.assertIn("logger.warning(", body)

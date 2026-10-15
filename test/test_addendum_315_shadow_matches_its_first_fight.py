@@ -1,7 +1,6 @@
 """ADDENDUM 315 -- a Shadow is matched to the team it is SNAGGED from, not to a later rematch.
 
-Player, reading a generated seed: "Why does Resix have a level 16 carvanha but a level 50 seadra? The levels
-don't add up."
+Symptom, in a generated seed: Resix had a level 16 Carvanha but a level 50 Seadra -- the levels did not add up.
 
 `real_shadow_census` joined DDPK -> holding trainer with a plain assignment, so when the same Shadow is carried
 by several occurrences of one trainer the LAST one won. For the six Sixes that is the deep rematch tail (whose

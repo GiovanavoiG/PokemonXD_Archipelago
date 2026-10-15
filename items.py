@@ -82,7 +82,7 @@ _KEY_ITEM_SPECS: list[tuple[str, ItemClassification, int | None, bool]] = [
     ("Disc Case", P, 533, True),
     # No confirmed game_item_id as of the 2026-09-02 correction -- previously mismapped to 528 (Voice Case 1).
     ("Ein File S", P, None, False),
-    # 15 more real key items added 2026-09-02 from a player-supplied list; none has a confirmed id yet.
+    # 15 more real key items added 2026-09-02; none has a confirmed id yet.
     # Most are `useful`, not `progression`: as progression they broke generation (`FillError: Not enough
     # locations for progression items` -- 34 against 18 able to hold one), and no access_rule names them.
     # The Cologne Case was deleted outright; ITEMS_REMOVED_FROM_POOL was not enough, since that set is only
@@ -295,9 +295,9 @@ _MISC_TREASURE_SPECS: list[tuple[str, ItemClassification, int | None, bool]] = [
 # the confirmed-ids doc: Cheri 133, Spelon 163, Starf 174, Enigma 175).
 #
 # Pruned 2026-09-07: Bluk(149) through Enigma(175), 27 of the 43. What remains, Cheri(133) through
-# Razz(148), covers every berry with a real effect in this game. The player named that range by NAME, which
-# is authoritative over the "#36-#54" ordinal they also gave, since that matches neither the 1-based
-# position (Bluk=17) nor the raw id (149).
+# Razz(148), covers every berry with a real effect in this game. The range is defined by NAME, which is
+# authoritative over a "#36-#54" ordinal, since that matches neither the 1-based position (Bluk=17) nor the
+# raw id (149).
 #
 # ADDENDUM 108: kept berries 133-145 used to land in the Items pocket, matching the game's own item-add
 # behaviour for that sub-range; resolve_item_pocket routes the whole 133-175 range to Berries now.
@@ -461,14 +461,14 @@ OPTION_GATED_PROGRESSION_ITEMS: "frozenset[str]" = frozenset({SCOOTER_ITEM_NAME}
 
 # Excluded from the shuffle even when key_item_shuffle is on -- left in their vanilla locations.
 NEVER_SHUFFLED_KEY_ITEM_NAMES: "frozenset[str]" = frozenset({
-    "Elevator Key",   # the player reports moving it can lock you in the room
+    "Elevator Key",   # moving it can lock you in the room
     "Gonzap's Key",   # gates no AP location
 })
 
 # Game item ids shop randomization must LEAVE ALONE, matched by id because there is no confirmed per-mart
 # layout to target them by position: Agate Village's three Scents, and Poke Snack. All four were sourced
 # externally -- rotobash/pokemon-ngc-rando's own item data, cross-checked against Bulbapedia's shop-sales
-# listing -- rather than live-ISO confirmed, and the player ruled them correct as given.
+# listing -- rather than live-ISO confirmed, and are taken as correct as given.
 POKE_SNACK_ITEM_ID = 511
 AGATE_VILLAGE_SCENT_ITEM_IDS: frozenset[int] = frozenset({513, 514, 515})  # Joy Scent, Excite Scent, Vivid Scent
 SHOP_EXCLUDED_ITEM_IDS: frozenset[int] = AGATE_VILLAGE_SCENT_ITEM_IDS | frozenset({POKE_SNACK_ITEM_ID})
@@ -948,9 +948,9 @@ ITEM_NAME_GROUPS: dict[str, set[str]] = {
 }
 
 
-# ADDENDUM 443, player: "Can you make it so if someone types "!hint ID Card" it will hint Data Rom & ID Card?" The two
-# halves ADDENDUM 179 merged are never placed, but they were still in the datapackage, so the server's hint matched
-# the dead "ID Card" item and found nothing. Archipelago forbids a group name that is also an item name, so the two
+# ADDENDUM 443: "!hint ID Card" hints the combined Data ROM & ID Card. The two halves ADDENDUM 179 merged are
+# never placed, but they were still in the datapackage, so the server's hint matched the dead "ID Card" item
+# and found nothing. Archipelago forbids a group name that is also an item name, so the two
 # halves leave the WORLD's datapackage and come back as groups naming the combined item. Their ids (13, 19) stay
 # reserved in ITEM_TABLE and the client still resolves them (`include_retired=True`), so nothing can inherit them.
 RETIRED_DATAPACKAGE_ITEMS: "frozenset[str]" = frozenset(COMBINED_KEY_ITEM_PARTS)
@@ -1054,9 +1054,9 @@ FILLER_CATEGORIES: "tuple[tuple[str, tuple[str, ...]], ...]" = (
 )
 FILLER_CATEGORY_DEFAULT_WEIGHTS: "dict[str, int]" = {
     "poke_balls": 43, "medicine": 28, "status_heals": 2, "berries": 4, "battle_items": 2, "treasure": 2, "flutes": 1, "tms": 12, "evolution_stones": 4,
-    "currency": 4,   # player's options.py (2026-10-10): 2 -> 4, so the defaults now sum to 102
+    "currency": 4,   # options.py (2026-10-10): 2 -> 4, so the defaults now sum to 102
 }
-# Relative weights, not percentages: the player's own defaults sum to 102 since currency went to 4.
+# Relative weights, not percentages: the defaults sum to 102 since currency went to 4.
 assert all(weight >= 0 for weight in FILLER_CATEGORY_DEFAULT_WEIGHTS.values()) and sum(FILLER_CATEGORY_DEFAULT_WEIGHTS.values()) > 0
 # Drawn when every category is weighted 0 -- generation must never fail over a filler preference.
 FILLER_FALLBACK_ITEM_NAME = "Poke Ball"

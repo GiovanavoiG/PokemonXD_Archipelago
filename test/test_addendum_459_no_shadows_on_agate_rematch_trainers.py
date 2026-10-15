@@ -1,7 +1,7 @@
 """ADDENDUM 459 (2026-10-10) -- no generated or relocated Shadow on a trainer the game re-fights with the same team.
 
-Player report: "one of the trainers in Agate having a shadow Snubbul that respawned upon being caught. Those trainers
-let you rematch them but they have the exact same team - perhaps we can't give them shadows? It was trainers 24-27".
+One of the trainers in Agate had a Shadow Snubbul that respawned upon being caught. Those trainers (24-27) can be
+rematched, and they have the exact same team every time, so they get no Shadows.
 """
 from __future__ import annotations
 

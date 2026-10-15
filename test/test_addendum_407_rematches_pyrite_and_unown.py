@@ -1,8 +1,8 @@
 """ADDENDUM 407 (2026-10-03) -- mandatory rematches can hold items, Pyrite is one level tier, the Unown PID watch.
 
-Player: "Make the mandatory rematches able to hold progressive/useful. ... please make sure that pyrite visit 1 and
-2 are the same level scaling, rather than separated. Also, a user reported an Unown L turning into an Unown D upon
-purification. Check the code/fields and see if you can figure out how this happened."
+Mandatory rematches can hold progression/useful items. Pyrite visits 1 and 2 share one level-scaling tier rather
+than being separated. And an Unown L turned into an Unown D upon purification; the code and fields are checked for
+how that happened.
 """
 from __future__ import annotations
 
@@ -16,11 +16,11 @@ from ..game_data import missable_trainers as mt, trainer_roster as tr
 from ..randomizer import path_level_scaling as pls
 
 ON = ["Defeat - Naps #2"]
-# Player: "Cids 2 and Sixes 2 should be filler only. Naps is the only one I guess that needed changed."
-# ADDENDUM 409: six of the original ten are no longer locations at all -- "Remove all of cida,clerr,belish,dosk, and
-# hebon's rematches. Remove Aferd's rematches. ... Remove Finol, Dert, Raling, Labet and Doby's rematches." and,
-# for the Sixes, "Remove all their other fights" (Browsix #4). The Sixes' #2 stays ("make their #2 at Phenac
-# (missable, behind disc and note)") and is still filler-only; Laken and Zook were not in the ruling.
+# Cida #2 and the Sixes' #2 are filler-only; Naps #2 is the only one that changed.
+# ADDENDUM 409: six of the original ten are no longer locations at all -- the rematches of Cida, Clerr, Belish, Dosk,
+# Hebon, Aferd, Finol, Dert, Raling, Labet and Doby are removed, and, for the Sixes, all their other fights
+# (Browsix #4). The Sixes' #2 stays (at Phenac, missable, behind the disc and the note) and is still filler-only;
+# Laken and Zook are not part of that trim.
 HELD = ["Defeat - Resix #2", "Defeat - Greesix #2", "Defeat - Laken #3"]   # ADDENDUM 436: Zook #2 is not a check
 RULED_OUT = ["Defeat - Cida #2", "Defeat - Aferd #2", "Defeat - Hebon #2", "Defeat - Browsix #4",
              "Defeat - Dosk #2", "Defeat - Finol #2"]
@@ -55,7 +55,7 @@ class TestInAGeneratedWorld(PokemonXDTestBase):
                              self.multiworld.get_location(name, self.player).progress_type, name)
 
     def test_the_ruled_out_ones_are_not_locations(self) -> None:
-        # ADDENDUM 409: the player removed these checks by name; they cannot hold anything because they do not exist.
+        # ADDENDUM 409: these checks were removed by name; they cannot hold anything because they do not exist.
         created = {location.name for location in self.multiworld.get_locations(self.player)}
         for name in RULED_OUT:
             self.assertIn(name, tr.RULED_OUT_DEFEAT_LOCATIONS, name)
@@ -150,7 +150,7 @@ if __name__ == "__main__":
 
 
 class TestMisfiledItems(unittest.TestCase):
-    """ADDENDUM 408: the "No256 in the TMs tab" report. Detection only -- it names what is where."""
+    """ADDENDUM 408: the "No256 in the TMs tab" symptom. Detection only -- it names what is where."""
 
     def _bag(self, shared: "dict[int, tuple[int, int]]", items: "dict[int, tuple[int, int]]"):
         def fake_read(base, count):

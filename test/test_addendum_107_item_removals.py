@@ -1,8 +1,7 @@
-"""Regression coverage for ADDENDUM 107's item-pool changes (2026-09-10, player request, verbatim: "Go ahead
-and use our item list and walkthroughs/wikis to determine what items are useless. Remove all of them except for
-Rabuta berry for our chest checks." Clarified on request: "The Shoal Items, Escape rope, etc all have
-'forbidden' in their description and therefore can't be used. Go ahead and remove the trade evolution items
-too."). Pure data-table checks against items.py -- no MultiWorld/generation needed.
+"""Regression coverage for ADDENDUM 107's item-pool changes (2026-09-10): every useless item, judged from the item
+list and walkthroughs/wikis, leaves the pool -- except Rabuta Berry, kept for the chest checks. The Shoal items,
+Escape Rope and the like carry a 'forbidden' description and cannot be used, and the trade-evolution items go too.
+Pure data-table checks against items.py -- no MultiWorld/generation needed.
 
 Two removal grounds, 11 items total:
   1. "Forbidden"/non-functional in Pokemon Colosseum/XD (generic placeholder or explicit "cannot be used"
@@ -77,9 +76,9 @@ class TestAddendum107Removals(unittest.TestCase):
         self.assertEqual(len(all_offsets), len(set(all_offsets)), "items.py has a duplicate id_offset somewhere")
 
     def test_rabuta_berry_still_excluded_and_untouched(self) -> None:
-        # Confirms this addendum did not disturb Rabuta Berry's pre-existing protected/excluded role (the
-        # player's own "except for Rabuta berry for our chest checks" instruction) -- it was already never a
-        # receivable AP item before this pass (reserved as CHEST_DUMMY_GAME_ITEM_ID, ADDENDUM 19/31).
+        # Confirms this addendum did not disturb Rabuta Berry's pre-existing protected/excluded role (it is kept for the
+        # chest checks) -- it was already never a receivable AP item before this pass (reserved as
+        # CHEST_DUMMY_GAME_ITEM_ID, ADDENDUM 19/31).
         self.assertNotIn("Rabuta Berry", items.ITEM_TABLE)
         self.assertEqual(items.CHEST_DUMMY_GAME_ITEM_ID, 161)
 

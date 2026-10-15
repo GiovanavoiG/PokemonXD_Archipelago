@@ -271,13 +271,13 @@ class TestAddendum337ExclusionWasLifted(unittest.TestCase):
     This class used to assert Wakin and Gonzap stayed filler-only until an in-battle test happened. That test
     happened, and it went the other way: removing the Snag Machine changed nothing, because the encounter is
     gated by a global story variable and a script flag, not by the machine. ADDENDUM 341 patches the script
-    instead and the fights work, so the ruling is lifted.
+    instead and the fights work, so the fence is lifted.
 
     What ADDENDUM 340 measured is untouched by that -- the two bytes are still the Snag Machine, and the
     tests above still pin them. What it could NOT establish is settled here in the negative: the two bytes are
     written when the game grants the machine, and nothing observed reads them back."""
 
-    def test_the_ruling_is_lifted_and_the_set_is_empty(self):
+    def test_the_fence_is_lifted_and_the_set_is_empty(self):
         from ..game_data import missable_trainers
 
         self.assertEqual(missable_trainers.SNAG_MACHINE_BLOCKED_TRAINER_INDICES, frozenset())
@@ -295,7 +295,7 @@ class TestAddendum337ExclusionWasLifted(unittest.TestCase):
         from ..game_data import missable_trainers
 
         self.assertFalse(missable_trainers.SNAG_MACHINE_BLOCKED_TRAINER_INDICES,
-                         "the Snag Machine ruling is lifted; do not re-fence on that reasoning")
+                         "the Snag Machine fence is lifted; do not re-fence on that reasoning")
 
 
 if __name__ == "__main__":

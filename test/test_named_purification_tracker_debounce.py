@@ -1,9 +1,9 @@
 """Regression coverage for NamedPurificationTracker's ADDENDUM 98/99 debounce.
 
-ADDENDUM 98 (2026-09-07, player report: "still sending purify checks upon opening save menu") shipped a
+ADDENDUM 98 (2026-09-07, purify checks were still sending on opening the save menu) shipped a
 2-consecutive-poll confirmation window (`_pending_flags`) for a species' purified_flag 0->nonzero transition.
-ADDENDUM 99 (2026-09-09, player report AFTER 98 shipped: "The save menu is still sending duplicate/extra checks
-for both purifications AND chests") widened that window from 2 polls to `NamedPurificationTracker._CONFIRM_
+ADDENDUM 99 (2026-09-09, AFTER 98 shipped, the save menu was still sending duplicate/extra checks for
+both purifications AND chests) widened that window from 2 polls to `NamedPurificationTracker._CONFIRM_
 STREAK` (4) consecutive matching polls, tracked per-species via `_pending_streak` -- see that class's own
 docstring for the full reasoning. No test previously existed for this tracker's debounce at all (only
 ChestCountTracker's sibling debounce, added the same day as ADDENDUM 98, had one) -- this file adds that

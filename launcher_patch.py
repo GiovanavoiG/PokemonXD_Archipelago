@@ -73,8 +73,8 @@ def _ensure_visible_console() -> bool:
     return True
 
 
-# ADDENDUM 437. Player: "I had to hit enter to progress the patch after the trade evolutions line. Why?"
-# Windows consoles start in QuickEdit mode: a click inside the window begins a text selection, and while a selection
+# ADDENDUM 437. The patch could stall after the trade-evolutions line until Enter was pressed. Windows consoles
+# start in QuickEdit mode: a click inside the window begins a text selection, and while a selection
 # is open the console stops accepting output -- the next print() BLOCKS the whole patch until Enter (or Esc) ends the
 # selection. The trade-evolutions line is the last print before the common_rel re-encode, the patch's longest silent
 # stretch, which is exactly when a player clicks the window to see whether it is still alive. Turning QuickEdit off

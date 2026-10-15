@@ -1,7 +1,7 @@
 """ADDENDUM 420 (2026-10-05) -- key items you were not sent are removed: proven against the real Bag layout.
 
-Player: "What happened to us removing key items if we aren't supposed to have them? users reported machine part
-not being removed too. Every key item in the pool should be removed if we don't have them in archipelago."
+Key items were not being removed when they had not been sent -- the Machine Part among them. Every key item in
+the pool is removed from the Bag unless Archipelago has sent it.
 """
 import struct
 import unittest

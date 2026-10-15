@@ -194,7 +194,7 @@ PARTY_RECAP_SPECIES_OFFSET = 0x32          # u16BE, UNRELIABLE -- same stale-spe
                                             # this is exposed for debugging only.
 PARTY_RECAP_MAXHP_OFFSET = 0x42            # u16BE. Runs ahead of PARTY_BASE's MaxHP right after a purification,
                                             # so it's the more current value at that moment.
-PARTY_RECAP_STAT_OFFSETS = {               # u16BE each, matched the player's reported stats exactly across two
+PARTY_RECAP_STAT_OFFSETS = {               # u16BE each, matched the in-game stats exactly across two
     "attack": 0x44,                        # purification events (Teddiursa, Poochyena)
     "defense": 0x46,
     "sp_attack": 0x48,
@@ -392,8 +392,8 @@ def _looks_like_real_block_base(candidate: int, mem: bytes) -> bool:
     return mem[off:off + 8] == b"\x01" * 8
 
 
-# ADDENDUM 444, player: "Any solutions that allow us to increase the yaml name size without losing our search for the
-# player block?" The trainer name was only ever a way to FIND candidates; the money marker and the game's own
+# ADDENDUM 444: the YAML name can be longer than the in-game trainer name without losing the search for the
+# player block. The trainer name was only ever a way to FIND candidates; the money marker and the game's own
 # savedata pointer are what VALIDATE one. So the block is found without a name, and the slot name no longer has to
 # be the in-game name: (1) the game's savedata pointer (`_block_base_from_savedata_pointer`, ADDENDUM 420) when the
 # block it names validates; (2) otherwise a scan for the marker itself, kept to the 0x8047xxxx-0x8049xxxx block
@@ -812,8 +812,8 @@ def set_poll_interval(seconds: float) -> "dict[str, int]":
 #                             produces corrupted display.
 #   3. Berries (133-175)   -> Berries pocket at POKEBALL_POCKET_OFFSET + 82*4, windowed to slots 82-124 so it
 #                             never touches the reserved 129-140 sub-range. Vanilla puts 133-145 in the Items
-#                             pocket, but this client writes by raw address and the player asked for every
-#                             berry in the Berries tab, so all of them route here.
+#                             pocket, but this client writes by raw address and every berry belongs in
+#                             the Berries tab, so all of them route here.
 #   4. Key items (500-533) -> Key Items pocket, slots 0-42.
 #   5. Everything else with a confirmed id (13-225) -> Items pocket, slots 0-29.
 #   6. `game_item_id is None` (Ein File S, the unresolved key items, the trap item) -> no RAM write;
@@ -842,8 +842,8 @@ def resolve_item_pocket(block_base: int, game_item_id: int | None) -> tuple[int,
         return block_base + POKEBALL_POCKET_OFFSET, BALLS_SLOT_COUNT
     if 289 <= game_item_id <= 346:
         return block_base + POKEBALL_POCKET_OFFSET + TM_HM_POCKET_RELATIVE_START * 4, TM_HM_SLOT_COUNT
-    # The full berry index range, not just the 146-175 the vanilla game files here: the player asked for every
-    # berry this pool can produce to land in the Berries tab.
+    # The full berry index range, not just the 146-175 the vanilla game files here: every berry this pool can
+    # produce lands in the Berries tab.
     if 133 <= game_item_id <= 175:
         return block_base + POKEBALL_POCKET_OFFSET + BERRIES_POCKET_RELATIVE_START * 4, BERRIES_SLOT_COUNT
     # 500-533, verified rather than assumed: every id resolved in 501-533 is a key item (Elevator Key 501 through
@@ -858,7 +858,7 @@ def resolve_item_pocket(block_base: int, game_item_id: int | None) -> tuple[int,
     return block_base + ITEMS_POCKET_OFFSET, ITEMS_POCKET_MAX_SLOTS
 
 
-# ADDENDUM 408 -- items in the wrong Bag tab. A player found a "No256" in the TMs tab, twice, each described as a
+# ADDENDUM 408 -- items in the wrong Bag tab. A "No256" turned up in the TMs tab, twice, each described as a
 # healing item. The TMs tab shows a TM number and move for every slot, so a NON-TM id there renders as "No256"
 # with that item's own description. These are the regions of the shared Balls/TMs/Berries array and what each
 # may hold (XD's layout: Balls 16, TMs 64, Berries 46 -- the same one the write windows above are carved from).
@@ -919,18 +919,18 @@ def resolve_item_read_window(block_base: int, game_item_id: "int | None") -> "tu
 
 # ADDENDUM 446 -- the Items pocket overflows into the PC's item storage.
 #
-# Player: "Do we have enough info for the item overflow into PC? If so, do it." The Items pocket is 30 slots for 102
-# item types, and until now a full pocket held an incoming item until the player made room.
+# The Items pocket is 30 slots for 102 item types, and until now a full pocket held an incoming item until the
+# player made room.
 #
 # WHAT IS KNOWN (bag-space investigation, 2026-10-04, re-checked for this addendum):
-#   * The player deposited 5 Net Balls and 1 NeverMeltIce and dumped MEM1: `00 06 00 05 | 00 D4 00 01` at
+#   * With 5 Net Balls and 1 NeverMeltIce deposited, a MEM1 dump shows `00 06 00 05 | 00 D4 00 01` at
 #     BLOCK_BASE + 0xC1B0, as two `[u16 id][u16 qty]` records -- the Bag's own format -- with all-zero bytes before.
 #   * A SECOND capture taken at a different moment of play (`battle1.bin`, mid-battle, 9.4 million bytes different
 #     from the first) holds the same records at the same offset, and in BOTH dumps that pair occurs nowhere else
 #     in MEM1. So this is the one live copy, not a menu's working buffer that would be written back over it.
 #   * The zero run after the two records ends at exactly 235 slots, the PC item capacity of the GameCube games.
 #   * The offset is relative to the save block, which the client finds through the game's own save pointer.
-#   * None of the 24 other dumps has anything there: the player had never used PC item storage before.
+#   * None of the 24 other dumps has anything there: PC item storage had never been used before.
 # NOT YET DONE: a live write. So every write here is a plain stack-or-first-empty `give_item` into that array, the
 # delivery loop confirms it by re-reading (Bag + PC together) over several polls exactly as it does a Bag write,
 # and nothing is written unless the whole 235-slot array reads as item records first.
@@ -1829,7 +1829,7 @@ assert RECORD_PURIFIED_FLAG_OFFSET - RECORD_TEXT_ANCHOR_OFFSET == PARTY_RECAP_PU
 )
 
 
-# ADDENDUM 407 -- Unown's letter. A player saw an Unown L become an Unown D at purification. There is no form
+# ADDENDUM 407 -- Unown's letter. An Unown L became an Unown D at purification. There is no form
 # field anywhere this project writes or reads: the trainer-Pokemon record (DPKM) is 32 bytes, every one accounted
 # for (0x1C shininess, 0x1E nature/gender/ability, 0x1F flags); the Shadow record (DDPK) has no species or PID;
 # and XD's species table has 415 entries with no Unown forms in it. As in every Generation III game, the letter
@@ -2436,7 +2436,7 @@ class PurificationCountTracker:
 # ADDENDUM 382: the live move-status guard.
 #
 # ADDENDUM 381 fenced the PATCHER off the two bytes that decide a move's status (effect id +0x1D, secondary
-# chance +0x05). That fence is gone by the time anyone plays, and the player asked the right question about
+# chance +0x05). That fence is gone by the time anyone plays, which raises the question of
 # what happens next: a Dolphin save state restores the whole of MEM1, `common_rel` included. Load a state made
 # under a different ISO and the move table in memory is that build's, not this one's -- nothing on disc is
 # wrong and nothing the patcher can check would notice.
@@ -2903,7 +2903,7 @@ class ItemNameRenamer:
         berry in a shop with the same next-check text, which was accurate but useless at a twelve-line shelf.
 
         NO CHECK appears in two cases: the berry has already been bought in this room this session (buy each line
-        once and the shelf empties, which is the workflow asked for), or its line number is past this shop's
+        once and the shelf empties, which is the intended workflow), or its line number is past this shop's
         recorded stock count so no line answers to it. Greying is per line, not per room -- a room's count can
         reach its cap while individual lines remain unbought, and greying a live line out would tell the player a
         real check is gone."""
@@ -3160,10 +3160,10 @@ class ShopPurchaseTracker:
                 # pickup) and crediting a guess would send a check for a purchase that never happened. The berry
                 # is still cleared below, because "counted stock vs fresh purchase" needs the slot to empty.
                 #
-                # ADDENDUM 394: remember WHERE. Eight of the ten shop rooms are `source="player"` rather than a
+                # ADDENDUM 394: remember WHERE. Eight of the ten shop rooms are `source="compiled"` rather than a
                 # live `/room` reading, and shops.py says in as many words that a shop going silent is where to
                 # look. A wrong id makes every live writer fall back AND every purchase there credit nothing,
-                # which is what the Outskirt Stand report looked like.
+                # which is what happened at the Outskirt Stand.
                 self.purchases_outside_a_shop += delta
                 self.unknown_shop_rooms[room_id] = self.unknown_shop_rooms.get(room_id, 0) + delta
             else:
@@ -3541,7 +3541,7 @@ class ItemDescriptionWriter:
     # ADDENDUM 427: other live copies of the table. A reopened menu can load a fresh copy while the old one
     # lingers with its magic intact, and `locate` kept answering with the OLD one -- so every write went to a
     # copy nobody was looking at, the canary said "still ours", and the shelf kept its vanilla text until the
-    # old copy was finally overwritten. That is the Realgam Tower report: wrong descriptions, fixed "slowly".
+    # old copy was finally overwritten. That is what happened at Realgam Tower: wrong descriptions, fixed slowly.
     # Every copy that passes `item_descriptions.copy_is_writable` is now written, each with its own cache.
     extra_bases: "list[int]" = field(default_factory=list)
     copies_found: int = 0
@@ -4913,7 +4913,7 @@ class TrainerBattleDefeatTracker:
 # direction to the other trackers, waiting for a confirmed run of zeros before trusting "safe now".
 
 BATTLE_STRUCT_ANCHOR_ADDRESS = 0x80874F54  # RETIRED 2026-09-14 (ADDENDUM 202) -- read 0 DURING a real
-                                            # battle on the player's own live game. See below. Kept only so
+                                            # battle in a live game. See below. Kept only so
                                             # `/battle` can show it next to the replacement.
 
 # --- The battle gate, measured across eleven states. ---
@@ -4951,7 +4951,7 @@ BATTLE_UI_FLAG_ADDRESS = 0x80814A64
 
 # Observation only. A mode enum, not a flag: 0 normal, 1 immediately after a battle, 2 cutscene/dialogue. Five
 # samples, and what resets 1 -> 0 is unknown (a menu, a room change, or time). Recorded because a genuine "a
-# battle just ended" edge is what was originally asked for and this may be it. Nothing depends on it; measure
+# battle just ended" edge was the original goal and this may be it. Nothing depends on it; measure
 # what clears it before gating on it.
 BATTLE_MODE_ENUM_ADDRESS = 0x80874E50
 
@@ -5390,7 +5390,7 @@ STORY_BYTE_MAX_PLAUSIBLE = 0xFE  # 0xFF has only ever been seen as a deliberate 
 STORY_BYTE_LANDMARKS: "dict[int, str]" = {
     # 0x0F reads two ways and both are kept, but the Snag Machine is the load-bearing one: story_bytes' HQ Lab
     # 0x17 rule and Kaminko's 0x53 rule both key on the lab having genuinely reached it.
-    0x0F: "Snag Machine obtained (player, 2026-09-18) / Gateon Port unlock dialogue complete (earlier note)",
+    0x0F: "Snag Machine obtained (2026-09-18) / Gateon Port unlock dialogue complete (earlier note)",
     0x10: "Krane Memos 1 and 2 obtained (transition)",
     0x11: "Gateon Port cutscene fully complete",
     0x16: "Machine Part obtained (transition; the Machine Part key item is also required)",
@@ -5564,8 +5564,8 @@ class KeyItemReconciler:
 class KraneMemoTracker:
     """ADDENDUM 434: a memo's location is sent when the game's copy ENTERS the Bag and this client removes it.
 
-    Player: "don't automatically send the krane memo checks. Let's instead send them when they enter our inventory
-    and are removed." Before this the checks went out off the HQ Lab's story mark (0x10 for memos 1-2, 0x17 for
+    The Krane Memo checks are not sent automatically; they are sent when the memos enter the Bag and are removed.
+    Before this the checks went out off the HQ Lab's story mark (0x10 for memos 1-2, 0x17 for
     3-5) and the clear was a bounded afterthought; now the removal IS the check. The memo ITEMS are out of the
     pool (`items.ITEMS_REMOVED_FROM_POOL`), so Archipelago never delivers one and every copy in the Bag is the
     game's own handover -- which is what makes "it was there and we took it" mean "the story gave it to you".
@@ -5962,11 +5962,11 @@ CITADARK_ROOM_IDS: "frozenset[int]" = _citadark_room_ids()
 
 
 # --- ADDENDUM 412: a room reached from Gateon WITHOUT the map is still Gateon, unless it is the ride. ---
-# Player: "user reported having access to citadark despite having only 6/8 kyogre parts." The ceiling held the byte
-# only in the six Gateon rooms the tables know (146, 147, 153, 156, 158, 160). Gateon has more -- 148-152, 154, 155,
-# 157, 159, 161 and 162 are unnamed and unfiled -- and stepping into one read as LEAVING Gateon: `_restore` put the
-# player's real byte back (0x76 in the report), so that room was built with the ride open, and walking back into a
-# known room built it from the high byte too, the clamp landing a tick after the load.
+# Citadark Isle was reachable with only 6/8 Kyogre Parts. The ceiling held the byte only in the six Gateon rooms
+# the tables know (146, 147, 153, 156, 158, 160). Gateon has more -- 148-152, 154, 155, 157, 159, 161 and 162 are
+# unnamed and unfiled -- and stepping into one read as LEAVING Gateon: `_restore` put the player's real byte back
+# (0x76 in the observed case), so that room was built with the ride open, and walking back into a known room built
+# it from the high byte too, the clamp landing a tick after the load.
 #
 # The rule the Citadark detection already rests on closes it: every walk-out of Gateon goes through the map screen,
 # and the Robo Kyogre ride is the one exit that does not. So a room reached from a held Gateon room without the map
@@ -6786,9 +6786,8 @@ class ScooterStoryHold:
 
 
 # --- ADDENDUM 419: the Music Disc is a story byte, not an item. ---
-# Player: "Apparently the music disc is a fake item, and the action that takes it is actually determined via story
-# byte. Let's add a system to ensure that our story byte is forced capped to before the music disc if we don't have
-# it in Phenac."
+# The Music Disc is a fake item: the action that takes it is determined by the story byte. So without the Music
+# Disc, the story byte is capped in Phenac to before the disc.
 #
 # Opening chest 80 is the game's "picked up the Music Disc" event (0x41 -> 0x42), and the Mayor's House handover
 # (0x42 -> 0x43) reads the BYTE, not the Bag. So with key items shuffled, opening chest 80 -- which holds whatever the
@@ -6798,7 +6797,7 @@ class ScooterStoryHold:
 # Same shape as `ScooterStoryHold`: a band it pulls back from, a floor it writes, and a grant when the item lands.
 # Two differences, both because 0x41 is an ordinary Phenac value and not a byte only we write:
 #   * the hold only runs while the player stands in a Phenac room -- Realgam Tower's window also spans 0x41..0x43,
-#     and the player said "in Phenac";
+#     and the hold is specific to Phenac;
 #   * the grant puts back the highest byte the hold declined, and only when the byte still sits at the floor in
 #     Phenac. After a client restart that memory is gone, so the fallback is "chest 80 is already checked": the
 #     pickup happened, the chest cannot be opened twice, and without the grant the run could never reach 0x42.
@@ -6808,8 +6807,8 @@ MUSIC_DISC_HOLD_FLOOR = 0x41
 MUSIC_DISC_HOLD_BAND = (0x42, 0x43)
 MUSIC_DISC_CHEST_ID = 80
 MUSIC_DISC_AREA = "Phenac City"
-# ADDENDUM 441, player: "The phenac guard is slightly weird and continuously brings up the music disc dialogue in its
-# room, and I couldnt pick up the item. Can we try lowering the guard byte by one?" At 0x41 the disc's own room
+# ADDENDUM 441: the Phenac guard kept bringing up the Music Disc dialogue in its room, and the item could not be
+# picked up; the fix lowers the guard byte by one. At 0x41 the disc's own room
 # (room 98, chest 80) stages the pickup scene; the scene writes 0x42, the hold pulls it back to 0x41, and the scene
 # runs again -- a loop the chest never gets out of. In THAT room the guard now holds one story step lower: storyvar
 # 520 -> 510, which presents as 0x3F. Only that room -- 0x3F is "Phenac first visit, forced to Realgam Tower", and
@@ -7031,9 +7030,9 @@ class MusicDiscStoryHold(ItemStoryHold):
 
 
 # --- ADDENDUM 421: the Machine Part is a story byte too. ---
-# Player: "Player reported they had not received machine part yet in multiworld. Please check for holes."
-# The Gateon parts shop is the 0x15 -> 0x16 event; the lab's Krane Memo 3-5 handover (0x17) and the Agate unlock
-# (0x17 -> 0x19) follow from the BYTE. Clearing the Bag's copy (the reconciler) does not undo 0x16, so with
+# In a multiworld the Machine Part can arrive late, so the story must not move past it first. The Gateon parts
+# shop is the 0x15 -> 0x16 event; the lab's Krane Memo 3-5 handover (0x17) and the Agate unlock (0x17 -> 0x19)
+# follow from the BYTE. Clearing the Bag's copy (the reconciler) does not undo 0x16, so with
 # location shuffle OFF -- where Agate and everything after it are behind the Machine Part -- the hold keeps the
 # early areas at 0x15 until the item arrives. Not with it ON: there the Part gates only purification, Agate is
 # open from the start, and Krane Memos 3-5 (0x17) are logically free, so holding 0x16 would strand them.
@@ -7072,9 +7071,8 @@ class MachinePartStoryHold(ItemStoryHold):
 
 
 # --- ADDENDUM 452: the HQ Lab waits at 0x16 for Krane Memos 3-5. ---
-# Player: "When we gain the machine part, set HQ Lab's floor to 0x16. HOLD IT THERE NO MATTER WHAT until we've
-# received krane memo 3, 4, and 5."
-# 0x16 is "Machine Part obtained" -- the byte the lab's Krane Memo 3-5 handover (0x16 -> 0x17) plays from. The lab's
+# Once the Machine Part is held, HQ Lab's floor is 0x16, held there no matter what until Krane Memos 3, 4 and 5 are
+# received. 0x16 is "Machine Part obtained" -- the byte the lab's Krane Memo 3-5 handover (0x16 -> 0x17) plays from. The lab's
 # floor rule (0x17 once Gateon reached 0x16) and its own high-water mark could both put the lab past the handover, so
 # the memos -- and their three checks -- never came. While armed (Machine Part held, memos 3-5 not all received) the
 # byte in every HQ Lab room is written to 0x16 whatever else wrote it, and the lab's map-hover target is 0x16 too
@@ -7084,10 +7082,8 @@ class MachinePartStoryHold(ItemStoryHold):
 LAB_MEMO_HOLD_BYTE = 0x16
 LAB_MEMO_HOLD_AREA = "Pokemon HQ Lab"
 LAB_MEMO_HOLD_MEMOS: "tuple[int, ...]" = (3, 4, 5)
-# ADDENDUM 464, player: "Our clamp for machine part activates too early. ONLY clamp to 16 when we've already reached
-# 0x0F on the HQ lab story byte and we have the machine part." Then: "How about just if it's at 0x0F at all, and we've
-# received both memo 1 and 2?" With the Machine Part arriving early from the multiworld the hold armed on the item
-# alone and pulled a lab still at 0x0D UP to 0x16, past the Snag Machine tier and the Krane Memo 1-2 handover. Now it
+# ADDENDUM 464: the Machine Part clamp used to activate too early. With the Machine Part arriving early from the
+# multiworld the hold armed on the item alone and pulled a lab still at 0x0D UP to 0x16, past the Snag Machine tier and the Krane Memo 1-2 handover. Now it
 # also needs (a) the lab to have been at 0x0F or above at any point -- the live byte in an HQ Lab room, whoever wrote
 # it (the arrival bump's 0x0F included), the lab's high-water mark, or with travel shuffle off the story's -- latched
 # and persisted; and (b) Krane Memos 1 and 2 received, so the handover that follows 0x0F has always played first.
@@ -8657,9 +8653,9 @@ class AreaStoryByteMemory:
         if _ceiling is not None and story_byte > _ceiling:
             self.declined_above_ceiling += 1
             return False
-        # ADDENDUM 474: some areas are LANDED in carrying a byte another area's cutscene earned. Player: "SS Libra
-        # moving to Phenac made Phenac inherit SS Libra's byte" -- the stranded ship ends with 0x4E -> 0x50 and puts the
-        # player in Phenac, whose guard ceiling admits 0x50 for exactly that arrival, so 0x50 became Phenac's mark: the
+        # ADDENDUM 474: some areas are LANDED in carrying a byte another area's cutscene earned. Moving
+        # from SS Libra to Phenac made Phenac inherit SS Libra's byte: the stranded ship ends with 0x4E -> 0x50 and
+        # puts the player in Phenac, whose guard ceiling admits 0x50 for exactly that arrival, so 0x50 became Phenac's mark: the
         # town counted as finished and every Phenac missable was auto-sent. Never banked, never a mark.
         _bank_ceiling = _story_bytes.AREA_BANK_CEILINGS.get(region)
         if _bank_ceiling is not None and story_byte > _bank_ceiling:
@@ -8927,8 +8923,8 @@ class AreaStoryByteMemory:
                          f"elsewhere and landed in with you (Phenac after the stranded SS Libra); "
                          f"{self.clamped_landed_marks} saved mark(s) clamped on load.")
         if self.declined_foreign_commit:
-            # Visible on purpose: this counter going up means the bug is being caught, and a player who reported
-            # it should be able to watch it happen rather than take it on faith.
+            # Visible on purpose: this counter going up means the bug is being caught, and anyone chasing it
+            # should be able to watch it happen rather than take it on faith.
             lines.append(f"  Declined {self.declined_foreign_commit} committed hover write(s) that belonged "
                          f"to a destination other than the one you landed in (ADDENDUM 275).")
         from .game_data import story_bytes
@@ -9123,10 +9119,10 @@ ROOM_ID_ADDRESS = 0x80446F32
 ROOM_ID_MIRRORS = (0x80814AB6, 0x8083352E, 0x8083357E)
 ROOM_ID_MAX_PLAUSIBLE = 0x400
 
-# Every id below 200 was observed in play with `/room`. The six that predate the player's own compilation were
+# Every id below 200 was observed in play with `/room`. The six that predate this compilation were
 # validated four ways and are unchanged except where the newer data is more specific (140 was "Pokemon HQ Lab
 # (interior)" and is really the downstairs-right room -- the lab has four distinct interior rooms, 138-141).
-# Chest numbers in a name are the player's own labelling against `game_data/chest_table.py`'s indices.
+# Chest numbers in a name are `game_data/chest_table.py`'s indices.
 KNOWN_ROOM_IDS: "dict[int, str]" = {
     1: "Cipher Lab (left door) -- chests 16, 17",
     7: "Cipher Lab (inside right door)",
@@ -9149,7 +9145,7 @@ KNOWN_ROOM_IDS: "dict[int, str]" = {
     156: "Gateon Port shop",
     158: "Gateon Tower 1F -- chests 6, 7",
     160: "Gateon Tower 3F -- chest 8",
-    # ADDENDUM 394: measured live by the player. 164 is the EXTERIOR and was in shops.py as the shop for
+    # ADDENDUM 394: measured live. 164 is the EXTERIOR and was in shops.py as the shop for
     # months, which renamed the shelf on the way past and un-renamed it on the way in.
     163: "Outskirt Stand (inside) -- shop",
     169: "Kaminko's house (inside, first visit)",
@@ -9720,9 +9716,9 @@ def read_party(block_base: int) -> "list[LivePartyMember]":
 def describe_live_party(block_base: int) -> "list[str]":
     """One line per party slot, read RAW: species, level, experience, HP, and whether `occupied` accepts it.
 
-    ADDENDUM 393. Players report wild Poke Spot Pokemon showing as LEVEL 0, and ADDENDUM 268 proved every byte
-    of the Poke Spot data correct, so the leading explanation is the player's own: the Pokemon has a real level
-    and the in-battle struct is not showing it.
+    ADDENDUM 393. Wild Poke Spot Pokemon show as LEVEL 0, and ADDENDUM 268 proved every byte of the Poke Spot
+    data correct, so the leading explanation is that the Pokemon has a real level and the in-battle struct is not
+    showing it.
 
     THIS IS THE PARTY, NOT THE OPPONENT, and cannot answer that directly -- a wild Pokemon lives in the
     battle-roster struct, where the only mapped fields are the names and current HP. What it answers is the
@@ -9902,7 +9898,7 @@ class BattlePartyWatch:
 
     Why it exists: in a battle the game fights from its own copy of the party, and a white-out heals the save-side
     party inside the same end sequence, so `party_is_wiped` (save-side) never sees zero. The annihilation flag
-    ADDENDUM 390 derived does not read on the player's build either (442 "records", several "set" outside any
+    ADDENDUM 390 derived does not read on the build measured here either (442 "records", several "set" outside any
     battle). These records DO go to zero as the team faints, and stay there through the end screens.
 
     Safety: outside a battle these records are the last fight's leftovers -- after a loss, all zero. So a wipe is
@@ -10142,7 +10138,7 @@ class DeathLinkBridge:
         The HP edge is the party going fully unconscious, which is what ADDENDUM 351 shipped on the reasoning
         that "a party sits at zero HP for the whole of a losing battle's end sequence". That was never
         captured, and a white-out heals the party in the same sequence that ends the battle, so the window may
-        not exist to be seen -- which is what "we weren't SENDING deathlinks at all" looks like from outside.
+        not exist to be seen -- which is what Death Links never being sent at all looks like from outside.
 
         The annihilation flag is the game's own: `fightEncountCheckZenmetu` refuses to run a second time while
         `encounter->zenmetuFlag` is set, so it is a latch and cannot be missed between polls.
@@ -10225,13 +10221,13 @@ class DeathLinkBridge:
         return (True, f"you whited out ({how}) -- sending a death to everyone linked.")
 
     def _poll_game_counter(self, block_base: "int | None", whiteouts: int) -> "tuple[bool, str | None]":
-        """ADDENDUM 475: the game counted a white-out -- that, and only that, is a death to send. Player: "Can we base
-        SENDING a deathlink off of the code instead of reading party?" The party is still read for ONE thing: a
+        """ADDENDUM 475: the game counted a white-out -- that, and only that, is a death to send. SENDING
+        a Death Link is based on the game's own code, not on reading the party. The party is still read for ONE thing: a
         received death that never turned into a white-out (the player healed first) must not leave the loop fence up,
         and a conscious party is how that is known.
 
-        ADDENDUM 484, player: "Ensure that we don't send a duped one even if we receive a deathlink out of battle and
-        white out at the start of a battle." The white-out heals the party in the same instant it counts, and the
+        ADDENDUM 484: no duplicate is sent even when a Death Link is received out of battle and the white-out comes at
+        the start of a battle. The white-out heals the party in the same instant it counts, and the
         client reads the counter BEFORE the party: a poll could read the counter just before the white-out and the
         party just after it -- conscious -- and drop the fence, so the next poll sent our own death back out. The
         fence now comes down only after the party has read conscious on `FENCE_RELEASE_POLLS` polls in a row with no
@@ -10263,8 +10259,8 @@ class DeathLinkBridge:
 
     def describe(self) -> str:
         """ADDENDUM 390: reachable now. This existed and nothing called it, so `sends` sat at zero with no way
-        for a player to see that -- which is why this arrived as "we weren't sending at all" rather than a
-        number. The per-signal split is here so the next report says WHICH trigger is doing the work."""
+        for a player to see that -- which is why the failure showed up as nothing being sent at all rather than
+        as a number. The per-signal split is here so the output says WHICH trigger is doing the work."""
         if not self.enabled:
             return "Death Link: off for this seed."
         return (f"Death Link: on. Sent {self.sends} ({self.sends_by_game} from the game's own white-out, "
@@ -10281,8 +10277,8 @@ class DeathLinkBridge:
 # ============================================================================================================
 # ADDENDUM 400 -- the white-out latch.
 # ============================================================================================================
-# Player: "White outs arent sending deathlinks. ... Also dying sends us back to HQ lab and breaks story order.
-#          When we white out we need to lock HQ lab's floor"
+# White-outs were not sending Death Links, and a white-out -- which sends the player back to the HQ Lab -- broke
+# story order, so a white-out locks the HQ Lab's floor.
 #
 # Both halves are the same event seen from two places, so one latch serves both.
 #
@@ -10324,7 +10320,7 @@ class WhiteoutLatch:
     samples: int = 0               #: fast-window ticks that actually read the flag
     last_signal: str = ""
     #: ADDENDUM 435: True when the CURRENT arming came from the battle's own records (`arm_from_battle`).
-    #: ADDENDUM 417 found the annihilation flag never reads on the player's build, so a loss arms the latch
+    #: ADDENDUM 417 found the annihilation flag never reads on the build measured, so a loss arms the latch
     #: instead -- and the Death Link bridge treats only a non-battle arming as "the game's annihilation flag".
     armed_by_battle: bool = False
     #: ADDENDUM 435: a loss arms the latch in the battle's own area; it may only disarm after the player has
@@ -10402,9 +10398,8 @@ class WhiteoutLatch:
 # ============================================================================================================
 # ADDENDUM 402 -- missable trainer checks are sent for the player once the story passes them.
 # ============================================================================================================
-# Player: "once we hit the story cap for an area, we receive all missable trainer defeats in that area."
-# ADDENDUM 405, player: "make sure we send the checks AT the story cap for each area, and only when THAT AREA's
-# floor reaches it." With travel randomization on that is the per-area memory, never the global high-water mark.
+# Once an area hits its story cap, every missable trainer defeat in that area is received. ADDENDUM 405: the
+# checks are sent AT the story cap for each area, and only when THAT AREA's floor reaches it. With travel randomization on that is the per-area memory, never the global high-water mark.
 #
 # The schedule is `game_data.missable_autosend.AUTO_SEND_AT_STORY_BYTE` -- which checks, and the byte that
 # releases each one. This class only decides WHEN, and it decides from `StoryProgressWitness.high_water`, never
@@ -10553,8 +10548,7 @@ GS_GROUP_TABLE_PTR = MIROR_SDA_BASE - 29940    # -> 8-byte entries {size, storag
 
 # ADDENDUM 390 -- the game's own annihilation flag, read straight out of the white-out code.
 #
-# Player: "Wouldn't this fail if we have no money? Can we base it off of the actual whiteout code that runs
-# that we found before?" Correct on both counts. `heroDecPokedoru` clamps, so a broke player produces no money
+# A money-based signal fails with no money, so this reads the actual white-out code instead. `heroDecPokedoru` clamps, so a broke player produces no money
 # fingerprint at all, and the real function has a better signal in it.
 #
 # `fightEncountCheckZenmetu` (0x801F0D9C) guards itself on three things, and the second is the one we want:

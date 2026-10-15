@@ -1,7 +1,6 @@
 """ADDENDUM 247 (2026-09-16) -- a map destination's floor is its AREA's first tier.
 
-Player: "SS Libra's first story byte should be 0x4E - it should only get written to 0x5A after Gateon reaches
-0x5A. It seems like this is not the case - investigate?"
+SS Libra's first story byte should be 0x4E, and it should only be written to 0x5A after Gateon reaches 0x5A.
 
 It was not the case. `map_destinations` gives the SS Libra icon `region="SS Libra"`, whose window floor is
 0x5A -- the scooter-upgraded ship. The stranded first visit is a DIFFERENT region, `SS Libra (stranded)`, at
@@ -12,7 +11,7 @@ the static floor and the rule floor and both were 0x5A. Its own comment admitted
 Libra's static 0x5A window today."
 
 `Cipher Key Lair` had the identical defect -- it names the post-Snagem tier (0x64) while its place becomes
-reachable at the exterior, 0x5D -- so BOTH halves of the player's ADDENDUM 184 paragraph were dead.
+reachable at the exterior, 0x5D -- so BOTH halves of ADDENDUM 184's paragraph were dead.
 """
 import unittest
 
@@ -26,20 +25,20 @@ class TestEntryFloorIsTheAreasFirstTier(unittest.TestCase):
         self.assertEqual(0x5A, sb.region_floor("SS Libra"), "the REGION's own floor is untouched")
 
     def test_the_key_lair_enters_at_the_lair_and_unlocks_at_the_exterior(self) -> None:
-        """RETARGETED (ADDENDUM 324), player: "And make Cipher Key Lair's floor 0x64."
+        """RETARGETED (ADDENDUM 324): Cipher Key Lair's floor is 0x64.
 
         ADDENDUM 247's own property is what splits here rather than being dropped. The icon still APPEARS
         when the game opens the exterior (0x5D) -- crediting `Unlock - Cipher Key Lair` at 0x64 would be the
         twelve-bytes-late bug 247 fixed -- but the byte the destination is ENTERED at is now the Lair itself,
-        by the player's instruction, through AREA_ENTRY_FLOOR_OVERRIDES.
+        through AREA_ENTRY_FLOOR_OVERRIDES.
 
-        ADDENDUM 371 raised that entry value again, to 0x67 ("make the key lair floor 0x67 by default"). The
+        ADDENDUM 371 raised that entry value again, to 0x67 by default. The
         SPLIT is this addendum's property and it is what is asserted: the icon appears at the exterior's 0x5D
         and the destination is entered above it. The region's own floor (0x64) stays what the ladder says --
         `_path_floor` reads that, not this, which is ADDENDUM 329's fence and the reason a floor change here
-        cannot move a level. ADDENDUM 410 then lowered it one story step, 830 -> 820 = 0x66 ("reduce key lair's
-        default floor by one step, remembering that it's more than just a byte"), and ADDENDUM 411 one more, to 810
-        = 0x65 ("so that it's at Zook") -- still above the unlock."""
+        cannot move a level. ADDENDUM 410 then lowered it one story step, 830 -> 820 = 0x66 (a story step,
+        which is more than just a byte), and ADDENDUM 411 one more, to 810 = 0x65, Zook's rung -- still above
+        the unlock."""
         self.assertEqual(0x64, sb.area_entry_floor("Cipher Key Lair"))   # ADDENDUM 439: 800, Gonzap's rung
         self.assertEqual(0x5D, sb.area_unlock_floor("Cipher Key Lair"))
         self.assertEqual(0x64, sb.region_floor("Cipher Key Lair"))
@@ -55,9 +54,9 @@ class TestEntryFloorIsTheAreasFirstTier(unittest.TestCase):
         self.assertEqual({"SS Libra", "Cipher Key Lair"}, moved)
         self.assertEqual({"SS Libra", "Cipher Key Lair"}, moved)
         # ADDENDUM 324: the only destinations whose ENTRY floor differs from their area's first tier are the
-        # ones the player gave an explicit value to. An override added without this set moving would be a
+        # ones with an explicit override value. An override added without this set moving would be a
         # destination silently entering somewhere other than where the ladder says.
-        # ADDENDUM 331 added Phenac City: the player asked for the icon to drop them in the UNLOCKED town
+        # ADDENDUM 331 added Phenac City: the icon drops the player in the UNLOCKED town
         # (0x41) rather than the locked first visit (0x3E), because the conditional rule that used to lift it
         # needed a Realgam mark a location-shuffle player may never earn.
         # ADDENDUM 334 added Cipher Lab, and ADDENDUM 350 took it out again: reading `D1_out.fsys` showed the
@@ -74,8 +73,8 @@ class TestEntryFloorIsTheAreasFirstTier(unittest.TestCase):
 
     def test_an_always_open_place_has_its_own_first_visit_floor(self) -> None:
         """RETARGETED by ADDENDUM 279. These asserted None -- "the rules are the only floor" -- which was an
-        assumption this project had never checked against play. They have first-visit bytes, reported by the
-        player: lab 0x00, Kaminko 0x03, Gateon 0x0F. What this test still guards is the ADDENDUM 247 property
+        assumption this project had never checked against play. They have first-visit bytes: lab 0x00,
+        Kaminko 0x03, Gateon 0x0F. What this test still guards is the ADDENDUM 247 property
         it was written for: an always-open place must not accidentally inherit a LATER tier's window.
 
         ADDENDUM 379 moved Gateon's value to 0x10. The property is unchanged and is asserted below it: each of
@@ -146,12 +145,12 @@ class TestTheDeadRuleFence(unittest.TestCase):
 
 
 class TestTheLadderTheMemoryActuallyWrites(unittest.TestCase):
-    """The player's sentence, as a sequence of `target_for` answers."""
+    """SS Libra's entry rule, as a sequence of `target_for` answers."""
 
     def test_ss_libra_is_0x4e_until_the_scooter_arrives(self) -> None:
         """RETARGETED 2026-09-18 (ADDENDUM 273). This used to walk Gateon's byte up to 0x5A and assert SS
         Libra's floor followed, because `AreaFloorRule("SS Libra", 0x5A, (("Gateon Port", 0x5A),))` was what
-        raised it. That rule is gone: the player's call was "Scooter item replaces it entirely", so late
+        raised it. That rule is gone: the Scooter item replaces it entirely, so late
         Gateon no longer opens the real ship on its own. The tiers and their numbers are unchanged; only what
         moves between them is."""
         mem = rc.AreaStoryByteMemory()
@@ -178,7 +177,7 @@ class TestTheLadderTheMemoryActuallyWrites(unittest.TestCase):
         self.assertGreater(mem.target_for("SS Libra"), 0x4E, "and never back to the entry floor")
 
     def test_without_the_scooter_the_stranded_visit_replays(self) -> None:
-        """ADDENDUM 273, and it is a real consequence of the player's own choice of 0x4E over 0x50.
+        """ADDENDUM 273, and it is a real consequence of choosing 0x4E over 0x50.
 
         `0x4E -> 0x50` IS the stranded visit's cutscene (kicked back to Phenac, mail sent to Pyrite). Holding
         the destination at 0x4E means that visit is re-entered at its start every time, rather than at the
@@ -191,9 +190,8 @@ class TestTheLadderTheMemoryActuallyWrites(unittest.TestCase):
 
     def test_the_key_lair_is_written_at_its_floor_unconditionally_now(self) -> None:
         """RETARGETED (ADDENDUM 324), and again by ADDENDUM 371. This used to be a LADDER: the icon wrote the
-        exterior's 0x5D until Snagem had been cleared, and a rule then raised it to 0x64. The player replaced
-        the condition with a value twice over -- "make Cipher Key Lair's floor 0x64", then "make the key lair
-        floor 0x67 by default" -- so there is no rule and the destination writes the floor from the first
+        exterior's 0x5D until Snagem had been cleared, and a rule then raised it to 0x64. The condition
+        was replaced with a value twice over -- a floor of 0x64, then 0x67 by default -- so there is no rule and the destination writes the floor from the first
         visit. What still has to hold is the direction: never below the floor, and never below a mark the area
         has already reached."""
         floor = sb.area_entry_floor("Cipher Key Lair")

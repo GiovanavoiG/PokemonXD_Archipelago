@@ -1,7 +1,7 @@
 """ADDENDUM 239 (2026-09-15) -- the shop shelf says what it will actually send.
 
-Player: "Wire in those AP item names (what would be sent out) into the description, and label each item with
-its check number." ADDENDUM 235 shipped the label; this is the item name, and it needed two things that did
+A shop line's description names the AP item it would send out, and each line is labelled with its check
+number. ADDENDUM 235 shipped the label; this is the item name, and it needed two things that did
 not exist then: the server's answer about what each shop line holds (a LocationScouts on connect) and the
 description table's real location in RAM.
 
@@ -381,7 +381,7 @@ class TestWriterSafety(unittest.TestCase):
         """ADDENDUM 357's finding, stated directly. `poll` gates on being in a shop ROOM, not on the table
         existing, so with the menu shut the sweep runs continuously and the cursor is at an arbitrary point
         by the time the player opens a menu. If the bands are only reached at cursor zero, the likeliest 28
-        chunks are searched last -- which is the six-to-twelve-second wait the player reported twice."""
+        chunks are searched last -- which is the six-to-twelve-second wait seen in play."""
         writer = ram_client.ItemDescriptionWriter()
         writer._scan_cursor = 200          # mid-sweep, as it would be after standing in a shop a while
         target = D.MEASURED_BAND_LOW_START + 3 * writer._chunk_step()
@@ -443,8 +443,8 @@ class TestWriterSafety(unittest.TestCase):
 
     def test_the_two_bands_fit_in_one_scan_slice(self) -> None:
         """The property the whole change rests on. If a later edit widens a band or lowers the per-poll
-        budget until they no longer fit, the table stops being found on the first slice and the symptom the
-        player reported comes straight back -- silently, because it is only ever slower, never broken."""
+        budget until they no longer fit, the table stops being found on the first slice and the slow first
+        description comes straight back -- silently, because it is only ever slower, never broken."""
         writer = ram_client.ItemDescriptionWriter()
         overlap = D.MSG_MAGIC_OFFSET + len(D.MSG_MAGIC)
         step = writer._CHUNK - overlap
@@ -481,8 +481,8 @@ class TestWriterSafety(unittest.TestCase):
 
     def test_a_read_failure_during_the_search_is_counted_not_fatal(self) -> None:
         """RETARGETED by ADDENDUM 389. This asserted that one failed read switched descriptions off, which was
-        the deliberate design and turned out to be the bug the player reported as "all the shops break after
-        the first one of a session": the search reads megabytes of MEM1, so a single unlucky read -- a menu
+        the deliberate design and turned out to be the bug where all the shops broke after the first one of a
+        session: the search reads megabytes of MEM1, so a single unlucky read -- a menu
         closing mid-sweep -- took the feature down for good.
 
         What stays asserted is the half that mattered: it must not SPIN. `locate` still returns None, so the

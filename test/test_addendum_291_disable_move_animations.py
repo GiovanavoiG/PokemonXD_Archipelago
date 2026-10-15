@@ -1,16 +1,15 @@
 """ADDENDUM 291 (2026-09-20) -- move animations off, and the offset measured rather than borrowed.
 
-Player: "Rotobash found a way to disable animations in game - i'd like this as an option, but they didn't show
-how. Can you search/scan for this?"
+Rotobash's randomizer disables move animations in game; this adds the same as an option.
 
-They did show how, in code rather than in a readme. rotobash/pokemon-ngc-rando has a move pass that zeroes
+How it does so is shown in code rather than in a readme. rotobash/pokemon-ngc-rando has a move pass that zeroes
 every move's animation id, and its `Move` class resolves that id to `common_rel` pointer 124, a 0x38-byte
 stride, and a u16 at entry offset +0x1E for XD. Four facts -- a pointer index, a stride and two offsets. None
 of their code or wording is reproduced in this project; the originals are in `MoveShuffler.cs` and `Move.cs`
 in that repository.
 
 **A hardcoded offset from another project is a hypothesis, not a fact about this ISO.** So before a line was
-written, a window slid over the whole of the player's own `common_rel` looking for a 0x38-stride table whose
+written, a window slid over the whole of this ISO's own `common_rel` looking for a 0x38-stride table whose
 +0x01 and +0x19 reproduce eighteen known Gen III (PP, base power) pairs. Exactly ONE candidate survived, at
 0xA2710 -- byte for byte the offset rotobash hardcodes. Type and accuracy then decoded correctly too, which
 nothing in the search had asked for.
@@ -118,7 +117,7 @@ class TestTheWriterRefusesRatherThanGuessing(unittest.TestCase):
 
 
 class TestAgainstTheRealCommonRel(unittest.TestCase):
-    """Re-derived from the player's own dump on every run where it is present."""
+    """Re-derived from the local dump on every run where it is present."""
 
     @classmethod
     def setUpClass(cls) -> None:

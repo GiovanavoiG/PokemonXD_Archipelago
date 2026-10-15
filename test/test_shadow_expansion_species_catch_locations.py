@@ -1,6 +1,5 @@
-"""Regression coverage for ADDENDUM 99's shadow_pokemon_expansion fix (player report: "the created shadow
-pokemon do not count for catch checks. I have a shadow swablu and I would have liked a check for Catch -
-Swablu as well"). See __init__.py's generate_early() comment for the full root-cause writeup: a species that
+"""Regression coverage for ADDENDUM 99's shadow_pokemon_expansion fix (the created Shadow Pokemon did not
+count for catch checks: a Shadow Swablu produced no "Catch - Swablu" check). See __init__.py's generate_early() comment for the full root-cause writeup: a species that
 ONLY appears via a Shadow Pokemon Expansion-added Shadow Pokemon (never a vanilla Shadow encounter or a Poke
 Spot slot) used to be invisible to `_obtainable_species_dex`, so its "Catch - {species}" location was never
 even created -- not a detection bug, an existence bug. This test confirms every species Shadow Pokemon
@@ -33,7 +32,7 @@ class TestShadowExpansionSpeciesGetCatchLocations(PokemonXDTestBase):
                 # xd_species_index.py's internal_index_for_national_dex() docstring separately confirms 387/388
                 # (Bonsly/Munchlax) are real, resolvable species that simply sit outside that range. This is a
                 # pre-existing species.py scope boundary, not something ADDENDUM 99 touched or could fix without
-                # widening species.py itself (out of scope for this player's request, which was specifically
+                # widening species.py itself (out of scope for this fix, which was specifically
                 # about Swablu, dex 333 -- well inside range) -- so skip them here rather than asserting a
                 # location that structurally cannot exist.
                 if dex is not None and dex in species.NATIONAL_DEX:

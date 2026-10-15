@@ -25,12 +25,12 @@ REGION_EDGES: "tuple[tuple[str, str, tuple[str, ...]], ...]" = (
     ("Kaminko's House", "Gateon Port", ()),
     ("Gateon Port", "Agate Village", ("Machine Part",)),
     ("Agate Village", "Mt. Battle", ()),
-    # Vanilla unlocks Cipher Lab at Mt. Battle. ADDENDUM 406: the lab itself is not behind the Data ROM in either
-    # travel mode -- player: "Cipher Lab is not gated by Data Rom - just Lovrina, her defeat item, and chest 23."
-    # Those carry the gate themselves (trainer_placements, chest_regions.CHEST_ITEM_GATES), as does Naps #2.
+    # Vanilla unlocks Cipher Lab at Mt. Battle. ADDENDUM 406: the lab itself is not behind the Data ROM in either travel
+    # mode -- only Lovrina, her defeat item and chest 23 are. Those carry the gate themselves (trainer_placements,
+    # chest_regions.CHEST_ITEM_GATES), as does Naps #2.
     ("Mt. Battle", "Cipher Lab", ()),
-    # Pyrite is visited in two halves. ADDENDUM 406: neither is behind the Data ROM -- player: "Poke spots do NOT
-    # need the data rom" (and ADDENDUM 405, the ONBS raid: "only gated behind pyrite town and the pokespots").
+    # Pyrite is visited in two halves. ADDENDUM 406: neither is behind the Data ROM, and the Poke Spots do not need
+    # it either (and ADDENDUM 405: the ONBS raid is gated only behind Pyrite Town and the Poke Spots).
     ("Cipher Lab", "Pyrite Town", ()),
     ("Pyrite Town", "Poke Spots", ()),
     ("Poke Spots", "Pyrite Town (ONBS)", ()),
@@ -56,8 +56,8 @@ REGION_EDGES: "tuple[tuple[str, str, tuple[str, ...]], ...]" = (
 )
 
 # ADDENDUM 418: with travel shuffle OFF, Pyrite Town is behind the Data ROM, and so is everything the chain reaches
-# through it. Player: "Every pyrite town item in vanilla locations should also be gated behind Data Rom & ID Card"
-# ... "As should everything after pyrite town, which is EVERYTHING EXCEPT agate, gateon, mt battle, and cipher lab".
+# through it: every Pyrite Town item in vanilla locations is gated behind the Data ROM and ID Card, as is everything
+# after Pyrite Town -- everything except Agate, Gateon, Mt. Battle and Cipher Lab.
 # Kept out of REGION_EDGES on purpose: travel mode carries a suppressed chain edge's items onto its gateway, and
 # ADDENDUM 406 left travel mode's Pyrite, Poke Spots and ONBS off the ROM. One edge is enough -- the vanilla chain
 # is linear past the lab, so Poke Spots, the ONBS, Realgam and on inherit it.
@@ -75,13 +75,13 @@ TRAVEL_SHUFFLE_REROUTED_EDGES: "dict[str, str]" = {
     "Cipher Key Lair (exterior)": "Kaminko's House (Robo Groudon)",
 }
 
-# ADDENDUM 435 widened this to BOTH travel modes. Player: "Citadark with location shuffle off can be parts-only, but
-# see if you can TRY to make it so that it'll have you complete most of the story most of the time." The late-story
-# weighting is a placement bias (`PokemonXDWorld._bind_parts_to_late_story`), not a logic gate, and the client gives
-# a vanilla-travel player their story byte back after an early ride (`StoryByteOverride.return_story_after_citadark`).
+# ADDENDUM 435 widened this to BOTH travel modes. With location shuffle off Citadark can be Parts-only, while the
+# placement still tries to have most of the story completed most of the time. The late-story weighting is a placement
+# bias (`PokemonXDWorld._bind_parts_to_late_story`), not a logic gate, and the client gives a vanilla-travel player
+# their story byte back after an early ride (`StoryByteOverride.return_story_after_citadark`).
 #
 # ADDENDUM 433: with travel shuffle ON and the Parts gate ON, Citadark Isle is reached from Gateon Port with the Parts
-# and nothing else. Player: "Citadark is not gated behind key lair in location shuffle." The client's Parts override
+# and nothing else -- it is not gated behind the Key Lair in location shuffle. The client's Parts override
 # (`ram_client.StoryByteOverride`) lifts Gateon's byte to the ride value "regardless of story progress", and Gateon
 # is open from the start in that mode, so the Key Lair travel unlock and the System Lever never stood between the
 # player and the ride. The Parts count stays the gate (ADDENDUM 430's fence reads Citadark's entrances, whatever

@@ -1,7 +1,7 @@
 """ADDENDUM 476 (2026-10-13) -- Zook beaten at the Cipher Key Lair moves the Lair two steps on.
 
-Player: "when zook is defeated at Cipher Key Lair, can we move the story byte and floor up two steps so that we
-don't have to fight him again".
+When Zook is defeated at the Cipher Key Lair, the story byte and floor move up two steps so he does not have to be
+fought again.
 """
 from __future__ import annotations
 

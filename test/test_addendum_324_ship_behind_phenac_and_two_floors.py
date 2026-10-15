@@ -1,11 +1,10 @@
 """ADDENDUM 324 -- the ship is behind the cleared Phenac, and two floors move.
 
-Player, in three messages:
-  * "We can still get SS Libra unlock before Phenac, which lets us access phenac out of logic - please ensure
-     that SS Libra is ALWAYS unlocked after phenac - logically, phenac should always contain something to lead
-     either to the ss libra, or indirectly lead to the ss libra."
-  * "Also, make Snagem's new floor 0x63."
-  * "And make Cipher Key Lair's floor 0x64."
+  * The SS Libra unlock could be had before Phenac, which gave access to Phenac out of logic. SS Libra is now
+    ALWAYS unlocked after Phenac: logically, Phenac always contains something that leads to the SS Libra,
+    directly or indirectly.
+  * Snagem's floor moves to 0x63.
+  * Cipher Key Lair's floor moves to 0x64.
 """
 import unittest
 
@@ -16,7 +15,7 @@ from ..game_data import story_bytes as sb
 
 class TestTheShipIsBehindTheClearedTown(unittest.TestCase):
     def test_it_is_a_hard_prerequisite_now(self) -> None:
-        # RETARGETED BY ADDENDUM 481: the town, not the cleared town ("we don't need the phenac clear at all").
+        # RETARGETED BY ADDENDUM 481: the town, not the cleared town -- the Phenac clear is not needed at all.
         self.assertEqual(("Phenac City",), tl.required_regions_for("SS Libra"))
 
     def test_the_toothless_adjacency_is_gone(self) -> None:
@@ -49,7 +48,7 @@ class TestInARealTravelSeed(PokemonXDTestBase):
         self.assertTrue(self._reach("SS Libra"), "the Phenac unlock is all it needs")
 
     def test_everything_past_the_ship_inherits_it(self) -> None:
-        """The player's second sentence: Phenac leads to the ship, so it leads to what the ship leads to."""
+        """Phenac leads to the ship, so it leads to what the ship leads to."""
         self.collect_by_name(["Travel Unlock - SS Libra"])
         self.assertFalse(self._reach("SS Libra"))
 
@@ -58,8 +57,8 @@ class TestSnagemsFloor(unittest.TestCase):
     def test_it_is_0x62_again(self) -> None:
         """ADDENDUM 350 RETRACTS THIS ADDENDUM'S CHANGE, and the retraction is the point of the test.
 
-        The player asked for 0x63 because entering at 0x62 did not build the hideout reliably. It did not,
-        but not for the reason either of us assumed: a story write set the byte and left the variable's low
+        The floor moved to 0x63 because entering at 0x62 did not build the hideout reliably. It did not,
+        but not for the reason assumed: a story write set the byte and left the variable's low
         three bits alone, so 0x62 meant 784..791 and only sometimes cleared 790. 0x63 meant 792..799, which
         always cleared it -- and never satisfied `hero_main`'s `== 790`, so Gonzap's scene could not run.
         With the write fixed, 0x62 is exactly 790 and does both jobs."""
@@ -78,8 +77,7 @@ class TestSnagemsFloor(unittest.TestCase):
 class TestTheKeyLairsFloor(unittest.TestCase):
     def test_the_icon_enters_at_the_overridden_floor(self) -> None:
         """This addendum's contribution is that the Lair has an OVERRIDE at all -- an icon value that wins over
-        the area's first tier (0x5D, the exterior). ADDENDUM 371 raised the value from 0x64 to 0x67 on the
-        player's instruction; the property this addendum established is that the override is what
+        the area's first tier (0x5D, the exterior). ADDENDUM 371 raised the value from 0x64 to 0x67; the property this addendum established is that the override is what
         `area_entry_floor` returns, so it is asserted that way rather than against a literal in two places."""
         self.assertEqual(0x64, sb.AREA_ENTRY_FLOOR_OVERRIDES["Cipher Key Lair"])   # ADDENDUM 439: this addendum's 0x64 again
         self.assertEqual(sb.AREA_ENTRY_FLOOR_OVERRIDES["Cipher Key Lair"],

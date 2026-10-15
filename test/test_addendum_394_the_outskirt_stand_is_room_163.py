@@ -1,11 +1,10 @@
 """ADDENDUM 394 (2026-09-29) -- the Outskirt Stand shop is room 163, and an unknown shop room now says so.
 
-Player, with a screenshot of the Outskirt Stand shelf reading AP ITEM 01..08 at 20 each: "Outskirt stand is
-breaking. Double check our shop code. I don't want it broken like this at all." Then: "It worked temporarily
-and then broke." Then, measured: "Inside outskirt stand is showing as room 163." Then: "It likely worked
-because i stepped through 164 (outside) and then went inside and it broke."
+Symptom: the Outskirt Stand shelf read AP ITEM 01..08 at 20 each -- the shop was broken. It worked temporarily
+and then broke. Measured: inside the Outskirt Stand is room 163; it worked after stepping through 164 (outside),
+then broke on going inside.
 
-THE SCREENSHOT NAMED THE LAYER. Three things were wrong at once and all three were PATCH-TIME values: the
+THE SYMPTOM NAMED THE LAYER. Three things were wrong at once and all three were PATCH-TIME values: the
 generic `AP ITEM NN` names, every price at the default 20, and the vanilla description ("An item brought over
 from a faraway place", where this client's own fallback is "Not scouted yet."). Not one live writer had run.
 Every one of them, and `ShopPurchaseTracker` with them, goes through `is_shop_room(room_id)` -- so they do not
@@ -14,10 +13,10 @@ fail separately, they fail together, and the single cause is the room id.
 WHY IT LOOKED INTERMITTENT, which is the part that would have misled a code read. `ItemNameRenamer.poll` and
 `ItemPriceWriter.poll` write on a room CHANGE. Room 164 is the EXTERIOR of the stand and was in the table as
 the shop, so walking through it renamed the shelf correctly; stepping inside to 163 fired both writers again
-with the not-a-shop fallback and put everything back. "Worked temporarily and then broke" is that, exactly.
+with the not-a-shop fallback and put everything back. Working temporarily and then breaking is that, exactly.
 
 `shops.py` predicted this failure in its own section comment -- "if a shop stays silent in play the eight
-'player' rooms are where to look and 21/156 are the control" -- because 164 was `source="player"`, vouched
+"compiled" rooms are where to look and 21/156 are the control" -- because 164 was `source="compiled"`, vouched
 from a room table, not measured. 163 is now `source="live"`, like 21 and 156.
 
 THE SILENT HALF, which matters more than the cosmetics. `ShopPurchaseTracker.poll` does
@@ -43,7 +42,7 @@ class TestTheRoomIdIsTheMeasuredOne(unittest.TestCase):
         self.assertEqual("Outskirt Stand Shop", shop.name)
 
     def test_164_is_the_exterior_and_is_not_the_canonical_id(self) -> None:
-        """RETARGETED by ADDENDUM 395. 394 removed 164 outright; the player then read 164 from INSIDE the
+        """RETARGETED by ADDENDUM 395. 394 removed 164 outright; 164 was then read from INSIDE the
         stand, so both ids are the shop now. What still has to hold is that 163 is the canonical one -- every
         per-room tracker keys on it, and two keys for one shop would split its state."""
         self.assertEqual("Outskirt Stand Shop", shops.shop_for_room(164).name)
@@ -86,7 +85,7 @@ class TestEveryWriterAgreedAndThatIsWhyItFailedTogether(unittest.TestCase):
         elsewhere = renamer.desired_names(999, list(USELESS_BERRY_IDS))
         self.assertEqual("OUTSKRT 01", inside[USELESS_BERRY_IDS[0]])
         self.assertTrue(elsewhere[USELESS_BERRY_IDS[0]].startswith("AP ITEM"),
-                        "the generic name in the player's screenshot")
+                        "the generic name on the broken shelf")
 
     def test_the_name_fits_the_entry(self) -> None:
         """'OUTSKRT 01' is exactly the 10-character budget. One character more and the rename would be skipped
@@ -132,10 +131,10 @@ class TestAnUnknownShopRoomReportsItself(unittest.TestCase):
 
 
 class TestNoOtherShopIsVouchedForAnUnmeasuredRoom(unittest.TestCase):
-    def test_the_remaining_player_sourced_rooms_are_listed(self) -> None:
+    def test_the_remaining_compiled_rooms_are_listed(self) -> None:
         """Not a failure -- a standing list. These are the ids that could do this next, and the Outskirt Stand
         is proof the risk is real rather than theoretical."""
-        vouched = sorted(s.room_id for s in shops.CONFIRMED_SHOPS if s.source == "player")
+        vouched = sorted(s.room_id for s in shops.CONFIRMED_SHOPS if s.source == "compiled")
         self.assertEqual([50, 103, 104, 119, 121, 134], vouched)
 
     def test_the_measured_ones_grew_by_one(self) -> None:

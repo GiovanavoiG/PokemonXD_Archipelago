@@ -1,8 +1,5 @@
 """ADDENDUM 488 -- the Agate move tutor teaches every move as often as you like.
 
-Player: "There's a move tutor that teaches moves like icy wind, thunder wave etc, but she only teaches them once. Can we
-make it so she doesn't disable them after learning them once?"
-
 HOW SHE WORKS (main.dol, `menuScript.o`). Her twelve moves are common.rel's TutorMoves table, `wazaoshie_data`
 (r13 - 0x7634; its count at r13 - 0x7638), 12 bytes a row: move id, the story value that unlocks it, and an
 "already taught" GS flag.

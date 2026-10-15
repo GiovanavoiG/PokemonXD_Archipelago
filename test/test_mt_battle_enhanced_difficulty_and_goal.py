@@ -1,7 +1,6 @@
 """Real-PokemonXDWorld-pipeline test for Enhanced Difficulty's Mt. Battle extension and the new Goal option
-(2026-09-09, ADDENDUM 93, player requests: "make it so that the enhanced difficulty yaml option also
-randomizes & fills the mt battle trainer teams" / "Let's also make it so that shadow pokemon still do not
-randomize into mt. battle").
+(2026-09-09, ADDENDUM 93: the Enhanced Difficulty YAML option also randomizes and fills the Mt. Battle trainer
+teams, while Shadow Pokemon still never randomize into Mt. Battle).
 
 Mirrors `test_generate_output_combined.py`'s approach (a real `MultiWorld`/fill/`generate_output` cycle,
 reading the produced `seed.json` back out) rather than testing `build_enhanced_difficulty_plan`/`mtbattle_team_
@@ -83,14 +82,14 @@ class TestMtBattleEnhancedDifficultyExcluded(PokemonXDTestBase):
         "enhanced_difficulty": "fill_enemy_team",
         "enhanced_difficulty_level_scaling": True,
         "exclude_mt_battle_trainers": True,
-        # Path Level Scaling became default-on with the player's options.py (2026-10-10); this test is about
+        # Path Level Scaling became default-on with the 2026-10-10 options.py; this test is about
         # Enhanced Difficulty alone and its docstring says "with path scaling off", so it says so explicitly.
         "path_level_scaling": False,
     }
 
     def test_nothing_from_enhanced_difficulty_reaches_mt_battle_when_excluded(self) -> None:
         """RETARGETED by ADDENDUM 388. This asserted the opposite -- 321 levels boosted with the exclude
-        toggle ON -- and that was the bug the player reported: the option reads "Excludes Mt Battle from
+        toggle ON -- and that was the bug: the option reads "Excludes Mt Battle from
         enhanced difficulty", is on by default, and still multiplied every Mt. Battle level by 1.33. Measured
         across all 100 trainers, vanilla's 9..70 mean 48.5 was arriving as 11..93 mean 64.0.
 

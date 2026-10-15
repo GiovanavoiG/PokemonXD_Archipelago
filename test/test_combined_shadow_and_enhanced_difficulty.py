@@ -1,6 +1,5 @@
 """Combined-options regression test (2026-09-08): Shadow Pokemon Expansion and Enhanced Difficulty are
-independent yaml options (player request: "shadow expansion should be a separate yaml option. I do still want
-shadow expansion to add pokemon even without the enhanced difficulty enabled"), but both independently draw new
+independent yaml options (Shadow expansion adds Pokemon even without Enhanced Difficulty enabled), but both independently draw new
 team members from the SAME real, pre-patch per-trainer free-slot count, and `apply_patch()` applies Shadow
 Pokemon Expansion's ISO write before Enhanced Difficulty's.
 
