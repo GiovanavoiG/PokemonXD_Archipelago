@@ -41,12 +41,11 @@ import Utils
 from CommonClient import ClientCommandProcessor, CommonContext, get_base_parser, gui_enabled, logger, server_loop
 from NetUtils import ClientStatus
 
-from . import fst_guard, items, ram_client, shop_scout, species, trainer_defeat, travel_locations
+from . import ap_patch, fst_guard, items, ram_client, shop_scout, species, trainer_defeat, travel_locations
 from .game_data import story_bytes, trainer_roster
 from .game_data.mtbattle_trainer_data import (
     MT_BATTLE_FINAL_TRAINER_SURNAME,
     MT_BATTLE_FINAL_TRAINER_SURNAMES,
-    MT_BATTLE_ONLY_SURNAMES,
     MT_BATTLE_SURNAME_TO_LOCATION_QUEUE,
     MT_BATTLE_FIRST_TRAINER_SURNAME,
     MT_BATTLE_TOTAL_TRAINER_COUNT,
@@ -166,6 +165,9 @@ HOOK_FAILURES_BEFORE_OVERRIDE_HINT = 6
 # poll rate, and one whose latency does not matter. Just under POLL_INTERVAL_INGAME, so the ordinary cadence never
 # skips a scan and the faster map-screen loop cannot run it at its own rate.
 BOX_SCAN_MIN_INTERVAL = 0.9
+
+# Eevee, the vanilla starter -- for a seed whose slot data predates `starter_dex`.
+STARTER_DEX_DEFAULT = 133
 
 # On the map screen (room 910) poll rate is correctness: the area-memory write is a PRE-LOAD hook that must land
 # while the cursor still hovers the destination, because the room is built from the byte as it stands at load.
@@ -693,13 +695,7 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
                     f"(ADDENDUM 202 -- expected 0 always on this build)")
         logger.info(f"  debounce: {self.ctx.battle_state_tracker._consecutive_zero}"
                     f"/{ram_client.BattleStateTracker.CONFIRM_POLLS} consecutive clear polls")
-        # This overrides the flag and debounce above: `BattleStateTracker.poll` returns False outright when the
-        # defeat tracker says a battle is unresolved, so "free" can print while every delivery is held.
-        if self.ctx.shuffle_trainer_defeats:
-            for line in self.ctx.trainer_defeat_tracker.describe_blocking():
-                logger.info(line)
-        else:
-            logger.info("  unresolved battle: not consulted (this seed does not shuffle trainer defeats)")
+        logger.info(f"  {self.ctx.trainer_defeat_tracker.describe()}")
 
     def _cmd_room(self) -> None:
         """DEBUG: Shows which room you're in by ID."""
@@ -954,8 +950,18 @@ class PokemonXDCommandProcessor(ClientCommandProcessor):
     def _cmd_catchscan(self) -> None:
         """DEBUG: Detect catch scans/rejections. (ADDENDUM 483, issue #8: was a second `/catches`, which the
         where-to-catch command below silently replaced.)"""
-        if isinstance(self.ctx, PokemonXDContext):
-            logger.info(self.ctx.species_catch_tracker.describe())
+        if not isinstance(self.ctx, PokemonXDContext):
+            return
+        block = self.ctx.ap_patch_block
+        if block is None:
+            logger.info("The AP patch's catch log is not readable -- is this ISO patched, and the game running?")
+            return
+        logger.info(f"The AP patch logged {len(block.caught)} capture(s) this boot:")
+        for entry in block.caught:
+            dex = ap_patch.caught_dex(ap_patch.ApPatchBlock(0, 0, (), (), (entry,)))
+            name = species.NATIONAL_DEX.get(next(iter(dex)), "?") if dex else "unknown species"
+            kind = f"Shadow #{entry.shadow_index}" if entry.shadow_index else "wild"
+            logger.info(f"  {name} (species index {entry.species}), level {entry.level}, {kind}")
 
     def _cmd_teams(self, *name_words: str) -> None:
         """DEBUG: Shows trainer's team."""
@@ -1248,8 +1254,11 @@ class PokemonXDContext(CommonContext):
         self.item_description_writer = ram_client.ItemDescriptionWriter()
         # Holds nothing until `/mirorforce` arms it, and puts back what it changed.
         self.miror_force = ram_client.MirorForce()
-        # Live roster-HP tracking for the defeat checks: surname-keyed, per-surname rematch queue, and a count.
-        self.trainer_defeat_tracker = ram_client.TrainerBattleDefeatTracker()
+        # The defeat checks, off the AP patch's won-battle log: per-surname distinct teams, and a count.
+        self.trainer_defeat_tracker = ap_patch.PatchDefeatTracker()
+        # The AP patch's block as of this tick, or None when it does not read as one (`sync_ap_patch`).
+        self.ap_patch_block: "ap_patch.ApPatchBlock | None" = None
+        self._ap_patch_missing_logged = False
         # Debounced in/out-of-battle detection for give_items(), behind a hard timeout: a scripted battle loss in
         # Gateon once got this gate stuck for a whole run, and write-revert detection alone let items through.
         self.battle_state_tracker = ram_client.BattleStateTracker()
@@ -1336,6 +1345,7 @@ class PokemonXDContext(CommonContext):
         # This seed's Poke Spot species. Empty for an older seed -- the seed that needs the Eevee guard below.
         self.pokespot_dex: "set[int]" = set()
         self.starter_line_dex: "set[int]" = set()   # ADDENDUM 443
+        self.starter_dex: int = STARTER_DEX_DEFAULT
         self._last_purification_scan: float = 0.0
         # Ids a detector named that this seed does not contain. Reported once each, then held.
         self._locations_not_in_seed: "set[int]" = set()
@@ -1530,11 +1540,24 @@ class PokemonXDContext(CommonContext):
         await self.send_connect()
 
     def on_deathlink(self, data: dict[str, Any]) -> None:
-        """A death arrived from the pool: wipe the party and let the game resolve it.
+        """A death arrived from the pool: hand it to the AP patch, or failing that wipe the party, and let the game
+        resolve it.
 
         CommonContext's `on_deathlink` runs first on purpose -- it stamps `last_death_link`, which is what
         stops the bounce of our own `send_death` from being read as a new death and looping."""
         super().on_deathlink(data)
+        cause = str(data.get("cause", "") or "")
+        # The AP patch delivers it: set its byte and the game's next battle-result check is a loss. The party
+        # wipe below is only for an ISO whose patch block does not read.
+        if self.ap_patch_block is not None and self.death_link_bridge.enabled:
+            try:
+                ap_patch.write_death_link(True)
+                note = self.death_link_bridge.receive_via_patch(cause)
+            except Exception:
+                note = None
+            if note:
+                logger.info(f"Death Link: {note}")
+                return
         # ADDENDUM 417: in a battle the game fights from its own copy of the party, so the save-side wipe alone
         # waits for the battle to end. The battle flag (1 in battles and full-screen menus) gates the in-battle
         # write; outside a battle those records are the last fight's leftovers and are never touched.
@@ -1543,8 +1566,7 @@ class PokemonXDContext(CommonContext):
         except Exception:
             in_battle = False
         try:
-            note = self.death_link_bridge.receive(self.block_base, str(data.get("cause", "") or ""),
-                                                  in_battle=in_battle)
+            note = self.death_link_bridge.receive(self.block_base, cause, in_battle=in_battle)
         except Exception:
             return
         if note:
@@ -1688,6 +1710,7 @@ class PokemonXDContext(CommonContext):
             self.missable_shadow_pusher = ram_client.MissableShadowPusher(
                 (list(slot_data.get("missable_shadow_hosts") or []) if slot_data.get("missable_trainer_shadows")
                  else []) + list(slot_data.get("shadow_rescues") or []))
+            self.starter_dex = int(slot_data.get("starter_dex") or STARTER_DEX_DEFAULT)
 
             # Before anything else this branch does with the seed: say whether the seed and the installed
             # apworld agree about what locations exist. Early, so it lands near the connection banner.
@@ -1971,8 +1994,8 @@ class PokemonXDContext(CommonContext):
                     self.purification_tracker.load_json(slot_state["purification"])
                 # Same shape, same failure if missing: a defeat check fires on the Nth DISTINCT team and the game
                 # records none of them, so a client that restarts without this reads every rematch as a first win.
-                if "trainer_teams" in slot_state:
-                    self.trainer_defeat_tracker.load_json(slot_state["trainer_teams"])
+                if "patch_trainer_defeats" in slot_state:
+                    self.trainer_defeat_tracker.load_json(slot_state["patch_trainer_defeats"])
                 # A byte a previous session was holding down, loaded into `saved_byte` so the recovery pass can
                 # put it back once a block base resolves. NOT "we are still active" -- nothing is written yet.
                 self._always_open_gate_latched = bool(slot_state.get("always_open_gate_latched", False))
@@ -2020,7 +2043,7 @@ class PokemonXDContext(CommonContext):
             "pending_checks": sorted(getattr(self, "pending_check_ids", ()) or ()),
             "animations_override": getattr(self, "animations_override", None),
             "purification": self.purification_tracker.to_json(),
-            "trainer_teams": self.trainer_defeat_tracker.to_json(),
+            "patch_trainer_defeats": self.trainer_defeat_tracker.to_json(),
             # The value the Gateon ceiling is holding back, or None -- the only write this client makes that can
             # lose progress. Restore-on-leave does not cover the client being killed inside Gateon; this does.
             "gateon_ceiling_holding": self.story_byte_override.saved_byte,
@@ -2189,8 +2212,7 @@ async def give_items(ctx: PokemonXDContext) -> None:
     changed = False
     now = time.monotonic()
     # Once per poll, never once per item: repeated calls in the same tick corrupt BattleStateTracker's debounce.
-    corroborating = ctx.trainer_defeat_tracker.has_unresolved_battle() if ctx.shuffle_trainer_defeats else False
-    battle_says_safe = ctx.battle_state_tracker.poll(corroborating_in_battle=corroborating)
+    battle_says_safe = ctx.battle_state_tracker.poll()
     # A NEW delivery starts on a step, not on the absence of a detected battle. The battle tracker is still
     # polled every tick -- its debounce needs the calls, and it takes over when the counter reads None, so a bad
     # read degrades to the old behaviour instead of holding items. Deliveries already in flight are untouched.
@@ -2627,53 +2649,30 @@ async def sync_travel_locations(ctx: PokemonXDContext) -> None:
 # Detecting checks
 
 async def check_species_catches(ctx: PokemonXDContext) -> None:
-    """Species-catch detection for "Catch - {species}". There is no in-battle "catch confirmed" RAM signal the way
-    there is an HP-reaches-zero signal for a defeat, so ownership is the signal.
+    """"Catch - {species}" off the AP patch's capture log: every snag and every wild catch, logged by the game as it
+    happens, so a Pokemon sent straight to the PC or released afterwards still counts.
 
-    Three sources, unioned: PARTY_BASE (a 0x30-byte menu row -- fast, but it does not populate a slot until the
-    party screen has drawn), the save block's own party records (BLOCK_BASE + PARTY_RECAP_OFFSET, the 0xC4 format
-    the boxes use), and a full PC-box scan so a catch routed straight into the PC registers on its own. `/party`
-    prints the first two side by side.
+    Two catch locations are never a capture, so the patch cannot see them: the starter (handed over, not caught)
+    and "Catch - Eeveelution (Any)" (evolving it). Those two read the live party, which is save data and valid
+    from the moment the block resolves.
 
-    The box half goes through `ram_client.SpeciesCatchTracker`, which discards a box poll whose snapshot gains and
-    loses species at once (or gains more than one) and holds anything left for several trusted polls. Without
-    that, a save-menu open that made the box region read as an earlier snapshot of itself sent real,
-    never-before-checked locations -- a wrong location checked outright, which the server's dedup cannot cover.
-
-    A newly-seen Eeveelution also queues EEVEELUTION_LOCATION_NAME, and `ctx.check_locations` is idempotent, so
-    no one-shot guard is needed."""
+    The whole log is offered every poll; `_send_checks` announces only what the server has not acknowledged."""
     if ctx.block_base is None:
         return
-    # The live save-resident `Pokemon` records, not PARTY_BASE: no menu has to have been opened, and species come
-    # from the numeric field, so a nicknamed Pokemon counts. PARTY_BASE is unioned in below as a second witness.
-    party_species = ram_client.get_live_party_species_snapshot(ctx.block_base)
+    caught = ap_patch.caught_dex(ctx.ap_patch_block) if ctx.ap_patch_block is not None else set()
     try:
-        party_species |= ram_client.get_owned_species_snapshot(ctx.block_base, ram_client.PARTY_BASE)
+        party = ram_client.get_live_party_species_snapshot(ctx.block_base)
     except Exception:
-        pass
-    # Boxes and the save-block party are passed SEPARATELY, not unioned: unioning put party-shaped data through a
-    # guard that assumes one-slot-at-a-time box movement, so every withdrawal looked like the save-menu glitch.
-    #
-    # The box scan keeps its own ~1s cadence however fast the loop runs, reusing the previous snapshot between
-    # scans -- an unchanged snapshot is a trusted poll that advances nothing, so reuse neither fires early nor
-    # resets a streak. The recap (party) half is cheap and runs every poll.
-    now = time.monotonic()
-    # The scan reports whether it read every slot. A snapshot with a failed slot read is INCOMPLETE and must
-    # never be read as "those Pokemon are gone" -- that is what stopped catches sending after two or three.
-    if now - ctx._last_box_scan >= BOX_SCAN_MIN_INTERVAL:
-        ctx._last_box_scan = now
-        ctx._last_box_species, _box_failures = ram_client.get_box_species_snapshot_detailed(ctx.block_base)
-        ctx._last_box_complete = _box_failures == 0
-    box_species = ctx._last_box_species
-    recap_species = ram_client.get_party_recap_species_snapshot(ctx.block_base)
-    newly_seen = set(ctx.species_catch_tracker.poll(
-        party_species, box_species, recap_species,
-        box_complete=getattr(ctx, "_last_box_complete", True),
-    ))
-    if not newly_seen:
+        party = set()
+    owned_by_gift = party & ({ctx.starter_dex} | species.EEVEELUTION_DEX_NUMBERS)
+    seen = caught | owned_by_gift
+    if not seen:
         return
-    location_names = [species.location_name_for_species(dex_number) for dex_number in sorted(newly_seen)]
-    if newly_seen & species.EEVEELUTION_DEX_NUMBERS:
+    # Purification's "trusted owned" rule reads this set.
+    ctx.seen_dex_numbers |= seen
+    location_names = [species.location_name_for_species(dex) for dex in sorted(seen)
+                      if dex not in species.EEVEELUTION_DEX_NUMBERS or dex in caught]
+    if seen & species.EEVEELUTION_DEX_NUMBERS:
         location_names.append(EEVEELUTION_LOCATION_NAME)
     await _send_checks(ctx, location_names)
 
@@ -2718,9 +2717,8 @@ async def check_purifications(ctx: PokemonXDContext) -> None:
         return
     # A Pokemon does not become purified mid-fight, and a battle is when PARTY_BASE and the recap records are least
     # trustworthy. The tracker holds its baselines while skipping, so this delays a check, never drops one.
-    in_battle = False
     try:
-        in_battle = ctx.trainer_defeat_tracker.has_unresolved_battle()
+        in_battle = ram_client.read_battle_ui_flag() == 1
     except Exception:
         in_battle = False
     # The `_looks_ingame()` gate wraps this ONE call, not the function: `PurificationTracker.poll` correlates the
@@ -3910,56 +3908,81 @@ async def fast_poll_window(ctx: PokemonXDContext, budget_seconds: float) -> floa
     return max(0.0, remaining)
 
 
-async def check_trainer_defeats(ctx: PokemonXDContext) -> None:
-    """Live battle-roster HP tracking for "Defeat - {trainer}" and cumulative "Defeat N Trainers". Design lives
-    in ram_client.TrainerBattleDefeatTracker; no scan at all with shuffle_trainer_defeats off.
+def sync_ap_patch(ctx: PokemonXDContext) -> None:
+    """Reads the AP patch's block for this tick's checks, and keeps the patch's feature flags written.
 
-    The scan covers the whole 24MB of MEM1 every tick, because roster records sit at boot-dependent addresses
-    (0x80831e54 on one boot, elsewhere on the next) and every bounded window tried missed a real battle on some
-    boot and found nothing, silently, for that whole run.
-
-    A RuntimeError from that read is caught locally as "no records this tick": part of MEM1 is sometimes
-    transiently unreadable (a full-range dump failed at ~0x805b0000 and succeeded minutes later mid-battle), and
-    an escaping exception reaches `dolphin_sync_task`'s handler, which reads any exception as "connection lost" --
-    turning "occasionally misses a defeat" into "the connection drops during battles". The tracker tolerates
-    missed ticks: it needs an HP-drop transition across several polls, not one snapshot.
-
-    This poll also drives the seed's Goal off the tracker's confirmed-kill signal rather than a second scan. Goal
-    0 watches for Greevil's already-named location. Goal 1 fires on ONE thing: a confirmed win over Battlus, Mt.
-    Battle's 100th and final trainer (Bulbapedia: "Battlus ... is the final trainer at Mt. Battle"; index 100
-    decodes out of the ISO as BATTLUS). ADDENDUM 406 removed the running-count backstop -- MIRU plus 99 more
-    defeats -- because MIRU is also story trainer 30, so it armed in the story and fired on the 100th defeat of
-    anything; and Battlus is watched through the Mt. Battle exclusion, which used to hide him from this check
-    entirely. `/goal` stays the manual fallback."""
-    if ctx.block_base is None:
+    The flags are rewritten whenever they read differently -- the block is plain RAM, so a power cycle zeroes it.
+    Two bits stay off on purpose: with POKEMON_CHECKS the patch withholds every capture, and with PURIFY_CHECKS it
+    blocks every purification, each until the client hands it back through the block's `give` half, which this
+    client does not do yet."""
+    try:
+        block = ap_patch.read_block()
+    except Exception:
+        block = None
+    ctx.ap_patch_block = block
+    if block is None:
+        ctx.death_link_bridge.patch_pending = False
+        if not ctx._ap_patch_missing_logged:
+            ctx._ap_patch_missing_logged = True
+            logger.warning("The AP patch's memory block does not read as one -- is this ISO patched? Catch and "
+                           "trainer-defeat checks are paused until it does.")
         return
-    # ADDENDUM 406: the Mt. Battle goal needs this scan even in a seed with no trainer-defeat checks. Such a seed
-    # only WATCHES (nothing is sent, nothing feeds the battle hold), exactly as it behaved before for everything
-    # but the goal.
-    goal_watch_only = not ctx.shuffle_trainer_defeats
-    if goal_watch_only and (ctx.goal != 1 or ctx.finished_game):
+    ctx._ap_patch_missing_logged = False
+    flags = ap_patch.feature_flags(
+        item_checks=ctx.randomize_chests,
+        pokemon_checks=False,
+        purify_checks=False,
+        death_link=ctx.death_link_bridge.enabled,
+    )
+    try:
+        if block.flags != flags:
+            ap_patch.write_flags(flags)
+        pending = block.death_link != 0
+        if pending and not ctx.death_link_bridge.enabled:
+            ap_patch.write_death_link(False)    # Death Link was switched off with a death still queued
+            pending = False
+    except Exception:
+        logger.debug("Pokemon XD: AP patch write failed this poll", exc_info=True)
+        return
+    ctx.death_link_bridge.patch_pending = pending
+
+
+def observe_battle_activity(ctx: PokemonXDContext) -> None:
+    """Feeds `battle_hold`, which delays item delivery while a battle's HP is moving. Not a check: the defeat
+    checks come from the AP patch's log. It still needs the whole-MEM1 roster scan, because roster records sit at
+    boot-dependent addresses.
+
+    A RuntimeError from that read is "no records this tick": part of MEM1 is sometimes transiently unreadable, and
+    an escaping exception reaches `dolphin_sync_task`'s handler, which reads any exception as "connection lost"."""
+    if ctx.block_base is None or not ctx.shuffle_trainer_defeats:
         return
     try:
         records = ram_client.scan_battle_roster()
     except RuntimeError as e:
         _note_warn(ctx, f"Battle-roster scan failed this tick (transient memory-read error, skipping): {e}")
         records = []
-    # Feed the same scan to the battle-activity hold before anything else consumes it: no extra memory read.
-    if not goal_watch_only:
-        try:
-            ctx.battle_hold.observe(records, ram_client.read_battle_struct_anchor())
-        except Exception:
-            ctx.battle_hold.observe(records)  # anchor read is optional; motion alone is the load-bearing signal
+    try:
+        ctx.battle_hold.observe(records, ram_client.read_battle_struct_anchor())
+    except Exception:
+        ctx.battle_hold.observe(records)  # anchor read is optional; motion alone is the load-bearing signal
 
-    # The player's own trainer name is on every one of their party's roster records, so without this the tracker
-    # reads their own party wiping (losing) as a defeat and parks that surname in _awaiting_clear, where it can
-    # never re-arm because the player's records never vanish.
-    exclude = set(own_trainer_names(ctx))   # ADDENDUM 444: the in-game name, from the save
-    # The Mt. Battle option reuses the same exclude_surnames mechanism rather than a second one.
-    # MIRU/CRIDEL/BARDO are deliberately absent from MT_BATTLE_ONLY_SURNAMES: they are story trainers 30/31/32
-    # too, so excluding them would stop their STORY encounter counting.
-    if ctx.exclude_mt_battle_trainers:
-        exclude |= MT_BATTLE_ONLY_SURNAMES
+
+async def check_trainer_defeats(ctx: PokemonXDContext) -> None:
+    """"Defeat - {trainer}" and cumulative "Defeat N Trainers", off the AP patch's won-battle log. The patch records
+    the game's battle index whenever a battle ends in a win; `game_data/battle_index.py` says which trainer that
+    battle was against, so a win is exact -- no HP watching, no team fingerprints, and the fights the player only
+    watches are simply not in the table.
+
+    This poll also drives the seed's Goal. Goal 0 is Greevil's rematch; goal 1 fires on ONE thing: a win over
+    Battlus, Mt. Battle's 100th and final trainer. With the Mt. Battle option on, Mt. Battle wins are kept out of
+    the checks and the count, but Battlus is still seen for the goal. `/goal` stays the manual fallback."""
+    if ctx.block_base is None or ctx.ap_patch_block is None:
+        return
+    # ADDENDUM 406: the Mt. Battle goal needs the log even in a seed with no trainer-defeat checks. Such a seed
+    # only WATCHES -- nothing is sent.
+    goal_watch_only = not ctx.shuffle_trainer_defeats
+    if goal_watch_only and (ctx.goal != 1 or ctx.finished_game):
+        return
     # Unique mode dispatches against the full 232-trainer ISO roster and suppresses the cumulative bucket
     # entirely -- count_location_max=0 means no "Defeat N Trainers" name is ever produced.
     if ctx.unique_trainer_defeats:
@@ -3969,28 +3992,21 @@ async def check_trainer_defeats(ctx: PokemonXDContext) -> None:
             queue = {**queue, **MT_BATTLE_SURNAME_TO_LOCATION_QUEUE}
         count_cap = 0
     else:
-        queue = trainer_defeat.SURNAME_TO_LOCATION_QUEUE
+        queue = {surname.upper(): names for surname, names in trainer_defeat.SURNAME_TO_LOCATION_QUEUE.items()}
         count_cap = ctx.trainer_defeat_check_count
-    # ADDENDUM 406: with the Mt. Battle goal, the final trainer is watched through the exclusion -- confirmed for
-    # the goal, never counted or sent. Only the names actually excluded need it; otherwise he counts as usual.
-    confirm_only = (frozenset(MT_BATTLE_FINAL_TRAINER_SURNAMES) & exclude) if ctx.goal == 1 else frozenset()
     newly_completed = ctx.trainer_defeat_tracker.poll(
+        ctx.ap_patch_block.beaten_battles,
         queue,
         trainer_defeat_count_location_name,
-        records,
         count_location_max=count_cap,
-        exclude_surnames=exclude,
-        team_fingerprints=ctx.trainer_team_fingerprints or None,
-        confirm_only_surnames=confirm_only,
-        non_player_fights=trainer_roster.NON_PLAYER_FIGHTS,   # ADDENDUM 436
-        # ADDENDUM 439: the room the fight is in. A battle keeps the field's room id (the Snagem hold relies on the
-        # same), so the room the player is standing in is the fight's.
-        watched_here=ram_client.watched_fight_surnames(
-            ctx.room_tracker.current if ctx.room_tracker.current is not None else ctx.room_tracker.previous),
+        exclude_mt_battle=ctx.exclude_mt_battle_trainers,
     )
+    if ctx.trainer_defeat_tracker.dirty:
+        ctx.trainer_defeat_tracker.dirty = False
+        ctx._save_local_state()
     _bank_key_lair_zook(ctx)   # ADDENDUM 487
     if goal_watch_only:
-        newly_completed = []   # no defeat checks exist in this seed; the scan ran for the goal only
+        newly_completed = []   # no defeat checks exist in this seed; the log was read for the goal only
     elif ctx.unique_trainer_defeats and newly_completed:
         # ADDENDUM 411: Ardos #1 and Zook #1 send each other; see `trainer_roster.apply_defeat_links`.
         checked_ids = set(ctx.checked_locations) | set(getattr(ctx, "locations_checked", ()) or ())
@@ -4004,16 +4020,12 @@ async def check_trainer_defeats(ctx: PokemonXDContext) -> None:
     goal_names = list(newly_completed)
     if not ctx.unique_trainer_defeats:
         newly_completed = [name for name in newly_completed if name in TRAINER_DEFEAT_COUNT_LOCATION_NAME_SET]
-    # The "Defeat X (Any)" checks, dispatched off the SURNAME rather than the queue.
-    # `last_confirmed_surnames` says nothing about which occurrence was fought -- exactly the question "any
-    # defeat" does not ask -- so no queue position, team fingerprint or story order is needed. CASE-INSENSITIVE,
-    # because the live roster reports NPC names upper-case ("LOVRINA") and a mismatch un-fires all 35. Greevil's
-    # decoy counts: only the NAMED queue suppresses it, and the location is always filler.
+    # The "Defeat X (Any)" checks, off every surname beaten in the log -- any win, rematches included.
     if ctx.shuffle_trainer_defeats and ctx.unique_trainer_defeats:   # ADDENDUM 414: unique mode's checks only
-        confirmed = {s.strip().upper() for s in ctx.trainer_defeat_tracker.last_confirmed_surnames}
+        beaten = set(ctx.trainer_defeat_tracker.wins_by_surname)
         any_defeat = [
             name for surname, name in REPEATABLE_SURNAME_TO_LOCATION.items()
-            if surname in confirmed
+            if surname in beaten
             and name in LOCATION_NAME_TO_ID
             and LOCATION_NAME_TO_ID[name] not in ctx.checked_locations
         ]
@@ -4024,13 +4036,13 @@ async def check_trainer_defeats(ctx: PokemonXDContext) -> None:
         await _send_checks(ctx, newly_completed)
 
     if not ctx.finished_game:
-        if ctx.goal == 0 and _greevil_rematch_defeated(goal_names + list(newly_completed),
-                                                       ctx.trainer_defeat_tracker.wins_by_surname):
+        if ctx.goal == 0 and (_greevil_rematch_defeated(goal_names, ctx.trainer_defeat_tracker.wins_by_surname)
+                              or ctx.trainer_defeat_tracker.story_wins & GREEVIL_REMATCH_INDICES):
             logger.info("Greevil's rematch confirmed defeated -- completing this seed's goal.")
             await ctx.declare_goal_complete()
         elif ctx.goal == 1:
-            confirmed_upper = {s.strip().upper() for s in ctx.trainer_defeat_tracker.last_confirmed_surnames}
-            final_hit = sorted(confirmed_upper & {s.upper() for s in MT_BATTLE_FINAL_TRAINER_SURNAMES})
+            beaten_upper = set(ctx.trainer_defeat_tracker.wins_by_surname)
+            final_hit = sorted(beaten_upper & {s.upper() for s in MT_BATTLE_FINAL_TRAINER_SURNAMES})
             if final_hit:
                 logger.info(
                     f"Mt. Battle's 100th and final trainer ({final_hit[0].title()}) confirmed defeated -- "
@@ -4088,6 +4100,10 @@ _GREEVIL_REMATCH_LOCATION_NAMES: "frozenset[str]" = frozenset(
     if name and not name.endswith("#1")
 )
 GREEVIL_WINS_FOR_GOAL = 2
+# The same rule by roster row, for the AP patch's exact battle log: any Greevil fight past the first is the win.
+GREEVIL_REMATCH_INDICES: "frozenset[int]" = frozenset(
+    t["index"] for t in trainer_roster.TRAINERS_BY_NAME.get("GREEVIL", ()) if t["occurrence"] >= 2
+)
 
 
 def _greevil_rematch_defeated(newly_completed, wins_by_surname=None) -> bool:
@@ -4731,6 +4747,8 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                     ctx._not_ingame_hint_logged = False
 
                 if ctx.slot is not None:
+                    # First: every patch-fed check below reads the block this reads.
+                    sync_ap_patch(ctx)
                     # The save block is trusted only once it has read settled for several polls in a row. The save
                     # menu rewrites it (saving over an older file puts that file's story and travel records there
                     # for a while), so everything that reads a story byte or a travel bit -- or writes the block --
@@ -4745,6 +4763,7 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                         pass
                     # check_trainer_defeats() runs before give_items() and stays that way; it has to run every
                     # tick for its own job regardless.
+                    observe_battle_activity(ctx)
                     await check_trainer_defeats(ctx)
                     await give_items(ctx)
                     # Immediately after give_items and OUTSIDE the block-stability gate, like give_items itself:

@@ -116,10 +116,14 @@ class TestTheGateonFightSendsNothing(unittest.TestCase):
         self.assertEqual(frozenset(), rc.watched_fight_surnames(None))
         self.assertEqual(frozenset(), rc.watched_fight_surnames(rc.MAP_SCREEN_ROOM_ID))
 
-    def test_wired_into_the_client(self) -> None:
-        from pathlib import Path
-        source = (Path(__file__).resolve().parent.parent / "Client.py").read_text(encoding="utf-8")
-        self.assertIn("watched_here=ram_client.watched_fight_surnames(", source)
+    def test_the_gateon_fight_is_no_battle_the_patch_can_log(self) -> None:
+        """Ardos vs Zook (rows 9 and 10) has no player battle at all, so no logged win can be the Gateon Zook."""
+        from ..ap_patch import resolve_battle
+        from ..game_data.battle_index import BATTLE_OPPONENTS
+
+        for battle in BATTLE_OPPONENTS:
+            opponent = resolve_battle(battle)
+            self.assertFalse(opponent is not None and opponent.story_index in (9, 10))
 
 
 if __name__ == "__main__":

@@ -35,6 +35,8 @@ TREE = ast.parse(SOURCE)
 ALLOWED_AUTOMATIC = {
     # Missable Trainer Shadows: once per Shadow handed to Miror B.
     "miror_b_handoff_line",
+    # One-shot guidance: the AP patch's block does not read, so the patch-fed checks are paused.
+    "The AP patch's memory block does not read as one",
     # ADDENDUM 453: a held Ability Patch was used -- once per Pokemon it touches.
     "Ability Patch: %s",
     # ADDENDUM 446: once per item, the Items pocket was full and it went to the PC instead.

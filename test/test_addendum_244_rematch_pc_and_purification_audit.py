@@ -184,7 +184,7 @@ class TestThePurificationGateIsActuallyWired(unittest.TestCase):
     def test_the_client_feeds_it_a_real_battle_signal(self) -> None:
         import pathlib
         source = (pathlib.Path(__file__).resolve().parent.parent / "Client.py").read_text(encoding="utf-8")
-        self.assertIn("in_battle = ctx.trainer_defeat_tracker.has_unresolved_battle()", source)
+        self.assertIn("in_battle = ram_client.read_battle_ui_flag() == 1", source)
         self.assertIn("ctx.block_base, ram_client.PARTY_BASE, in_battle=in_battle", source)
 
     def test_the_three_diagnostic_counters_are_printed(self) -> None:

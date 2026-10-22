@@ -91,7 +91,7 @@ class TestTheClient(unittest.TestCase):
 
     def test_wired(self):
         self.assertIn("ctx.trainer_name = ram_client.read_trainer_name(ctx.block_base) or None", CLIENT)
-        self.assertIn("exclude = set(own_trainer_names(ctx))", CLIENT)
+        self.assertIn("for own in own_trainer_names(ctx):", CLIENT)
         self.assertNotIn("matches your Archipelago slot name exactly", CLIENT)
 
 
