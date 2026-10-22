@@ -2297,6 +2297,117 @@ def dol_sections(reader, dol_offset: int) -> "list[tuple[int, int, int, int]]":
     return out
 
 
+# The AP patch: `assets/patch.diff`, a bsdiff4 patch from the retail NTSC-U main.dol (Start.dol in a GameCube
+# Rebuilder extract) to the one carrying the C code `ap_patch.py` reads -- the capture, purification,
+# battle-result and white-out hooks. It goes in before any other pass, so every later main.dol edit checks its
+# words against the DOL the game will really run.
+#
+# The patched DOL is 1,700 bytes longer (a new text section 2), and on the retail disc main.dol ends exactly
+# where the FST begins, so it cannot grow in place: the whole DOL moves to a free region and the header's DOL
+# offset follows it. Nothing else on the disc moves.
+START_DOL_PATCH_RESOURCE = ("assets", "patch.diff")
+#: SHA-1 of the whole main.dol, header through the furthest section end, before and after the patch.
+START_DOL_VANILLA_SHA1 = "ff9e752ead9914af0b363ae6c831a34ccce189d2"
+START_DOL_PATCHED_SHA1 = "a1eda395d779b0f07988d417100724f0c295ec93"
+
+
+def dol_length(reader, dol_offset: int) -> int:
+    """main.dol's length on disc: the 0x100-byte header through the furthest section end."""
+    return max([0x100] + [file_off + length for _i, file_off, _addr, length in dol_sections(reader, dol_offset)])
+
+
+def read_start_dol(path: Path) -> "tuple[int, bytes]":
+    """(disc offset, bytes) of `path`'s main.dol."""
+    reader = open_reader(path)
+    try:
+        dol_offset = struct.unpack(">I", reader.read(DOL_OFFSET_FIELD, 4))[0]
+        return dol_offset, reader.read(dol_offset, dol_length(reader, dol_offset))
+    finally:
+        reader.close()
+
+
+def read_start_dol_patch() -> bytes:
+    """`assets/patch.diff`, package-first so the zipped-apworld case works (see `_game_data_module`)."""
+    folder, name = START_DOL_PATCH_RESOURCE
+    if _PACKAGE_ROOT:
+        from importlib.resources import files
+
+        return files(_PACKAGE_ROOT).joinpath(folder).joinpath(name).read_bytes()
+    return (Path(__file__).resolve().parent.parent / folder / name).read_bytes()
+
+
+def start_dol_refusal(path: Path) -> "str | None":
+    """None when `path`'s main.dol is the retail one (or already carries the AP patch); otherwise the sentence
+    to fail with. Read-only."""
+    try:
+        _offset, dol = read_start_dol(path)
+    except Exception as error:  # noqa: BLE001 -- an unreadable DOL is itself the answer
+        return f"could not read main.dol out of {path.name} ({error}). This is most likely a corrupt or truncated dump."
+    if hashlib.sha1(dol).hexdigest() in (START_DOL_VANILLA_SHA1, START_DOL_PATCHED_SHA1):
+        return None
+    return (
+        f"{path.name} has the right disc id but its main.dol is not the retail NTSC-U one, so the AP patch "
+        "cannot be applied to it. Patch from your ORIGINAL clean dump, not from a modified or already-patched "
+        "copy, or re-dump the disc."
+    )
+
+
+def write_start_dol_patch(output_path: Path) -> dict:
+    """Apply `assets/patch.diff` to `output_path`'s main.dol, relocating the DOL when the patched one no longer
+    fits before whatever follows it on the disc. Never raises.
+
+    `{"applied", "reason", "dol_offset", "relocated"}`."""
+    output_path = Path(output_path).resolve()
+    result = {"applied": False, "reason": None, "dol_offset": None, "relocated": False}
+    try:
+        dol_offset, old = read_start_dol(output_path)
+        digest = hashlib.sha1(old).hexdigest()
+        if digest == START_DOL_PATCHED_SHA1:
+            result.update(applied=True, reason="already patched", dol_offset=dol_offset)
+            return result
+        if digest != START_DOL_VANILLA_SHA1:
+            result["reason"] = f"main.dol's SHA-1 is {digest}, not the retail NTSC-U one -- a different build or region"
+            return result
+
+        import bsdiff4
+
+        new = bsdiff4.patch(old, read_start_dol_patch())
+        if hashlib.sha1(new).hexdigest() != START_DOL_PATCHED_SHA1:
+            result["reason"] = "the patched main.dol does not hash to what assets/patch.diff should produce"
+            return result
+
+        reader = open_reader(output_path)
+        try:
+            fst_offset = struct.unpack(">I", reader.read(FST_OFFSET_FIELD, 4))[0]
+            starts = [fst_offset] + [off for off, _length, _record in parse_fst(reader).values()]
+        finally:
+            reader.close()
+        following = [start for start in starts if start > dol_offset]
+        fits = bool(following) and dol_offset + len(new) <= min(following)
+
+        writer = open_writer(output_path)
+        try:
+            new_offset = dol_offset
+            if not fits:
+                new_offset = find_free_region(writer, len(new))
+                writer.ensure_region_allocated(new_offset, len(new))  # no-op for a plain ISO
+            writer.write(new_offset, new)
+            if new_offset != dol_offset:
+                writer.write(DOL_OFFSET_FIELD, struct.pack(">I", new_offset))
+        finally:
+            writer.close()
+
+        reread_offset, reread = read_start_dol(output_path)
+        if reread_offset != new_offset or reread != new:
+            result["reason"] = "read-back verification failed -- the patched main.dol did not stick"
+            return result
+        result.update(applied=True, dol_offset=new_offset, relocated=new_offset != dol_offset)
+        return result
+    except Exception as exc:
+        result["reason"] = f"{type(exc).__name__}: {exc}"
+        return result
+
+
 def always_catch_refusal(original_word: int, load_address: int, length: int) -> "str | None":
     """None when it is safe to write, else the reason it is not. Pure, so it can be tested without an ISO."""
     if original_word != ALWAYS_CATCH_EXPECTED_WORD:
@@ -3782,7 +3893,7 @@ def preflight_refusal(path: Path, census: "list[dict] | None") -> "str | None":
     `census` may be None -- a build shipping without the extract has nothing to compare against, and this
     silently skips the second layer rather than inventing a verdict.
     """
-    refusal = disc_id_refusal(path)
+    refusal = disc_id_refusal(path) or start_dol_refusal(path)
     if refusal is not None:
         return refusal
     if not census:
@@ -4010,6 +4121,17 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
         "mt_battle_enhanced_difficulty_levels_boosted": 0,
         "mt_battle_enhanced_difficulty_new_members": 0,
     }
+
+    # The AP patch, before any other change to the copy -- see START_DOL_PATCH_RESOURCE.
+    start_dol_result = write_start_dol_patch(output_path)
+    if not start_dol_result["applied"]:
+        raise RuntimeError(f"Could not apply the AP patch to main.dol: {start_dol_result['reason']}")
+    summary["start_dol_patch"] = start_dol_result
+    print(
+        "Applied the AP patch to main.dol"
+        + (f" and moved it to ISO offset 0x{start_dol_result['dol_offset']:X} (it no longer fit in place)."
+           if start_dol_result["relocated"] else ".")
+    )
 
     if assignment or moves_assignment:
         reader = open_reader(output_path)
