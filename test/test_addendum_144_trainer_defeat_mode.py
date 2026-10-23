@@ -72,16 +72,19 @@ class TestSurnameCasing(unittest.TestCase):
 
 class TestUniqueRosterQueue(unittest.TestCase):
     def test_the_queue_covers_every_trainer_exactly_once(self) -> None:
-        total = sum(len(v) for v in trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE.values())
+        # A kept forced rematch holds its position with a None for the earlier fight; None is not a label.
+        total = sum(1 for v in trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE.values() for n in v if n is not None)
         # ADDENDUM 362: every trainer except the ones whose label was retired for having no distinct team.
         # ADDENDUM 401: and except the 75 numbered fights of the missable trainers that fight more than once.
         # ADDENDUM 409: and except the roster trim (Cail's rematches, Hordel, ...) -- REMOVED_DEFEAT_LOCATIONS is the missable removals plus RULED_OUT_DEFEAT_LOCATIONS.
+        # Numbered rematch labels are removed too (the removal set now covers Chobin #7 as well), except the
+        # five forced second fights.
         self.assertEqual(
-            total, len(trainer_roster.TRAINERS) - len(trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS)
-            - len(trainer_roster.REMOVED_DEFEAT_LOCATIONS)
+            total, len(trainer_roster.TRAINERS) - len(trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS
+                                                       | trainer_roster.REMOVED_DEFEAT_LOCATIONS)
         )
-        self.assertEqual(total, 143)   # ADDENDUM 436: Ardos #1/#2 and Zook #1/#2 out -- one (Any) each
-        names = [n for v in trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE.values() for n in v]
+        self.assertEqual(total, 113)
+        names = [n for v in trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE.values() for n in v if n is not None]
         self.assertEqual(len(names), len(set(names)))
 
     def test_keys_are_upper_case_like_the_game_reports_them(self) -> None:
@@ -93,19 +96,20 @@ class TestUniqueRosterQueue(unittest.TestCase):
         what advances the queue. Three wins against the same team would check off one location, not three --
         see test_addendum_362 for that half."""
         queue = trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE
-        # ADDENDUM 409: Miror B. has only one rematch (up to Miror B. #2). Two labels, not nine; a third
-        # distinct team is still a win but has no label left to check off.
-        self.assertEqual(queue["MIROR B."], ["Defeat - Miror B. #1", "Defeat - Miror B. #2"])
+        # Miror B. has no numbered labels left (his (Any) checks him). A forced second fight keeps its #2 at its
+        # position: the first distinct team consumes the None, the second fires #2, a third has no label left.
+        self.assertEqual(queue["MIROR B."], [])
+        self.assertEqual(queue["NAPS"], [None, "Defeat - Naps #2"])
         tracker = rc.TrainerBattleDefeatTracker()
         fired: list[str] = []
         teams = (("ZUBAT", "GULPIN"), ("LUDICOLO",), ("LOUDRED", "GOLBAT"))
         for _encounter in range(3):
-            for frame in _defeat_sequence("MIROR B.", teams[_encounter]):
+            for frame in _defeat_sequence("NAPS", teams[_encounter]):
                 fired += tracker.poll(queue, locations.trainer_defeat_count_location_name,
                                       records=frame, count_location_max=0)
             tracker.poll(queue, locations.trainer_defeat_count_location_name, records=[],
                          count_location_max=0)  # roster clears, surname re-arms
-        self.assertEqual(fired, ["Defeat - Miror B. #1", "Defeat - Miror B. #2"])
+        self.assertEqual(fired, ["Defeat - Naps #2"])
 
     def test_unique_mode_produces_no_cumulative_names(self) -> None:
         """count_location_max=0 is how the client suppresses the bucket in unique mode."""
@@ -132,7 +136,8 @@ class TestLocationTable(unittest.TestCase):
         # ADDENDUM 410: minus the six lone #1s that fired on the same win as their (Any) -- 146.
         # ADDENDUM 411: plus Zook #1, back because Ardos #1 sends it -- 147.
         # ADDENDUM 436: minus Ardos #1/#2 and Zook #1/#2 -- 143.
-        self.assertEqual(len(locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 143)
+        # Numbered rematch checks removed except the five forced second fights -- 113.
+        self.assertEqual(len(locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 113)
         self.assertEqual(
             len(locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 232 - len(retired)
         )
@@ -153,7 +158,7 @@ class TestLocationTable(unittest.TestCase):
 
     def test_the_names_match_what_the_dispatch_queue_will_send(self) -> None:
         """If these ever drift apart the client fires location names that do not exist in the datapackage."""
-        from_queue = {n for v in trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE.values() for n in v}
+        from_queue = {n for v in trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE.values() for n in v if n is not None}
         # ADDENDUM 362: against the ACTIVE set. The queue is what the client dispatches against, so a retired
         # label must be absent from BOTH -- a name in the queue but not the datapackage is the exact failure
         # this test exists to catch.
@@ -178,7 +183,9 @@ class TestLocationTable(unittest.TestCase):
         self.assertLessEqual(locations._UNPLACED_TRAINER_LOCATION_NAMES, trainer_roster.RULED_OUT_DEFEAT_LOCATIONS)
         expected = locations._UNPLACED_TRAINER_LOCATION_NAMES - trainer_roster.REMOVED_DEFEAT_LOCATIONS
         self.assertEqual(expected, set())
-        self.assertEqual(locations.LOCATIONS_BY_REGION["Unique Trainer Defeats"], [])
+        # The bucket's only resident is Miror B.'s (Any), which opens on either of his places (Poke Spots or the
+        # Outskirt Stand) through an OR rule rather than a single region.
+        self.assertEqual(locations.LOCATIONS_BY_REGION["Unique Trainer Defeats"], ["Defeat Miror B. (Any)"])
         for name in locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES:
             self.assertNotEqual(locations.LOCATION_TABLE[name].region, "Unique Trainer Defeats", name)
 

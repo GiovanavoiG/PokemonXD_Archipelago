@@ -144,3 +144,10 @@ def plan_mirrors(free_slot_census: "list[dict] | None", host_shadows: "list[tupl
             used[other] = used.get(other, 0) + 1
         shadow["mirror_trainer_indices"] = mirrors
     return used
+
+
+# THE SIXES' PHENAC FIGHTS. Each Six's Shadow is fought at the Cipher Lab (rows 33-38) and again in Phenac (112-117), and
+# the game uses one record for both, so both fights field it at one level. Only the Cipher Lab fights keep it: in
+# Phenac that slot becomes an ordinary Pokemon of the same species at the Phenac team's level. The Cipher Lab fight is
+# where its catch check is gated anyway, and the Phenac fight is missable.
+SIXES_PHENAC_SHADOW_SLOTS: "tuple[tuple[int, int], ...]" = ((112, 14), (113, 3), (114, 4), (115, 5), (116, 6), (117, 7))

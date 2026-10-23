@@ -41,14 +41,16 @@ class TestTheHold(unittest.TestCase):
     def poll(self, hold, room=LAB_ROOM):
         return hold.poll(BASE, self.story.value, room)
 
-    def test_armed_pins_the_lab_at_0x16_from_above_and_below(self) -> None:
+    def test_armed_pulls_the_lab_down_to_0x16_and_leaves_a_lower_byte_alone(self) -> None:
         hold = rc.LabMemoStoryHold(armed=True)
         self.poll(hold)
         self.assertEqual(0x16, self.story.value)
         self.assertEqual(0x17, hold.declined_value)
         self.story.value = 0x0F
+        writes = len(self.story.writes)
         self.poll(hold)
-        self.assertEqual(0x16, self.story.value, "no matter what -- a lower byte is raised too")
+        self.assertEqual(0x0F, self.story.value, "a byte below 0x16 is left to the story")
+        self.assertEqual(writes, len(self.story.writes), "below 0x16: nothing written")
         self.story.value = 0x16
         writes = len(self.story.writes)
         self.poll(hold)

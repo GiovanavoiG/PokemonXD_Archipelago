@@ -245,7 +245,9 @@ class TestTheLiveGuard(unittest.TestCase):
             writes.assert_not_called()
 
     def test_wired_into_the_poll_loop(self) -> None:
-        self.assertIn("if ctx.disable_move_animations and time.monotonic() >= ctx._animation_guard_due:", CLIENT)
+        # The guard goes through `animations_disabled(ctx)`, which folds in the `/animations` override.
+        self.assertIn("animations_disabled(ctx) and time.monotonic() >= ctx._animation_guard_due:", CLIENT)
+        self.assertIn("def animations_disabled(ctx: PokemonXDContext) -> bool:", CLIENT)
         self.assertIn('self.disable_move_animations = bool(slot_data.get("disable_move_animations"))', CLIENT)
         from .. import PokemonXDWorld  # noqa: F401 -- the key travels in slot_data
         source = Path(Client.__file__).with_name("__init__.py").read_text(encoding="utf-8")

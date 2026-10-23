@@ -57,6 +57,12 @@ class TestTheAnchor(unittest.TestCase):
         placements = dict(P.PLACEMENTS)
         for row in RT.REPEATABLE_TRAINERS:
             self.assertIsNotNone(placements[row["anchor_index"]].region, row["location"])
+            if row["any_of_regions"]:
+                # Won in either of several places: parked in the always-open bucket behind an OR rule, with the
+                # anchor's region among the places.
+                self.assertEqual(RT.ANY_OF_BUCKET_REGION, row["region"], row["location"])
+                self.assertIn(placements[row["anchor_index"]].region, row["any_of_regions"], row["location"])
+                continue
             self.assertEqual(row["region"], placements[row["anchor_index"]].region)
 
     def test_the_anchor_is_the_earliest_non_missable_occurrence(self) -> None:
@@ -91,9 +97,11 @@ class TestTheAnchor(unittest.TestCase):
         # ADDENDUM 436 lifted Biden's: his Snagem Hideout fight is not missable, and it is his check.
         self.assertNotIn("Defeat Biden (Any)", RT.ALWAYS_FILLER_LOCATIONS)
         for name in ("Defeat Equin (Any)", "Defeat Eroll (Any)",
-                     "Defeat Willie (Any)", "Defeat Greevil (Any)", "Defeat Aferd (Any)",
+                     "Defeat Willie (Any)", "Defeat Greevil (Any)",
                      "Defeat Ardos (Any)", "Defeat Zook (Any)"):
             self.assertIn(name, RT.ALWAYS_FILLER_LOCATIONS, name)
+        for name in ("Defeat Aferd (Any)", "Defeat Laken (Any)", "Defeat Hebon (Any)"):
+            self.assertNotIn(name, RT.ALWAYS_FILLER_LOCATIONS, name)
 
     def test_every_exclusion_carries_a_reason(self) -> None:
         for surname, reason in RT.ALWAYS_FILLER_SURNAMES.items():

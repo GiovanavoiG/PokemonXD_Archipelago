@@ -76,7 +76,7 @@ class TestWithShadowCatchProgressionOn(_ShadowHostBase):
     """The option under which the guarantee matters most."""
 
     options = {"shadow_pokemon_expansion": 44, "shadow_catch_progression": True,
-               "shuffle_trainer_defeats": True}
+               "shuffle_trainer_defeats": True, "missable_trainer_shadows": False}
 
     def test_no_generated_shadow_sits_on_a_missable_trainer(self) -> None:
         self._assert_hosts_are_clean()
@@ -95,7 +95,7 @@ class TestWithShadowCatchProgressionOff(_ShadowHostBase):
     """The guarantee is unconditional, and this is what keeps it that way -- see the module docstring for why
     narrowing it to the option would be a regression."""
 
-    options = {"shadow_pokemon_expansion": 44, "shadow_catch_progression": False,
+    options = {"shadow_pokemon_expansion": 44, "shadow_catch_progression": False, "missable_trainer_shadows": False,
                "shuffle_trainer_defeats": True}
 
     def test_the_fence_holds_with_the_option_off_too(self) -> None:
@@ -113,7 +113,7 @@ class TestTheWorldActuallyPassesTheExclusionSet(unittest.TestCase):
                       encoding="utf-8").read()
         call = source.index("build_shadow_expansion_plans(")
         body = source[call:source.index(")\n", source.index("level_multiplier", call))]
-        self.assertIn("shadow_expansion_excluded_trainer_indices()", body)
+        self.assertIn("shadow_expansion_excluded_trainer_indices(", body)
 
     def test_the_helper_covers_every_missable_index(self) -> None:
         self.assertTrue(

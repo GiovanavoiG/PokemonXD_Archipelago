@@ -60,11 +60,15 @@ class TestTheRuledOutLabelsAreGone(unittest.TestCase):
 
 
 class TestTheSurvivingQueues(unittest.TestCase):
-    def test_the_sixes_keep_one_and_two(self) -> None:
-        # "Make their #1 at Cipher Lab, and make their #2 at Phenac ... Remove all their other fights."
-        self.assertEqual(["Defeat - Resix #1", "Defeat - Resix #2"], QUEUE["RESIX"])
+    def test_the_sixes_queue_nothing(self) -> None:
+        # Numbered rematch checks are removed for every repeated trainer outside the forced second fights, so
+        # the Sixes' #1 and #2 are no longer checks; each Six is checked by its (Any).
         for six in SIXES:
-            self.assertEqual([f"Defeat - {six} #1", f"Defeat - {six} #2"], QUEUE[six.upper()], six)
+            self.assertEqual([], QUEUE[six.upper()], six)
+            for n in (1, 2):
+                self.assertIn(f"Defeat - {six} #{n}", TR.NUMBERED_REMATCH_DEFEAT_LOCATIONS, six)
+                self.assertNotIn(f"Defeat - {six} #{n}", L.LOCATION_TABLE, six)
+            self.assertIn(f"Defeat {six} (Any)", L.LOCATION_TABLE, six)
 
     def test_cail_keeps_his_normal_fight_at_pyrite(self) -> None:
         # "Remove Cail's rematches, and his normal fight is at pyrite." ADDENDUM 410 then took his lone #1 ("Any
@@ -77,9 +81,13 @@ class TestTheSurvivingQueues(unittest.TestCase):
         row = next(r for r in RT.REPEATABLE_TRAINERS if r["surname"] == "CAIL")
         self.assertEqual("Pyrite Town", row["region"])
 
-    def test_miror_b_keeps_one_rematch(self) -> None:
-        # "Make Miror B only have one rematch (so up to miror B 2)."
-        self.assertEqual(["Defeat - Miror B. #1", "Defeat - Miror B. #2"], QUEUE["MIROR B."])
+    def test_miror_b_keeps_only_his_any(self) -> None:
+        # His numbered checks are removed as ordinary rematches; his (Any) remains.
+        self.assertEqual([], QUEUE["MIROR B."])
+        for name in ("Defeat - Miror B. #1", "Defeat - Miror B. #2"):
+            self.assertIn(name, TR.NUMBERED_REMATCH_DEFEAT_LOCATIONS, name)
+            self.assertNotIn(name, L.LOCATION_TABLE, name)
+        self.assertIn("Defeat Miror B. (Any)", L.LOCATION_TABLE)
 
     def test_the_fully_trimmed_surnames_queue_nothing(self) -> None:
         # Their #1 is missable (removed by ADDENDA 401/406) and every rematch is removed.
@@ -119,35 +127,44 @@ class TestTheSixesPlacements(unittest.TestCase):
             name = TR.trainer_label(trainer)
             self.assertEqual(1, trainer["occurrence"], name)
             self.assertEqual("Cipher Lab", trainer_placements.region_for(index), name)
-            self.assertEqual("Cipher Lab", L.LOCATION_TABLE[name].region, name)
+            # The placement stands; the numbered check does not.
+            self.assertNotIn(name, L.LOCATION_TABLE, name)
+            self.assertIn(name, TR.NUMBERED_REMATCH_DEFEAT_LOCATIONS, name)
             self.assertNotIn(index, missable_indices.MISSABLE_TRAINER_INDICES, name)
             self.assertNotIn(name, missable_autosend.AUTO_SEND_AT_STORY_BYTE, name)
 
-    def test_their_second_fight_is_at_phenac_missable_and_auto_sent(self) -> None:
+    def test_their_second_fight_is_at_phenac_missable_and_not_a_check(self) -> None:
         for index in SIXES_SECOND:
             trainer = TR.TRAINERS_BY_INDEX[index]
             name = TR.trainer_label(trainer)
             self.assertEqual(2, trainer["occurrence"], name)
             self.assertEqual("Phenac City (Post-Sixes)", trainer_placements.region_for(index), name)
-            self.assertEqual("Phenac City (Post-Sixes)", L.LOCATION_TABLE[name].region, name)
             self.assertIn(index, missable_indices.MISSABLE_TRAINER_INDICES, name)
             self.assertIn(name, TR.KEPT_MISSABLE_DEFEAT_LOCATIONS, name)
-            self.assertNotIn(name, TR.REMOVED_DEFEAT_LOCATIONS, name)
-            # ADDENDUM 436: released when Snattle is defeated, like every missable Cipher fight in Phenac.
-            self.assertEqual(missable_autosend.SNATTLE_DEFEATED, missable_autosend.AUTO_SEND_AT_STORY_BYTE[name], name)
+            # Numbered rematch checks are gone, so this label is removed: not a location, not auto-sent.
+            self.assertIn(name, TR.REMOVED_DEFEAT_LOCATIONS, name)
+            self.assertNotIn(name, L.LOCATION_TABLE, name)
+            self.assertNotIn(name, missable_autosend.AUTO_SEND_AT_STORY_BYTE, name)
 
     def test_the_kept_set_is_exactly_the_sixes_second_fights(self) -> None:
         self.assertEqual({f"Defeat - {six} #2" for six in SIXES}, set(TR.KEPT_MISSABLE_DEFEAT_LOCATIONS))
 
 
 class TestMirorBTwoPlacement(unittest.TestCase):
-    def test_it_is_placed_and_needs_both_spots(self) -> None:
-        # "His 1 and 2 can be in either outskirt stand or cave spot interchangeably" -- #2 needs a second meeting.
+    def test_it_is_placed_at_the_outskirt_stand_and_his_any_takes_either_place(self) -> None:
+        # Miror B. #2 is placed at the Outskirt Stand with no Poke Spots requirement. His (Any) sits in the
+        # always-open bucket and opens on either of his places.
+        from ..game_data import repeatable_trainers as RT
+
         placement = trainer_placements.PLACEMENTS[3]
         self.assertEqual(("MIROR B.", 2), (TR.TRAINERS_BY_INDEX[3]["name"], TR.TRAINERS_BY_INDEX[3]["occurrence"]))
         self.assertEqual("Outskirt Stand", placement.region)
-        self.assertEqual(("Poke Spots",), placement.required_regions)
-        self.assertEqual("Outskirt Stand", L.LOCATION_TABLE["Defeat - Miror B. #2"].region)
+        self.assertEqual((), placement.required_regions)
+        self.assertNotIn("Defeat - Miror B. #2", L.LOCATION_TABLE)
+        self.assertEqual("Unique Trainer Defeats", L.LOCATION_TABLE["Defeat Miror B. (Any)"].region)
+        row = next(r for r in RT.REPEATABLE_TRAINERS if r["surname"] == "MIROR B.")
+        self.assertEqual(("Poke Spots", "Outskirt Stand"), row["any_of_regions"])
+        self.assertTrue(row["always_filler"])
 
 
 class TestTheNamedRematches(unittest.TestCase):
@@ -165,10 +182,10 @@ class TestTheNamedRematches(unittest.TestCase):
                          TD.SURNAME_TO_LOCATION_QUEUE["Miror B."])
 
 
-def _state_without(test: PokemonXDTestBase, withheld: str) -> CollectionState:
+def _state_without(test: PokemonXDTestBase, *withheld: str) -> CollectionState:
     state = CollectionState(test.multiworld)
     for item in test.multiworld.itempool:
-        if item.player == test.player and item.name != withheld:
+        if item.player == test.player and item.name not in withheld:
             state.collect(item, True)
     state.sweep_for_advancements()
     return state
@@ -183,36 +200,45 @@ class TestInAGeneratedWorld(PokemonXDTestBase):
         self.assertFalse(created & TD.RULED_OUT_NAMED_LOCATIONS)
         self.assertNotIn("Defeat - Hordel", created)
 
-    def test_resix_two_needs_the_mayors_note(self) -> None:
-        # Their #2 is at Phenac: missable, behind the disc and the note.
-        self.assertIn("Mayor's Note", {item.name for item in self.multiworld.itempool})
-        location = self.multiworld.get_location("Defeat - Resix #2", self.player)
-        self.assertFalse(location.can_reach(_state_without(self, "Mayor's Note")))
-        self.assertTrue(location.can_reach(_state_without(self, "")))
+    def test_resix_two_is_not_created_and_his_any_is(self) -> None:
+        created = {location.name for location in self.multiworld.get_locations(self.player)}
+        self.assertNotIn("Defeat - Resix #2", created)
+        self.assertIn("Defeat Resix (Any)", created)
 
-    def test_resix_two_needs_the_music_disc(self) -> None:
-        location = self.multiworld.get_location("Defeat - Resix #2", self.player)
-        self.assertFalse(location.can_reach(_state_without(self, "Music Disc")))
+    def test_the_sixes_second_area_needs_the_mayors_note(self) -> None:
+        # Their #2 is at Phenac (Post-Sixes), behind the disc and the note.
+        self.assertIn("Mayor's Note", {item.name for item in self.multiworld.itempool})
+        region = "Phenac City (Post-Sixes)"
+        self.assertFalse(_state_without(self, "Mayor's Note").can_reach(region, "Region", self.player))
+        self.assertTrue(_state_without(self).can_reach(region, "Region", self.player))
+
+    def test_the_sixes_second_area_needs_the_music_disc(self) -> None:
+        region = "Phenac City (Post-Sixes)"
+        self.assertFalse(_state_without(self, "Music Disc").can_reach(region, "Region", self.player))
 
 
 class TestMirorBTwoInATravelShuffledWorld(PokemonXDTestBase):
-    """With travel randomization the two places open independently, so "needs both" is observable."""
+    """With travel randomization the two places open independently, so "either place" is observable."""
 
     options = {"shuffle_trainer_defeats": True, "key_item_shuffle": True, "randomize_travel_locations": True}
 
-    def test_it_needs_both_places(self) -> None:
-        location = self.multiworld.get_location("Defeat - Miror B. #2", self.player)
-        self.assertTrue(location.can_reach(_state_without(self, "")))
-        withheld_any = False
-        for region, unlock in (("Poke Spots", "Travel Unlock - Poke Spots"),
-                               ("Outskirt Stand", "Travel Unlock - Outskirt Stand")):
-            if unlock not in {item.name for item in self.multiworld.itempool}:
+    def test_his_any_needs_either_place(self) -> None:
+        location = self.multiworld.get_location("Defeat Miror B. (Any)", self.player)
+        self.assertTrue(location.can_reach(_state_without(self)))
+        pool = {item.name for item in self.multiworld.itempool}
+        places = (("Poke Spots", "Travel Unlock - Poke Spots"),
+                  ("Outskirt Stand", "Travel Unlock - Outskirt Stand"))
+        unlocks = [unlock for _region, unlock in places if unlock in pool]
+        self.assertTrue(unlocks, "neither travel unlock is in the pool, so nothing was tested")
+        for region, unlock in places:
+            if unlock not in pool:
                 continue
-            withheld_any = True
             state = _state_without(self, unlock)
             self.assertFalse(state.can_reach(region, "Region", self.player), f"{unlock} does not gate {region}")
-            self.assertFalse(location.can_reach(state), f"reachable without {region}")
-        self.assertTrue(withheld_any, "neither travel unlock is in the pool, so nothing was tested")
+            self.assertTrue(location.can_reach(state), f"one place withheld ({region}) closes the (Any)")
+        if len(unlocks) == 2:
+            state = _state_without(self, *unlocks)
+            self.assertFalse(location.can_reach(state), "reachable with neither place open")
 
 
 if __name__ == "__main__":

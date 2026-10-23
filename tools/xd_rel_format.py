@@ -995,6 +995,27 @@ def apply_evolution_edits(rel_bytes: bytearray, rel: RelFile,
     return {"evolutions_written": len(plan)}
 
 
+def apply_all_tms_learnable(rel_bytes: bytearray, rel: RelFile, species_indices: "list[int] | tuple[int, ...]",
+                            tm_count: int = 50, compatibility_offset: int = 0x34) -> "dict[str, int]":
+    """Every listed species can learn TM01-TM`tm_count`: each of its compatibility bytes (row +0x34, one per machine,
+    0 or 1) is set to 1. Refuses the whole edit if any of those bytes holds anything but 0 or 1."""
+    base = pokemon_stats_base(rel)
+    count = pokemon_stats_count(rel)
+    plan = []
+    for species in species_indices:
+        if not 0 < species < count:
+            continue
+        off = base + species * POKEMON_STATS_ENTRY_SIZE + compatibility_offset
+        row = rel_bytes[off:off + tm_count]
+        if any(b not in (0, 1) for b in row):
+            raise ValueError(f"species {species}'s TM bytes are not 0/1 -- a different build")
+        if any(b == 0 for b in row):
+            plan.append(off)
+    for off in plan:
+        rel_bytes[off:off + tm_count] = b"\x01" * tm_count
+    return {"species_written": len(plan)}
+
+
 def verify_species_stats_table(rel: RelFile, expected_base_hp: "dict[int, int]",
                                national_dex_for: "dict[int, int]", minimum_agreement: int = 20) -> bool:
     """True when this ISO's stats table is where the pointer says: the base-HP byte is checked against this
@@ -1264,6 +1285,60 @@ def apply_pokespot_species(rel_bytes: bytearray, rel: RelFile, assignment: dict[
         struct.pack_into(">H", rel_bytes, off, int(new_species))
         count += 1
     return count
+
+
+# Every Pokemon a Poke Spot can show is met equally often. The game (`_esabaAppearPokemonSub`) rolls 0-99 once
+# against the "all" pool's two rare visitors -- below the first's percentage it is the first, below the sum the
+# second (a visitor already sitting at another spot is skipped) -- and otherwise rolls again over the spot's own
+# three, by their percentages. Those are all the Pokemon a spot can field. So with each visitor at 100 / 5 = 20 and
+# the regular three at 34/33/33, each of the five is about one in five at every spot.
+POKESPOT_EQUAL_ODDS_POOLS = ("rock", "oasis", "cave")
+POKESPOT_VISITOR_POOL = "all"
+
+
+def _even_split(total: int, count: int) -> "list[int]":
+    share, extra = divmod(total, count)
+    return [share + (1 if i < extra else 0) for i in range(count)]
+
+
+def apply_pokespot_equal_odds(rel_bytes: bytearray, rel: RelFile) -> int:
+    """Set every Poke Spot encounter percentage so all Pokemon at a spot are equally likely. Returns the entries
+    changed. A pool whose percentages do not total 100 is not the table this was measured on and is left alone."""
+    changed = 0
+
+    def offsets(pool: str) -> "list[int]":
+        base = pokespot_pool_base(rel, pool)
+        return [base + i * POKESPOT_ENTRY_SIZE + POKESPOT_ENCOUNTER_PERCENTAGE_OFFSET
+                for i in range(pokespot_pool_count(rel, pool))]
+
+    def write(offs: "list[int]", values: "list[int]") -> int:
+        n = 0
+        for off, value in zip(offs, values):
+            if struct.unpack_from(">I", rel_bytes, off)[0] != value:
+                struct.pack_into(">I", rel_bytes, off, value)
+                n += 1
+        return n
+
+    regular_counts = []
+    for pool in POKESPOT_EQUAL_ODDS_POOLS:
+        offs = offsets(pool)
+        if not offs:
+            continue
+        old = [struct.unpack_from(">I", rel_bytes, off)[0] for off in offs]
+        if sum(old) != 100:
+            continue
+        regular_counts.append(len(offs))
+        changed += write(offs, _even_split(100, len(offs)))
+    try:
+        visitors = offsets(POKESPOT_VISITOR_POOL)
+    except KeyError:
+        visitors = []
+    if visitors and regular_counts:
+        per_spot = regular_counts[0] + len(visitors)
+        old = [struct.unpack_from(">I", rel_bytes, off)[0] for off in visitors]
+        if all(0 <= value <= 100 for value in old):
+            changed += write(visitors, [100 // per_spot] * len(visitors))
+    return changed
 
 
 def load_common_rel(common_fsys_bytes: bytes, lzss_decode) -> RelFile:

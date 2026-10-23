@@ -349,9 +349,13 @@ def seed_entry(key: str) -> dict:
 GREEVIL_LUGIA_TRAINER = 199
 
 
-#: ADDENDUM 429: Greevil's final battle (his third trainer row, an ordinary team of six at 50 -- no Shadows, so
-#: Nightmare Greevil relocates nothing). The `defeat_greevil` goal fires on this fight.
-GREEVIL_FINAL_TRAINER = 201
+#: Greevil's final story battle -- his second row, the six Shadows right after the Lugia fight. The goal fires on it.
+GREEVIL_FINAL_TRAINER = 200
+#: His post-game rematch (an ordinary team of six at 50), the row the game lets you re-fight.
+GREEVIL_REMATCH_TRAINER = 201
+#: Nightmare Greevil's rows: the final battle and the rematch. The final battle's Shadows are relocated like any other
+#: removed Shadow (`shadow_removal_trainers`).
+NIGHTMARE_GREEVIL_TRAINERS = frozenset({GREEVIL_FINAL_TRAINER, GREEVIL_REMATCH_TRAINER})
 
 
 def nightmare_trainer_indices() -> "frozenset[int]":
@@ -363,14 +367,18 @@ def nightmare_trainer_indices() -> "frozenset[int]":
 GREEVIL_SHADOW_TRAINERS = frozenset({GREEVIL_LUGIA_TRAINER, 200})
 
 
-def shadow_removal_trainers(nightmare_citadark: bool, remove_citadark: bool, remove_greevil: bool) -> "frozenset[int]":
+def shadow_removal_trainers(nightmare_citadark: bool, remove_citadark: bool, remove_greevil: bool,
+                            nightmare_greevil: bool = False) -> "frozenset[int]":
     """ADDENDUM 431: the trainers whose Shadows leave them this seed. Nightmare Citadark takes every Citadark
-    trainer but Lugia's fight; Remove Citadark Shadows every one but Greevil's; Remove Greevil Shadows his two."""
+    trainer but Lugia's fight; Nightmare Greevil his final battle's; Remove Citadark Shadows every one but Greevil's;
+    Remove Greevil Shadows his two."""
     out: "set[int]" = set()
     if nightmare_citadark:
         out |= nightmare_trainer_indices()
+    if nightmare_greevil:
+        out |= {GREEVIL_FINAL_TRAINER}
     if remove_citadark:
-        out |= citadark_trainer_indices() - GREEVIL_SHADOW_TRAINERS - {GREEVIL_FINAL_TRAINER}
+        out |= citadark_trainer_indices() - GREEVIL_SHADOW_TRAINERS - {GREEVIL_REMATCH_TRAINER}
     if remove_greevil:
         out |= GREEVIL_SHADOW_TRAINERS
     return frozenset(out)

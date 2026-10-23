@@ -144,6 +144,22 @@ class ShadowPokemonExpansion(Range):
     default = 44
 
 
+class MissableTrainerShadows(Toggle):
+    """
+    Lets Shadow Pokemon Expansion (and Shadows moved off Citadark or Greevil) also be placed on missable trainers --
+    the one-time fights whose checks are sent for you once their area is done.
+
+    If an area finishes without you beating its missable trainer, that trainer's Shadow goes to Miror B., the same
+    as a Shadow that ran from you. Miror B. also brings two Shadows at once at the Poke Spots whenever two or more
+    are waiting for him.
+
+    Their catch checks follow Shadow Catch Progression and are in logic once the trainer's fight is, like any
+    other Shadow.
+    """
+
+    display_name = "Missable Trainer Shadows"
+
+
 class EnhancedDifficulty(Choice):
     """
     How many EXTRA (ordinary, non-Shadow) Pokemon get added to real trainers' teams.
@@ -203,6 +219,15 @@ class ShuffleShadowLugia(Toggle):
     """
 
     display_name = "Shuffle Shadow Lugia"
+
+
+class MapTrainerLevels(DefaultOnToggle):
+    """
+    The world map's place descriptions show the level of the trainers you meet on your first visit there, in this
+    seed. Later fights at the same place (rematches, story returns) can be higher.
+    """
+
+    display_name = "Map Shows Trainer Levels"
 
 
 class LegendaryTrainerPokemon(Toggle):
@@ -374,9 +399,9 @@ class NightmareCitadark(Toggle):
 
 class NightmareGreevil(Toggle):
     """
-    Only Greevil's final battle takes a Nightmare team: six of the Orre Colosseum's toughest challengers'
-    Pokemon from XD or Colosseum, at level 100, with that challenger's own battle AI. His Shadow Lugia fight
-    and his Shadow Pokemon fight are left as they are, and nothing else on Citadark Isle changes.
+    Greevil's final battle (and his post-game rematch) take Nightmare teams: six of the Orre Colosseum's
+    toughest challengers' Pokemon from XD or Colosseum, at level 100, with that challenger's own battle AI. His
+    Shadow Lugia fight is left as it is; the six Shadows his final battle held move to other trainers.
 
     Does nothing with Nightmare Citadark on, which already includes it.
     """
@@ -410,7 +435,8 @@ class TradeEvolutionsByLevel(DefaultOnToggle):
     """
     Pokemon that evolve by trading evolve by leveling up instead, at the same levels enemy trainers' Pokemon
     use: Kadabra, Machoke, Graveler and Haunter at 37; Onix, Scyther and Porygon at 30; Seadra at 40; Poliwhirl
-    into Politoed at 36 (a Water Stone still makes Poliwrath).
+    into Politoed at 36 (a Water Stone still makes Poliwrath). Feebas, which needs Beauty that XD has no way to
+    raise, evolves into Milotic at 30.
 
     Where a Pokemon could become either of two, its personality decides, the way Wurmple's does: Clamperl
     becomes Huntail or Gorebyss at 30, and Slowpoke becomes Slowbro or Slowking at 37.
@@ -439,13 +465,25 @@ class PathLevelScaling(DefaultOnToggle):
 class ExcludeMtBattleTrainers(DefaultOnToggle):
     """
     Excludes Mt Battle from enhanced difficulty -- no extra team members and no level multiplier.
-    Also excludes Mt Battle trainers from checks.
+    Also excludes Mt Battle trainers from checks. Off gives each of Mt. Battle's trainers 4-100 a check.
 
     Path Level Scaling is a separate option and still applies to Mt Battle when this is on.
     Recommended "true" to exclude, unless you're doing a Mt Battle goal.
     """
 
     display_name = "Exclude Mt. Battle Trainers"
+
+
+class MtBattleProgressionChecks(Range):
+    """
+    With Exclude Mt. Battle Trainers off, each Mt. Battle trainer is a check. This many of them, counted from the
+    first trainer up, can hold progression; the rest only hold filler.
+    """
+
+    display_name = "Mt. Battle Progression Checks"
+    range_start = 0
+    range_end = 97
+    default = 0
 
 
 class KeyItemShuffle(DefaultOnToggle):
@@ -463,6 +501,15 @@ class KeyItemShuffle(DefaultOnToggle):
     """
 
     display_name = "Key Item Shuffle"
+
+
+class PokeSpotCatchChecks(DefaultOnToggle):
+    """
+    The wild Pokemon at the Poke Spots each have a "Catch -" check. Turn this off to remove those checks; the
+    Poke Spots still have their Pokemon.
+    """
+
+    display_name = "Poke Spot Catch Checks"
 
 
 class ShadowCatchProgression(Toggle):
@@ -728,6 +775,25 @@ class FillerWeightEvolutionStones(Range):
     default = 4
 
 
+class SingleMasterBall(DefaultOnToggle):
+    """
+    Only one Master Ball in the item pool. Turn this off to let more be drawn as filler, at the weight below.
+    """
+
+    display_name = "Single Master Ball"
+
+
+class FillerWeightMasterBall(Range):
+    """
+    Filler weight for extra Master Balls, used only when Single Master Ball is off. 0 = never appears.
+    """
+
+    display_name = "Filler Weight: Master Ball"
+    range_start = 0
+    range_end = 100
+    default = 0
+
+
 class PokemonXDDeathLink(DeathLink):
     """
     When another linked player dies, your whole party faints. When you white out, they die.
@@ -775,12 +841,44 @@ class ReduceCitadarkGrind(Choice):
     default = 0
 
 
+class StartWithPokeSpots(Toggle):
+    """
+    Start with the Miror Radar in your Key Items and the Poke Spots' unlock in your starting inventory. Logic treats
+    the Poke Spots and Miror B. as reachable from the start, and Shadow catches no longer wait on the Miror Radar.
+    Needs Location Shuffle; with it off, this option is turned off.
+    """
+
+    display_name = "Start With Miror Radar and Poke Spots"
+
+
 class InfiniteTMs(Toggle):
     """
     TMs are never used up: teaching a move from a TM keeps the TM in your Bag, the way HMs already work.
     """
 
     display_name = "Infinite TMs"
+
+
+class AllPokemonLearnAllTMs(Toggle):
+    """
+    Every Pokemon can learn every TM. (Shadow Pokemon still can't use TMs until they are purified.)
+    """
+
+    display_name = "All Pokemon Learn All TMs"
+
+
+class ShadowMoveTMs(Range):
+    """
+    This many TMs, chosen at random, teach a Shadow move instead of their usual move -- each a different one of
+    the 18 Shadow moves. The TM keeps its number; the Bag shows the new move. 0 turns this off.
+
+    Only Pokemon that can learn that TM can learn its Shadow move (or every Pokemon, with All Pokemon Learn All TMs).
+    """
+
+    display_name = "Shadow Move TMs"
+    range_start = 0
+    range_end = 18
+    default = 0
 
 
 @dataclass
@@ -803,6 +901,7 @@ class PokemonXDOptions(PerGameCommonOptions):
     shuffle_scooter_upgrade: ShuffleScooterUpgrade
     randomize_shops: RandomizeShops
     agate_village_pit_stop: AgateVillagePitStop
+    pokespot_catch_checks: PokeSpotCatchChecks
     shadow_catch_progression: ShadowCatchProgression
     citadark_progression_chance: CitadarkProgressionChance
 
@@ -811,11 +910,13 @@ class PokemonXDOptions(PerGameCommonOptions):
     trainer_defeat_mode: TrainerDefeatMode
     trainer_defeat_check_count: TrainerDefeatCheckCount
     exclude_mt_battle_trainers: ExcludeMtBattleTrainers
+    mt_battle_progression_checks: MtBattleProgressionChecks
 
     # -- Shadow Pokemon --
     purification_checks: PurificationChecks
     purification_progression_cap: PurificationProgressionCap
     shadow_pokemon_expansion: ShadowPokemonExpansion
+    missable_trainer_shadows: MissableTrainerShadows
     randomize_shadow_species: RandomizeShadowSpecies
     shadow_inherited_moves: ShadowInheritedMoves
     no_legendary_shadows: NoLegendaryShadows
@@ -827,6 +928,7 @@ class PokemonXDOptions(PerGameCommonOptions):
     enhanced_difficulty: EnhancedDifficulty
     enhanced_difficulty_level_scaling: EnhancedDifficultyLevelScaling
     path_level_scaling: PathLevelScaling
+    map_trainer_levels: MapTrainerLevels
     legendary_trainer_pokemon: LegendaryTrainerPokemon
     nightmare_citadark: NightmareCitadark
     nightmare_greevil: NightmareGreevil
@@ -841,6 +943,9 @@ class PokemonXDOptions(PerGameCommonOptions):
     trade_evolutions_by_level: TradeEvolutionsByLevel
     reduce_citadark_grind: ReduceCitadarkGrind
     infinite_tms: InfiniteTMs
+    start_with_poke_spots: StartWithPokeSpots
+    all_pokemon_learn_all_tms: AllPokemonLearnAllTMs
+    shadow_move_tms: ShadowMoveTMs
 
     # -- Speed --
     text_speed: TextSpeed
@@ -862,6 +967,8 @@ class PokemonXDOptions(PerGameCommonOptions):
     filler_weight_tms: FillerWeightTMs
     filler_weight_evolution_stones: FillerWeightEvolutionStones
     filler_weight_currency: FillerWeightCurrency
+    single_master_ball: SingleMasterBall
+    filler_weight_master_ball: FillerWeightMasterBall
 
 
 # ADDENDUM 447: the YAML template and the options page show these as sections, in this order. Same order as the
@@ -880,6 +987,7 @@ OPTION_GROUPS: "list[OptionGroup]" = [
         ShuffleScooterUpgrade,
         RandomizeShops,
         AgateVillagePitStop,
+        PokeSpotCatchChecks,
         ShadowCatchProgression,
         CitadarkProgressionChance,
     ]),
@@ -888,11 +996,13 @@ OPTION_GROUPS: "list[OptionGroup]" = [
         TrainerDefeatMode,
         TrainerDefeatCheckCount,
         ExcludeMtBattleTrainers,
+        MtBattleProgressionChecks,
     ]),
     OptionGroup("Shadow Pokemon", [
         PurificationChecks,
         PurificationProgressionCap,
         ShadowPokemonExpansion,
+        MissableTrainerShadows,
         RandomizeShadowSpecies,
         ShadowInheritedMoves,
         NoLegendaryShadows,
@@ -904,6 +1014,7 @@ OPTION_GROUPS: "list[OptionGroup]" = [
         EnhancedDifficulty,
         EnhancedDifficultyLevelScaling,
         PathLevelScaling,
+        MapTrainerLevels,
         LegendaryTrainerPokemon,
         NightmareCitadark,
         NightmareGreevil,
@@ -918,6 +1029,9 @@ OPTION_GROUPS: "list[OptionGroup]" = [
         TradeEvolutionsByLevel,
         ReduceCitadarkGrind,
         InfiniteTMs,
+        StartWithPokeSpots,
+        AllPokemonLearnAllTMs,
+        ShadowMoveTMs,
     ]),
     OptionGroup("Speed", [
         TextSpeed,
@@ -939,5 +1053,7 @@ OPTION_GROUPS: "list[OptionGroup]" = [
         FillerWeightTMs,
         FillerWeightEvolutionStones,
         FillerWeightCurrency,
+        SingleMasterBall,
+        FillerWeightMasterBall,
     ]),
 ]

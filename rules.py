@@ -297,6 +297,9 @@ def _set_catch_rules(world) -> None:
 
     player = world.player
     gates, unplaceable = _catch_gates_for_species(world)
+    # The floor stands in for the Miror Radar (its chest is at the Poke Spots, after Pyrite). Starting with the Radar
+    # (Start With Miror Radar and Poke Spots) removes it: each Shadow is gated on its own fight alone.
+    snag_floor = () if bool(getattr(world.options, "start_with_poke_spots", 0)) else _SNAG_FLOOR_REGIONS
 
     def location_or_none(name: str):
         try:
@@ -346,10 +349,10 @@ def _set_catch_rules(world) -> None:
                             if _requirement_is_in_the_pool(world, name)]
             compiled.append((tuple(dict.fromkeys(regions_needed)), tuple(items_needed), True, ()))
 
-        def rule(state, compiled=tuple(compiled), player=player):
+        def rule(state, compiled=tuple(compiled), player=player, floor=snag_floor):
             for regions_needed, items_needed, needs_snag_floor, any_regions in compiled:
                 if needs_snag_floor and not all(
-                    state.can_reach(name, player=player) for name in _SNAG_FLOOR_REGIONS
+                    state.can_reach(name, player=player) for name in floor
                 ):
                     continue
                 if not all(state.can_reach(name, player=player) for name in regions_needed):
@@ -677,6 +680,13 @@ def _set_repeatable_trainer_rules(world) -> None:
         return True
 
     for row in repeatable_trainers.REPEATABLE_TRAINERS:
+        if row["any_of_regions"]:
+            try:
+                location = world.multiworld.get_location(row["location"], world.player)
+            except KeyError:
+                continue
+            add_rule(location, lambda state, rg=row["any_of_regions"], player=world.player: any(
+                state.can_reach(name, "Region", player) for name in rg))
         if not row["required_items"] and not row["required_regions"]:
             continue
         try:
@@ -720,11 +730,8 @@ def _set_repeatable_trainer_rules(world) -> None:
 NAMED_DEFEAT_ITEM_GATES: "dict[str, tuple[str, ...]]" = {
     "Defeat - Cipher Peon Smarton": ("Music Disc", "Mayor's Note"),
     "Defeat - Cipher Admin Snattle": ("Music Disc", "Mayor's Note"),
-    # ADDENDUM 449. Laken is gated behind the Machine Part. Every Laken check -- his two Gateon
-    # rematches and his (Any) -- needs the Machine Part. Always-open Gateon gave them no gate at all. They stay
-    # filler-only (ADDENDUM 362), so this only moves when they count as in logic.
-    "Defeat - Laken #2": ("Machine Part",),
-    "Defeat - Laken #3": ("Machine Part",),
+    # ADDENDUM 449. Laken is gated behind the Machine Part; always-open Gateon gave his (Any) no gate at all. It
+    # stays filler-only (ADDENDUM 362), so this only moves when it counts as in logic.
     "Defeat Laken (Any)": ("Machine Part",),
 }
 
@@ -780,7 +787,38 @@ def set_all_rules(world) -> None:
     _set_shop_tier_rules(world)
     _set_repeatable_trainer_rules(world)
     _set_named_defeat_item_gates(world)
+    _set_krane_memo_rules(world)
     _assert_no_ungated_progression_in_an_always_open_bucket(world)
+
+
+# Memos 3-5 come with the Machine Part's delivery, or with the Cipher Lab cleared (Data ROM and ID Card in hand).
+# A requirement that is not in this seed's pool is met where the game hands it out instead.
+def _set_krane_memo_rules(world) -> None:
+    from . import items
+
+    player = world.player
+
+    def needs(item_name: str):
+        pooled = items.requirement_to_pool_item(item_name)
+        return pooled if _requirement_is_in_the_pool(world, pooled) else None
+
+    machine_part = needs("Machine Part")
+    lab_items = tuple(dict.fromkeys(n for n in (needs("Data ROM"), needs("ID Card")) if n))
+
+    def rule(state) -> bool:
+        if machine_part is not None:
+            if state.has(machine_part, player):
+                return True
+        elif state.can_reach("Gateon Port", "Region", player):
+            return True
+        return state.can_reach("Cipher Lab", "Region", player) and all(state.has(n, player) for n in lab_items)
+
+    for memo in (3, 4, 5):
+        try:
+            location = world.multiworld.get_location(locations.krane_memo_location_name(memo), player)
+        except KeyError:
+            continue
+        add_rule(location, rule)
 
 
 # ADDENDUM 183: the guard for the silent shape. A wrong rule is loud -- Fill either cannot place an item or

@@ -14,8 +14,8 @@ from __future__ import annotations
 
 from typing import Any
 
-_POKESPOT_LABEL = {"rock": "Rock Poke Spot", "oasis": "Oasis Poke Spot", "cave": "Cave Poke Spot",
-                   "all": "any Poke Spot"}
+_POKESPOT_LABEL = {"rock": "Rock Spot", "oasis": "Oasis Spot", "cave": "Cave Spot",
+                   "all": "Rock Spot, Oasis Spot or Cave Spot (rare visitor)"}
 
 
 def _host_label(index: int) -> "str | None":
@@ -53,11 +53,15 @@ def sources_by_dex(world: Any) -> "dict[int, list[str]]":
                 region = gate.region if gate else None
             add(dex, f"Shadow: {label}, {region}" if region else f"Shadow: {label}")
 
+    missable_hosts = getattr(world, "_missable_shadow_hosts", None) or {}
     for dex, hosts in (getattr(world, "_shadow_catch_expansion_hosts", None) or {}).items():
         for index in hosts:
             label = _host_label(index) or f"trainer #{index}"
             region = trainer_placements.region_for(index)
-            add(dex, f"Shadow: {label}, {region}" if region else f"Shadow: {label}")
+            text = f"Shadow: {label}, {region}" if region else f"Shadow: {label}"
+            if int(index) in missable_hosts:
+                text += " (Miror B. if missed)"
+            add(dex, text)
 
     for entry in (getattr(world, "_pokespot_species_assignment", None) or []):
         dex = entry.get("new_dex")

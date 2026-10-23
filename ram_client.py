@@ -511,6 +511,73 @@ def _block_base_from_savedata_pointer(mem: bytes) -> "int | None":
     return savedata + SAVEDATA_HERO_OFFSET + RECORD_TRAINER_NAME_OFFSET
 
 
+# The save's Shadow status table, the one the Shadow Monitor reads: 128 records of 0x48 bytes at savedata + 0xE380,
+# indexed by Shadow id. A record's top three bits of byte 0 are its status (4 = purified), +0x24 its heart gauge (0
+# once purified), +0x3E its own id. Checked against 26 MEM1 dumps.
+SHADOW_MONITOR_SAVEDATA_OFFSET = 0xE380
+SHADOW_MONITOR_RECORDS = 128
+SHADOW_MONITOR_RECORD_SIZE = 0x48
+SHADOW_MONITOR_PURIFIED = 4
+
+
+def read_shadow_monitor(block_base: int) -> "set[int] | None":
+    """Shadow ids the save marks purified, or None when the table does not prove itself (most records must carry
+    their own id). Never raises."""
+    try:
+        base = block_base - SAVEDATA_HERO_OFFSET - RECORD_TRAINER_NAME_OFFSET + SHADOW_MONITOR_SAVEDATA_OFFSET
+        table = read_bytes(base, SHADOW_MONITOR_RECORDS * SHADOW_MONITOR_RECORD_SIZE)
+    except Exception:
+        return None
+    if len(table) < SHADOW_MONITOR_RECORDS * SHADOW_MONITOR_RECORD_SIZE:
+        return None
+    self_ids = 0
+    purified: "set[int]" = set()
+    for k in range(1, SHADOW_MONITOR_RECORDS):
+        record = table[k * SHADOW_MONITOR_RECORD_SIZE:(k + 1) * SHADOW_MONITOR_RECORD_SIZE]
+        own_id = struct.unpack_from(">H", record, 0x3E)[0]
+        if own_id == k:
+            self_ids += 1
+        if (record[0] >> 5) == SHADOW_MONITOR_PURIFIED and own_id == k and struct.unpack_from(">I", record, 0x24)[0] == 0:
+            purified.add(k)
+    if self_ids < 100:
+        return None
+    return purified
+
+
+SHADOW_MONITOR_SNAGGED = 3
+SHADOW_MONITOR_FLED = 2
+
+
+def read_snagged_shadow_species(block_base: int) -> "set[int] | None":
+    """Internal species of every Shadow the save marks snagged or purified (status 3 or 4), read off the Shadow
+    Monitor's table (+0x1A, the species the patched Shadow list gives each record). None when the table does not prove
+    itself. Never raises."""
+    try:
+        base = block_base - SAVEDATA_HERO_OFFSET - RECORD_TRAINER_NAME_OFFSET + SHADOW_MONITOR_SAVEDATA_OFFSET
+        table = read_bytes(base, SHADOW_MONITOR_RECORDS * SHADOW_MONITOR_RECORD_SIZE)
+    except Exception:
+        return None
+    if len(table) < SHADOW_MONITOR_RECORDS * SHADOW_MONITOR_RECORD_SIZE:
+        return None
+    own = 0
+    out: "set[int]" = set()
+    for k in range(1, SHADOW_MONITOR_RECORDS):
+        record = table[k * SHADOW_MONITOR_RECORD_SIZE:(k + 1) * SHADOW_MONITOR_RECORD_SIZE]
+        if struct.unpack_from(">H", record, 0x3E)[0] != k:
+            continue
+        own += 1
+        if (record[0] >> 5) >= SHADOW_MONITOR_SNAGGED:
+            species = struct.unpack_from(">H", record, 0x1A)[0]
+            if species:
+                out.add(species)
+    return out if own >= 100 else None
+
+
+def shadow_monitor_record_address(block_base: int, shadow_id: int) -> int:
+    return (block_base - SAVEDATA_HERO_OFFSET - RECORD_TRAINER_NAME_OFFSET + SHADOW_MONITOR_SAVEDATA_OFFSET
+            + shadow_id * SHADOW_MONITOR_RECORD_SIZE)
+
+
 def live_block_base() -> "int | None":
     """The block base the game is using right now, from its own savedata pointer, or None when the pointer is not
     set yet or the block it names does not validate (title screen, mid-boot). Two small reads. Never raises."""
@@ -2073,6 +2140,7 @@ class PurificationCountTracker:
     legacy_unclaimed: int = 0
     claimed_species_only: int = 0                   # ids matched to an earlier count of theirs (no new check)
     flip_deferred: int = 0                          # flips the scan was left to count (no readable purified record)
+    monitor_counted: int = 0                        # counted from the save's Shadow status table
 
     def __post_init__(self) -> None:
         if self.tracker is None:
@@ -2105,6 +2173,34 @@ class PurificationCountTracker:
             newly_crossed.append(purification_location_name(self.total_purified))
         newly_crossed += self._catch_up_to_shadow_ids()
         return newly_crossed
+
+    def observe_monitor(self, purified_ids: "set[int]", shadow_count_cap: "int | None" = None) -> "list[str]":
+        """The save's Shadow status table (`read_shadow_monitor`): one count per purified Shadow id not yet in the
+        ledger. The table names no species, so an id that may be a Pokemon already counted without its id (rule 2,
+        or an older client's count) claims that count instead of adding one. Never counts an id twice."""
+        crossed: "list[str]" = []
+        cap = PURIFICATION_LOCATION_COUNT if shadow_count_cap is None else min(shadow_count_cap,
+                                                                               PURIFICATION_LOCATION_COUNT)
+        for shadow_id in sorted(purified_ids):
+            if shadow_id in self.purified_shadow_ids:
+                continue
+            self.purified_shadow_ids.add(shadow_id)
+            self.dirty = True
+            if self.species_only_families:
+                self.species_only_families.pop(0)
+                self.claimed_species_only += 1
+                continue
+            if self.legacy_unclaimed > 0:
+                self.legacy_unclaimed -= 1
+                self.claimed_species_only += 1
+                continue
+            if self.total_purified >= cap:
+                continue
+            self.total_purified += 1
+            self.monitor_counted += 1
+            crossed.append(purification_location_name(self.total_purified))
+            self.last_counts.append(f"the Shadow status table (Shadow id {shadow_id} purified)")
+        return crossed
 
     def _admit_id(self, record: "ShadowRecord") -> str:
         """ADDENDUM 478: the one place a Shadow id enters the ledger. Returns
@@ -2534,6 +2630,28 @@ def guard_move_animations() -> "dict | None":
     return {"pointers": pointers, "func_ids": func_ids}
 
 
+def restore_move_animations() -> "int | None":
+    """`/animations on`: put the game's own animation pointers back wherever memory holds Null ones (an ISO patched
+    with Disable Move Animations, or the guard above). Data only. The pointers written, or None when the table cannot
+    be proven; never raises."""
+    from .game_data import move_animations as anim
+
+    try:
+        block = read_bytes(anim.WAZA_FUNC_DATA, anim.RECORD_COUNT * anim.RECORD_SIZE)
+    except Exception:
+        return None
+    if not anim.anchors_ok(block):
+        return None
+    written = 0
+    for address, value in anim.table_needs_restore(block):
+        try:
+            write_bytes(address, struct.pack(">I", value))
+            written += 1
+        except Exception:
+            pass
+    return written
+
+
 def describe_live_move_status(report: "dict | None") -> "list[str]":
     """Lines to log for a report, or nothing at all when it is healthy. Names the moves, because "your move
     table is wrong" is not something a player can act on and "Icy Wind now freezes" is."""
@@ -2655,6 +2773,27 @@ def _byte_difference(a: bytes, b: bytes) -> int:
     """How many bytes differ between two equal-length windows. Pulled out so the gate reads the same comparing
     against the previous poll or against the last trusted content."""
     return sum(1 for x, y in zip(a, b) if x != y)
+
+
+@dataclass
+class BlockTrust:
+    """`BlockStabilityGate`'s answer, held until it has said "settled" `settle_polls` times in a row. The edges of a
+    save-menu rewrite are where a single settled reading can still carry the other file's bytes, and every story
+    byte or travel bit read there would be banked for good."""
+
+    settle_polls: int = 3
+    streak: int = 0
+    distrusted_polls: int = 0
+
+    def poll(self, stable: bool) -> bool:
+        self.streak = self.streak + 1 if stable else 0
+        trusted = self.streak >= self.settle_polls
+        if not trusted:
+            self.distrusted_polls += 1
+        return trusted
+
+    def reset(self) -> None:
+        self.streak = 0
 
 
 @dataclass
@@ -3215,6 +3354,10 @@ class StoryProgressWitness:
     equal to a floor we wrote is HELD until the game advances past it, which is what playing the area does."""
 
     high_water: int = -1
+    #: A new high has to be read this many credible polls in a row before it is banked (the client uses 2).
+    confirm_polls: int = 1
+    _candidate: "int | None" = None
+    _candidate_count: int = 0
     credible_polls: int = 0
     suppressed_polls: int = 0
     last_suppressed_value: "int | None" = None
@@ -3250,7 +3393,15 @@ class StoryProgressWitness:
         self.credible_polls += 1
         self.last_reason = None
         if story_byte > self.high_water:
-            self.high_water = story_byte
+            if story_byte == self._candidate:
+                self._candidate_count += 1
+            else:
+                self._candidate, self._candidate_count = story_byte, 1
+            if self._candidate_count >= self.confirm_polls:
+                self.high_water = story_byte
+                self._candidate, self._candidate_count = None, 0
+        else:
+            self._candidate, self._candidate_count = None, 0
         return self.high_water
 
     def describe(self) -> "list[str]":
@@ -6369,6 +6520,203 @@ def repair_snagem_record(block_base: int) -> bool:
     return snagem_record_state(block_base) == "repaired"
 
 
+# --- The world map shows trainer levels (game_data/map_level_text.py). ---
+MAP_TEXT_SEARCH_START = 0x80600000
+MAP_TEXT_SEARCH_END = 0x80C00000
+MAP_TEXT_WINDOW = 0x4000
+
+
+@dataclass
+class MapLevelTextWriter:
+    """While the map screen is open, rewrites the place descriptions to show this seed's trainer levels. Data only,
+    in the map's own text buffer, which is re-read from disc every time the map opens. Never raises."""
+
+    levels: "dict[str, int]" = field(default_factory=dict)
+    address: "int | None" = None
+    done_this_visit: bool = False
+    searched_this_visit: bool = False
+    rewrites: int = 0
+
+    def poll(self, room_id: "int | None") -> "str | None":
+        if not self.levels:
+            return None
+        try:
+            if room_id != MAP_SCREEN_ROOM_ID:
+                self.done_this_visit = False
+                self.searched_this_visit = False
+                return None
+            if self.done_this_visit:
+                return None
+            from .game_data import map_level_text as mt
+            anchor = mt.SEARCH_ANCHOR
+            at = None
+            if self.address is not None:
+                try:
+                    if read_bytes(self.address, len(anchor)) == anchor:
+                        at = self.address
+                except Exception:
+                    at = None
+            if at is None:
+                if self.searched_this_visit:
+                    return None
+                self.searched_this_visit = True
+                chunk = 0x10000
+                for base in range(MAP_TEXT_SEARCH_START, MAP_TEXT_SEARCH_END, chunk):
+                    block = read_bytes(base, chunk + len(anchor))
+                    found = block.find(anchor)
+                    if found >= 0:
+                        at = base + found
+                        break
+                if at is None:
+                    return None
+                self.address = at
+            start = at - MAP_TEXT_WINDOW
+            window = bytearray(read_bytes(start, MAP_TEXT_WINDOW * 2))
+            before = bytes(window)
+            changed = mt.rewrite(window, self.levels)
+            if changed:
+                for i in range(0, len(window), 0x100):
+                    if window[i:i + 0x100] != before[i:i + 0x100]:
+                        write_bytes(start + i, bytes(window[i:i + 0x100]))
+                self.rewrites += 1
+            self.done_this_visit = True
+            return None
+        except Exception:
+            return None
+
+
+# --- Aferd, Laken and Hebon always battle (game_data/npc_battle_scripts.py). ---
+@dataclass(frozen=True)
+class NpcScriptSpec:
+    name: str
+    area: str
+    size: int
+    anchors: "tuple[tuple[int, bytes], ...]"
+    patches: "tuple[tuple[int, int, int], ...]"
+
+
+def npc_script_specs() -> "tuple[NpcScriptSpec, ...]":
+    from .game_data import npc_battle_scripts as nb
+    return (
+        NpcScriptSpec("Aferd", "Pokemon HQ Lab", nb.AFERD_SCRIPT_SIZE, nb.AFERD_SCRIPT_ANCHORS,
+                      nb.AFERD_SCRIPT_PATCHES),
+        NpcScriptSpec("Laken", "Gateon Port", nb.LAKEN_SCRIPT_SIZE, nb.LAKEN_SCRIPT_ANCHORS,
+                      nb.LAKEN_SCRIPT_PATCHES + nb.LAKEN_REMATCH_PATCHES),
+        NpcScriptSpec("Hebon", "Agate Village", nb.HEBON_SCRIPT_SIZE, nb.HEBON_SCRIPT_ANCHORS,
+                      nb.HEBON_SCRIPT_PATCHES),
+    )
+
+
+def _npc_script_matches(read: "Callable[[int, int], bytes]", blob: int, spec: NpcScriptSpec) -> bool:
+    try:
+        if read(blob, 4) != b"TCOD" or struct.unpack(">I", read(blob + 4, 4))[0] != spec.size:
+            return False
+        return all(read(blob + offset, len(expected)) == expected for offset, expected in spec.anchors)
+    except Exception:
+        return False
+
+
+def find_npc_script(spec: NpcScriptSpec, mem: "bytes | None" = None) -> "int | None":
+    """Address of the loaded script `spec` describes, found by structure (TCOD + size + every anchor), or None."""
+    if mem is None:
+        try:
+            mem = dump_mem1()
+        except Exception:
+            return None
+
+    def read_from_dump(address: int, length: int) -> bytes:
+        start = address - MEM1_START
+        if start < 0 or start + length > len(mem):
+            raise IndexError(address)
+        return mem[start:start + length]
+
+    magic = b"TCOD" + struct.pack(">I", spec.size)
+    index = mem.find(magic)
+    while index != -1:
+        candidate = MEM1_START + index
+        if _npc_script_matches(read_from_dump, candidate, spec):
+            return candidate
+        index = mem.find(magic, index + 1)
+    return None
+
+
+def patch_npc_script(blob: int, spec: NpcScriptSpec) -> "int | None":
+    """Write every patch byte still at its stock value. None when the blob is not the script (or a site holds
+    neither the stock nor the patched byte); otherwise the number of bytes written."""
+    try:
+        if not _npc_script_matches(read_bytes, blob, spec):
+            return None
+        todo = []
+        for offset, stock, patched in spec.patches:
+            value = read_bytes(blob + offset, 1)[0]
+            if value == patched:
+                continue
+            if value != stock:
+                return None
+            todo.append((offset, patched))
+        for offset, patched in todo:
+            write_bytes(blob + offset, bytes((patched,)))
+        return len(todo)
+    except Exception:
+        return None
+
+
+NPC_SCRIPT_RESCAN_SECONDS = 20.0
+
+
+@dataclass
+class NpcBattleScriptPatcher:
+    """Keeps Aferd's, Laken's and Hebon's talk scripts patched while the player is in their area. Looks for a script only
+    while in its area and at most every NPC_SCRIPT_RESCAN_SECONDS; once found, re-checks a few bytes per poll.
+    Never raises."""
+
+    enabled: bool = True
+    blobs: "dict[str, int]" = field(default_factory=dict)
+    next_scan: "dict[str, float]" = field(default_factory=dict)
+    applications: "dict[str, int]" = field(default_factory=dict)
+    rejected: int = 0
+
+    def poll(self, room_id: "int | None") -> "str | None":
+        if not self.enabled:
+            return None
+        notes = []
+        try:
+            for spec in npc_script_specs():
+                if not _room_in_areas(room_id, frozenset({spec.area})):
+                    self.blobs.pop(spec.name, None)
+                    continue
+                blob = self.blobs.get(spec.name)
+                if blob is not None and not _npc_script_matches(read_bytes, blob, spec):
+                    blob = None
+                    self.blobs.pop(spec.name, None)
+                if blob is None:
+                    now = time.monotonic()
+                    if now < self.next_scan.get(spec.name, 0.0):
+                        continue
+                    self.next_scan[spec.name] = now + NPC_SCRIPT_RESCAN_SECONDS
+                    blob = find_npc_script(spec)
+                    if blob is None:
+                        continue
+                    self.blobs[spec.name] = blob
+                written = patch_npc_script(blob, spec)
+                if written is None:
+                    self.rejected += 1
+                    self.blobs.pop(spec.name, None)
+                elif written:
+                    self.applications[spec.name] = self.applications.get(spec.name, 0) + 1
+                    notes.append(f"{spec.name}'s script patched ({written} byte(s)) -- he will always battle.")
+        except Exception:
+            return None
+        return "\n".join(notes) if notes else None
+
+    def describe(self) -> str:
+        parts = []
+        for spec in npc_script_specs():
+            where = f"0x{self.blobs[spec.name]:08X}" if spec.name in self.blobs else "not resident"
+            parts.append(f"{spec.name} {where}, patched {self.applications.get(spec.name, 0)}x")
+        return "Always-battle scripts: " + "; ".join(parts) + f"; {self.rejected} rejected."
+
+
 @dataclass
 class SnagemScriptPatcher:
     """Keeps the Snagem 2F script patched while the player is in the hideout, and repairs the story record window
@@ -7088,6 +7436,9 @@ LAB_MEMO_HOLD_MEMOS: "tuple[int, ...]" = (3, 4, 5)
 # it (the arrival bump's 0x0F included), the lab's high-water mark, or with travel shuffle off the story's -- latched
 # and persisted; and (b) Krane Memos 1 and 2 received, so the handover that follows 0x0F has always played first.
 LAB_MEMO_ARM_FLOOR = 0x0F
+# The Cipher Lab cleared (0x2B, "post Cipher Lab"): Krane Memos 3-5 are sent and the hold lets go for good, so the
+# HQ Lab can move on to the Purify Chamber.
+LAB_MEMO_RELEASE_CIPHER_LAB = 0x2B
 LAB_MEMO_ARM_MEMOS: "tuple[int, ...]" = (1, 2)
 assert LAB_MEMO_ARM_FLOOR < LAB_MEMO_HOLD_BYTE
 
@@ -7129,12 +7480,14 @@ class LabMemoStoryHold:
              memos_received: bool = True) -> "str | None":
         """`memos_received`: Krane Memos 3-5 really handed over. ADDENDUM 458: the give-back below runs ONLY then --
         a hold that is merely not armed this tick (the Machine Part not seen yet after a reconnect, before the server
-        has re-sent the items) must not hand the lab the byte it was pulled back from."""
+        has re-sent the items) must not hand the lab the byte it was pulled back from. The hold only ever pulls the
+        lab DOWN to 0x16: a lab still below it is left to the story, so Gateon's first visit and Perr are never
+        skipped."""
         if not self.enabled or story_byte is None or not self.in_place(room_id):
             return None
         try:
             if self.armed:
-                if story_byte == LAB_MEMO_HOLD_BYTE:
+                if story_byte <= LAB_MEMO_HOLD_BYTE:
                     return None
                 poke_story_byte(block_base, LAB_MEMO_HOLD_BYTE)
                 self.last_written_value = LAB_MEMO_HOLD_BYTE
@@ -10410,6 +10763,197 @@ class WhiteoutLatch:
 # under that, not a replacement for it: whichever comes first wins, and `_send_checks` is idempotent.
 
 
+# The Escape Rope (game_data/escape_rope.py): a key item that opens the world map. The client keeps exactly one in the
+# Key Items pocket -- only on an ISO whose main.dol carries its code, read off the can't-use handler's first word.
+ESCAPE_ROPE_ITEM_ID = 85
+_ESCAPE_ROPE_HANDLER = 0x800A60B4
+_ESCAPE_ROPE_DISPATCH = 0x80066D30 + 0x400
+
+
+def escape_rope_installed() -> bool:
+    """True when the running game's can't-use handler branches to the Escape Rope's dispatcher. Never raises."""
+    try:
+        word = struct.unpack(">I", read_bytes(_ESCAPE_ROPE_HANDLER, 4))[0]
+    except Exception:
+        return False
+    if word >> 26 != 18 or word & 3:
+        return False
+    delta = word & 0x03FFFFFC
+    if delta & 0x02000000:
+        delta -= 0x04000000
+    return (_ESCAPE_ROPE_HANDLER + delta) & 0xFFFFFFFF == _ESCAPE_ROPE_DISPATCH
+
+
+MIROR_RADAR_ITEM_ID = 510
+
+
+def keep_key_item(block_base: int, item_id: int) -> bool:
+    """Put one `item_id` in the Key Items pocket when it holds none. True when it wrote one."""
+    base = block_base + KEY_ITEMS_OFFSET
+    if find_item_quantity(base, KEY_ITEMS_MAX_SLOTS, item_id) > 0:
+        return False
+    return bool(give_item(base, item_id, 1, KEY_ITEMS_MAX_SLOTS))
+
+
+@dataclass
+class EscapeRopeKeeper:
+    """Puts the Escape Rope back in the Key Items pocket whenever it is missing. Stateless apart from counters."""
+
+    installed: "bool | None" = None
+    writes: int = 0
+
+    def poll(self, block_base: int) -> bool:
+        """True when it wrote one this tick. Never raises."""
+        self.installed = escape_rope_installed()
+        if not self.installed:
+            return False
+        try:
+            base = block_base + KEY_ITEMS_OFFSET
+            if find_item_quantity(base, KEY_ITEMS_MAX_SLOTS, ESCAPE_ROPE_ITEM_ID) > 0:
+                return False
+            if give_item(base, ESCAPE_ROPE_ITEM_ID, 1, KEY_ITEMS_MAX_SLOTS):
+                self.writes += 1
+                return True
+        except Exception:
+            pass
+        return False
+
+
+# Missable Trainer Shadows. A Shadow record the game hands to Miror B. (`_darkPokemonSetUnderTaker`) gets status 2 and
+# an escape time; a never-met one also has PID 0 and IVs 0 (the game rolls both at the first battle,
+# `fightTrainerCreateFightTrainerPokemonDataIdToPokemon`, and reuses them whenever the status is 1 or more). So a
+# record moved straight from 0 to 2 is given a PID and IVs first, the way that first battle would. The hero's trainer
+# id (hero + 0x2C) keeps the PID from being shiny.
+SHADOW_RECORD_IVS_OFFSET = 0x0B          # six bytes, HP Atk Def SpA SpD Spe
+SHADOW_RECORD_SPECIES_OFFSET = 0x1A      # u16, the species the Shadow list gives it at new game
+SHADOW_RECORD_PID_OFFSET = 0x1C          # u32
+SHADOW_RECORD_ESCAPE_TIME_OFFSET = 0x20  # u32, only orders Miror B.'s list
+SHADOW_RECORD_SELF_ID_OFFSET = 0x3E
+SHADOW_RECORD_UPDATE_BIT = 0x20          # byte 1: the Shadow Monitor's "new information" flag
+HERO_TRAINER_ID_FROM_BLOCK_BASE = -0x14  # hero + 0x2C; BLOCK_BASE is hero + 0x40
+
+
+def _non_shiny_pid(rng, trainer_id: int) -> int:
+    tid, sid = (trainer_id >> 16) & 0xFFFF, trainer_id & 0xFFFF
+    while True:
+        pid = rng.getrandbits(32)
+        if (tid ^ sid ^ (pid >> 16) ^ (pid & 0xFFFF)) >= 8 and pid != 0:
+            return pid
+
+
+class MissableShadowPusher:
+    """Hands each Shadow on a missable one-shot fight to Miror B. once that fight's area has reached its story cap --
+    the same cap, measured the same way, at which the client sends the fight's own check.
+
+    `hosts` is slot data's `missable_shadow_hosts`: [{"label", "shadows": [{"species", "name", "ddpk"}]}]. A record is
+    changed only while its status is 0 (never met) or 1 (met, lost to); 2 is already his, 3 and 4 are yours.
+    Idempotent, so it simply looks again every poll while anything is due."""
+
+    def __init__(self, hosts: "list[dict] | None" = None, rng=None) -> None:
+        import random as _random
+        from .game_data.missable_autosend import AUTO_SEND_AREA_CAPS, AUTO_SEND_AT_STORY_BYTE
+
+        # A host may carry its own "cap" and "areas" ([[region, cap], ...]); otherwise its label's auto-send cap.
+        self.hosts: "list[dict]" = [h for h in (hosts or [])
+                                    if h.get("label") in AUTO_SEND_AT_STORY_BYTE or h.get("cap") is not None]
+        schedule = {h["label"]: int(h["cap"]) if h.get("cap") is not None else AUTO_SEND_AT_STORY_BYTE[h["label"]]
+                    for h in self.hosts}
+        area_caps = {h["label"]: tuple((str(r), int(c)) for r, c in h["areas"]) if h.get("areas")
+                     else AUTO_SEND_AREA_CAPS.get(h["label"], ()) for h in self.hosts}
+        self.timer = MissableAutoSender(schedule, area_caps)
+        self.rng = rng or _random.Random()
+        self.sent: "list[str]" = []           #: species names handed over this session, in order
+        self.unmatched: "set[str]" = set()    #: Shadows whose record could not be found
+
+    def __bool__(self) -> bool:
+        return bool(self.hosts)
+
+    def _record_index(self, table: bytes, shadow: dict) -> "int | None":
+        size = SHADOW_MONITOR_RECORD_SIZE
+        ddpk = shadow.get("ddpk")
+        if isinstance(ddpk, int) and 0 < ddpk < SHADOW_MONITOR_RECORDS:
+            if struct.unpack_from(">H", table, ddpk * size + SHADOW_RECORD_SELF_ID_OFFSET)[0] == ddpk:
+                return ddpk
+        species = shadow.get("species")
+        if not isinstance(species, int) or species <= 0:
+            return None
+        found = [k for k in range(1, SHADOW_MONITOR_RECORDS)
+                 if struct.unpack_from(">H", table, k * size + SHADOW_RECORD_SELF_ID_OFFSET)[0] == k
+                 and struct.unpack_from(">H", table, k * size + SHADOW_RECORD_SPECIES_OFFSET)[0] == species]
+        return found[0] if len(found) == 1 else None
+
+    def poll(self, block_base: int, progress: "int | None", area_progress=None) -> "list[str]":
+        """One line per Shadow handed to Miror B. this tick. Never raises."""
+        if not self.hosts:
+            return []
+        try:
+            schedule = set(self.timer.schedule)
+            due = set(self.timer.due(progress, schedule, set(), area_progress))
+            if not due:
+                return []
+            base = block_base - SAVEDATA_HERO_OFFSET - RECORD_TRAINER_NAME_OFFSET + SHADOW_MONITOR_SAVEDATA_OFFSET
+            size = SHADOW_MONITOR_RECORD_SIZE
+            table = read_bytes(base, SHADOW_MONITOR_RECORDS * size)
+            if len(table) < SHADOW_MONITOR_RECORDS * size:
+                return []
+            own = sum(1 for k in range(1, SHADOW_MONITOR_RECORDS)
+                      if struct.unpack_from(">H", table, k * size + SHADOW_RECORD_SELF_ID_OFFSET)[0] == k)
+            if own < 100:
+                return []                     # the table does not prove itself -- touch nothing
+            trainer_id = struct.unpack(">I", read_bytes(block_base + HERO_TRAINER_ID_FROM_BLOCK_BASE, 4))[0]
+        except Exception:
+            return []
+        moved: "list[str]" = []
+        for host in self.hosts:
+            if host["label"] not in due:
+                continue
+            for shadow in host.get("shadows", ()):
+                index = self._record_index(table, shadow)
+                name = str(shadow.get("name") or "A Shadow")
+                if index is None:
+                    self.unmatched.add(name)
+                    continue
+                record = table[index * size:(index + 1) * size]
+                status = record[0] >> 5
+                if status >= SHADOW_MONITOR_FLED:
+                    continue
+                address = base + index * size
+                try:
+                    if status == 0:
+                        ivs = bytes(self.rng.randrange(32) for _ in range(6))
+                        write_bytes(address + SHADOW_RECORD_IVS_OFFSET, ivs)
+                        write_bytes(address + SHADOW_RECORD_PID_OFFSET,
+                                    struct.pack(">I", _non_shiny_pid(self.rng, trainer_id)))
+                    if struct.unpack_from(">I", record, SHADOW_RECORD_ESCAPE_TIME_OFFSET)[0] == 0:
+                        write_bytes(address + SHADOW_RECORD_ESCAPE_TIME_OFFSET, struct.pack(">I", 1))
+                    # Status last, so nothing ever builds it as his before the PID and IVs are in.
+                    live = read_bytes(address, 2)
+                    if (live[0] >> 5) >= SHADOW_MONITOR_FLED:
+                        continue
+                    write_bytes(address, bytes(((live[0] & 0x1F) | (SHADOW_MONITOR_FLED << 5),
+                                                live[1] | SHADOW_RECORD_UPDATE_BIT)))
+                except Exception:
+                    continue
+                moved.append(str(host.get("message") or "{name} sent to Miror B. from a missable trainer.")
+                             .format(name=name))
+                self.sent.append(name)
+        return moved
+
+    def describe(self) -> "list[str]":
+        if not self.hosts:
+            return ["Missable Trainer Shadows: none in this seed."]
+        lines = [f"Missable Trainer Shadows: {sum(len(h.get('shadows', ())) for h in self.hosts)} Shadow(s) on "
+                 f"{len(self.hosts)} missable fight(s)."]
+        for host in self.hosts:
+            names = ", ".join(str(s.get("name")) for s in host.get("shadows", ()))
+            lines.append(f"  {host['label']} (sent at 0x{self.timer.schedule[host['label']]:02X}): {names}")
+        if self.sent:
+            lines.append("Handed to Miror B. this session: " + ", ".join(self.sent))
+        if self.unmatched:
+            lines.append("Not found in the save's Shadow list: " + ", ".join(sorted(self.unmatched)))
+        return lines
+
+
 class MissableAutoSender:
     """Releases each scheduled check once its area's story progress reaches its cap.
 
@@ -10688,6 +11232,58 @@ def gs_flag_set(flag_id: int, value: int) -> bool:
         return gs_flag_get(flag_id) == value
     except Exception:
         return False
+
+
+# --- Poke Spots: the "player is here" flags. ---
+# Each spot's row in common_rel's Poke Spot table names GS ids for its snack count, spawned species and a flag the
+# spot's own script sets on entry and clears on exit. The engine spawns a Pokemon at a spot only while you walk
+# ELSEWHERE, and only while that flag is clear. Leaving a spot any way that skips its exit script leaves the flag set,
+# and that spot never spawns again. Rock 0, Oasis 1, Cave 2 (rooms 90, 91, 92).
+POKESPOT_ROOMS: "dict[int, str]" = {90: "Rock", 91: "Oasis", 92: "Cave"}
+POKESPOT_HERE_FLAGS: "dict[str, int]" = {"Rock": 1412, "Oasis": 1413, "Cave": 1414}
+POKESPOT_SNACK_VARS: "dict[str, int]" = {"Rock": 1248, "Oasis": 1249, "Cave": 1250}
+POKESPOT_SPECIES_VARS: "dict[str, int]" = {"Rock": 1407, "Oasis": 1408, "Cave": 1409}
+MIROR_B_PLACE_VAR = 1452
+STORY_VAR = 964
+POKESPOT_GUARD_SECONDS = 5.0
+
+
+@dataclass
+class PokeSpotGuard:
+    """Clears a spot's "player is here" flag while the player is somewhere else, so the spot can spawn again."""
+
+    next_check: float = 0.0
+    cleared: "dict[str, int]" = field(default_factory=dict)
+
+    def poll(self, room_id: "int | None") -> "str | None":
+        try:
+            if (room_id is None or room_id in POKESPOT_ROOMS or room_id == MAP_SCREEN_ROOM_ID
+                    or room_id not in KNOWN_ROOM_IDS):
+                return None
+            now = time.monotonic()
+            if now < self.next_check:
+                return None
+            self.next_check = now + POKESPOT_GUARD_SECONDS
+            notes = []
+            for spot, flag in POKESPOT_HERE_FLAGS.items():
+                if gs_flag_get(flag) == 1 and gs_flag_set(flag, 0):
+                    self.cleared[spot] = self.cleared.get(spot, 0) + 1
+                    notes.append(f"{spot} Poke Spot: its 'player is here' flag was still set after leaving -- "
+                                 "cleared, so it can spawn again.")
+            return "\n".join(notes) if notes else None
+        except Exception:
+            return None
+
+
+def describe_pokespots() -> "list[str]":
+    """One line per spot: snacks, the Pokemon waiting there, the here flag, and Miror B.'s place and the story."""
+    lines = [f"Story value {gs_flag_get(STORY_VAR)}; Miror B. place {gs_flag_get(MIROR_B_PLACE_VAR)} "
+             "(90 Rock, 91 Oasis, 92 Cave)."]
+    for spot in ("Rock", "Oasis", "Cave"):
+        lines.append(f"  {spot}: snacks {gs_flag_get(POKESPOT_SNACK_VARS[spot])}, Pokemon waiting "
+                     f"{gs_flag_get(POKESPOT_SPECIES_VARS[spot])} (0 = none), here-flag "
+                     f"{gs_flag_get(POKESPOT_HERE_FLAGS[spot])}.")
+    return lines
 
 
 def miror_config_base() -> "int | None":

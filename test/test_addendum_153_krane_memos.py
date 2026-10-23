@@ -231,11 +231,10 @@ class TestWorldWiring(PokemonXDTestBase):
         for name in locations.KRANE_MEMO_LOCATION_NAMES:
             self.assertTrue(self.can_reach_location(name), name)
 
-    def test_the_later_memos_are_one_region_further_along(self) -> None:
-        early = {locations.LOCATION_TABLE[locations.krane_memo_location_name(n)].region for n in (1, 2)}
-        later = {locations.LOCATION_TABLE[locations.krane_memo_location_name(n)].region for n in (3, 4, 5)}
-        self.assertEqual(early, {"Outskirt Stand"})
-        self.assertEqual(later, {"Phenac City"})
+    def test_all_five_sit_in_the_hq_lab(self) -> None:
+        """Every memo is handed out in the Pokemon HQ Lab; memos 3-5 carry their own rule on top of the region."""
+        regions_of = {locations.LOCATION_TABLE[locations.krane_memo_location_name(n)].region for n in range(1, 6)}
+        self.assertEqual(regions_of, {"Pokemon HQ Lab"})
 
     def test_they_can_hold_progression(self) -> None:
         """They are ordinary story checks, not a count bucket -- nothing should exclude them."""
@@ -247,33 +246,22 @@ class TestWorldWiring(PokemonXDTestBase):
             )
 
     def test_all_five_open_exactly_when_their_own_region_does(self) -> None:
-        """RETARGETED 2026-09-13 (ADDENDUM 168), was "all five are reachable from the start".
-
-        They used to be reachable turn one because both their regions (Outskirt Stand, Phenac City) were the
-        memo ladder's unconditionally-open first two links, and they HAD to be -- a memo location behind a memo
-        gate was unfillable. With the memos gone from the pool that constraint is gone with them, and the real
-        graph puts both regions well inside the chain: Phenac City needs the Machine Part and the Data ROM, and
-        Outskirt Stand is now a LATE region (Cipher Key Lair (exterior) -> Outskirt Stand), needing the Music
-        Disc and Mayor's Note on top.
-
-        So what this protects is no longer "turn one" but "at the right time, and not before": none of the five
-        is a free sphere-0 check any more, the Phenac trio open at the Data ROM, and the Outskirt Stand pair
-        stay shut until the Mayor's Note tier.
+        """All five memos are in the Pokemon HQ Lab, which is open from the start. Memos 1-2 are handed out there
+        with no further requirement; memos 3-5 follow the Machine Part's delivery (or the Cipher Lab cleared with
+        the Data ROM/ID Card), so they open at the right time, and not before.
         """
-        phenac = [locations.krane_memo_location_name(n) for n in (3, 4, 5)]
-        outskirt = [locations.krane_memo_location_name(n) for n in (1, 2)]
+        # The HQ Lab is open from the start, so memos 1-2 are sphere-0 checks. Memos 3-5 need the Machine Part (or
+        # the Cipher Lab cleared with the Data ROM/ID Card).
+        early = [locations.krane_memo_location_name(n) for n in (1, 2)]
+        later = [locations.krane_memo_location_name(n) for n in (3, 4, 5)]
 
-        for name in locations.KRANE_MEMO_LOCATION_NAMES:
+        for name in early:
+            self.assertTrue(self.can_reach_location(name), f"{name} is in the always-open HQ Lab")
+        for name in later:
             self.assertFalse(self.can_reach_location(name), f"{name} should not be a sphere-0 check")
 
-        self.collect_key_item_chain(2)  # Machine Part + Data ROM -> Phenac City
-        for name in phenac:
-            self.assertTrue(self.can_reach_location(name), name)
-        for name in outskirt:
-            self.assertFalse(self.can_reach_location(name), f"{name} is deeper than Phenac City")
-
-        self.collect_key_item_chain(4)  # + Music Disc + Mayor's Note -> Outskirt Stand
-        for name in outskirt:
+        self.collect_key_item_chain(1)  # Machine Part
+        for name in later:
             self.assertTrue(self.can_reach_location(name), name)
 
     def test_the_memo_locations_survive_as_checks_while_the_items_are_gone(self) -> None:

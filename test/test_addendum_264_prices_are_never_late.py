@@ -173,7 +173,7 @@ class TestItRunsWithoutTheSaveBlock(unittest.TestCase):
         """The save menu rewriting the save block cannot disturb `common_rel`. Pausing prices while that
         happened only ever made them late."""
         call = self.source.index("await check_shop_prices(ctx)")
-        gate = self.source.index("if block_is_stable:")
+        gate = self.source.index("if block_is_stable:\n                        # FIRST of the story-byte writers")
         self.assertLess(call, gate,
                         "the price pass must be called before the block-stability gate, not inside it")
 

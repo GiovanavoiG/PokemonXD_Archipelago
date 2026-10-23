@@ -95,9 +95,13 @@ class TestTheGreevilGoal(unittest.TestCase):
         self.names = {n for n in tr.UNIQUE_SURNAME_TO_LOCATION_QUEUE["GREEVIL"] if not n.endswith("#1")}
         self.body = body
 
-    def test_unique_mode_greevil_two_is_in_the_set(self) -> None:
-        self.assertIn("Defeat - Greevil #2", self.names)
+    def test_unique_mode_relies_on_the_win_count_not_a_greevil_two_label(self) -> None:
+        # "Defeat - Greevil #2" is a numbered rematch check and no longer exists, so the unique queue contributes
+        # no label; the goal rests on the win count by surname (and the story-byte backup).
+        self.assertNotIn("Defeat - Greevil #2", self.names)
+        self.assertIn("Defeat - Greevil #2", tr.REMOVED_DEFEAT_LOCATIONS)
         self.assertIn('UNIQUE_SURNAME_TO_LOCATION_QUEUE.get("GREEVIL"', self.body)
+        self.assertIn('wins_by_surname or {}).get("GREEVIL", 0) >= GREEVIL_WINS_FOR_GOAL', CLIENT)
 
     def test_two_wins_is_enough(self) -> None:
         self.assertIn("GREEVIL_WINS_FOR_GOAL = 2", CLIENT)

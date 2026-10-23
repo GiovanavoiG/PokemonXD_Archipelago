@@ -90,13 +90,20 @@ CHEST_REGION_GATES: "dict[int, tuple[str, ...]]" = {
 }
 
 
+#: Chest-table entries that are not item boxes in play. Chest 113 (Kaminko's Crane Room, room 172) is the box that
+#: only shows Jovi's diary pages; it shares chest 108's flag and Rare Candy, so the game never gives an item from it.
+NON_ITEM_CHESTS: "dict[int, str]" = {
+    113: "Kaminko Crane Room: Jovi's diary pages, a text box with no item",
+}
+
+
 def _build() -> "tuple[dict[int, str], list[int], list[int]]":
     by_chest: "dict[int, str]" = {}
     excluded: "list[int]" = []
     unplaced: "list[int]" = []
     for chest in chest_table.CHESTS:
         room = chest["room"]
-        if room in EXCLUDED_ROOMS:
+        if room in EXCLUDED_ROOMS or chest["chest"] in NON_ITEM_CHESTS:
             excluded.append(chest["chest"])
             continue
         region = ROOM_TO_REGION.get(room)

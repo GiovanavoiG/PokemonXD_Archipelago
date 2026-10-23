@@ -45,7 +45,8 @@ class TestTheFence(unittest.TestCase):
 
 class TestTheNewHostsGetUsed(PokemonXDTestBase):
     """Across a few seeds the expansion does pick from the reopened rows -- the fence change is live."""
-    options = {"shadow_pokemon_expansion": 44, "remove_citadark_shadows": True, "shadow_catch_progression": True}
+    options = {"shadow_pokemon_expansion": 44, "remove_citadark_shadows": True, "shadow_catch_progression": True,
+               "missable_trainer_shadows": False}
 
     def test_hosts(self):
         world = self.multiworld.worlds[self.player]

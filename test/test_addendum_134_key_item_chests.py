@@ -128,12 +128,13 @@ class TestChestLocationCountMatchesReality(unittest.TestCase):
 
         converted = len(key_item_chests.SHUFFLED_KEY_ITEM_CHESTS)
         self.assertEqual(converted, 5)
+        # Minus the non-item boxes: chest 113 shares 108's flag and the game only hands out one item between them.
+        non_item = len(chest_regions.NON_ITEM_CHESTS)
+        self.assertEqual(non_item, 1)
         self.assertEqual(locations.CHEST_COVERED_CHEST_COUNT,
-                         len(chest_table.CHESTS) - len(fenced) - len(in_dropped_rooms) + converted)
-        self.assertEqual(locations.CHEST_COVERED_CHEST_COUNT, 95)
-        # UPDATED 2026-09-15 (ADDENDUM 224): 95, not 94. The 108/113 shared-flag pair was split back into two
-        # locations -- identity comes from the chest's own berry now, not from the flag they share.
-        self.assertEqual(locations.CHEST_LOCATION_COUNT, 95)
+                         len(chest_table.CHESTS) - len(fenced) - len(in_dropped_rooms) + converted - non_item)
+        self.assertEqual(locations.CHEST_COVERED_CHEST_COUNT, 94)
+        self.assertEqual(locations.CHEST_LOCATION_COUNT, 94)
 
     def test_every_covered_chest_resolves_to_a_location_that_exists(self) -> None:
         """Replaces the old "the highest threshold exists and the next one does not" bound check. A ladder had

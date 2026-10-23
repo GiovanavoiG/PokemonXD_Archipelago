@@ -48,13 +48,15 @@ class TestTheInvasionTrainers(unittest.TestCase):
 
 
 class TestInAWorld(PokemonXDTestBase):
-    options = {"shuffle_trainer_defeats": True, "trainer_defeat_mode": 1, "shadow_pokemon_expansion": 44}
+    options = {"shuffle_trainer_defeats": True, "trainer_defeat_mode": 1, "shadow_pokemon_expansion": 44,
+               "missable_trainer_shadows": False}
 
     def test_excluded(self) -> None:
         for index in INVASION:
             label = tr.trainer_label(tr.TRAINERS_BY_INDEX[index])
             location = self.multiworld.get_location(label, self.player)
-            self.assertEqual(LocationProgressType.EXCLUDED, location.progress_type, label)
+            # Auto-sent at Snattle's defeat, so it can hold progression.
+            self.assertEqual(LocationProgressType.DEFAULT, location.progress_type, label)
 
     def test_no_generated_shadow_lands_on_them(self) -> None:
         world = self.multiworld.worlds[self.player]

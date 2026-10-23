@@ -30,7 +30,7 @@ class TestTheFence(unittest.TestCase):
 
 class TestTheExpansionMayPickThem(PokemonXDTestBase):
     """ADDENDUM 466: hosts are drawn from the ordinary pool again; nothing forbids or forces these four."""
-    options = {"shadow_pokemon_expansion": 44}
+    options = {"shadow_pokemon_expansion": 44, "missable_trainer_shadows": False}
 
     def test_hosts_are_inside_the_new_fence(self) -> None:
         world = self.multiworld.worlds[self.player]

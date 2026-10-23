@@ -49,10 +49,13 @@ class TestInAGeneratedWorld(PokemonXDTestBase):
             self.assertEqual(LocationProgressType.DEFAULT,
                              self.multiworld.get_location(name, self.player).progress_type, name)
 
-    def test_the_held_back_ones_cannot(self) -> None:
+    def test_the_held_back_ones_are_not_locations(self) -> None:
+        # Numbered rematch checks are removed for every repeated trainer outside the forced second fights, so
+        # the held-back rematches no longer exist to hold anything.
+        created = {location.name for location in self.multiworld.get_locations(self.player)}
         for name in HELD:
-            self.assertEqual(LocationProgressType.EXCLUDED,
-                             self.multiworld.get_location(name, self.player).progress_type, name)
+            self.assertIn(name, tr.NUMBERED_REMATCH_DEFEAT_LOCATIONS, name)
+            self.assertNotIn(name, created, name)
 
     def test_the_ruled_out_ones_are_not_locations(self) -> None:
         # ADDENDUM 409: these checks were removed by name; they cannot hold anything because they do not exist.

@@ -34,7 +34,7 @@ game: Pokemon XD Gale of Darkness
 requires:
   version: 0.6.8 # Version of Archipelago required for this yaml to work as expected.
   game:
-    Pokemon XD Gale of Darkness: 0.1.2 # Version of the world required for this yaml to work as expected.
+    Pokemon XD Gale of Darkness: 0.1.6 # Version of the world required for this yaml to work as expected.
 
 Pokemon XD Gale of Darkness:
   ################
@@ -127,7 +127,6 @@ Pokemon XD Gale of Darkness:
     random: 0
     random-low: 0 # random value weighted towards lower values
     random-high: 0 # random value weighted towards higher values
-    random-range-0-100: 0 # random value between 0 and 100
 
   ###########################
   # Locations & Progression #
@@ -197,6 +196,12 @@ Pokemon XD Gale of Darkness:
     'false': 50
     'true': 0
 
+  pokespot_catch_checks:
+    # The wild Pokemon at the Poke Spots each have a "Catch -" check. Turn this off to remove those checks; the
+    # Poke Spots still have their Pokemon.
+    'false': 0
+    'true': 50
+
   shadow_catch_progression:
     # Whether "Catch - {species}" checks may hold a progression or useful item. OFF by default.
     # 
@@ -262,12 +267,25 @@ Pokemon XD Gale of Darkness:
 
   exclude_mt_battle_trainers:
     # Excludes Mt Battle from enhanced difficulty -- no extra team members and no level multiplier.
-    # Also excludes Mt Battle trainers from checks.
+    # Also excludes Mt Battle trainers from checks. Off gives each of Mt. Battle's trainers 4-100 a check.
     # 
     # Path Level Scaling is a separate option and still applies to Mt Battle when this is on.
     # Recommended "true" to exclude, unless you're doing a Mt Battle goal.
     'false': 0
     'true': 50
+
+  mt_battle_progression_checks:
+    # With Exclude Mt. Battle Trainers off, each Mt. Battle trainer is a check. This many of them, counted from the
+    # first trainer up, can hold progression; the rest only hold filler.
+    #
+    # You can define additional values between the minimum and maximum values.
+    # Minimum value is 0
+    # Maximum value is 97
+    0: 50
+    random: 0
+    random-low: 0 # random value weighted towards lower values
+    random-high: 0 # random value weighted towards higher values
+    random-range-0-97: 0 # random value between 0 and 97
 
   ##################
   # Shadow Pokemon #
@@ -325,6 +343,19 @@ Pokemon XD Gale of Darkness:
     random-low: 0 # random value weighted towards lower values
     random-high: 0 # random value weighted towards higher values
     random-range-0-44: 0 # random value between 0 and 44
+
+  missable_trainer_shadows:
+    # Lets Shadow Pokemon Expansion (and Shadows moved off Citadark or Greevil) also be placed on missable trainers --
+    # the one-time fights whose checks are sent for you once their area is done.
+    # 
+    # If an area finishes without you beating its missable trainer, that trainer's Shadow goes to Miror B., the same
+    # as a Shadow that ran from you. Miror B. also brings two Shadows at once at the Poke Spots whenever two or more
+    # are waiting for him.
+    # 
+    # Their catch checks follow Shadow Catch Progression and are in logic once the trainer's fight is, like any
+    # other Shadow.
+    'false': 50
+    'true': 0
 
   randomize_shadow_species:
     # Shuffles all of the shadow pokemon in the game into different pokemon - can be any in the game.
@@ -418,6 +449,12 @@ Pokemon XD Gale of Darkness:
     'false': 0
     'true': 50
 
+  map_trainer_levels:
+    # The world map's place descriptions show the level of the trainers you meet on your first visit there, in this
+    # seed. Later fights at the same place (rematches, story returns) can be higher.
+    'false': 0
+    'true': 50
+
   legendary_trainer_pokemon:
     # Ordinary trainers (not Shadow Pokemon) can field legendary Pokemon when their teams are randomized, including
     # the extra team members Enhanced Difficulty adds. Lugia, Bonsly and Munchlax stay off every team.
@@ -435,9 +472,9 @@ Pokemon XD Gale of Darkness:
     'true': 0
 
   nightmare_greevil:
-    # Only Greevil's final battle takes a Nightmare team: six of the Orre Colosseum's toughest challengers'
-    # Pokemon from XD or Colosseum, at level 100, with that challenger's own battle AI. His Shadow Lugia fight
-    # and his Shadow Pokemon fight are left as they are, and nothing else on Citadark Isle changes.
+    # Greevil's final battle (and his post-game rematch) take Nightmare teams: six of the Orre Colosseum's
+    # toughest challengers' Pokemon from XD or Colosseum, at level 100, with that challenger's own battle AI. His
+    # Shadow Lugia fight is left as it is; the six Shadows his final battle held move to other trainers.
     # 
     # Does nothing with Nightmare Citadark on, which already includes it.
     'false': 50
@@ -517,7 +554,8 @@ Pokemon XD Gale of Darkness:
   trade_evolutions_by_level:
     # Pokemon that evolve by trading evolve by leveling up instead, at the same levels enemy trainers' Pokemon
     # use: Kadabra, Machoke, Graveler and Haunter at 37; Onix, Scyther and Porygon at 30; Seadra at 40; Poliwhirl
-    # into Politoed at 36 (a Water Stone still makes Poliwrath).
+    # into Politoed at 36 (a Water Stone still makes Poliwrath). Feebas, which needs Beauty that XD has no way to
+    # raise, evolves into Milotic at 30.
     # 
     # Where a Pokemon could become either of two, its personality decides, the way Wurmple's does: Clamperl
     # becomes Huntail or Gorebyss at 30, and Slowpoke becomes Slowbro or Slowking at 37.
@@ -547,6 +585,33 @@ Pokemon XD Gale of Darkness:
     # TMs are never used up: teaching a move from a TM keeps the TM in your Bag, the way HMs already work.
     'false': 50
     'true': 0
+
+  start_with_poke_spots:
+    # Start with the Miror Radar in your Key Items and the Poke Spots' unlock in your starting inventory. Logic treats
+    # the Poke Spots and Miror B. as reachable from the start, and Shadow catches no longer wait on the Miror Radar.
+    # Needs Location Shuffle; with it off, this option is turned off.
+    'false': 50
+    'true': 0
+
+  all_pokemon_learn_all_tms:
+    # Every Pokemon can learn every TM. (Shadow Pokemon still can't use TMs until they are purified.)
+    'false': 50
+    'true': 0
+
+  shadow_move_tms:
+    # This many TMs, chosen at random, teach a Shadow move instead of their usual move -- each a different one of
+    # the 18 Shadow moves. The TM keeps its number; the Bag shows the new move. 0 turns this off.
+    # 
+    # Only Pokemon that can learn that TM can learn its Shadow move (or every Pokemon, with All Pokemon Learn All TMs).
+    #
+    # You can define additional values between the minimum and maximum values.
+    # Minimum value is 0
+    # Maximum value is 18
+    0: 50
+    random: 0
+    random-low: 0 # random value weighted towards lower values
+    random-high: 0 # random value weighted towards higher values
+    random-range-0-18: 0 # random value between 0 and 18
 
   #########
   # Speed #
@@ -722,6 +787,23 @@ Pokemon XD Gale of Darkness:
     # Minimum value is 0
     # Maximum value is 100
     4: 50
+    random: 0
+    random-low: 0 # random value weighted towards lower values
+    random-high: 0 # random value weighted towards higher values
+    random-range-0-100: 0 # random value between 0 and 100
+
+  single_master_ball:
+    # Only one Master Ball in the item pool. Turn this off to let more be drawn as filler, at the weight below.
+    'false': 0
+    'true': 50
+
+  filler_weight_master_ball:
+    # Filler weight for extra Master Balls, used only when Single Master Ball is off. 0 = never appears.
+    #
+    # You can define additional values between the minimum and maximum values.
+    # Minimum value is 0
+    # Maximum value is 100
+    0: 50
     random: 0
     random-low: 0 # random value weighted towards lower values
     random-high: 0 # random value weighted towards higher values

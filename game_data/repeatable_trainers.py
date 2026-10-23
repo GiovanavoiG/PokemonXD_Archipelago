@@ -30,18 +30,12 @@ LOCATION_NAME_SUFFIX = " (Any)"
 # is why. Biden, Equin, Eroll and Willie are derivable -- the fence below would refuse to import without them.
 # The rest are judgement calls.
 ALWAYS_FILLER_SURNAMES: "dict[str, str]" = {
-    # Aferd's anchor is occurrence 69 (Aferd #2, Pokemon HQ Lab), which the census marks NOT missable, so the
-    # fence would not have caught this. Pinned because that fight is the one found parked on the Machine Part,
-    # inside the set fenced from difficulty scaling and Shadow assignment. Note that all 35 anchors sit in
+    # Aferd, Laken and Hebon left this list: the client patches their scripts so each always battles when talked to,
+    # so their (Any) can never be missed. Note that all 35 anchors sit in
     # `missable_trainers.FILLER_ONLY_TRAINER_INDICES` by construction, so membership there proves nothing.
-    "AFERD": "its anchor is Aferd #2, the fight ADDENDUM 188 found parked on the Machine Part",
-    # Like Aferd's: both anchors are census-safe, so the fence would not have caught them.
+    # Both anchors are census-safe, so the fence would not have caught these.
     "ARDOS": "always filler (ADDENDUM 308)",
     "ZOOK": "always filler (ADDENDUM 308)",
-    # Same shape: both anchors are census-safe (Laken #2 in Gateon Port, Hebon #2 in Agate Village). Their
-    # per-occurrence locations were already excluded, leaving these two as the only remaining surface.
-    "LAKEN": "always filler (ADDENDUM 362)",
-    "HEBON": "always filler (ADDENDUM 362)",
     # ADDENDUM 457: Miror B. leaves if you lose to him, so every Miror B. check is filler.
     "MIROR B.": "always filler (ADDENDUM 457) -- he leaves if you lose to him",
     # BIDEN left this list in ADDENDUM 436: his Snagem Hideout fight is not missable, and it is his one check.
@@ -59,6 +53,12 @@ ALWAYS_FILLER_SURNAMES: "dict[str, str]" = {
 # ADDENDUM 436: Ardos's derived anchor was his Gateon fight, which the player only watches. His check comes from
 # Citadark Isle (`missable_indices.SINGLE_CHECK_FIGHTS`).
 ANCHOR_OVERRIDES: "dict[str, int]" = {"ARDOS": 193}
+
+# A trainer whose (Any) can be won in more than one place, either of which is enough. The location parks in the
+# always-open bucket and its rule asks for any one of these regions. Miror B. is met at the Poke Spots or at the
+# Outskirt Stand.
+ANY_OF_REGIONS: "dict[str, tuple[str, ...]]" = {"MIROR B.": ("Poke Spots", "Outskirt Stand")}
+ANY_OF_BUCKET_REGION = "Unique Trainer Defeats"
 
 
 def display_surname(raw: str) -> str:
@@ -95,7 +95,8 @@ def _build():
             "surname": surname,
             "location": location_name(surname),
             "anchor_index": anchor,
-            "region": placement.region,
+            "region": ANY_OF_BUCKET_REGION if surname in ANY_OF_REGIONS else placement.region,
+            "any_of_regions": ANY_OF_REGIONS.get(surname, ()),
             "required_items": tuple(placement.required_items),
             "required_regions": tuple(placement.required_regions),
             "occurrences": tuple(indices),

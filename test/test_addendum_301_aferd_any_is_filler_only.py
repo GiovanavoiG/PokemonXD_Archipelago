@@ -48,12 +48,12 @@ AFERD_ANY = "Defeat Aferd (Any)"
 
 class TestTheExclusion(unittest.TestCase):
     def test_aferd_is_in_the_exclusion_table_with_a_reason(self) -> None:
-        self.assertIn("AFERD", RT.ALWAYS_FILLER_SURNAMES)
-        self.assertTrue(RT.ALWAYS_FILLER_SURNAMES["AFERD"].strip())
+        # Lifted: the client makes Aferd battle whenever he is talked to, so his (Any) can hold progression.
+        self.assertNotIn("AFERD", RT.ALWAYS_FILLER_SURNAMES)
 
     def test_the_exclusion_reaches_the_location_name(self) -> None:
         self.assertEqual(AFERD_ANY, RT.location_name("AFERD"))
-        self.assertIn(AFERD_ANY, RT.ALWAYS_FILLER_LOCATIONS)
+        self.assertNotIn(AFERD_ANY, RT.ALWAYS_FILLER_LOCATIONS)
 
     def test_the_anchor_is_the_fight_the_exclusion_names(self) -> None:
         """If the census is ever regenerated and Aferd's anchor moves to a different occurrence, the reason
@@ -112,7 +112,7 @@ class TestInARealWorld(PokemonXDTestBase):
         self.assertIn(AFERD_ANY, names)
 
     def test_it_is_excluded(self) -> None:
-        self.assertIs(LocationProgressType.EXCLUDED, self._aferd().progress_type)
+        self.assertIsNot(LocationProgressType.EXCLUDED, self._aferd().progress_type)
 
     def test_its_sibling_any_defeats_are_not_all_excluded(self) -> None:
         """Without this the test above could pass by excluding the whole category."""
@@ -127,14 +127,13 @@ class TestFillReallyLeavesItAlone(PokemonXDTestBase):
 
     options = {"shuffle_trainer_defeats": True}
 
-    def test_fill_places_only_filler_there(self) -> None:
+    def test_fill_places_something_there(self) -> None:
+        """Lifted: Aferd always battles when talked to, so his (Any) may hold anything."""
         from Fill import distribute_items_restrictive
 
         distribute_items_restrictive(self.multiworld)
         item = self.multiworld.get_location(AFERD_ANY, self.player).item
         self.assertIsNotNone(item, "the location must still receive something")
-        self.assertNotIn(ItemClassification.progression, item.classification)
-        self.assertNotIn(ItemClassification.useful, item.classification)
 
     def test_the_run_actually_placed_progression_somewhere(self) -> None:
         """Guards the test above against passing because fill did nothing at all."""

@@ -78,7 +78,7 @@ class TestProgressionInAUniqueSeed(PokemonXDTestBase):
 
 
 class TestShadowExpansionMayUseThem(PokemonXDTestBase):
-    options = {"shadow_pokemon_expansion": 44}
+    options = {"shadow_pokemon_expansion": 44, "missable_trainer_shadows": False}
 
     def test_hosts_never_include_an_excluded_row(self) -> None:
         """ADDENDUM 466: Bost may host now; the rows still excluded never do."""

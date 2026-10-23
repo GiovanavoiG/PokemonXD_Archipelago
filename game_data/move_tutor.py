@@ -21,6 +21,18 @@ CHECK_TAUGHT_VANILLA = 0x48141E49       # bl 0x801A02F0 (GSflagTest)
 CHECK_TAUGHT_NEVER = 0x38600000         # li r3, 0 -- "not taught", every time
 
 
+# Her rows unlock with the story (`GSflagGet(964)` against each row's value); the `blt` that skips a locked row
+# becomes a nop, so all twelve are offered from the first visit.
+UNLOCK_SKIP_BRANCH = 0x8005E484         # _checkWaza2+0x70: blt +0x48 (row not unlocked yet)
+UNLOCK_SKIP_VANILLA = 0x41800048
+UNLOCK_SKIP_NEVER = 0x60000000          # nop
+
+
+def unlock_all_patch_words() -> "tuple[tuple[int, int, int], ...]":
+    """Every row offered regardless of story progress."""
+    return ((UNLOCK_SKIP_BRANCH, UNLOCK_SKIP_VANILLA, UNLOCK_SKIP_NEVER),)
+
+
 def dol_patch_words() -> "tuple[tuple[int, int, int], ...]":
     """(address, vanilla word, new word) for `iso_patcher.write_dol_words_patch`."""
     return ((CHECK_TAUGHT_CALL, CHECK_TAUGHT_VANILLA, CHECK_TAUGHT_NEVER),)

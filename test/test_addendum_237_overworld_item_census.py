@@ -23,12 +23,12 @@ class TestTheCensusItself(unittest.TestCase):
                          len(census.RETIRED_DUPLICATE_LOCATIONS) + len(census.RETIRED_UNREAL_LOCATIONS))
 
     def test_the_arithmetic_that_justified_retiring_them(self) -> None:
-        """115 real boxes exist and 95 are already chest locations, so the Overworld Items cannot all be
+        """115 real boxes exist and 94 are already chest locations, so the Overworld Items cannot all be
         distinct physical pickups. This is the whole argument, kept executable."""
         real_boxes = len(chest_table.CHESTS)
         chest_locations = len({c for ids in L.CHEST_LOCATION_TO_CHEST_IDS.values() for c in ids})
         self.assertEqual(115, real_boxes)
-        self.assertEqual(95, chest_locations)
+        self.assertEqual(94, chest_locations)
         self.assertGreater(chest_locations + len(census.RETIRED_DUPLICATE_LOCATIONS), real_boxes,
                            "if this ever stops being true, the duplication argument no longer holds")
 

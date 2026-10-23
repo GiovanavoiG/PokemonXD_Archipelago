@@ -25,13 +25,17 @@ class TestUniqueDefeatHints(PokemonXDTestBase):
         self.assertTrue(defeats)
         for loc in defeats:
             self.assertIn(loc.name, hints, loc.name)
-            self.assertTrue(hints[loc.name].startswith(loc.parent_region.name), "the logic's region comes first")
+            if loc.parent_region.name != "Unique Trainer Defeats":
+                self.assertTrue(hints[loc.name].startswith(loc.parent_region.name), "the logic's region comes first")
 
     def test_a_single_fight_names_its_one_area(self) -> None:
         hints = _hints(self)
         self.assertEqual("Phenac City", hints["Defeat - Exinn"])
-        self.assertEqual("Outskirt Stand", hints["Defeat - Miror B. #2"])
-        self.assertEqual("Phenac City (Post-Sixes)", hints["Defeat - Resix #2"])
+        self.assertEqual("Cipher Key Lair", hints["Defeat - Acrod"])
+        # A kept forced second fight names its own area only.
+        self.assertEqual("Cipher Lab", hints["Defeat - Naps #2"])
+        self.assertNotIn("Defeat - Miror B. #2", hints)
+        self.assertNotIn("Defeat - Resix #2", hints)
 
     def test_any_names_every_area_it_can_fire_in(self) -> None:
         hints = _hints(self)
@@ -41,6 +45,8 @@ class TestUniqueDefeatHints(PokemonXDTestBase):
         self.assertEqual("Citadark Isle", hints["Defeat Ardos (Any)"])
         self.assertNotIn("Gateon Port", hints["Defeat Zook (Any)"])
         self.assertEqual("Snagem Hideout", hints["Defeat Biden (Any)"])
+        # Either of Miror B.'s two places is enough.
+        self.assertTrue({"Poke Spots", "Outskirt Stand"} <= set(hints["Defeat Miror B. (Any)"].split(" or ")))
 
     def test_catch_hints_are_kept(self) -> None:
         hints = _hints(self)

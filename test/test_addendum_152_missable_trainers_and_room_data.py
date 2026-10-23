@@ -81,14 +81,15 @@ class TestTheMissableList(unittest.TestCase):
         # kept as a check, so 26 + 6 = 32 resolve. Browsix #1 is no longer on the missable list at all.
         # ADDENDUM 411: + Zook #1, kept because Ardos #1 sends it -- still a missable fight, still fenced. 33.
         # ADDENDUM 436: - Zook #1 again -- Ardos vs Zook is a fight the player only watches. 32.
-        self.assertEqual(len(names), 31)  # ADDENDUM 440: +4; 460: - Bost and five Snagem fights
+        # The Sixes' #2 fights are numbered rematch checks and no longer locations: 31 - 6 = 25.
+        self.assertEqual(len(names), 25)  # ADDENDUM 440: +4; 460: - Bost and five Snagem fights
         self.assertNotIn("Defeat - Zook #1", names)
         self.assertIn("Defeat - Digor", names)
         self.assertNotIn("Defeat - Bost", names)   # ADDENDUM 460: unmissable
-        self.assertLessEqual(trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS, names)
-        self.assertIn("Defeat - Browsix #2", names)
+        self.assertFalse(trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS & names)
+        self.assertNotIn("Defeat - Browsix #2", names)
         self.assertNotIn("Defeat - Browsix #1", names)
-        self.assertIn("Defeat - Browsix #1", locations.LOCATION_TABLE)
+        self.assertNotIn("Defeat - Browsix #1", locations.LOCATION_TABLE)
         for gone in ("Defeat - Aferd #1",):
             self.assertNotIn(gone, names)
             self.assertIn(gone, trainer_roster.REMOVED_MISSABLE_DEFEAT_LOCATIONS)
@@ -146,16 +147,23 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
         # ADDENDUM 410: 63 -- the six lone #1s (Cail, Clerr, Belish, Eagun, Dert, Dobit) were fenced and are gone.
         # ADDENDUM 411: 64 -- Zook #1 is a location again and fenced like every missable fight.
         # ADDENDUM 436: 60 -- Ardos #1/#2 and Zook #1/#2 are not checks any more.
-        self.assertEqual(len(fenced), 59)  # ADDENDUM 440: +4; 460: - Bost and five Snagem fights
+        # Numbered rematch checks removed outside the forced second fights: 29.
+        self.assertEqual(len(fenced), 29)  # ADDENDUM 440: +4; 460: - Bost and five Snagem fights
         self.assertEqual(
             len(fenced),
             len(missable_trainers.FILLER_ONLY_TRAINER_INDICES)
             - len(gone & {trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[i])
                           for i in missable_trainers.FILLER_ONLY_TRAINER_INDICES}),
         )
-        self.assertGreater(len(fenced), len(missable_trainers.MISSABLE_TRAINER_INDICES))
+        # Still wider than the missable fights alone: the fence covers every occurrence that is still a location.
+        self.assertGreater(len(fenced), len(missable_trainers.missable_trainer_location_names()))
+        self.assertLessEqual(missable_trainers.missable_trainer_location_names(), fenced)
+        from ..game_data.missable_autosend import AUTO_SEND_ONE_SHOT_INDICES as _auto
         for name in fenced:
-            self.assertEqual(self.progress_type(name), LocationProgressType.EXCLUDED, name)
+            # A one-shot the client sends at its area's cap can never be lost, so it may hold progression.
+            want = (LocationProgressType.DEFAULT if name in set(_auto.values())
+                    else LocationProgressType.EXCLUDED)
+            self.assertEqual(self.progress_type(name), want, name)
 
     def test_an_ordinary_trainer_check_is_not(self) -> None:
         """Without this the test above could pass because everything is excluded."""
@@ -169,22 +177,21 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
         # ADDENDUM 401 went one step further than 188's fence: the numbered fights of a missable trainer that
         # fights more than once are not locations at all now. The one-shot (Digor) is still here and still
         # filler-only -- the client auto-sends it at the area's story cap.
-        self.assertEqual(self.progress_type("Defeat - Digor"), LocationProgressType.EXCLUDED)
+        self.assertEqual(self.progress_type("Defeat - Digor"), LocationProgressType.DEFAULT)   # auto-sent
         created = {location.name for location in self.multiworld.get_locations(self.player)}
         for name in ("Defeat - Aferd #1",):
             self.assertNotIn(name, created, name)
         # ADDENDUM 436: Ardos, Zook and Biden have one check each, their (Any); no numbered fights at all.
         for name in ("Defeat - Zook #1", "Defeat - Zook #2", "Defeat - Ardos #1", "Defeat - Biden #1"):
             self.assertNotIn(name, created, name)
-        # ADDENDUM 406: their mandatory rematches are checks again -- and still fenced, which is 188's point.
-        for name in ("Defeat - Laken #3",):
+        # Numbered rematch checks are removed outside the forced second fights: Laken's mandatory rematch and the
+        # Sixes' #1 (Cipher Lab) and #2 (Phenac) are not created; each surname is checked by its (Any).
+        for name in ("Defeat - Laken #3", "Defeat - Resix #1", "Defeat - Browsix #1", "Defeat - Resix #2",
+                     "Defeat - Browsix #2"):
+            self.assertNotIn(name, created, name)
+            self.assertIn(name, trainer_roster.NUMBERED_REMATCH_DEFEAT_LOCATIONS, name)
+        for name in ("Defeat Laken (Any)", "Defeat Resix (Any)", "Defeat Browsix (Any)"):
             self.assertIn(name, created, name)
-            self.assertEqual(self.progress_type(name), LocationProgressType.EXCLUDED, name)
-        # ADDENDUM 409: the Sixes' #1 is at Cipher Lab and their #2 at Phenac (missable, behind the Disc and Note).
-        # Both Sixes fights are checks, and both are still fenced -- the surname can be walked past.
-        for name in ("Defeat - Resix #1", "Defeat - Browsix #1", "Defeat - Resix #2", "Defeat - Browsix #2"):
-            self.assertIn(name, created, name)
-            self.assertEqual(self.progress_type(name), LocationProgressType.EXCLUDED, name)
         # ADDENDUM 409: Aferd's rematches and the Sixes' other fights are removed -- not created at all.
         for name in ("Defeat - Aferd #2", "Defeat - Aferd #5", "Defeat - Resix #6", "Defeat - Browsix #4"):
             self.assertNotIn(name, created, name)
@@ -242,7 +249,8 @@ class TestStillExcludedAtEverySetting(_UniqueModeBase):
 
     def test_world_checks_setting_does_not_re_open_them(self) -> None:
         """ADDENDUM 171: walks the fenced set (Mt. Battle's ladder), not the retired missable list."""
-        for name in missable_trainers.filler_only_trainer_location_names():
+        from ..game_data.missable_autosend import AUTO_SEND_ONE_SHOT_INDICES as _auto
+        for name in missable_trainers.filler_only_trainer_location_names() - set(_auto.values()):
             self.assertEqual(self.progress_type(name), LocationProgressType.EXCLUDED, name)
 
 

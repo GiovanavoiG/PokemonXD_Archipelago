@@ -320,13 +320,15 @@ del _item, _indices, _index, _old
 #     whose edge already requires the Music Disc AND the Mayor's Note -- the fight is the one that walks the
 #     player out of the Mayor's House -- so the region carries both items and adds no new level tier.
 #   * Miror B. #2 (3): his #1 and #2 can each be met at the Outskirt Stand or the Cave spot, interchangeably, or at
-#     the colosseum if his radar fires. A label fires on the Nth DISTINCT team, so #1 is whichever comes first and #2 needs a
-#     second meeting: logic asks for BOTH places, the one assumption that is never early. #1 stays at the spots.
+#     the colosseum if his radar fires. #1 stays at the spots and #2 is filed at the Outskirt Stand.
 _SIXES_SECOND = (39, 40, 41, 42, 43, 44)
 _MIROR_B_SECOND = 3
 for _index in _SIXES_SECOND:
     PLACEMENTS[_index] = TrainerPlacement("Phenac City (Post-Sixes)", (), ())
-PLACEMENTS[_MIROR_B_SECOND] = TrainerPlacement("Outskirt Stand", (), ("Poke Spots",))
+PLACEMENTS[_MIROR_B_SECOND] = TrainerPlacement("Outskirt Stand", (), ())
+# Acrod stands past the System Lever, with Smarton #2 and Gorigan #1 (Angic does not).
+_ACROD = 163
+PLACEMENTS[_ACROD] = TrainerPlacement("Cipher Key Lair", ("System Lever",), ())
 del _index
 
 FILLER_ONLY_INDICES: "frozenset[int]" = frozenset(

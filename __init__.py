@@ -17,7 +17,7 @@ import random
 from collections.abc import Mapping
 from typing import Any
 
-from BaseClasses import LocationProgressType
+from BaseClasses import ItemClassification, LocationProgressType
 from Options import OptionError
 from worlds.AutoWorld import World
 from worlds.LauncherComponents import (Component, SuffixIdentifier, Type, components, icon_paths,
@@ -187,6 +187,11 @@ def ut_option_names() -> "tuple[str, ...]":
     return tuple(name for name in PokemonXDOptions.type_hints if name not in common)
 
 
+# Data Storage keys the client writes the player's current room id and area name to, on every room change.
+ROOM_ID_KEY_TEMPLATE = "pokemon_xd_room_{team}_{slot}"
+ROOM_AREA_KEY_TEMPLATE = "pokemon_xd_area_{team}_{slot}"
+
+
 class PokemonXDWorld(World):
     """
     Pokemon XD: Gale of Darkness is a GameCube-exclusive Pokemon spin-off centered on capturing corrupted
@@ -298,12 +303,14 @@ class PokemonXDWorld(World):
         if self.options.nightmare_citadark:
             self._nightmare_teams = nightmare_citadark.assign_teams(self.random)
         elif self.options.nightmare_greevil:
-            # ADDENDUM 429: one team, Greevil's final battle. It holds no Shadows, so nothing is relocated.
+            # Greevil's final story battle (200) and his post-game rematch (201) take Nightmare teams. The final
+            # battle's six Shadows are relocated (`shadow_removal_trainers`).
             self._nightmare_teams = nightmare_citadark.assign_teams(
-                self.random, {nightmare_citadark.GREEVIL_FINAL_TRAINER})
+                self.random, set(nightmare_citadark.NIGHTMARE_GREEVIL_TRAINERS))
         self._shadow_removal_trainers = nightmare_citadark.shadow_removal_trainers(
             bool(self.options.nightmare_citadark), bool(self.options.remove_citadark_shadows),
-            bool(self.options.remove_greevil_shadows))
+            bool(self.options.remove_greevil_shadows),
+            nightmare_greevil=bool(self.options.nightmare_greevil) and not bool(self.options.nightmare_citadark))
         if self._shadow_removal_trainers:
             # ADDENDUM 424/431: these Shadows leave their trainers but not the seed.
             self._nightmare_removed_dex = nightmare_citadark.removed_shadow_national_dex(self._shadow_removal_trainers)
@@ -341,6 +348,13 @@ class PokemonXDWorld(World):
                 f"only {_purifiable} Shadow Pokemon exist to purify ({_vanilla_shadow_count} vanilla + "
                 + (f"{_relocated_count} moved off Citadark Isle + " if _relocated_count else "")
                 + f"{int(self.options.shadow_pokemon_expansion)} from 'Shadow Pokemon Expansion')",
+            )
+
+        # Start With Miror Radar and Poke Spots needs Location Shuffle: it works by starting with the Poke Spots' unlock.
+        if bool(self.options.start_with_poke_spots) and not bool(self.options.randomize_travel_locations):
+            self._adjust_option(
+                "start_with_poke_spots", 0,
+                "it needs 'Randomize Travel Locations/Location Shuffle' on",
             )
 
         # The Machine Part is sphere zero in every mode: it repairs the scooter and, with travel randomization off,
@@ -427,6 +441,7 @@ class PokemonXDWorld(World):
                             for plan in self._nightmare_relocations for shadow in plan["shadows"]}
         _relocated_host = {shadow["dpkm_index"]: int(plan["trainer_index"])
                            for plan in self._nightmare_relocations for shadow in plan["shadows"]}
+        _relocated_dex_by_dpkm: "dict[int, int]" = {}
         if shadow_pool is not None and _relocated_level:
             for _trainer in shadow_pool.trainers:
                 for _mon in _trainer.team:
@@ -514,6 +529,7 @@ class PokemonXDWorld(World):
                         if mon.index in _relocated_host:
                             # ADDENDUM 424: gated where it now is -- its host, keyed like a generated Shadow.
                             self._shadow_catch_expansion_hosts.setdefault(dex, []).append(_relocated_host[mon.index])
+                            _relocated_dex_by_dpkm[mon.index] = dex
                             continue
                         from .game_data.shadow_regions import ddpk_for_dpkm, is_post_goal_ddpk
 
@@ -604,7 +620,8 @@ class PokemonXDWorld(World):
                     # ADDENDUM 236: was empty, so catches landed on re-fightable and missable trainers.
                     excluded_trainer_indices=frozenset(
                         (MT_BATTLE_TRAINER_INDICES if self.options.exclude_mt_battle_trainers else frozenset())
-                    ) | missable_trainers.shadow_expansion_excluded_trainer_indices()
+                    ) | missable_trainers.shadow_expansion_excluded_trainer_indices(
+                        allow_missable_hosts=bool(self.options.missable_trainer_shadows))
                     # ADDENDUM 423/424: Nightmare Citadark adds nothing to the island -- its teams are fixed, and
                     # Greevil's first fight stays Lugia alone.
                     | (citadark_trainer_indices() if self.options.nightmare_citadark
@@ -660,6 +677,30 @@ class PokemonXDWorld(World):
                 for _mon in _plan["new_pokemon"]:
                     _mon["mirror_trainer_indices"] = []
 
+        # Missable Trainer Shadows: the Shadows this seed put on missable one-shot fights, by host. The client hands
+        # each to Miror B. once its area's story cap passes without it being met.
+        self._missable_shadow_hosts: "dict[int, list[dict[str, Any]]]" = {}
+        if self.options.missable_trainer_shadows:
+            from .game_data.missable_trainers import missable_shadow_host_indices
+            from .tools.xd_species_index import internal_index_for_national_dex as _internal_for
+
+            _missable_hosts = missable_shadow_host_indices()
+            _relocated_ddpk_by_dex: "dict[int, int]" = {}
+            for _plan in self._nightmare_relocations:
+                for _shadow in _plan["shadows"]:
+                    _moved_dex = _relocated_dex_by_dpkm.get(int(_shadow["dpkm_index"]))
+                    if _moved_dex is not None:
+                        _relocated_ddpk_by_dex[int(_moved_dex)] = int(_shadow["ddpk_index"])
+            for _dex, _hosts in sorted(self._shadow_catch_expansion_hosts.items()):
+                for _host in _hosts:
+                    if int(_host) not in _missable_hosts:
+                        continue
+                    _species = _internal_for(int(_dex))
+                    _name = INTERNAL_INDEX_TO_NATIONAL_DEX.get(_species, (None, None))[1] if _species else None
+                    self._missable_shadow_hosts.setdefault(int(_host), []).append(
+                        {"dex": int(_dex), "species": _species, "name": str(_name).title() if _name else f"#{_dex}",
+                         "ddpk": _relocated_ddpk_by_dex.get(int(_dex))})
+
         # ADDENDUM 415: one `Purify N` per Shadow this seed REALLY holds -- the vanilla count plus what the expansion
         # actually placed, which can fall short of the request when hosts run out. create_regions reads this.
         self._purification_location_count = _vanilla_shadow_count + sum(
@@ -679,11 +720,24 @@ class PokemonXDWorld(World):
         self._post_goal_only_dex: "set[int]" = (
             _post_goal_shadow_dex - _pre_goal_shadow_dex - set(self._shadow_catch_expansion_hosts)
             - pokespot_obtainable_dex - {self.starter_dex})
+        # Poke Spot Catch Checks off: a species only the Poke Spots give has no check.
+        if not bool(getattr(self.options, "pokespot_catch_checks", 1)):
+            pokespot_obtainable_dex = set()
         self._obtainable_species_dex: set[int] | None = (
             None if shadow_pool is None
             else (shadow_obtainable_dex - self._post_goal_only_dex) | pokespot_obtainable_dex
             | {self.starter_dex}  # the starter, always guaranteed
         )
+
+        # Shadow Move TMs: which TMs teach which Shadow move. Its own RNG, drawn only when the option is on, so a seed
+        # without it rolls exactly as before.
+        self._shadow_move_tms: "list[tuple[int, int]]" = []
+        if int(getattr(self.options, "shadow_move_tms", 0)) > 0:
+            import random as _random
+            from .game_data.tm_moves import plan_shadow_move_tms
+
+            self._shadow_move_tms = plan_shadow_move_tms(
+                _random.Random(self.random.getrandbits(64)), int(self.options.shadow_move_tms))
 
     def _assign_shadow_movesets(self, seed_data: dict) -> None:
         """ADDENDUM 427: legal ordinary moves for every Shadow whose species was randomized, written through the
@@ -756,7 +810,8 @@ class PokemonXDWorld(World):
             return []
         excluded = (
             (frozenset(MT_BATTLE_TRAINER_INDICES) if self.options.exclude_mt_battle_trainers else frozenset())
-            | missable_trainers.shadow_expansion_excluded_trainer_indices()
+            | missable_trainers.shadow_expansion_excluded_trainer_indices(
+                allow_missable_hosts=bool(self.options.missable_trainer_shadows))
             | citadark_trainer_indices()
         )
         return nightmare_citadark.plan_relocations(
@@ -982,7 +1037,15 @@ class PokemonXDWorld(World):
         top = max(tiers.values(), default=0)
         if top <= 0:
             return {}
-        return {index: round(1000 * tiers[region] / top) for index, region in by_trainer.items() if region in tiers}
+        from .game_data import trainer_placements
+
+        out = {index: round(1000 * tiers[region] / top) for index, region in by_trainer.items() if region in tiers}
+        # Every Shadow gets a step. A region with no tier is one of the always-open starting areas (HQ Lab, Gateon,
+        # Kaminko's), so it sits at the start; a fight with no known region gets the end's smaller boost.
+        for index, placement in trainer_placements.PLACEMENTS.items():
+            if index not in out:
+                out[index] = 0 if placement.region is not None else 1000
+        return out
 
     def _region_spheres(self, wanted: "set[str]") -> "dict[str, int]":
         """`{region: the sphere it first becomes reachable in}`, walked over the filled multiworld.
@@ -1153,6 +1216,11 @@ class PokemonXDWorld(World):
             if data.classification.name == "progression":
                 if name in items.TRAVEL_UNLOCK_ITEMS and not include_travel_unlocks:
                     continue
+                # Start With Miror Radar and Poke Spots: the Poke Spots' unlock is starting inventory, not a pool item.
+                if (include_travel_unlocks and bool(self.options.start_with_poke_spots)
+                        and name == items.TRAVEL_UNLOCK_POKE_SPOTS_ITEM_NAME):
+                    self.multiworld.push_precollected(self.create_item(name))
+                    continue
                 if name == items.MACGUFFIN_ITEM_NAME:
                     continue  # ADDENDUM 162 -- its count is the option's, added above, not one-each here
                 # ADDENDUM 168: the names dropped from the pool. Their five LOCATIONS stay.
@@ -1241,6 +1309,13 @@ class PokemonXDWorld(World):
 
     def get_filler_item_name(self) -> str:
         return items.get_random_filler_item_name(self)
+
+    def create_filler(self) -> PokemonXDItem:
+        name = self.get_filler_item_name()
+        if name == items.MASTER_BALL_ITEM_NAME:
+            # An extra Master Ball drawn as filler is filler, so it can sit on any location.
+            return PokemonXDItem(name, ItemClassification.filler, self.item_name_to_id[name], self.player)
+        return self.create_item(name)
 
     def set_rules(self) -> None:
         rules.set_all_rules(self)
@@ -1350,6 +1425,87 @@ class PokemonXDWorld(World):
         fill_restrictive(self.multiworld, state, list(locations), list(parts), single_player_placement=True,
                          lock=True, allow_partial=allow_partial, name=f"Pokemon XD {name} Robo Kyogre Parts")
 
+    def _map_place_levels(self) -> "dict[str, int]":
+        """{in-game place name: the level of its first visit's trainers in this seed}, for the world-map text.
+
+        A place's trainers are fought across the whole story (Chobin at Kaminko's from Lv 6 to Lv 50, Laken at Gateon
+        from 7 to 66), so an average of all of them describes no visit. The first visit is each trainer's first
+        appearance (no rematch rows), in the place's earliest region (the one whose trainers are lowest), and the
+        level shown is the median there, so one late fight that shares the region (Ardos at Gateon) cannot drag it.
+        Levels are the ones this seed's teams really carry."""
+        import statistics
+
+        from .game_data import map_level_text, trainer_placements, trainer_roster
+
+        levels = self._final_trainer_levels()
+        out: "dict[str, int]" = {}
+        for place, regions in map_level_text.PLACE_REGIONS.items():
+            by_region: "dict[str, list[float]]" = {}
+            any_row: "dict[str, list[float]]" = {}
+            for index, level in levels.items():
+                region = trainer_placements.region_for(index)
+                if region not in regions:
+                    continue
+                any_row.setdefault(region, []).append(level)
+                trainer = trainer_roster.TRAINERS_BY_INDEX.get(index) or {}
+                if int(trainer.get("occurrence", 1) or 1) > 1:
+                    continue
+                by_region.setdefault(region, []).append(level)
+            by_region = by_region or any_row   # a place of rematch rows only still gets a level
+            if not by_region:
+                continue
+            first = min(by_region.values(), key=statistics.median)
+            out[place] = max(1, min(100, int(round(statistics.median(first)))))
+        return out
+
+    def _shadow_rescues(self) -> "list[dict[str, Any]]":
+        """The Cave Poke Spot Miror B. Shadow, for the client's hand-off to his pool (see fill_slot_data)."""
+        from .tools.xd_species_index import INTERNAL_INDEX_TO_NATIONAL_DEX, internal_index_for_national_dex
+
+        ddpk = 29
+        dex = next((int(d) for d, ddpks in (getattr(self, "_shadow_catch_ddpks", None) or {}).items()
+                    if ddpk in {int(x) for x in ddpks}), None)
+        internal = internal_index_for_national_dex(dex) if dex is not None else None
+        name = INTERNAL_INDEX_TO_NATIONAL_DEX.get(internal, (None, None))[1] if internal else None
+        return [{
+            "label": "Miror B. at the Cave Poke Spot",
+            "cap": 0x3C,
+            "areas": [["Poke Spots", 0x3C]],
+            "message": "{name}, Miror B.'s Shadow from the Cave Poke Spot, is with him now -- catch it from his team.",
+            "shadows": [{"species": internal, "name": str(name).title() if name else "His Shadow", "ddpk": ddpk}],
+        }]
+
+    def _final_trainer_levels(self) -> "dict[int, float]":
+        """{trainer index: average level of its ordinary team} as this seed ships it: the story deck's final teams
+        after the path ramp and Enhanced Difficulty (`pre_output`), else the same composition recomputed."""
+        import re
+
+        out: "dict[int, float]" = {}
+        for pool in getattr(self, "_trainer_team_pools", None) or ():
+            if "Story" not in str(getattr(pool, "name", "")):
+                continue
+            for trainer in pool.trainers:
+                match = re.match(r"Trainer #(\d+)", str(trainer.name))
+                values = [int(mon.level) for mon in trainer.team if getattr(mon, "level", None)]
+                if match and values:
+                    out[int(match.group(1))] = sum(values) / len(values)
+        if out:
+            return out
+        from .game_data.real_trainer_data import real_trainer_team_census
+
+        levels: "dict[int, float]" = {}
+        if bool(self.options.path_level_scaling):
+            from .randomizer.path_level_scaling import level_by_trainer_index
+
+            levels = {i: float(v) for i, v in
+                      level_by_trainer_index(tier_by_region=getattr(self, "_path_tier_by_region", None)).items()}
+        for row in real_trainer_team_census() or ():
+            levels.setdefault(int(row["trainer_index"]), float(row["avg_level"]))
+        if bool(self.options.enhanced_difficulty_level_scaling):
+            from .randomizer.enhanced_difficulty import ENHANCED_DIFFICULTY_LEVEL_MULTIPLIER
+            levels = {i: min(100.0, v * ENHANCED_DIFFICULTY_LEVEL_MULTIPLIER) for i, v in levels.items()}
+        return levels
+
     def fill_slot_data(self) -> Mapping[str, Any]:
         slot_data: dict[str, Any] = dict(
             self.options.as_dict(
@@ -1372,11 +1528,22 @@ class PokemonXDWorld(World):
                 "shuffle_scooter_upgrade",
                 "robo_kyogre_parts_unlock_citadark", "robo_kyogre_parts_required",
                 "disable_move_animations",  # ADDENDUM 454 -- the client's live guard
+                # Everything else that decides which locations exist or what logic needs, for trackers.
+                "robo_kyogre_parts_available", "pokespot_catch_checks", "shadow_catch_progression",
+                "citadark_progression_chance", "mt_battle_progression_checks", "purification_progression_cap",
+                "randomize_starter", "path_level_scaling", "map_trainer_levels", "enhanced_difficulty_level_scaling",
+                "catch_rate_scaling", "catch_rate_exclude_citadark", "catch_rate_exclude_greevil",
+                "shadow_inherited_moves", "infinite_tms", "single_master_ball",
+                "all_pokemon_learn_all_tms", "shadow_move_tms",
                 # Only the toggle travels; the per-seed plans are heavy and only iso_patcher.py needs them.
             )
         )
+        # Every option this world defines, so a tracker can rebuild which locations exist and what logic needs.
+        for _name, _value in self.options.as_dict(*ut_option_names()).items():
+            slot_data.setdefault(_name, _value)
         # ADDENDUM 453/454: the Ability Swap is on Gateon's last shelf in every seed (a Bag USE item; the patch does it).
         slot_data["ability_patch"] = True
+        slot_data["candy_box"] = True   # item 50 is a Candy Box in every seed
         if self._trainer_team_fingerprints:
             # ADDENDUM 155: {location -> that trainer's real species}, ambiguous surnames only -- which Dosk.
             slot_data["trainer_team_fingerprints"] = self._trainer_team_fingerprints
@@ -1402,6 +1569,11 @@ class PokemonXDWorld(World):
             })
             if _generated_dex:
                 slot_data["generated_shadow_dex"] = _generated_dex
+        if bool(getattr(self.options, "map_trainer_levels", 0)):
+            try:
+                slot_data["map_place_levels"] = self._map_place_levels()
+            except Exception:
+                pass   # cosmetic: never worth failing a generation over
         if self._pokespot_species_assignment is not None:
             # ADDENDUM 43: spoiler only -- catch locations are detected by species identity, wherever caught.
             slot_data["pokespot_species_map"] = [
@@ -1421,6 +1593,31 @@ class PokemonXDWorld(World):
         # ADDENDUM 443: the starter and its line -- the client's "owned without purifying" set.
         slot_data["starter_dex"] = int(self.starter_dex)
         slot_data["starter_line_dex"] = sorted(self.starter_line_dex)
+        # For trackers: how many "Purify N" checks this seed has, and the Data Storage key the client keeps the
+        # current room in ({team} and {slot} filled from the connection).
+        slot_data["purification_location_count"] = int(getattr(self, "_purification_location_count", 0) or 0)
+        slot_data["room_id_key"] = ROOM_ID_KEY_TEMPLATE
+        slot_data["room_area_key"] = ROOM_AREA_KEY_TEMPLATE
+        # Missable Trainer Shadows: each missable host's label and the Shadows on it, for the client's hand-off to
+        # Miror B. once that fight's area cap passes.
+        slot_data["missable_trainer_shadows"] = bool(self.options.missable_trainer_shadows)
+        # Vanilla bug: lose to Miror B. at the Cave Poke Spot and his Shadow (DDPK 29, Voltorb in vanilla) is never met
+        # again. Once the story is past that fight the client hands it to his pool if it was never snagged.
+        slot_data["shadow_rescues"] = self._shadow_rescues()
+        # Shadow Move TMs: [{"tm": "TM05", "move": "Shadow Rush"}, ...].
+        from .game_data.tm_moves import SHADOW_MOVE_NAMES
+        slot_data["shadow_move_tm_list"] = [
+            {"tm": f"TM{tm:02d}", "move": SHADOW_MOVE_NAMES[move]}
+            for tm, move in getattr(self, "_shadow_move_tms", [])
+        ]
+        from .game_data.missable_autosend import AUTO_SEND_ONE_SHOT_INDICES
+        slot_data["missable_shadow_hosts"] = [
+            {"label": AUTO_SEND_ONE_SHOT_INDICES[host], "trainer_index": int(host),
+             "shadows": [{"species": entry["species"], "name": entry["name"], "ddpk": entry.get("ddpk")}
+                         for entry in shadows]}
+            for host, shadows in sorted(getattr(self, "_missable_shadow_hosts", {}).items())
+            if host in AUTO_SEND_ONE_SHOT_INDICES and shadows
+        ]
         slot_data["location_table_fingerprint"] = locations.LOCATION_TABLE_FINGERPRINT
         slot_data["location_count"] = len(locations.LOCATION_TABLE)
         # ADDENDUM 404: the option is gone but the key stays -- the client gates its chest detector on it, and a
@@ -1540,6 +1737,8 @@ class PokemonXDWorld(World):
             "starter": None,
             # ADDENDUM 463: a plain flag -- the patcher changes one main.dol word so a TM is kept like an HM.
             "infinite_tms": False,
+            "all_tms_learnable": False,
+            "shadow_move_tms": [],
             # ADDENDUM 441: 0 is vanilla. With it on, {trainer index: 0..1000 progress} travels too.
             "catch_rate_scaling": 0,
             "catch_rate_progress_by_trainer": None,
@@ -1678,6 +1877,7 @@ class PokemonXDWorld(World):
             seed_data["agate_village_pit_stop"] = bool(self.options.agate_village_pit_stop)
         # ADDENDUM 427: Gateon's Gorigan tier sells a Rare Candy and a Candy Box. ADDENDUM 437: shops randomized or not.
         seed_data["reduce_citadark_grind"] = bool(self.options.reduce_citadark_grind)
+        seed_data["candy_box"] = True   # the Candy Box works in every seed; the option adds the Gateon shelf
         # ADDENDUM 456: `equal_to_citadark_entry` -- the Candy Box levels to the lowest level on any Citadark Isle
         # trainer. The patcher reads that level off the patched ISO (after Enhanced Difficulty, Path Level Scaling and
         # every other team pass), so the seed carries only the mode and which trainers count as Citadark.
@@ -1710,6 +1910,11 @@ class PokemonXDWorld(World):
             # Human-readable spoiler list, same role as shadow_species_assignment above.
             seed_data["pokespot_species_assignment"] = self._pokespot_species_assignment
 
+        # Only the Sixes' Cipher Lab fights field their Shadows (shadow_mirrors.SIXES_PHENAC_SHADOW_SLOTS).
+        from .game_data.shadow_mirrors import SIXES_PHENAC_SHADOW_SLOTS
+        seed_data["ordinary_shadow_slots"] = [{"row": row, "ddpk_index": ddpk} for row, ddpk in SIXES_PHENAC_SHADOW_SLOTS]
+        # Missable Trainer Shadows: Miror B. brings two Shadows at the Poke Spots once two are waiting.
+        seed_data["miror_b_two_shadows"] = bool(self.options.missable_trainer_shadows)
         # Shadow Pokemon Expansion (ADDENDUM 70). Reuses self._shadow_expansion_plans; rebuilding it off the
         # same self.random would disagree with this seed's locations. shadow_slots_consumed_by_trainer is what
         # ED's census subtracts before padding -- same pre-patch free-slot count, expansion writes first.
@@ -1791,6 +1996,9 @@ class PokemonXDWorld(World):
         seed_data["battle_speed"] = int(self.options.battle_speed)
         seed_data["max_catch_rate"] = bool(catch_guaranteed)   # ADDENDUM 447/448
         seed_data["infinite_tms"] = bool(getattr(self.options, "infinite_tms", 0))   # ADDENDUM 463
+        seed_data["all_tms_learnable"] = bool(getattr(self.options, "all_pokemon_learn_all_tms", 0))
+        seed_data["escape_rope"] = True   # a key item that takes you to the world map, in every seed
+        seed_data["shadow_move_tms"] = [[int(tm), int(move)] for tm, move in getattr(self, "_shadow_move_tms", [])]
         seed_data["shadow_engine_fixes"] = True   # ADDENDUM 465: snagged Shadows stay gone; the Shadow list's species
         # ADDENDUM 443: the starter's species (internal index) and four moves, five main.dol immediates.
         if self._starter:

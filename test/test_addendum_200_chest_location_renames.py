@@ -66,8 +66,15 @@ class TestBothSidesSpellEveryChestTheSame(unittest.TestCase):
         self.assertEqual(sorted(locations.CHEST_LOCATION_NAMES), sorted(ram_client.CHEST_LOCATION_NAMES))
 
     def test_every_override_reaches_both_sides(self) -> None:
+        from ..game_data import chest_regions
+
         for chest_ids, name in chest_names.CHEST_LOCATION_NAME_OVERRIDES.items():
             for chest_id in chest_ids:
+                if chest_id in chest_regions.NON_ITEM_CHESTS:
+                    # Named, id reserved, but not a location on either side.
+                    self.assertNotIn(chest_id, locations.CHEST_ID_TO_LOCATION)
+                    self.assertNotIn(chest_id, ram_client.CHEST_ID_TO_LOCATION)
+                    continue
                 self.assertEqual(name, locations.CHEST_ID_TO_LOCATION[chest_id])
                 self.assertEqual(name, ram_client.CHEST_ID_TO_LOCATION[chest_id])
 

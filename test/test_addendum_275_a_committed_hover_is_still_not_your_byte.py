@@ -60,7 +60,14 @@ class TestTheReportedCase(unittest.TestCase):
         # is far below the rules' 0x17, so a poisoned MARK still outranks everything the lab can be given.
         self.assertEqual(0x00, sb.area_entry_floor("Pokemon HQ Lab"))
         top = max(r.floor for r in sb.AREA_FLOOR_RULES if r.target == "Pokemon HQ Lab")
-        self.assertEqual(0x17, top, "if the lab's ladder grows, this test's premise needs re-reading")
+        self.assertEqual(0x2B, top, "if the lab's ladder grows, this test's premise needs re-reading")
+        # The 0x2B rung opens only once the Cipher Lab itself has reached 0x2B. Until then the lab's ladder tops
+        # out at 0x17, which is the ladder the poisoned-mark case (Agate's 0x19) is measured against.
+        before_the_cipher_lab = max(
+            r.floor for r in sb.AREA_FLOOR_RULES
+            if r.target == "Pokemon HQ Lab" and not any(region == "Cipher Lab" for region, _ in r.requires)
+        )
+        self.assertEqual(0x17, before_the_cipher_lab)
 
     def test_agates_floor_really_is_past_the_labs_whole_ladder(self) -> None:
         self.assertEqual(0x19, rc.AreaStoryByteMemory().target_for("Agate Village"))

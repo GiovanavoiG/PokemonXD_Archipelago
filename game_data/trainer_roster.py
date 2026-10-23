@@ -265,7 +265,7 @@ def trainer_label(trainer: dict) -> str:
 
 # {SURNAME: [location name per occurrence]}, the shape `trainer_defeat.SURNAME_TO_LOCATION_QUEUE` uses. Keys
 # are upper case because that is how the battle roster reports NPC names.
-UNIQUE_SURNAME_TO_LOCATION_QUEUE: "dict[str, list[str]]" = {}
+UNIQUE_SURNAME_TO_LOCATION_QUEUE: "dict[str, list[str | None]]" = {}
 for _t in sorted(TRAINERS, key=lambda t: t["index"]):
     UNIQUE_SURNAME_TO_LOCATION_QUEUE.setdefault(_t["name"].upper(), []).append(trainer_label(_t))
 
@@ -459,9 +459,20 @@ assert ANY_DUPLICATE_DEFEAT_LOCATIONS == frozenset(
     f"Defeat - {name} #1" for name in ("Cail", "Clerr", "Belish", "Eagun", "Dert", "Dobit")
 ), f"ADDENDUM 410 now removes {sorted(ANY_DUPLICATE_DEFEAT_LOCATIONS)} -- the roster or a removal moved"
 
+# Numbered fights are not checks: a trainer who fights more than once is checked by `Defeat X (Any)`. The story's
+# forced rematches keep their #2, because the player cannot avoid them and they sit later in the game.
+FORCED_REMATCH_DEFEAT_LOCATIONS: "frozenset[str]" = frozenset({
+    "Defeat - Naps #2", "Defeat - Smarton #2", "Defeat - Snattle #2", "Defeat - Gorigan #2", "Defeat - Lovrina #2",
+})
+NUMBERED_REMATCH_DEFEAT_LOCATIONS: "frozenset[str]" = frozenset(
+    trainer_label(t) for t in TRAINERS if t["total_with_name"] > 1
+) - FORCED_REMATCH_DEFEAT_LOCATIONS
+assert FORCED_REMATCH_DEFEAT_LOCATIONS <= {trainer_label(t) for t in TRAINERS}
+
 #: Every unique-mode label that is not a location, for whatever reason. One set for every consumer.
 REMOVED_DEFEAT_LOCATIONS: "frozenset[str]" = (
     REMOVED_MISSABLE_DEFEAT_LOCATIONS | RULED_OUT_DEFEAT_LOCATIONS | ANY_DUPLICATE_DEFEAT_LOCATIONS
+    | NUMBERED_REMATCH_DEFEAT_LOCATIONS
 )
 # Disjoint by construction today (Chobin is not missable), asserted so the two can never double-count.
 assert not (REMOVED_MISSABLE_DEFEAT_LOCATIONS & RETIRED_UNIQUE_DEFEAT_LOCATIONS)
@@ -470,9 +481,18 @@ assert not (REMOVED_MISSABLE_DEFEAT_LOCATIONS & RETIRED_UNIQUE_DEFEAT_LOCATIONS)
 # would be checked off against a name this multiworld has no id for. A surname whose every label is removed
 # keeps an EMPTY queue rather than losing its key: the tracker still has to recognise the fight as a win, so
 # `Defeat X (Any)` -- dispatched off the surname, not the queue -- still fires.
+# A kept forced rematch (#2) stays at its position, with None for the earlier fight that is no longer a check: a label
+# means "the Nth distinct team you have beaten", so the second team must still land on #2.
 for _surname in list(UNIQUE_SURNAME_TO_LOCATION_QUEUE):
+    _labels = UNIQUE_SURNAME_TO_LOCATION_QUEUE[_surname]
+    if any(_label in FORCED_REMATCH_DEFEAT_LOCATIONS for _label in _labels):
+        _positional = [_label if _label in FORCED_REMATCH_DEFEAT_LOCATIONS else None for _label in _labels]
+        while _positional and _positional[-1] is None:
+            _positional.pop()
+        UNIQUE_SURNAME_TO_LOCATION_QUEUE[_surname] = _positional
+        continue
     UNIQUE_SURNAME_TO_LOCATION_QUEUE[_surname] = [
-        _label for _label in UNIQUE_SURNAME_TO_LOCATION_QUEUE[_surname]
+        _label for _label in _labels
         if _label not in RETIRED_UNIQUE_DEFEAT_LOCATIONS
         and _label not in REMOVED_DEFEAT_LOCATIONS
     ]
@@ -504,7 +524,7 @@ for _surname, _rows in ((_n.upper(), _v) for _n, _v in TRAINERS_BY_NAME.items())
         if trainer_label(_row) not in RETIRED_UNIQUE_DEFEAT_LOCATIONS
         and trainer_label(_row) not in REMOVED_DEFEAT_LOCATIONS
     ]
-    assert UNIQUE_SURNAME_TO_LOCATION_QUEUE.get(_surname) == _live, (
+    assert [_l for _l in UNIQUE_SURNAME_TO_LOCATION_QUEUE.get(_surname, []) if _l is not None] == _live, (
         f"{_surname}: the queue must be exactly its live labels in roster order -- got "
         f"{UNIQUE_SURNAME_TO_LOCATION_QUEUE.get(_surname)}"
     )

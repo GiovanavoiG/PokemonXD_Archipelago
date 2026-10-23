@@ -106,7 +106,7 @@ def _function(header: str) -> str:
 
 class TestTheClient(unittest.TestCase):
     def test_the_reveal_is_read_before_either_writer(self) -> None:
-        observe = CLIENT.index("observe_travel_reveals(ctx)\n                    await sync_travel_locations(ctx)")
+        observe = CLIENT.index("observe_travel_reveals(ctx)\n                        await sync_travel_locations(ctx)")
         self.assertLess(observe, CLIENT.index("await enforce_travel_locks(ctx)"))
 
     def test_checks_are_sent_inside_the_block_stability_gate(self) -> None:

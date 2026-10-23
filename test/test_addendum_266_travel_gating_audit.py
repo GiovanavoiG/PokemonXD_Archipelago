@@ -184,8 +184,16 @@ class TestTheUngatedDefeatsAreAllFillerOnly(_TravelShuffleBase):
             for index, p in trainer_placements.PLACEMENTS.items() if p.region is None
         }
         self.assertTrue(region_less)
-        self.assertEqual([], [l.name for l in parked],
+        # The bucket's one resident is Miror B.'s (Any), parked there on purpose with an OR rule over his two
+        # places (repeatable_trainers.ANY_OF_REGIONS) and always filler-only.
+        from ..game_data import repeatable_trainers
+
+        any_of = {repeatable_trainers.location_name(s) for s in repeatable_trainers.ANY_OF_REGIONS}
+        self.assertEqual({"Defeat Miror B. (Any)"}, any_of)
+        self.assertEqual(sorted(any_of), sorted(l.name for l in parked),
                          "a live defeat check is parked in the catch-all region with no census region")
+        for location in parked:
+            self.assertIs(LocationProgressType.EXCLUDED, location.progress_type, location.name)
         created = {l.name for l in self.defeats()}
         for name in region_less:
             self.assertIn(name, trainer_roster.REMOVED_DEFEAT_LOCATIONS, name)

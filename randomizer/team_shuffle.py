@@ -347,15 +347,34 @@ def choose_moveset(
         })
         strong = [mv for mv in options if power[mv] >= 80]
         pick_from = strong if level >= 30 and strong else options
-        if pick_from:
+        extra = _pick_extra_move(rng, pick_from)
+        if extra is not None:
             # Into an empty slot when there is one; otherwise in place of the lowest-priority pick, never past
             # move_count (the slot count is an LZSS budget).
             if len(chosen) < move_count:
-                chosen.append(rng.choice(pick_from))
+                chosen.append(extra)
             else:
-                chosen[-1] = rng.choice(pick_from)
+                chosen[-1] = extra
 
     return sorted(set(chosen))
+
+
+# Icy Wind is a tutor move nearly every species learns and the one that fits the low-level power limit, so it would
+# win the extra slot by default. It is drawn at half weight and kept half the time it is drawn.
+ICY_WIND = 196
+ICY_WIND_WEIGHT = 0.5
+ICY_WIND_KEEP_CHANCE = 0.5
+
+
+def _pick_extra_move(rng, pick_from: "list[int]") -> "int | None":
+    if not pick_from:
+        return None
+    weights = [ICY_WIND_WEIGHT if mv == ICY_WIND else 1.0 for mv in pick_from]
+    pick = rng.choices(pick_from, weights=weights)[0]
+    if pick == ICY_WIND and rng.random() >= ICY_WIND_KEEP_CHANCE:
+        others = [mv for mv in pick_from if mv != ICY_WIND]
+        return rng.choice(others) if others else None
+    return pick
 
 
 _MOVE_COMPAT_CACHE: "dict | None" = None

@@ -71,14 +71,14 @@ class TestWhatWasRemoved(unittest.TestCase):
                      "Defeat - Biden #1", "Defeat - Biden #2"):
             self.assertIn(name, REMOVED, name)
             self.assertNotIn(name, L.LOCATION_TABLE, name)
-        # ADDENDUM 409: the Sixes' #1 is at the Cipher Lab and their #2 at Phenac (missable, behind the Disc and Note).
-        # Resix #1 is no longer missable at all; Resix #2 is missable but kept as a check.
-        for name in ("Defeat - Resix #1", "Defeat - Resix #2"):
+        # The Sixes' #1 (Cipher Lab) and #2 (Phenac) are not missable removals, but numbered rematch checks are
+        # gone for every repeated trainer outside the forced second fights; each is checked by its (Any).
+        for name in ("Defeat - Resix #1", "Defeat - Resix #2", "Defeat - Laken #3"):
             self.assertNotIn(name, REMOVED, name)
-            self.assertIn(name, L.LOCATION_TABLE, name)
+            self.assertIn(name, trainer_roster.NUMBERED_REMATCH_DEFEAT_LOCATIONS, name)
+            self.assertNotIn(name, L.LOCATION_TABLE, name)
         self.assertIn("Defeat - Resix #2", trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS)
-        for name in ("Defeat - Laken #3",):
-            self.assertNotIn(name, REMOVED, name)
+        for name in ("Defeat Resix (Any)", "Defeat Laken (Any)"):
             self.assertIn(name, L.LOCATION_TABLE, name)
         # ADDENDUM 436: Ardos, Zook and Biden have no numbered checks at all -- one (Any) each.
         for name in ("Defeat - Zook #2", "Defeat - Ardos #2"):
@@ -112,9 +112,12 @@ class TestWhatWasRemoved(unittest.TestCase):
             self.assertIn(name, L.LOCATION_TABLE)
 
     def test_a_trainer_that_is_not_missable_keeps_its_rematches(self) -> None:
-        """Scope is SPECIFICALLY missable trainers. Miror B. fights many times and is not on the list."""
+        """Scope is SPECIFICALLY missable trainers. Miror B. fights many times and is not on the list: none of his
+        fights is a missable removal, and his numbered checks go only as ordinary rematches, leaving his (Any)."""
         self.assertFalse(any(n.startswith("Defeat - Miror B.") for n in REMOVED))
-        self.assertIn("Defeat - Miror B. #2", L.LOCATION_TABLE)
+        self.assertIn("Defeat - Miror B. #2", trainer_roster.NUMBERED_REMATCH_DEFEAT_LOCATIONS)
+        self.assertNotIn("Defeat - Miror B. #2", L.LOCATION_TABLE)
+        self.assertIn("Defeat Miror B. (Any)", L.LOCATION_TABLE)
 
 
 class TestRetiredThroughTheSameDoorAsChobin(unittest.TestCase):
@@ -141,12 +144,12 @@ class TestRetiredThroughTheSameDoorAsChobin(unittest.TestCase):
             queue = trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE[surname]
             self.assertFalse(set(queue) & trainer_roster.REMOVED_DEFEAT_LOCATIONS, surname)
             needs = [label for label in queue if label not in missable_labels]
-            if surname in trimmed or surname in ("ZOOK", "BIDEN"):   # ADDENDUM 436: one (Any), no numbered labels
-                self.assertLessEqual(len(needs), trainer_roster._NON_MISSABLE_TEAM_COUNTS[surname], surname)
-            else:
-                self.assertEqual(len(queue), trainer_roster._NON_MISSABLE_TEAM_COUNTS[surname], surname)
+            self.assertLessEqual(len(needs), trainer_roster._NON_MISSABLE_TEAM_COUNTS[surname], surname)
+            # No in-scope surname has a forced second fight, so none keeps a numbered label: (Any) checks them.
+            self.assertEqual([], queue, surname)
         self.assertEqual({"ZOOK", "LAKEN", "BIDEN"}, _surnames_in_scope() - trimmed)
         self.assertEqual([], trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["ZOOK"])
+        self.assertEqual([], trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["LAKEN"])
         self.assertEqual([], trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["BIDEN"])
         # ADDENDUM 409 removed Aferd's rematches; his only other fight, #1, is missable, so nothing is left.
         self.assertEqual([], trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["AFERD"])
@@ -197,20 +200,21 @@ class TestTheSchedule(unittest.TestCase):
         # ADDENDUM 409: the Sixes' #2 is at Phenac (missable, behind the Disc and the Note) -- six kept checks join
         # the 26 one-shots. ADDENDUM 436: Biden's (Any) is not missable any more, so it is not scheduled.
         # ADDENDUM 438: + Zook's (Any), which the Key Lair's raised entry floor can step over.
-        self.assertEqual(32, len(SCHEDULE))  # ADDENDUM 440: +4 Phenac invasion; 460: - Bost and five Snagem fights
-        self.assertLessEqual(trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS, set(SCHEDULE))
+        # The Sixes' #2 fights are no longer locations (numbered rematch checks removed), so they are not scheduled.
+        self.assertEqual(26, len(SCHEDULE))  # ADDENDUM 440: +4 Phenac invasion; 460: - Bost and five Snagem fights
+        self.assertFalse(trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS & set(SCHEDULE))
 
     def test_every_surviving_missable_fight_is_scheduled(self) -> None:
         one_shots = {
             trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[i])
             for i in missable_indices.MISSABLE_TRAINER_INDICES if i in trainer_roster.TRAINERS_BY_INDEX
-        } - REMOVED
-        # ADDENDUM 409: the 26 one-shots plus the Sixes' six kept #2 fights (missable, behind the Disc and the Note).
+        } - trainer_roster.REMOVED_DEFEAT_LOCATIONS
+        # The one-shots only: the Sixes' #2 fights are numbered rematch checks, which are no longer locations.
         # ADDENDUM 411: Zook #1 survives too, but is NOT scheduled -- Ardos #1, a fight nobody can miss, sends it.
         self.assertEqual(trainer_roster.LINKED_MISSABLE_DEFEAT_LOCATIONS, one_shots - set(SCHEDULE))
         one_shots -= trainer_roster.LINKED_MISSABLE_DEFEAT_LOCATIONS
-        self.assertEqual(31, len(one_shots))  # ADDENDUM 440: +4 Phenac invasion; 460: - Bost and five Snagem fights
-        self.assertEqual(6, len(one_shots & trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS))
+        self.assertEqual(25, len(one_shots))  # ADDENDUM 440: +4 Phenac invasion; 460: - Bost and five Snagem fights
+        self.assertEqual(0, len(one_shots & trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS))
         self.assertLessEqual(one_shots, set(SCHEDULE))
 
     def test_every_scheduled_name_is_a_real_location(self) -> None:
@@ -231,11 +235,14 @@ class TestTheSchedule(unittest.TestCase):
 
     def test_bost_is_the_only_override_and_the_phenac_cipher_fights_wait_for_snattle(self) -> None:
         # ADDENDUM 436: missable Phenac trainers send upon defeating Snattle (ONLY Cipher members).
-        self.assertEqual({"Defeat - Bost": 0x19}, missable_autosend.CAP_OVERRIDES)
-        phenac = [n for n in ("Pellim", "Fenton", "Forgs", "Kapen", "Ezoor", "Ertlig")] \
-            + [f"{n} #2" for n in ("Resix", "Blusix", "Browsix", "Yellosix", "Purpsix", "Greesix")]
+        self.assertEqual({"Defeat - Bost": 0x19, "Defeat - Ibsol": 0x6B, "Defeat - Jelstin": 0x6B,
+                          "Defeat - Fudler": 0x6B}, missable_autosend.CAP_OVERRIDES)
+        phenac = [n for n in ("Pellim", "Fenton", "Forgs", "Kapen", "Ezoor", "Ertlig")]
         for name in phenac:
             self.assertEqual(missable_autosend.SNATTLE_DEFEATED, SCHEDULE[f"Defeat - {name}"], name)
+        # The Sixes' #2 at Phenac is no longer a location, so nothing schedules it.
+        for name in ("Resix", "Blusix", "Browsix", "Yellosix", "Purpsix", "Greesix"):
+            self.assertNotIn(f"Defeat - {name} #2", SCHEDULE, name)
         self.assertIsNone(story_bytes.REGION_STORY_WINDOW.get("Gateon Port"),
                           "if Gateon ever gains a window, Bost should use it and this override should go")
 
@@ -252,7 +259,11 @@ class TestEarlyIsHarmless(PokemonXDTestBase):
     def test_every_scheduled_check_is_filler_only(self) -> None:
         for location in self.multiworld.get_locations(self.player):
             if location.name in SCHEDULE:
-                self.assertIs(LocationProgressType.EXCLUDED, location.progress_type, location.name)
+                # The one-shots can hold progression now (their check cannot be lost); the rest stay filler.
+                from ..game_data.missable_autosend import AUTO_SEND_ONE_SHOT_INDICES as _auto
+                want = (LocationProgressType.DEFAULT if location.name in set(_auto.values())
+                        else LocationProgressType.EXCLUDED)
+                self.assertIs(want, location.progress_type, location.name)
 
 
 class TestTheSender(unittest.TestCase):

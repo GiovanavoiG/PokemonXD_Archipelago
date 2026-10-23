@@ -48,33 +48,38 @@ class TestTheOptions(unittest.TestCase):
 # --- Nightmare Greevil ---------------------------------------------------------------------------------------
 
 class TestGreevilsFinalFight(unittest.TestCase):
-    def test_it_is_greevils_third_row_and_holds_no_shadows(self):
+    def test_the_final_battle_is_his_second_row_with_six_shadows(self):
         row = next(t for t in TRAINER_ROSTER if t["index"] == NC.GREEVIL_FINAL_TRAINER)
         self.assertEqual("GREEVIL", row["name"])
-        self.assertEqual(3, row["occurrence"])
-        self.assertTrue(all(slot["kind"] == "DPKM" for slot in row["team"]))
-        self.assertIn(NC.GREEVIL_FINAL_TRAINER, NC.nightmare_trainer_indices())
+        self.assertEqual(2, row["occurrence"])
+        self.assertEqual(6, sum(1 for slot in row["team"] if slot["kind"] == "DDPK"))
+        rematch = next(t for t in TRAINER_ROSTER if t["index"] == NC.GREEVIL_REMATCH_TRAINER)
+        self.assertEqual(3, rematch["occurrence"])
+        self.assertTrue(all(slot["kind"] == "DPKM" for slot in rematch["team"]))
+        self.assertEqual(frozenset({200, 201}), NC.NIGHTMARE_GREEVIL_TRAINERS)
+        self.assertLessEqual(NC.NIGHTMARE_GREEVIL_TRAINERS, NC.nightmare_trainer_indices())
 
 
 class TestNightmareGreevil(PokemonXDTestBase):
     options = {"nightmare_greevil": True, "shadow_pokemon_expansion": 20}
 
-    def test_only_greevils_final_fight_takes_a_team(self):
+    def test_greevils_final_battle_and_rematch_take_teams(self):
         world = self.multiworld.worlds[self.player]
-        self.assertEqual([NC.GREEVIL_FINAL_TRAINER], list(world._nightmare_teams))
-        self.assertIn(world._nightmare_teams[NC.GREEVIL_FINAL_TRAINER], NC.TEAM_KEYS)
-        self.assertEqual([], world._nightmare_relocations)
-        self.assertEqual(frozenset(), world._nightmare_removed_dpkm)
-        self.assertEqual(75, world._vanilla_shadow_count)   # RETARGETED BY ADDENDUM 479 (was 83)
+        self.assertEqual(sorted(NC.NIGHTMARE_GREEVIL_TRAINERS), sorted(world._nightmare_teams))
+        for index in NC.NIGHTMARE_GREEVIL_TRAINERS:
+            self.assertIn(world._nightmare_teams[index], NC.TEAM_KEYS)
+        # The final battle's six Shadows move to other trainers rather than leave the seed.
+        self.assertIn(NC.GREEVIL_FINAL_TRAINER, world._shadow_removal_trainers)
+        self.assertNotIn(NC.GREEVIL_LUGIA_TRAINER, world._shadow_removal_trainers)
+        moved = sum(len(plan["shadows"]) for plan in world._nightmare_relocations)
+        self.assertEqual(6, moved)
         seed = _seed(world)
-        self.assertEqual([str(NC.GREEVIL_FINAL_TRAINER)], list(seed["nightmare_citadark_teams"]))
-        self.assertFalse(seed.get("nightmare_shadow_relocations"))
-        # The rest of Citadark Isle can still host expansion Shadows; Greevil's final fight cannot.
+        self.assertEqual(sorted(str(i) for i in NC.NIGHTMARE_GREEVIL_TRAINERS),
+                         sorted(seed["nightmare_citadark_teams"]))
         hosts = {int(plan["trainer_index"]) for plan in seed["new_shadow_pokemon_plans"] or ()}
-        self.assertNotIn(NC.GREEVIL_FINAL_TRAINER, hosts)
-        # Never padded or scaled: a fixed six at level 100.
+        self.assertFalse(hosts & NC.NIGHTMARE_GREEVIL_TRAINERS)
         plan = seed.get("enhanced_difficulty_plan") or {}
-        self.assertNotIn(NC.GREEVIL_FINAL_TRAINER, {s["trainer_index"] for s in plan.get("team_slot_plan", ())})
+        self.assertFalse({s["trainer_index"] for s in plan.get("team_slot_plan", ())} & NC.NIGHTMARE_GREEVIL_TRAINERS)
 
 
 class TestNightmareCitadarkWins(PokemonXDTestBase):
@@ -89,7 +94,7 @@ class TestNightmareCitadarkWins(PokemonXDTestBase):
 
 class TestTheEdits(unittest.TestCase):
     def test_every_level_is_the_trainer_tables(self):
-        dex_of = {373: 366, 374: 367, 375: 368}
+        dex_of = {373: 366, 374: 367, 375: 368, 328: 349, 329: 350}
         for species, _slot, _old, (_method, level, target) in TE.EVOLUTION_EDITS:
             if (species, target) == (79, 80):
                 self.assertEqual((80, 37), NATIONAL_DEX_LEVEL_EVOLUTIONS[79])   # Slowbro keeps its own 37
@@ -239,3 +244,21 @@ class TestTheSeedCarriesFriendship(PokemonXDTestBase):
             world.generate_output(tmp)
             with zipfile.ZipFile(next(Path(tmp).glob("*.appxd"))) as zf:
                 self.assertTrue(json.loads(zf.read("seed.json"))["friendship_evolutions_by_level"])
+
+
+class TestFeebasByLevel(unittest.TestCase):
+    COMMON_REL = Path("/mnt/user-data/uploads/PokemonXD-working/bridge/dumps/a263_commonrel.bin")
+
+    def test_feebas_becomes_milotic_at_30(self):
+        self.assertIn((328, 0, (TE.BEAUTY, 170, 329), (TE.LEVEL, 30, 329)), TE.EVOLUTION_EDITS)
+        self.assertIn((350, 30), TRAINER_EVOLUTIONS[349])
+
+    def test_the_vanilla_entry_is_beauty_170(self):
+        import struct
+
+        if not self.COMMON_REL.exists():
+            self.skipTest("no common_rel dump here")
+        data = self.COMMON_REL.read_bytes()
+        offset = 0x29DA8 + 328 * 0x124 + TE.EVOLUTION_ENTRY_OFFSET
+        method, _pad, condition, target = struct.unpack_from(">BBHH", data, offset)
+        self.assertEqual((TE.BEAUTY, 170, 329), (method, condition, target))

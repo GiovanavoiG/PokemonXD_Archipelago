@@ -30,6 +30,7 @@ TRADE_ITEM = 6
 STONE = 7
 PERSONALITY_LOW = 11      # Silcoon's rule: (PID >> 16) % 10 < 5
 PERSONALITY_HIGH = 12     # Cascoon's rule: >= 5
+BEAUTY = 15               # Feebas: Beauty at least the condition, which nothing in XD can raise
 
 #: (internal species, entry slot, vanilla (method, condition, target), new (method, condition, target)).
 #: Vanilla values read off XD's own species table; each new condition is that species' TRAINER_EVOLUTIONS level.
@@ -47,6 +48,7 @@ EVOLUTION_EDITS: "tuple[tuple[int, int, tuple[int, int, int], tuple[int, int, in
     (79, 1, (TRADE_ITEM, 187, 199), (PERSONALITY_HIGH, 37, 199)),     # Slowpoke -> Slowking, the other half
     (373, 0, (TRADE_ITEM, 192, 374), (PERSONALITY_LOW, 30, 374)),     # Clamperl -> Huntail
     (373, 1, (TRADE_ITEM, 193, 375), (PERSONALITY_HIGH, 30, 375)),    # Clamperl -> Gorebyss
+    (328, 0, (BEAUTY, 170, 329), (LEVEL, 30, 329)),                   # Feebas -> Milotic (Beauty 170)
 )
 
 #: Species that gain a SECOND level-up evolution ahead of them once these are level-ups -- the Candy Box

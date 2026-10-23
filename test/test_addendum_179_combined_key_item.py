@@ -141,11 +141,21 @@ class TestOneItemOpensEverythingBothUsedTo(PokemonXDTestBase):
         requirement, not two, and the rule must have deduped rather than asking for the same item twice."""
         from ..game_data import trainer_roster
 
+        from ..game_data import repeatable_trainers
+
         both = [i for i, p in trainer_placements.PLACEMENTS.items()
                 if set(p.required_items) >= {"Data ROM", "ID Card"}]
         self.assertTrue(both, "expected a census row requiring both")
-        name = trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[both[0]])
-        self.collect_key_item_chain()
+        # That row (Lovrina #1) is a numbered rematch check and no longer a location; its gate reaches the world
+        # through the surname's (Any), which anchors on the same row and goes through the same dedupe.
+        label = trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[both[0]])
+        self.assertIn(label, trainer_roster.REMOVED_DEFEAT_LOCATIONS)
+        row = next(r for r in repeatable_trainers.REPEATABLE_TRAINERS if r["anchor_index"] == both[0])
+        self.assertGreaterEqual(set(row["required_items"]), {"Data ROM", "ID Card"})
+        name = row["location"]
+        self.collect_key_item_chain(1)   # Machine Part: the Cipher Lab is open, the packaged item is not held
+        self.assertFalse(self.can_reach_location(name))
+        self.collect_by_name(items.COMBINED_KEY_ITEM_NAME)
         self.assertTrue(self.can_reach_location(name))
 
     def test_exactly_one_copy_is_in_the_pool(self) -> None:

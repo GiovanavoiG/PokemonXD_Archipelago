@@ -128,7 +128,7 @@ class TestSmallFixes(PokemonXDTestBase):
 
     def test_manifest(self) -> None:
         manifest = json.loads((ROOT / "archipelago.json").read_text(encoding="utf-8"))
-        self.assertEqual("0.1.4", manifest["world_version"])
+        self.assertEqual("0.1.6", manifest["world_version"])
         self.assertNotIn("compatible_version", manifest)
 
     def test_web_world(self) -> None:

@@ -8,15 +8,16 @@ An Archipelago world for the GameCube game *Pokemon XD: Gale of Darkness* (USA, 
 
 | | |
 |---|---|
-| Locations | Up to 1,191 |
+| Locations | About 600 with default options, up to about 700 |
 | Items | 225 (134 of them filler) |
-| YAML options | 49 |
+| YAML options | 74 |
 
 **Check categories**
 
-- **Overworld items** — 95 chests plus some NPC gifts and field pickups.
-- **Trainer defeats** — one check per trainer (231 of the 232-trainer roster), or a cumulative
-  "Defeat N Trainers", depending on the mode you pick.
+- **Overworld items** — 94 chests plus some NPC gifts and field pickups.
+- **Trainer defeats** — one check per trainer, plus a "Defeat X (Any)" for trainers you can fight more than once
+  (only the five forced second fights keep their own numbered check), or a cumulative "Defeat N Trainers",
+  depending on the mode you pick. With Exclude Mt. Battle Trainers off, each Mt. Battle trainer is a check too.
 - **Shadow Pokemon catches** — vanilla roster, plus up to 44 more if you turn on Shadow
   Pokemon Expansion.
 - **Purifications** — "Purify 1 Shadow Pokemon" through "Purify X".
@@ -75,6 +76,8 @@ An Archipelago world for the GameCube game *Pokemon XD: Gale of Darkness* (USA, 
 - **Some areas require other story segments.** Namely, ONBS raid will be triggered upon finishing Pyrite's
   initial storyline (up to being sent away to the pokespots) and fighting Miror B at the Cave Poke spot.
 - **Save states work, but may cause issues if used immediately after a reboot. Feel free to report bugs.**
+- **Escape Rope.** It's always in your Key Items and takes you straight to the world map. Using it in the middle of
+  a story sequence (a cutscene area, the SS Libra, Citadark Isle) can leave the story somewhere it doesn't expect. Save first.
 
 ---
 
@@ -89,6 +92,11 @@ Most are diagnostics prefixed `DEBUG:` in their help text. The ones you are most
 | `/parts` | Robo Kyogre Part progress |
 | `/remaining` | Overworld Item locations you have not checked yet |
 | `/goal` | Force the goal, if you beat it and the check did not send |
+| `/catches` | Where each species can be caught this seed |
+| `/animations on\|off` | Turn move animations on or off, whatever the YAML says |
+| `/toggledeathlink on\|off` | Turn Death Link on or off for this slot |
+| `/pokespots` | Each Poke Spot's snacks, waiting Pokemon and Miror B.'s location |
+| `/missableshadows` | Shadows on missable trainers this seed, and which went to Miror B. |
 
 `/help` lists the rest.
 

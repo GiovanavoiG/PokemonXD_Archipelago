@@ -322,7 +322,29 @@ REFIGHTABLE_FINAL_SHADOW_HOSTS: "frozenset[int]" = frozenset({
 SHADOW_REMATCH_FENCES_RELAXED = True
 
 
-def shadow_expansion_excluded_trainer_indices() -> "frozenset[int]":
+def missable_shadow_host_indices() -> "frozenset[int]":
+    """The missable trainers that may host a Shadow with Missable Trainer Shadows on: every one-shot fight the client
+    sends for you at its area's cap (`missable_autosend.AUTO_SEND_ONE_SHOT_INDICES`). A Shadow left on one when the
+    area closes is handed to Miror B. by the client. Never a fight a Shadow cannot be snagged from, one past the goal,
+    one on Citadark Isle, or one with no region to gate it on."""
+    from . import trainer_placements
+    from .catch_rate_exclusions import citadark_trainer_indices
+    from .missable_autosend import AUTO_SEND_ONE_SHOT_INDICES
+    from .shadow_regions import NO_SNAG_TRAINER_INDICES
+
+    citadark = citadark_trainer_indices()
+    out = set()
+    for index in AUTO_SEND_ONE_SHOT_INDICES:
+        placement = trainer_placements.PLACEMENTS.get(index)
+        if placement is None or not placement.region:
+            continue
+        if index in NO_SNAG_TRAINER_INDICES or index in POST_GOAL_TRAINER_INDICES or index in citadark:
+            continue
+        out.add(index)
+    return frozenset(out)
+
+
+def shadow_expansion_excluded_trainer_indices(allow_missable_hosts: bool = False) -> "frozenset[int]":
     """Trainers that must never receive a generated Shadow Pokemon: a Shadow is a catch location, so its
     trainer must be fightable exactly once and never again. The full un-redoable set, NOT the ADDENDUM 407
     progression fence -- a mandatory rematch may hold an item, but a Shadow on it is still offered twice.
@@ -336,15 +358,16 @@ def shadow_expansion_excluded_trainer_indices() -> "frozenset[int]":
     # Shadow on one is offered once and never infinitely respawned.
     from .missable_indices import CONFIRMED_UNMISSABLE
 
+    allowed = missable_shadow_host_indices() if allow_missable_hosts else frozenset()
     if not SHADOW_REMATCH_FENCES_RELAXED:   # ADDENDUM 461's fence, kept verbatim for a revert
-        return ((frozenset(UNREDOABLE_TRAINER_INDICES) - CONFIRMED_UNMISSABLE)
+        return ((frozenset(UNREDOABLE_TRAINER_INDICES) - CONFIRMED_UNMISSABLE - allowed)
                 | NO_SNAG_TRAINER_INDICES | SAME_TEAM_REMATCH_TRAINER_INDICES | SHADOW_HOST_REFUSED)
     # ADDENDUM 466: rematches may host a Shadow -- a snagged one is no longer rebuilt (ADDENDUM 465).
     # ADDENDUM 487: and the first fights whose second fight always carries the mirror (`shadow_mirrors`).
     from .shadow_mirrors import mirrored_host_rows
 
     return ((frozenset(UNREDOABLE_TRAINER_INDICES) - CONFIRMED_UNMISSABLE - REFIGHTABLE_FINAL_SHADOW_HOSTS
-             - mirrored_host_rows())
+             - mirrored_host_rows() - allowed)
             | NO_SNAG_TRAINER_INDICES)
 
 

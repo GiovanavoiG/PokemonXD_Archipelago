@@ -92,8 +92,9 @@ class TestTheMandatoryRematchesCount(unittest.TestCase):
     """Labels fire on the Nth distinct team, and a missable fight's team still counts toward N.
 
     ADDENDUM 409: Aferd was this class's example (#1 missable, #2-#5 mandatory). Aferd's rematches
-    were then removed, so his queue is empty and his wins check nothing off. The 406 principle is now shown on
-    Laken, who was left alone: #1 is missable and gone, #2 and #3 are mandatory and queued."""
+    were then removed, so his queue is empty and his wins check nothing off. Laken's #2 and #3 have since gone the
+    same way (numbered rematch checks are removed outside the forced second fights), so his queue is empty too and
+    his wins check off no numbered label."""
 
     QUEUE = {
         "AFERD": trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["AFERD"],
@@ -113,7 +114,11 @@ class TestTheMandatoryRematchesCount(unittest.TestCase):
         self.assertEqual([], self.QUEUE["AFERD"])
         for n in (2, 3, 4, 5):
             self.assertIn(f"Defeat - Aferd #{n}", trainer_roster.RULED_OUT_DEFEAT_LOCATIONS)
-        self.assertEqual(["Defeat - Laken #2", "Defeat - Laken #3"], self.QUEUE["LAKEN"])
+        # Numbered rematch checks are removed for Laken too (no forced second fight): his queue is empty and his
+        # (Any) is the check.
+        self.assertEqual([], self.QUEUE["LAKEN"])
+        for n in (2, 3):
+            self.assertIn(f"Defeat - Laken #{n}", trainer_roster.NUMBERED_REMATCH_DEFEAT_LOCATIONS)
         self.assertIn("Defeat - Laken #1", trainer_roster.REMOVED_MISSABLE_DEFEAT_LOCATIONS)
 
     def test_aferds_wins_check_nothing_off_now(self) -> None:
@@ -148,7 +153,8 @@ class TestWhatTheDataRomGates(PokemonXDTestBase):
         state.sweep_for_advancements()
         blocked = {l.name for l in self.multiworld.get_locations(self.player)
                    if l.address is not None and not l.can_reach(state)}
-        for name in ("Defeat - Lovrina #1", "Lovrina Defeat Item", "Cipher Lab Krane Chest", "Defeat - Naps #2"):
+        # Lovrina #1 is no longer a location; her (Any) anchors on that fight and carries its gate.
+        for name in ("Defeat Lovrina (Any)", "Lovrina Defeat Item", "Cipher Lab Krane Chest", "Defeat - Naps #2"):
             self.assertIn(name, blocked, name)
         self.assertTrue(state.can_reach("Cipher Lab", player=self.player))
         region_of = {l: self.multiworld.get_location(l, self.player).parent_region.name for l in blocked}

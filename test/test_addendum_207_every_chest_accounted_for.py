@@ -57,6 +57,8 @@ class TestEveryChestIsInExactlyOneBucket(unittest.TestCase):
         if (chest["item"] >= xd_rel_format.KEY_ITEM_ID_FLOOR
                 and cid not in key_item_chests.SHUFFLED_KEY_ITEM_CHESTS):
             reasons.append("key item")
+        if cid in chest_regions.NON_ITEM_CHESTS:
+            reasons.append("no item")
         return reasons
 
     def test_every_chest_is_either_a_location_or_has_a_stated_reason(self) -> None:
@@ -73,8 +75,8 @@ class TestEveryChestIsInExactlyOneBucket(unittest.TestCase):
         locations = [c for c in chest_table.CHESTS if c["chest"] in ram_client.CHEST_ID_TO_LOCATION]
         fenced = [c for c in chest_table.CHESTS if c["chest"] not in ram_client.CHEST_ID_TO_LOCATION]
         self.assertEqual(REAL_CHEST_COUNT, len(locations) + len(fenced))
-        self.assertEqual(95, len(locations))
-        self.assertEqual(20, len(fenced))
+        self.assertEqual(94, len(locations))   # chest 113 is a non-item box (chest_regions.NON_ITEM_CHESTS)
+        self.assertEqual(21, len(fenced))
 
     def test_the_excluded_rooms_are_the_two_known_ones(self) -> None:
         self.assertEqual({145, 175}, set(chest_regions.EXCLUDED_ROOMS))
@@ -96,22 +98,28 @@ class TestTheLocationCountReconciles(unittest.TestCase):
         113 share flag id 1149 and ADDENDUM 172 collapsed them into one row rather than risk crediting the
         wrong one. ADDENDUM 218 took the flag array out of identity entirely -- the two chests are in
         different rooms holding different berries -- so the merge was costing a real check for a reason that
-        no longer applies. One chest, one location, no exceptions."""
-        self.assertEqual(95, world_locations.CHEST_LOCATION_COUNT)
-        self.assertEqual(95, len(ram_client.CHEST_ID_TO_LOCATION))
-        self.assertEqual(95, len(set(ram_client.CHEST_ID_TO_LOCATION.values())),
-                         "every chest must now have a location of its own")
-        self.assertNotEqual(ram_client.CHEST_ID_TO_LOCATION[108], ram_client.CHEST_ID_TO_LOCATION[113])
+        no longer applies.
+
+        Chest 113 has since left the table: it shares 108's flag and the game only ever hands out one item between
+        them (`chest_regions.NON_ITEM_CHESTS`), so 94 chests become 94 locations."""
+        self.assertEqual(94, world_locations.CHEST_LOCATION_COUNT)
+        self.assertEqual(94, len(ram_client.CHEST_ID_TO_LOCATION))
+        self.assertEqual(94, len(set(ram_client.CHEST_ID_TO_LOCATION.values())),
+                         "every chest must have a location of its own")
+        self.assertIn(108, ram_client.CHEST_ID_TO_LOCATION)
+        self.assertNotIn(113, ram_client.CHEST_ID_TO_LOCATION)
 
     def test_the_split_pair_kept_one_id_and_minted_one(self) -> None:
-        """108 keeps the merged pair's frozen id so existing seeds still point at the same check; 113 is a
-        genuinely new location and takes a fresh id above everything that existed."""
+        """108 keeps the merged pair's frozen id so existing seeds still point at the same check; 113's id stays
+        reserved in the frozen table, unused, now that 113 is not a location."""
         # The generated names were replaced by hand-written labels in ADDENDUM 230; the IDS are what this
         # test is about, and they are unchanged by a rename -- which is the whole point of the frozen table.
         self.assertEqual(world_locations.LOCATION_TABLE["Kaminko Crane Room Chest 1"].id_offset, 1520)
         self.assertEqual(world_locations._FROZEN_LOCATION_OFFSETS["Chest 108+113 (Room 171)"], 1520,
                          "the retired merged name stays listed as a tombstone -- ids are never recycled")
-        self.assertEqual(world_locations.LOCATION_TABLE["Kaminko Crane Room Chest 2"].id_offset, 1656)
+        self.assertEqual(world_locations._FROZEN_LOCATION_OFFSETS["Kaminko Crane Room Chest 2"], 1656)
+        self.assertNotIn("Kaminko Crane Room Chest 2", world_locations.LOCATION_TABLE)
+        self.assertNotIn(1656, {data.id_offset for data in world_locations.LOCATION_TABLE.values()})
 
     def test_every_chest_location_has_an_id_and_a_region(self) -> None:
         for name in world_locations.CHEST_LOCATION_NAMES:

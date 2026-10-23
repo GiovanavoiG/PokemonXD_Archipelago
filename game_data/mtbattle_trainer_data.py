@@ -220,3 +220,26 @@ def mtbattle_team_census() -> list[dict] | None:
             "member_levels": member_levels,
         })
     return census
+
+
+# Mt. Battle defeat checks: one per trainer 4-100 when Exclude Mt. Battle Trainers is off. Trainers 1-3 are the story
+# fights MIRU / CRIDEL / BARDO, which already have checks. Ids are frozen from MT_BATTLE_CHECK_ID_BASE in trainer
+# order, so the table never shifts.
+MT_BATTLE_CHECK_TRAINER_INDICES: "tuple[int, ...]" = tuple(range(4, MT_BATTLE_TOTAL_TRAINER_COUNT + 1))
+MT_BATTLE_CHECK_ID_BASE = 1787
+MT_BATTLE_CHECK_PREFIX = "Mt. Battle - Defeat "
+
+
+def mt_battle_defeat_location_name(trainer_index: int) -> str:
+    return f"{MT_BATTLE_CHECK_PREFIX}{MT_BATTLE_TRAINER_NAMES[trainer_index].title()}"
+
+
+MT_BATTLE_DEFEAT_LOCATION_NAMES: "tuple[str, ...]" = tuple(
+    mt_battle_defeat_location_name(i) for i in MT_BATTLE_CHECK_TRAINER_INDICES)
+
+# SURNAME -> [location], the dispatch-queue shape the client's defeat tracker reads.
+MT_BATTLE_SURNAME_TO_LOCATION_QUEUE: "dict[str, list[str]]" = {
+    MT_BATTLE_TRAINER_NAMES[i]: [mt_battle_defeat_location_name(i)] for i in MT_BATTLE_CHECK_TRAINER_INDICES}
+
+assert set(MT_BATTLE_SURNAME_TO_LOCATION_QUEUE) == set(MT_BATTLE_ONLY_SURNAMES)
+assert len(set(MT_BATTLE_DEFEAT_LOCATION_NAMES)) == len(MT_BATTLE_CHECK_TRAINER_INDICES)

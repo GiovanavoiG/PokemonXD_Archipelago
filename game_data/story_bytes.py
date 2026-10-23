@@ -55,6 +55,8 @@ TRANSITIONS: "tuple[StoryTransition, ...]" = (
                     note="READ FROM THE GAME, not played: D1_out's `brother_enter` ends with write(964, 320). "
                          "Observed play independently records 0x28 as 'first Cipher Lab visit, "
                          "pre-six-battle'"),
+    StoryTransition(0x28, 0x2B, "Lovrina defeated -- the Cipher Lab cleared"),
+    StoryTransition(0x2B, 0x2D, "the Purify Chamber unlocked, in the HQ Lab"),
     StoryTransition(0x2F, 0x30, "Pyrite Town unlocked / first visit", requires=("Data ROM",),
                     opens_regions=("Pyrite Town",)),
     StoryTransition(0x34, 0x35, "Data ROM handed over in Pyrite Town -- Rock Poke Spot unlocked",
@@ -385,6 +387,11 @@ AREA_FLOOR_RULES: "tuple[AreaFloorRule, ...]" = (
                   # the lab 0x0F on arrival, so the rule reduced to "Gateon reached 0x16".
                   "Machine Part obtained in Gateon AND the lab past the Snag Machine (0x0F) -- "
                   "Krane Memo 3-5 tier"),
+
+    # The Cipher Lab is cleared (0x2B), so the lab's next visit plays the Purify Chamber scene (0x2B -> 0x2D).
+    AreaFloorRule("Pokemon HQ Lab", 0x2B,
+                  (("Cipher Lab", 0x2B),),
+                  "the Cipher Lab is cleared -- the HQ Lab's Purify Chamber scene"),
 
     # Phenac is finished (0x4C -> 0x4E opened the stranded SS Libra) and the scooter exists, so returning to
     # Gateon is the Nett/Perr errand rather than the opening visit.

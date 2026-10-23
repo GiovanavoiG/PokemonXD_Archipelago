@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from BaseClasses import Location, LocationProgressType, Region
 
 from . import species, trainer_defeat, travel_locations
-from .game_data import missable_trainers, shops, trainer_placements, trainer_roster
+from .game_data import missable_trainers, mtbattle_trainer_data, shops, trainer_placements, trainer_roster
 
 
 class PokemonXDLocation(Location):
@@ -500,6 +500,11 @@ assert len(_TRAINER_REGION_BY_LOCATION) + len(_UNPLACED_TRAINER_LOCATION_NAMES) 
 _MISSABLE_TRAINER_LOCATION_NAMES: frozenset = frozenset(
     missable_trainers.filler_only_trainer_location_names()
 ) | frozenset(_UNPLACED_TRAINER_LOCATION_NAMES)
+# A missable one-shot the client sends for you at its area's story cap can never be lost, so it may hold progression:
+# its check goes out when the fight is won or when the area closes, whichever comes first.
+from .game_data.missable_autosend import AUTO_SEND_ONE_SHOT_INDICES as _AUTO_SENT  # noqa: E402
+
+_MISSABLE_TRAINER_LOCATION_NAMES = _MISSABLE_TRAINER_LOCATION_NAMES - frozenset(_AUTO_SENT.values())
 
 
 # ADDENDUM 185: the same fence for the 66 named locations, which were never fenced because the set above is
@@ -706,8 +711,6 @@ LOCATIONS_BY_REGION: dict[str, list[str]] = {
         # reachable area in XD, unlike Colosseum. Never reassigned. Meda's Ether below is a second, distinct
         # Cipher Lab pickup found alongside Digor's.
         "Cipher Lab - Meda's Ether",
-        # ADDENDUM 153 -- the two memos the game hands over at story byte 0x10.
-        *[krane_memo_location_name(n) for n in (1, 2)],
     ],
     "Phenac City": [
         "Phenac City - Stadium Item",
@@ -716,8 +719,6 @@ LOCATIONS_BY_REGION: dict[str, list[str]] = {
         "Phenac City - Shop Ledge",
         # RENAMED 2026-09-03 per verification: this is an NPC-given Music Disc fetch-quest item, not a box.
         "Phenac City - Pre-Gym Building (Music Disc)",
-        # ADDENDUM 153 -- the three memos the game hands over at story byte 0x17.
-        *[krane_memo_location_name(n) for n in (3, 4, 5)],
     ],
     "Pyrite Town": [
         "Pyrite Town - Duel Square Item",
@@ -893,6 +894,12 @@ _REBUCKET_BY_NAME: dict[str, str] = {
     # "Pokemon Storage", the right bucket for a live trigger and the wrong answer to "where is this obtained".
 }
 
+# The five Krane Memos are handed over in the HQ Lab: 1 and 2 at the first return, 3-5 once the Machine Part is
+# delivered or the Cipher Lab is cleared (`rules._set_krane_memo_rules`).
+for _memo in range(1, KRANE_MEMO_COUNT + 1):
+    _REBUCKET_BY_NAME[krane_memo_location_name(_memo)] = "Pokemon HQ Lab"
+del _memo
+
 # Resolved through the species helper rather than typed, so the names cannot drift from the generated table.
 _REBUCKET_BY_NAME[species.location_name_for_species(133)] = "Pokemon HQ Lab"   # Catch - Eevee, the gift
 _REBUCKET_BY_NAME[EEVEELUTION_LOCATION_NAME] = "Gateon Port"
@@ -917,6 +924,12 @@ for _region_name, _location_names in repeatable_trainers.LOCATIONS_BY_REGION.ite
 
 # Exact membership, never a prefix test -- see the `is_any_defeat` comment in create_regions_and_locations.
 _ANY_DEFEAT_NAME_SET: "frozenset[str]" = frozenset(repeatable_trainers.LOCATION_NAMES)
+_MT_BATTLE_DEFEAT_NAME_SET: "frozenset[str]" = frozenset(mtbattle_trainer_data.MT_BATTLE_DEFEAT_LOCATION_NAMES)
+LOCATIONS_BY_REGION.setdefault("Mt. Battle", []).extend(mtbattle_trainer_data.MT_BATTLE_DEFEAT_LOCATION_NAMES)
+# Perr hands over the Machine Part at the Gateon parts shop (the story's 0x15 -> 0x16).
+PERR_MACHINE_PART_LOCATION_NAME = "Gateon Port - Perr's Machine Part"
+PERR_MACHINE_PART_ID_OFFSET = 1884
+LOCATIONS_BY_REGION.setdefault("Gateon Port", []).append(PERR_MACHINE_PART_LOCATION_NAME)
 
 # ADDENDUM 237/335: retire the Overworld Items that duplicate a per-chest location or were never real. The
 # region lists above are left exactly as written, as the record of where these names came from; what changes is
@@ -980,6 +993,8 @@ EVENT_LOCATION_NAME = "Citadark Isle - Defeat Cipher Boss"
 # ADDENDUM 483 (issue #1): the Mt. Battle goal's own event, used instead of the one above when `goal` is Win Mt Battle.
 # Never in LOCATIONS_BY_REGION, so it has no id and touches no frozen numbering.
 MT_BATTLE_EVENT_LOCATION_NAME = "Mt. Battle - Defeat the Final Trainer"
+#: Greevil beaten, whatever the goal: what the post-Greevil Shadows wait on (shadow_regions.POST_GOAL_EVENT_ITEM).
+GREEVIL_DEFEATED_EVENT_LOCATION_NAME = "Citadark Isle - Greevil Defeated"
 LOCATION_TABLE: dict[str, LocationData] = {
     name: data for name, data in _ALL_LOCATIONS.items() if name != EVENT_LOCATION_NAME
 }
@@ -2547,6 +2562,12 @@ _FROZEN_LOCATION_OFFSETS: dict[str, int] = {
 # ADDENDUM 415: Purify 33..127, frozen to 1692..1786 -- a literal base, so a later addition cannot shift them.
 for _n in range(33, PURIFICATION_LOCATION_COUNT + 1):
     _FROZEN_LOCATION_OFFSETS[purification_location_name(_n)] = 1692 + (_n - 33)
+# Mt. Battle's trainers 4-100, frozen from 1787 in trainer order.
+for _i, _name in zip(mtbattle_trainer_data.MT_BATTLE_CHECK_TRAINER_INDICES,
+                     mtbattle_trainer_data.MT_BATTLE_DEFEAT_LOCATION_NAMES):
+    _FROZEN_LOCATION_OFFSETS[_name] = mtbattle_trainer_data.MT_BATTLE_CHECK_ID_BASE + (_i - 4)
+del _i, _name
+_FROZEN_LOCATION_OFFSETS[PERR_MACHINE_PART_LOCATION_NAME] = PERR_MACHINE_PART_ID_OFFSET
 
 
 def _freeze_offsets(table: "dict[str, LocationData]", frozen: dict[str, int]) -> "dict[str, LocationData]":
@@ -2591,7 +2612,9 @@ LOCATION_NAME_GROUPS: dict[str, set[str]] = {
         and not _is_trainer_defeat_count_name(name)
         and not is_shop_location(name)
         and name != "Outskirt Stand - Eevee Gift"
+        and not name.startswith(mtbattle_trainer_data.MT_BATTLE_CHECK_PREFIX)
     },
+    "Mt. Battle Trainers": set(mtbattle_trainer_data.MT_BATTLE_DEFEAT_LOCATION_NAMES),
     "Species Catches": {name for name in LOCATION_TABLE if name.startswith("Catch - ")},
     "Shadow Purifications": {name for name in LOCATION_TABLE if name.startswith("Purify ")},
     # Exact sets rather than prefix scans, for the reason above.
@@ -2655,6 +2678,12 @@ def create_regions_and_locations(world) -> dict[str, Region]:
     # ADDENDUM 453: the Ability Swap's line sells it in every seed, so it is never a check.
     grind_lines = grind_lines | {ability_patch_shop_location_name()}
     include_trainer_defeats = bool(world.options.shuffle_trainer_defeats)
+    exclude_mt_battle = bool(getattr(world.options, "exclude_mt_battle_trainers", 1))
+    # The first N Mt. Battle trainers may hold progression; the final one never does with the Mt. Battle goal.
+    _mt_names = list(mtbattle_trainer_data.MT_BATTLE_DEFEAT_LOCATION_NAMES)
+    if int(getattr(world.options, "goal", 0)) == 1:
+        _mt_names = _mt_names[:-1]
+    mt_battle_progression = frozenset(_mt_names[:int(getattr(world.options, "mt_battle_progression_checks", 0))])
     # ADDENDUM 457: everything Miror B. -- his defeats and the Shadows his teams carry -- is filler-only.
     miror_b_locations = miror_b_filler_location_names(world) - {guaranteed_location, EEVEELUTION_LOCATION_NAME}
     # ADDENDUM 415: "add an option (above the purification number count) to turn purifications as a whole on or
@@ -2707,6 +2736,7 @@ def create_regions_and_locations(world) -> dict[str, Region]:
             # An exact set test: `is_trainer_defeat_named` tests "Defeat - " WITH the dash and these
             # deliberately have none, so a prefix test would be one character from the wrong category.
             is_any_defeat = location_name in _ANY_DEFEAT_NAME_SET
+            is_mt_battle_defeat = location_name in _MT_BATTLE_DEFEAT_NAME_SET
             # ADDENDUM 176: an exact set, not the retired "Buy Shop Item - " prefix.
             is_shop_purchase = is_shop_location(location_name)
             # Species catches and purifications are always included. Chests have their own toggle; both
@@ -2731,6 +2761,10 @@ def create_regions_and_locations(world) -> dict[str, Region]:
                 if pit_stop_shop is not None and SHOP_LOCATION_TO_SHOP_AND_SLOT[location_name][0].name == pit_stop_shop:
                     continue
                 if location_name in grind_lines:
+                    continue
+            elif is_mt_battle_defeat:
+                # Unique mode's, like the (Any) checks, and only with Mt. Battle's trainers not excluded.
+                if not (include_trainer_defeats and unique_trainer_defeats) or exclude_mt_battle:
                     continue
             elif is_any_defeat:
                 # ADDENDUM 414: "Cumulative mode ... should just be a tally" -- the (Any) checks are unique mode's.
@@ -2795,6 +2829,10 @@ def create_regions_and_locations(world) -> dict[str, Region]:
                     location.progress_type = LocationProgressType.EXCLUDED
                     region.locations.append(location)
                     continue
+            if is_mt_battle_defeat and location_name not in mt_battle_progression:
+                location.progress_type = LocationProgressType.EXCLUDED
+                region.locations.append(location)
+                continue
             if is_unique_trainer_defeat and location_name in _MISSABLE_TRAINER_LOCATION_NAMES:
                 location.progress_type = LocationProgressType.EXCLUDED
                 region.locations.append(location)

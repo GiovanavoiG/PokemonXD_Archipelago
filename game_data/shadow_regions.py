@@ -221,19 +221,26 @@ def _greevil_only_ddpks() -> "frozenset[int]":
     return frozenset(ddpk for ddpk, rows in rows_by_ddpk.items() if rows and set(rows) <= GREEVIL_SHADOW_ROWS)
 
 
-#: The event item the game's goal awards (regions.py), required on top of a post-goal Shadow's gate.
-POST_GOAL_EVENT_ITEM = "Victory"
+#: The event item Greevil's defeat awards (regions.py), required on top of a post-Greevil Shadow's gate. Not
+#: "Victory": with the Mt. Battle goal that is the Mt. Battle win.
+POST_GOAL_EVENT_ITEM = "Greevil Defeated"
 
 
 @functools.lru_cache(maxsize=1)
 def shadow_carriers() -> "dict[int, tuple[int, ...]]":
-    """ddpk_index -> every Story-deck trainer row carrying it, ascending."""
+    """ddpk_index -> every Story-deck trainer row carrying it, ascending. The Sixes' Phenac rows are not carriers: the
+    patch makes their Shadow slot an ordinary Pokemon (`shadow_mirrors.SIXES_PHENAC_SHADOW_SLOTS`), so those Shadows
+    are only ever snagged at the Cipher Lab."""
     from . import load_json_data_file
+    from .shadow_mirrors import SIXES_PHENAC_SHADOW_SLOTS
 
+    not_carried = set(SIXES_PHENAC_SHADOW_SLOTS)
     out: "dict[int, list[int]]" = {}
     for trainer in load_json_data_file("deckdata_story_trainers.json") or []:
         for slot in trainer.get("team", []):
             if slot.get("kind") == "DDPK" and slot.get("ddpk_index") is not None:
+                if (int(trainer["index"]), int(slot["ddpk_index"])) in not_carried:
+                    continue
                 out.setdefault(int(slot["ddpk_index"]), []).append(int(trainer["index"]))
     return {ddpk: tuple(sorted(set(rows))) for ddpk, rows in out.items()}
 

@@ -361,10 +361,12 @@ class AdjacencyRequirement:
 
 
 TRAVEL_LOCATION_ADJACENCY: dict[str, AdjacencyRequirement] = {
+    # The Outskirt Stand sits far out on the map; it is reached from a place near it: the Cave Poke Spot, Pyrite Town,
+    # the Snagem Hideout, Phenac City, Realgam Tower or the Cipher Key Lair.
     "Outskirt Stand": AdjacencyRequirement(
         # ADDENDUM 177: "Cave Poke Spot" folded into the "Poke Spots" unlock, so the group's item is the sibling.
         sibling_items=("Poke Spots", "Snagem Hideout"),
-        regions=("Pyrite Town",),
+        regions=("Pyrite Town", "Phenac City", "Realgam Tower", "Cipher Key Lair (exterior)", "Cipher Key Lair"),
     ),
     # ADDENDUM 324 moved SS Libra's entry to TRAVEL_LOCATION_REQUIRED_REGIONS below. It was
     # `AdjacencyRequirement(regions=("Phenac City",))`, which had no teeth for the reason stated above.

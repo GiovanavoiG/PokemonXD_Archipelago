@@ -60,7 +60,9 @@ class TestVanillaTravel(_Measured):
             checked += 1
             self.assertFalse(location.can_reach(state), location.name)
             self.assertTrue(location.can_reach(everything), location.name)
-        self.assertGreater(checked, 180)    # ADDENDUM 435: Citadark's locations no longer counted
+        # ADDENDUM 435: Citadark's locations no longer counted. 179 once the numbered rematch checks (the Sixes'
+        # #2 at Phenac, Miror B. #2, ...) left the location table.
+        self.assertGreaterEqual(checked, 179)
 
     def test_the_machine_part_and_the_rom_open_the_town(self) -> None:
         state = CollectionState(self.multiworld)

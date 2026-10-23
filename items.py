@@ -482,6 +482,7 @@ _TRAP_SPECS: list[tuple[str, ItemClassification, int | None, bool]] = [
 KEY_ITEMS = _table(_KEY_ITEM_SPECS, 0)
 STONE_ITEMS = _table(_STONE_SPECS, len(KEY_ITEMS))
 MASTER_BALL_ITEM = _table(_MASTER_BALL_SPEC, len(KEY_ITEMS) + len(STONE_ITEMS))
+TRAVEL_UNLOCK_POKE_SPOTS_ITEM_NAME = travel_locations.travel_unlock_item_name("Poke Spots")
 TRAVEL_UNLOCK_ITEMS = _table(
     _TRAVEL_UNLOCK_SPECS, len(KEY_ITEMS) + len(STONE_ITEMS) + len(MASTER_BALL_ITEM)
 )
@@ -1083,11 +1084,28 @@ def filler_category_weights(world) -> "dict[str, int]":
     return out
 
 
+MASTER_BALL_ITEM_NAME = "Master Ball"
+
+
+def master_ball_filler_weight(world) -> int:
+    """The extra-Master-Ball share of the filler draw: 0 unless Single Master Ball is off."""
+    options = getattr(world, "options", None)
+    single = getattr(options, "single_master_ball", None)
+    weight = getattr(options, "filler_weight_master_ball", None)
+    if single is None or weight is None or bool(single.value):
+        return 0
+    return int(weight.value)
+
+
 def get_random_filler_item_name(world) -> str:
     """Category by weight, then a name in it uniformly -- see FILLER CATEGORIES above. `world.random` is the
     world's own seeded RNG, so a seed stays reproducible."""
     weights = filler_category_weights(world)
     live = [(key, names) for key, names in FILLER_CATEGORIES if names and weights[key] > 0]
+    master_weight = master_ball_filler_weight(world)
+    if master_weight > 0:
+        live.append(("master_ball", (MASTER_BALL_ITEM_NAME,)))
+        weights = dict(weights, master_ball=master_weight)
     if not live:
         return FILLER_FALLBACK_ITEM_NAME
     _key, names = world.random.choices(live, weights=[weights[key] for key, _n in live], k=1)[0]

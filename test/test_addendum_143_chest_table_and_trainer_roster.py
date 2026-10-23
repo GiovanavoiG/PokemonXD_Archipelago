@@ -79,8 +79,9 @@ class TestChestTable(unittest.TestCase):
         # ADDENDUM 177: plus the five fenced chests KeyItemShuffle converts -- see test_addendum_134.
         from ..game_data import key_item_chests
 
+        # Minus the non-item boxes (chest_regions.NON_ITEM_CHESTS: chest 113 shares 108's flag).
         self.assertEqual(len(chest_table.CHESTS) - len(fenced) - len(in_dropped_rooms)
-                         + len(key_item_chests.SHUFFLED_KEY_ITEM_CHESTS),
+                         + len(key_item_chests.SHUFFLED_KEY_ITEM_CHESTS) - len(chest_regions.NON_ITEM_CHESTS),
                          locations.CHEST_COVERED_CHEST_COUNT)
 
 

@@ -122,7 +122,7 @@ class TestWhichChestsQualify(unittest.TestCase):
                  or chest_id in key_item_chests.SHUFFLED_KEY_ITEM_CHESTS)
         }
         self.assertEqual(set(locations.CHEST_ID_TO_LOCATION), expected)
-        self.assertEqual(len(expected), 95)
+        self.assertEqual(len(expected), 94)   # chest 113 is a non-item box (chest_regions.NON_ITEM_CHESTS)
 
     def test_the_key_item_chests_outside_the_177_exception_are_still_not_locations(self) -> None:
         """ADDENDUM 134 exists because overwriting the ID Card deleted it from a seed and softlocked a live run.
@@ -161,24 +161,28 @@ class TestTheFormerlySharedFlagPair(unittest.TestCase):
     SPLIT AGAIN 2026-09-15 (ADDENDUM 224: 108 and 113 are split). ADDENDUM 218 took the flag array out
     of identity entirely: 108 is in room 171 and 113 in room 172, they hold different berries, and
     (room, berry) names each one exactly. The reason for the merge is gone, so the merge is gone -- and the
-    danger it guarded against is gone with it, because opening 108 can no longer credit 113."""
+    danger it guarded against is gone with it, because opening 108 can no longer credit 113.
 
-    def test_they_are_two_locations_again(self) -> None:
-        self.assertNotEqual(locations.CHEST_ID_TO_LOCATION[108], locations.CHEST_ID_TO_LOCATION[113])
+    Chest 113 is now a non-item box (`chest_regions.NON_ITEM_CHESTS`): it shares 108's flag and the game only
+    ever hands out one item between them, so only 108 is a location."""
+
+    def test_only_108_is_a_location(self) -> None:
+        self.assertIn(108, locations.CHEST_ID_TO_LOCATION)
+        self.assertNotIn(113, locations.CHEST_ID_TO_LOCATION)
+        self.assertIn(113, chest_regions.NON_ITEM_CHESTS)
 
     def test_every_chest_now_has_its_own_location(self) -> None:
         """The gap used to be exactly 1, and that 1 was this pair. There is no gap now."""
         self.assertEqual(locations.CHEST_COVERED_CHEST_COUNT - locations.CHEST_LOCATION_COUNT, 0)
-        self.assertEqual(locations.CHEST_COVERED_CHEST_COUNT, 95)
-        self.assertEqual(locations.CHEST_LOCATION_COUNT, 95)
+        self.assertEqual(locations.CHEST_COVERED_CHEST_COUNT, 94)
+        self.assertEqual(locations.CHEST_LOCATION_COUNT, 94)
 
     def test_each_is_filed_in_its_own_rooms_region(self) -> None:
-        """Under the merge, the location had to sit in the EARLIER region, because the shared bit could be set
-        from either room. Split, each one is filed where its own chest actually is."""
-        for chest_id in (108, 113):
-            name = locations.CHEST_ID_TO_LOCATION[chest_id]
-            self.assertEqual(locations.CHEST_LOCATION_TO_REGION[name],
-                             chest_regions.CHEST_TO_REGION[chest_id], chest_id)
+        """108 is filed where its own chest actually is; 113 has no region because it is not a location."""
+        name = locations.CHEST_ID_TO_LOCATION[108]
+        self.assertEqual(locations.CHEST_LOCATION_TO_REGION[name], chest_regions.CHEST_TO_REGION[108])
+        self.assertNotIn(113, chest_regions.CHEST_TO_REGION)
+        self.assertIn(113, chest_regions.EXCLUDED_CHESTS)
 
     def test_opening_one_cannot_credit_the_other(self) -> None:
         """The real safety property the merge existed to provide, now provided by the berry instead: the two
@@ -193,8 +197,9 @@ class TestTheFormerlySharedFlagPair(unittest.TestCase):
                             chest_berries.chest_for(172, berry_113))
 
     def test_the_client_and_the_world_agree_on_both_names(self) -> None:
-        for chest_id in (108, 113):
-            self.assertEqual(rc.CHEST_ID_TO_LOCATION[chest_id], locations.CHEST_ID_TO_LOCATION[chest_id])
+        self.assertEqual(rc.CHEST_ID_TO_LOCATION[108], locations.CHEST_ID_TO_LOCATION[108])
+        self.assertNotIn(113, rc.CHEST_ID_TO_LOCATION)
+        self.assertNotIn(113, locations.CHEST_ID_TO_LOCATION)
 
 
 class TestTheClientAndTheWorldAgree(unittest.TestCase):

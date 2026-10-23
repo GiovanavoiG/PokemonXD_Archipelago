@@ -13,7 +13,9 @@ from . import travel_locations
 from . import items
 from .items import PokemonXDItem, ItemClassification
 from .locations import (PokemonXDLocation, LOCATIONS_BY_REGION, EVENT_LOCATION_NAME, MT_BATTLE_EVENT_LOCATION_NAME,
+                        GREEVIL_DEFEATED_EVENT_LOCATION_NAME,
                         create_regions_and_locations)
+from .game_data.shadow_regions import POST_GOAL_EVENT_ITEM as GREEVIL_DEFEATED_EVENT_ITEM
 
 # The gates are the key items and the story order (game_data/story_bytes.py, game_data/key_items.py).
 REGION_EDGES: "tuple[tuple[str, str, tuple[str, ...]], ...]" = (
@@ -200,7 +202,12 @@ def create_and_connect_regions(world) -> None:
         travel_locations.travel_item_by_sibling_region() if travel_shuffle else {}
     )
 
+    start_with_spots = bool(getattr(world.options, "start_with_poke_spots", 0))
     for source, target, required in REGION_EDGES:
+        # Start With Miror Radar and Poke Spots: the spots open from the start (below), so the ONBS raid keeps its
+        # Pyrite requirement by coming off Pyrite Town directly.
+        if start_with_spots and (source, target) == ("Poke Spots", "Pyrite Town (ONBS)"):
+            source = "Pyrite Town"
         if target in gateway_only:
             carried = _required_items(required, target)
             if carried:
@@ -227,6 +234,9 @@ def create_and_connect_regions(world) -> None:
             origin.connect(regions[target], name=f"{source} -> {target}")
         else:
             origin.connect(regions[target], name=f"{source} -> {target}", rule=rule)
+
+    if start_with_spots:
+        menu.connect(regions["Poke Spots"], name="Menu -> Poke Spots (start)")
 
     # Checked live by the client when it detects a species, not by walking anywhere, so it hangs off Menu.
     menu.connect(regions["Pokemon Storage"], name="Menu -> Pokemon Storage")
@@ -267,6 +277,12 @@ def create_and_connect_regions(world) -> None:
         # in the pool, and took four passes to settle. A hard prerequisite
         # (`TRAVEL_LOCATION_REQUIRED_REGIONS`) is an AND -- one entrance, sourced there; an adjacency
         # (`TRAVEL_LOCATION_ADJACENCY`) is an OR -- one entrance per branch.
+        def _gateway_has_all(state, names, player=world.player):
+            for one in names:
+                if not state.has(one, player):
+                    return False
+            return True
+
         for name, target_region_name in travel_locations.TRAVEL_LOCATION_TARGET_REGION.items():
             gateway = Region(f"Travel Gateway - {name}", world.player, world.multiworld)
             world.multiworld.regions.append(gateway)
@@ -284,16 +300,11 @@ def create_and_connect_regions(world) -> None:
             carried_items = gateway_extra_items.get(target_region_name, ())
             base_source = regions[required_regions[0]] if required_regions else menu
 
-            def _has_all(state, names):
-                for one in names:
-                    if not state.has(one, world.player):
-                        return False
-                return True
-
-            def _entry_rule(extra_any=()):
+            def _entry_rule(extra_any=(), item_name=item_name, carried_items=carried_items):
                 """Hold the unlock item, plus whatever the suppressed chain edge required, plus (when given)
                 any ONE of `extra_any`."""
-                def rule(state, item_name=item_name, carried_items=carried_items, extra_any=tuple(extra_any)):
+                def rule(state, item_name=item_name, carried_items=carried_items, extra_any=tuple(extra_any),
+                         _has_all=_gateway_has_all):
                     if not state.has(item_name, world.player):
                         return False
                     if not _has_all(state, carried_items):
@@ -355,5 +366,13 @@ def create_and_connect_regions(world) -> None:
     # but reaching Citadark Isle, which the Parts already gate. Real win detection is in Client.py: Greevil's
     # rematch, or story byte 0x78 as a backstop.
     boss_region.locations.append(victory_location)
+
+    # Greevil's own defeat, whatever the goal is: the Shadows that only exist after him wait on this, not on
+    # "Victory" -- with the Mt. Battle goal, Victory is the Mt. Battle win and says nothing about Greevil.
+    greevil_location = PokemonXDLocation(world.player, GREEVIL_DEFEATED_EVENT_LOCATION_NAME, None, citadark)
+    greevil_location.place_locked_item(
+        PokemonXDItem(GREEVIL_DEFEATED_EVENT_ITEM, ItemClassification.progression, None, world.player)
+    )
+    citadark.locations.append(greevil_location)
 
     world.multiworld.completion_condition[world.player] = lambda state: state.has("Victory", world.player)

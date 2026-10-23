@@ -223,7 +223,7 @@ def _run_dialog_chain(need_seed: bool) -> tuple[str | None, str | None, str | No
         )
         if not output:
             return None, None, None
-        return seed_path, source, output
+        return seed_path, source, _with_disc_extension(output, source)
 
     import tkinter
     import tkinter.filedialog
@@ -264,9 +264,21 @@ def _run_dialog_chain(need_seed: bool) -> tuple[str | None, str | None, str | No
         )
         if not output:
             return None, None, None
-        return seed_path, source, output
+        return seed_path, source, _with_disc_extension(output, source)
     finally:
         root.destroy()
+
+
+_DISC_EXTENSIONS = (".iso", ".gcm", ".ciso")
+
+
+def _with_disc_extension(output: str, source: str) -> str:
+    """Give the save name a disc-image extension if it has none. The patched copy is the same format as the
+    source, so the source's own extension is used (.iso when the source has an unusual one)."""
+    if Path(output).suffix.lower() in _DISC_EXTENSIONS:
+        return output
+    source_suffix = Path(source).suffix.lower()
+    return output + (source_suffix if source_suffix in _DISC_EXTENSIONS else ".iso")
 
 
 def _apply_with_visible_progress(iso_patcher, source: str, output: str, seed_path: str, overwrite: bool) -> dict:

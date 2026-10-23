@@ -104,12 +104,15 @@ class TestNamedFenceInAWorld(PokemonXDTestBase):
     options = {"shuffle_trainer_defeats": True, "trainer_defeat_mode": 0}
 
     def test_browsix_cannot_hold_the_music_disc_any_more(self) -> None:
-        # ADDENDUM 414: in the tally mode Browsix has no check at all; in unique mode his fights are fenced.
+        # ADDENDUM 414: in the tally mode Browsix has no check at all. In unique mode his numbered fights are not
+        # locations either (numbered rematch checks removed); only his (Any) remains.
         from ..game_data import missable_trainers as mt
 
         self.assertNotIn("Defeat - Cipher Peon Browsix",
                          {loc.name for loc in self.multiworld.get_locations(self.player)})
-        self.assertIn("Defeat - Browsix #1", mt.filler_only_trainer_location_names())
+        self.assertNotIn("Defeat - Browsix #1", mt.filler_only_trainer_location_names())
+        self.assertIn("Defeat - Browsix #1", trainer_roster.REMOVED_DEFEAT_LOCATIONS)
+        self.assertNotIn("Defeat - Browsix #1", locations.LOCATION_TABLE)
 
     def test_it_is_not_a_location_in_the_tally_mode(self) -> None:
         # ADDENDUM 414: cumulative mode is only the tally now; the named check does not exist to hold anything.

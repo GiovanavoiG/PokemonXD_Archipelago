@@ -58,8 +58,9 @@ class TestTheCensusData(unittest.TestCase):
         with_items = [i for i, p in trainer_placements.PLACEMENTS.items() if p.required_items]
         # 38 from the census, +1 for ADDENDUM 312 (row 128, Smarton #1: Music Disc + Mayor's Note),
         # -11 for ADDENDUM 405 (the ONBS raid's fights no longer name the Data ROM: they are gated only behind
-        # Pyrite Town and the Poke Spots).
-        self.assertEqual(len(with_items), 28)
+        # Pyrite Town and the Poke Spots), +1 for Acrod (index 163) behind the System Lever in the Cipher Key Lair.
+        self.assertEqual(len(with_items), 29)
+        self.assertEqual(trainer_placements.PLACEMENTS[163].required_items, ("System Lever",))
         self.assertEqual(trainer_placements.PLACEMENTS[128].required_items, ("Music Disc", "Mayor's Note"))
 
 
@@ -101,14 +102,18 @@ class TestNAMeansFiller(unittest.TestCase):
         # ADDENDUM 409: "Hordel is not a check, so remove him" plus the rematch trim removed every region-less row
         # that 406 had brought back, and Miror B. #2 got a region. Nothing is parked in the bucket any more, and
         # no live location sits in a region the census could not name.
+        # The bucket's one resident is Miror B.'s (Any), which is not a region-less row: it opens on either of his
+        # places (Poke Spots or the Outskirt Stand) through an OR rule.
         bucket = locations.LOCATIONS_BY_REGION["Unique Trainer Defeats"]
         expected = locations._UNPLACED_TRAINER_LOCATION_NAMES - trainer_roster.REMOVED_DEFEAT_LOCATIONS
         self.assertEqual(expected, set())
-        self.assertEqual(bucket, [])
+        self.assertEqual(bucket, ["Defeat Miror B. (Any)"])
         for name in locations._UNPLACED_TRAINER_LOCATION_NAMES:
             self.assertIn(name, trainer_roster.RULED_OUT_DEFEAT_LOCATIONS, name)
             self.assertNotIn(name, locations.LOCATION_TABLE, name)
         for name, data in locations.LOCATION_TABLE.items():
+            if name in bucket:
+                continue
             self.assertNotEqual(data.region, "Unique Trainer Defeats", name)
 
 
@@ -198,12 +203,15 @@ class TestTheItemGates(PokemonXDTestBase):
     def test_a_gated_trainer_needs_its_item_on_top_of_its_region(self) -> None:
         """Both halves, which is the whole instruction. Probed with the full key-item chain collected so the
         region is definitely open -- what remains shut can only be the item gate."""
-        # ADDENDUM 405 took the bare ('Data ROM',) rows away (all eleven were the ONBS raid); Lovrina #1 in the
-        # Cipher Lab still names it, alongside the ID Card that ships in the same item.
+        # ADDENDUM 405 took the bare ('Data ROM',) rows away (all eleven were the ONBS raid); the one row left
+        # naming it, Lovrina #1, is a numbered rematch check and no longer a location. Probed instead with the
+        # item-gated row that is still a location: Acrod, behind the System Lever in the Cipher Key Lair.
         gated = [i for i, p in trainer_placements.PLACEMENTS.items()
-                 if "Data ROM" in p.required_items and p.region is not None]
-        self.assertTrue(gated, "expected at least one Data ROM-gated trainer in the census")
-        index = gated[0]
+                 if p.required_items and p.region is not None
+                 and self._location(i) in locations.LOCATION_TABLE]
+        self.assertTrue(gated, "expected at least one item-gated trainer in the census")
+        self.assertIn(163, gated)
+        index = 163
         name = self._location(index)
         self.assertFalse(self.can_reach_location(name))
         self.collect_key_item_chain()

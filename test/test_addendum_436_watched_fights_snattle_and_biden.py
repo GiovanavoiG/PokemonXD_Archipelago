@@ -124,7 +124,9 @@ class TestThePhenacCipherFightsWaitForSnattle(unittest.TestCase):
         self.assertTrue(any("Snattle defeated" in t.what for t in snattle))
         self.assertEqual(set(story_bytes.AREA_GROUPS["Phenac City"]), set(ma.PHENAC_AREA_REGIONS))
         released = {name for name, cap in ma.AUTO_SEND_AT_STORY_BYTE.items() if cap == ma.SNATTLE_DEFEATED}
-        self.assertEqual(17, len(released))   # ADDENDUM 440/441: 12 Cipher fights + the four invasion trainers + Justy
+        # ADDENDUM 440/441: the Cipher fights + the four invasion trainers + Justy. The Sixes' six #2 fights are
+        # numbered rematch checks, no longer locations, so 6 Cipher fights remain: 11.
+        self.assertEqual(11, len(released))
         for index in mi.MISSABLE_TRAINER_INDICES:
             trainer = tr.TRAINERS_BY_INDEX[index]
             label = tr.trainer_label(trainer)

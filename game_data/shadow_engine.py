@@ -163,3 +163,16 @@ assert len({(a + 4) & 0xFFFF for a in CREATE_DECK_POKEMON_CALL_SITES}) == len(CR
 RELOCATED_SHADOW_WORTH = 128
 RELOCATED_SHADOW_WORTH_ENABLED = True   # `iso_patcher.apply_relocated_shadow_worth` writes it
 
+
+# ---- Miror B. brings two at the Poke Spots ----------------------------------------------------------------------
+# `_fightTrainerCreateDeckUnderTaker` builds his regular team (two Pokemon on every Poke Spot row, story 2-7), lists
+# the Shadows waiting for him (status 2, worth not 0) and asks `_fightTrainer_GetUnderTakerDarkPoke` for
+# `1 + (waiting >= 7)` of them. Lowering the 7 to 2 makes it two whenever two are waiting -- the same two-Shadow
+# path the game already takes at seven, so nothing new is built. His colosseum builder always asks for one and is
+# left alone. The picker fills slots from the end of the regular team, so the patcher only applies this when every
+# Poke Spot row still has at most four Pokemon.
+MIROR_B_TWO_SHADOWS_WORDS: "tuple[tuple[int, int, int], ...]" = (
+    (0x801FB850, 0x38000007, 0x38000002),   # li r0,7 (waiting >= 7 -> two)  ->  li r0,2
+)
+MIROR_B_POKE_SPOT_ROWS: "tuple[int, ...]" = (2, 3, 4, 5, 6, 7)
+MIROR_B_POKE_SPOT_MAX_TEAM = 4

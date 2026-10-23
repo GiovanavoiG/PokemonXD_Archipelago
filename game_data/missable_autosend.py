@@ -44,6 +44,11 @@ from __future__ import annotations
 #   before he appears -- one filler item early, harmless. Picking a later byte risks the opposite.
 CAP_OVERRIDES: "dict[str, int]" = {
     "Defeat - Bost": 0x19,
+    # The Key Lair's window closes at 0x69, "entered the Cipher Key Lair" -- the byte the game writes as you walk in,
+    # before any of these three can be fought. 0x6B, "Gorigan defeated", is the Lair finished, written inside it.
+    "Defeat - Ibsol": 0x6B,
+    "Defeat - Jelstin": 0x6B,
+    "Defeat - Fudler": 0x6B,
 }
 
 # ADDENDUM 436. Missable Phenac trainers send upon defeating Snattle (ONLY Cipher members). Every
@@ -58,6 +63,11 @@ PHENAC_AREA_REGIONS: "frozenset[str]" = frozenset({
 })
 
 
+# {trainer index: its label} for every one-shot fight in the schedule -- one deck row, one fight, sent at its area's
+# cap. Filled by `_build`.
+one_shot_indices: "dict[int, str]" = {}
+
+
 def _build() -> "tuple[dict[str, int], dict[str, tuple[tuple[str, int], ...]]]":
     from . import missable_indices, repeatable_trainers, story_bytes, trainer_placements, trainer_roster
 
@@ -65,6 +75,7 @@ def _build() -> "tuple[dict[str, int], dict[str, tuple[tuple[str, int], ...]]]":
     schedule: "dict[str, int]" = {}
     by_area: "dict[str, tuple[tuple[str, int], ...]]" = {}
     unresolved: "list[str]" = []
+    one_shot_indices.clear()
 
     def region_for(index: int) -> "str | None":
         placement = trainer_placements.PLACEMENTS.get(index)
@@ -100,6 +111,7 @@ def _build() -> "tuple[dict[str, int], dict[str, tuple[tuple[str, int], ...]]]":
             continue
         schedule[label] = cap
         by_area[label] = ((region_for(index), cap),)
+        one_shot_indices[index] = label
 
     # The fully-missable surnames' (Any): the latest cap among all of that surname's fights.
     for surname, rows in trainer_roster.TRAINERS_BY_NAME.items():
@@ -134,6 +146,7 @@ def _build() -> "tuple[dict[str, int], dict[str, tuple[tuple[str, int], ...]]]":
 
 
 AUTO_SEND_AT_STORY_BYTE, AUTO_SEND_AREA_CAPS = _build()
+AUTO_SEND_ONE_SHOT_INDICES: "dict[int, str]" = dict(one_shot_indices)
 
 # ADDENDUM 438: checks a client-written entry floor can step over. The Key Lair is entered at 0x66 (820), one story
 # step past `0x64 -> 0x65` "Zook defeated at the Key Lair after Snagem", and since ADDENDUM 436 that fight is Zook's

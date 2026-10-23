@@ -12,7 +12,8 @@ from . import PokemonXDTestBase
 from .. import rules
 from ..options import PokemonXDOptions
 
-LAKEN = ("Defeat - Laken #2", "Defeat - Laken #3", "Defeat Laken (Any)")
+# Laken's numbered checks are gone (numbered rematch checks removed); his (Any) is the one gated check.
+LAKEN = ("Defeat Laken (Any)",)
 
 
 class TestTheOptionIsGone(unittest.TestCase):
@@ -22,6 +23,8 @@ class TestTheOptionIsGone(unittest.TestCase):
     def test_laken_is_in_the_gate_table(self) -> None:
         for name in LAKEN:
             self.assertEqual(("Machine Part",), rules.NAMED_DEFEAT_ITEM_GATES[name])
+        for name in ("Defeat - Laken #2", "Defeat - Laken #3"):
+            self.assertNotIn(name, rules.NAMED_DEFEAT_ITEM_GATES, name)
 
 
 class TestWhatWorldChecksMeantIsStillExpressible(PokemonXDTestBase):

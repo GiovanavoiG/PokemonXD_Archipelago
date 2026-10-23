@@ -33,6 +33,7 @@ import sys
 import time
 import zipfile
 from pathlib import Path
+from typing import Callable
 
 # This file must import cleanly from inside a zip: an installed `.apworld` (e.g.
 # `D:\Archipelago\custom_worlds\pokemon_xd.apworld`) is one, and `spec_from_file_location` bottoms out in a plain
@@ -1035,10 +1036,12 @@ def ddpk_progress_from_holders(trainer_teams: "dict[int, list[int]]",
     """{ddpk_index: progress} by each record's EARLIEST holder, the same holder ADDENDUM 416 keys on."""
     earliest: "dict[int, int]" = {}
     for trainer_index, ddpks in trainer_teams.items():
+        if trainer_index not in progress_by_trainer:
+            continue          # a holder with no known place; a later holder that has one still counts
         for ddpk in ddpks:
             if ddpk not in earliest or trainer_index < earliest[ddpk]:
                 earliest[ddpk] = trainer_index
-    return {ddpk: progress_by_trainer[holder] for ddpk, holder in earliest.items() if holder in progress_by_trainer}
+    return {ddpk: progress_by_trainer[holder] for ddpk, holder in earliest.items()}
 
 
 def apply_dark_pokemon_edit(ddpk_decompressed: bytes, ddpk: deck_format.DarkPokemonFile, assignments: list[dict]) -> bytes:
@@ -1763,11 +1766,13 @@ def write_dol_words_patch(output_path: Path, words: "tuple[tuple[int, int | None
         return result
 
 
-def apply_grind_item_rows(rel_bytes: bytearray, rel, candy_box_code_ready: bool) -> "dict[str, bool]":
-    """ADDENDUM 427, common_rel half: the Rare Candy's price, and -- only when main.dol took the Candy Box code --
-    the Yellow Shard's row and name. Each row refuses unless its NameID proves it."""
+def apply_grind_item_rows(rel_bytes: bytearray, rel, candy_box_code_ready: bool,
+                          rare_candy: bool = True) -> "dict[str, bool]":
+    """ADDENDUM 427, common_rel half: the Rare Candy's price (`rare_candy`, the grind option's), and -- only when
+    main.dol took the Candy Box code -- the Yellow Shard's row and name. Each row refuses unless its NameID proves
+    it."""
     candy = _game_data_module("candy_box")
-    out = {"rare_candy": rel_format.apply_item_row_bytes(
+    out = {"rare_candy": rare_candy and rel_format.apply_item_row_bytes(
         rel_bytes, rel, candy.RARE_CANDY_ITEM_ID, candy.RARE_CANDY_NAME_ID, candy.rare_candy_row_edits()),
         "candy_box": False}
     if candy_box_code_ready and rel_format.apply_item_row_bytes(
@@ -1793,6 +1798,74 @@ def apply_grind_shelf(pm_rel_bytes: bytearray, pm_rel, candy_box_ready: bool) ->
             raise RuntimeError(f"Gateon line {line} is item {was} in the mart table, not {vanilla}")
         plan[pool] = (vanilla, item)
     return rel_format.apply_mart_pool_items(pm_rel_bytes, pm_rel, candy.GATEON_FINAL_MART, plan)
+
+
+def write_item_description_patch(output_path: Path, lines_by_string_id: "dict[int, list[str]]") -> dict:
+    """Rewrite item descriptions in `pocket_menu.fsys`'s `.msg` table on `output_path` (a copy). Each entry is
+    rewritten in place inside its own byte budget (the distance to the next entry), so nothing moves; an entry whose
+    new text does not fit is skipped. Returns {"written": [ids], "skipped": [ids], "reason": str | None}."""
+    descriptions = _game_data_module("item_descriptions")
+    result = {"written": [], "skipped": [], "reason": None}
+    output_path = Path(output_path).resolve()
+    reader = open_reader(output_path)
+    try:
+        fst = parse_fst(reader)
+        pm_off, pm_len, _rec = find_by_basename(fst, "pocket_menu.fsys")
+        pm_bytes = reader.read(pm_off, pm_len)
+    finally:
+        reader.close()
+    chosen = None
+    for entry in parse_fsys_all(pm_bytes):
+        raw = pm_bytes[entry["data_off"]: entry["data_off"] + 0x10 + max(entry["comp_size"], entry["decomp_size"])]
+        is_lzss = raw[:4] == b"LZSS"
+        try:
+            data = deck_format.lzss_decode(raw) if is_lzss else bytes(raw[: entry["decomp_size"]])
+        except Exception:
+            continue
+        if data[descriptions.MSG_MAGIC_OFFSET:descriptions.MSG_MAGIC_OFFSET + 4] == descriptions.MSG_MAGIC:
+            chosen = (entry, raw, is_lzss, data)
+            break
+    if chosen is None:
+        result["reason"] = "no message table in pocket_menu.fsys"
+        return result
+    entry, raw, is_lzss, data = chosen
+    budgets = descriptions.budgets_from_pairs(descriptions.parse_pair_table(data), len(data))
+    new = bytearray(data)
+    for string_id, lines in lines_by_string_id.items():
+        spot = budgets.get(int(string_id))
+        blob = descriptions.encode_lines(list(lines), spot[1]) if spot else None
+        if blob is None:
+            result["skipped"].append(int(string_id))
+            continue
+        new[spot[0]:spot[0] + spot[1]] = blob
+        result["written"].append(int(string_id))
+    if not result["written"]:
+        result["reason"] = "nothing fit"
+        return result
+    if is_lzss:
+        new_raw, comp_size, _grew = deck_format.patch_entry_decompressed(raw, bytes(new))
+    else:
+        new_raw, comp_size = bytes(new), entry["comp_size"]
+    later = sorted(x["data_off"] for x in parse_fsys_all(pm_bytes) if x["data_off"] > entry["data_off"])
+    span = (later[0] if later else len(pm_bytes)) - entry["data_off"]
+    if len(new_raw) > span:
+        result["written"], result["reason"] = [], "the re-encoded table no longer fits its slot"
+        return result
+    writer = open_writer(output_path)
+    try:
+        writer.write(pm_off + entry["data_off"], new_raw)
+        if is_lzss:
+            writer.write(pm_off + entry["record_off"] + FSYS_RECORD_COMP_SIZE_OFF, struct.pack(">I", comp_size))
+    finally:
+        writer.close()
+    verify = open_reader(output_path)
+    try:
+        back = verify.read(pm_off + entry["data_off"], len(new_raw))
+    finally:
+        verify.close()
+    if (deck_format.lzss_decode(back) if is_lzss else bytes(back)) != bytes(new):
+        raise RuntimeError("read-back verification failed -- the item description write did not stick")
+    return result
 
 
 def apply_ability_patch_row(rel_bytes: bytearray, rel) -> bool:
@@ -2183,6 +2256,239 @@ def write_heart_gauge_rate_patch(output_path: Path, rate_percent: int) -> dict:
             "common_scaled": common_scaled, "common_in_use": common_total, "common_eu_scaled": common_eu_scaled}
 
 
+# Every Shadow carries at most two Shadow moves. The late vanilla records hold three or four, and a record keeps
+# them when its species is randomized or it is moved to an earlier trainer.
+SHADOW_MOVE_CAP = 2
+
+
+def capped_shadow_moves(moves: "list[int]", cap: int = SHADOW_MOVE_CAP) -> "list[int]":
+    """The record's first `cap` Shadow moves, swapping the last kept one for the first attacking move when the kept
+    ones are all status moves, padded with zeros to four."""
+    nonzero = [m for m in moves if m]
+    kept = nonzero[:cap]
+    if kept and not _shadow_move_slots.has_attacking_move(kept):
+        attacking = [m for m in nonzero[cap:] if _shadow_move_slots.is_attacking(m)]
+        if attacking:
+            kept[-1] = attacking[0]
+    return (kept + [0, 0, 0, 0])[:4]
+
+
+def apply_shadow_record_fixes(ddpk_decompressed: bytes, ddpk: deck_format.DarkPokemonFile,
+                              species_by_story_index: "dict[int, int]",
+                              vanilla_species_by_ddpk: "dict[int, int]",
+                              species_catch_rates: "dict[int, int]") -> "tuple[bytes, dict]":
+    """Cap every in-use record's Shadow moves, and give a record whose species is not its vanilla one (randomized,
+    swapped, or a new record) that species' own catch rate. Returns `(new_decompressed, counts)`."""
+    buf = bytearray(ddpk_decompressed)
+    capped = rated = in_use = 0
+    for index in range(1, ddpk.ddpk_entries):
+        off = ddpk.ddpk_data + index * 0x18
+        if off + 0x18 > len(buf):
+            raise ValueError(
+                f"DDPK entry {index} ends at 0x{off + 0x18:X}, past this DeckData_DarkPokemon.bin's "
+                f"0x{len(buf):X} decompressed bytes -- refusing to write off the end of the file"
+            )
+        if buf[off + 0x03] == 0:
+            continue
+        in_use += 1
+        moves = list(struct.unpack_from(">HHHH", buf, off + 0x0C))
+        new_moves = capped_shadow_moves(moves)
+        if new_moves != moves:
+            struct.pack_into(">HHHH", buf, off + 0x0C, *new_moves)
+            capped += 1
+        species = species_by_story_index.get(struct.unpack_from(">H", buf, off + 0x06)[0])
+        if species is None or species == vanilla_species_by_ddpk.get(index):
+            continue
+        rate = int(species_catch_rates.get(species, 0))
+        if 0 < rate <= MAX_CATCH_RATE_BYTE and buf[off + 0x01] != rate:
+            buf[off + 0x01] = rate
+            rated += 1
+    return bytes(buf), {"capped": capped, "rated": rated, "in_use": in_use}
+
+
+def _vanilla_species_by_ddpk() -> "dict[int, int]":
+    """{ddpk_index: vanilla internal species} from the shipped extraction; empty when it cannot be read."""
+    rows = None
+    if _PACKAGE_ROOT:
+        import importlib
+
+        try:
+            rows = importlib.import_module(f"{_PACKAGE_ROOT}.game_data").load_json_data_file(
+                "deckdata_dark_pokemon.json")
+        except Exception:
+            rows = None
+    if rows is None:
+        path = Path(__file__).resolve().parent.parent / "data" / "deckdata_dark_pokemon.json"
+        try:
+            rows = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+    return {int(r["ddpk_index"]): int(r["species"]) for r in rows}
+
+
+def write_shadow_record_fixes_patch(output_path: Path, species_catch_rates: "dict[int, int]") -> dict:
+    """`apply_shadow_record_fixes` over all three DarkPokemon copies, species read off the patched DeckData_Story.bin."""
+    output_path = Path(output_path).resolve()
+    vanilla_species = _vanilla_species_by_ddpk()
+    reader = open_reader(output_path)
+    try:
+        fst = parse_fst(reader)
+        deck_off, deck_len, deck_record_off = find_by_basename(fst, "deck_archive.fsys")
+        deck_fsys_bytes = reader.read(deck_off, deck_len)
+        deck_entries = parse_fsys(deck_fsys_bytes)
+        for name in ("DeckData_DarkPokemon.bin", "DeckData_Story.bin"):
+            if name not in deck_entries:
+                raise ValueError(f"deck_archive.fsys on this ISO has no {name} -- refusing to guess at a "
+                                 "different disc layout. Found: " + ", ".join(sorted(deck_entries)))
+        dark_entry = deck_entries["DeckData_DarkPokemon.bin"]
+        dark_raw = reader.read(deck_off + dark_entry["data_off"], 0x10 + dark_entry["comp_size"])
+    finally:
+        reader.close()
+
+    story = deck_entries["DeckData_Story.bin"]
+    story_raw = deck_fsys_bytes[story["data_off"]: story["data_off"] + 0x10 + story["comp_size"]]
+    deck = deck_format.DeckFile(deck_format.lzss_decode(story_raw))
+    species_by_story_index = {i: deck.dpkm_full(i)["species"] for i in range(deck.dpkm_entries)}
+
+    def fix(raw: bytes) -> "tuple[bytes, dict]":
+        decompressed = deck_format.lzss_decode(raw)
+        return apply_shadow_record_fixes(decompressed, deck_format.DarkPokemonFile(decompressed),
+                                         species_by_story_index, vanilla_species, species_catch_rates)
+
+    new_dark, archive = fix(dark_raw)
+    write_fsys_multi_entry_patch(
+        output_path, deck_off, deck_len, deck_record_off, deck_fsys_bytes,
+        [{"name": "DeckData_DarkPokemon.bin", "entry_raw": dark_raw,
+          "new_decompressed": new_dark, "allow_decomp_resize": False}],
+    )
+
+    reader = open_reader(output_path)
+    try:
+        fst2 = parse_fst(reader)
+        common_off, common_len, common_record_off = find_by_basename(fst2, "common.fsys")
+        common_fsys_bytes = reader.read(common_off, common_len)
+        common_entries = parse_fsys(common_fsys_bytes)
+        missing = [n for n in ("DeckData_DarkPokemon.bin", "DeckData_DarkPokemon_EU.bin")
+                   if n not in common_entries]
+        if missing:
+            raise ValueError(
+                "common.fsys on this ISO is missing " + ", ".join(missing) + " -- refusing to guess at a "
+                "different disc layout. Found: " + ", ".join(sorted(common_entries))
+            )
+        common_dark_entry = common_entries["DeckData_DarkPokemon.bin"]
+        common_dark_raw = reader.read(
+            common_off + common_dark_entry["data_off"], 0x10 + common_dark_entry["comp_size"])
+        common_eu_entry = common_entries["DeckData_DarkPokemon_EU.bin"]
+        common_eu_raw = reader.read(
+            common_off + common_eu_entry["data_off"], 0x10 + common_eu_entry["comp_size"])
+    finally:
+        reader.close()
+
+    new_common_dark, common = fix(common_dark_raw)
+    new_common_eu, _eu = fix(common_eu_raw)
+    write_fsys_multi_entry_patch(
+        output_path, common_off, common_len, common_record_off, common_fsys_bytes,
+        [
+            {"name": "DeckData_DarkPokemon.bin", "entry_raw": common_dark_raw,
+             "new_decompressed": new_common_dark, "allow_decomp_resize": False},
+            {"name": "DeckData_DarkPokemon_EU.bin", "entry_raw": common_eu_raw,
+             "new_decompressed": new_common_eu, "allow_decomp_resize": False},
+        ],
+        container_name="common.fsys",
+    )
+    return {"archive": archive, "common": common}
+
+
+def apply_ordinary_copy_edit(story: bytes, dark: bytes, slots: "list[dict]") -> "tuple[bytes, list, list]":
+    """Each `{row, ddpk_index}` Shadow slot becomes an ordinary Pokemon: a new DPKM record copied from the Shadow's own
+    (same species and moves), at the row's team level, with the slot's Shadow-mask bit cleared. The Shadow keeps its
+    record and its other fights. A slot that does not hold that Shadow is skipped. Returns (new DeckData_Story.bin,
+    written [(row, ddpk_index, level)], skipped [(row, ddpk_index)])."""
+    deck = deck_format.DeckFile(story)
+    ddpk = deck_format.DarkPokemonFile(dark)
+    plan, skipped = [], []
+    for entry in slots or ():
+        row, source = int(entry["row"]), int(entry["ddpk_index"])
+        trainer = deck.trainer(row)
+        slot = None
+        if trainer is not None:
+            for member in trainer["team"]:
+                if member["kind"] == "DDPK" and member.get("ddpk_index") == source:
+                    slot = member["slot"]
+        shadow = ddpk.ddpk_full(source) if 0 < source < ddpk.ddpk_entries else None
+        if slot is None or shadow is None or not shadow["in_use"] or not 0 < shadow["story_deck_index"] < deck.dpkm_entries:
+            skipped.append((row, source))
+            continue
+        levels = [m["level"] for m in trainer["team"] if m["kind"] == "DPKM" and m.get("level")]
+        off = deck.dpkm_data + shadow["story_deck_index"] * 0x20
+        record = bytearray(story[off:off + 0x20])
+        level = int(round(sum(levels) / len(levels))) if levels else (shadow["shadow_level"] or record[0x02])
+        record[0x02] = max(1, min(100, level))
+        plan.append((row, slot, source, bytes(record), record[0x02]))
+    if not plan:
+        return story, [], skipped
+    grown, new_indices = grow_dpkm_section_raw(story, deck, [p[3] for p in plan])
+    buf = bytearray(grown)
+    for (row, slot, _source, _record, _level), new_index in zip(plan, new_indices):
+        base = deck.dtnr_data + row * 0x38
+        struct.pack_into(">H", buf, base + 0x1C + slot * 2, new_index)
+        buf[base + 0x04] &= ~(1 << slot) & 0xFF
+    out = bytes(buf)
+    check = deck_format.DeckFile(out)
+    for (row, slot, _source, _record, _level), new_index in zip(plan, new_indices):
+        member = next(m for m in check.trainer(row)["team"] if m["slot"] == slot)
+        if member["kind"] != "DPKM" or member["dpkm_index"] != new_index:
+            raise ValueError(f"row {row} slot {slot} did not read back as an ordinary Pokemon")
+    return out, [(p[0], p[2], p[4]) for p in plan], skipped
+
+
+def write_ordinary_copy_patch(output_path: Path, slots: "list[dict]") -> dict:
+    """`apply_ordinary_copy_edit` on the disc's DeckData_Story.bin. Returns {"written", "skipped"}."""
+    output_path = Path(output_path).resolve()
+    reader = open_reader(output_path)
+    try:
+        fst = parse_fst(reader)
+        deck_off, deck_len, deck_record_off = find_by_basename(fst, "deck_archive.fsys")
+        deck_fsys_bytes = reader.read(deck_off, deck_len)
+        deck_entries = parse_fsys(deck_fsys_bytes)
+        story_entry = deck_entries["DeckData_Story.bin"]
+        story_raw = reader.read(deck_off + story_entry["data_off"], 0x10 + story_entry["comp_size"])
+        dark_entry = deck_entries["DeckData_DarkPokemon.bin"]
+        dark_raw = reader.read(deck_off + dark_entry["data_off"], 0x10 + dark_entry["comp_size"])
+    finally:
+        reader.close()
+    story = deck_format.lzss_decode(story_raw)
+    new_story, written, skipped = apply_ordinary_copy_edit(story, deck_format.lzss_decode(dark_raw), slots)
+    if written:
+        write_fsys_multi_entry_patch(
+            output_path, deck_off, deck_len, deck_record_off, deck_fsys_bytes,
+            [{"name": "DeckData_Story.bin", "entry_raw": story_raw, "new_decompressed": new_story,
+              "allow_decomp_resize": True}],
+        )
+    return {"written": written, "skipped": skipped}
+
+
+def read_common_shadow_catch_rates(output_path: Path) -> "dict[int, int]":
+    """{ddpk_index: catch-rate byte} for every in-use record in common.fsys's DeckData_DarkPokemon.bin."""
+    reader = open_reader(Path(output_path).resolve())
+    try:
+        fst = parse_fst(reader)
+        common_off, common_len, _rec = find_by_basename(fst, "common.fsys")
+        common_fsys_bytes = reader.read(common_off, common_len)
+        entry = parse_fsys(common_fsys_bytes)["DeckData_DarkPokemon.bin"]
+        raw = reader.read(common_off + entry["data_off"], 0x10 + entry["comp_size"])
+    finally:
+        reader.close()
+    data = deck_format.lzss_decode(raw)
+    ddpk = deck_format.DarkPokemonFile(data)
+    out = {}
+    for index in range(1, ddpk.ddpk_entries):
+        off = ddpk.ddpk_data + index * 0x18
+        if data[off + 0x03]:
+            out[index] = data[off + 0x01]
+    return out
+
+
 # Enhanced Difficulty, Mt. Battle extension: `DeckData_Hundred.bin` (Mt. Battle's 100-trainer table) instead of
 # `DeckData_Story.bin`, same plan shape and edit function. Uses `write_fsys_multi_entry_patch()` with a one-entry
 # list, since `write_deck_story_patch()` hardcodes "DeckData_Story.bin" including its verification messages.
@@ -2466,6 +2772,26 @@ def read_final_shadow_species(output_path: Path) -> "dict[int, int]":
     finally:
         reader.close()
     return shadow_species_from_decks(deck_format.lzss_decode(story_raw), deck_format.lzss_decode(dark_raw))
+
+
+def read_final_team_sizes(output_path: Path, rows: "tuple[int, ...]") -> "dict[int, int]":
+    """{Story-deck row: how many Pokemon its team has} on the PATCHED disc, for each of `rows`."""
+    output_path = Path(output_path).resolve()
+    reader = open_reader(output_path)
+    try:
+        fst = parse_fst(reader)
+        deck_off, deck_len, _rec = find_by_basename(fst, "deck_archive.fsys")
+        deck_fsys = reader.read(deck_off, deck_len)
+        story_entry = parse_fsys(deck_fsys)["DeckData_Story.bin"]
+        story_raw = deck_fsys[story_entry["data_off"]: story_entry["data_off"] + 0x10 + story_entry["comp_size"]]
+    finally:
+        reader.close()
+    story = deck_format.DeckFile(deck_format.lzss_decode(story_raw))
+    out: "dict[int, int]" = {}
+    for row in rows:
+        trainer = story.trainer(int(row))
+        out[int(row)] = int(trainer["party_size"]) if trainer is not None else 0
+    return out
 
 
 def shadow_species_from_decks(story_decompressed: bytes, dark_decompressed: bytes) -> "dict[int, int]":
@@ -3193,8 +3519,13 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     # ADDENDUM 437: no longer needs Randomize Shops -- the pocket_menu pass runs for the shelf alone when shops are
     # vanilla, so Reduce Citadark Grind works with Randomize Shops off.
     reduce_citadark_grind = bool(seed.get("reduce_citadark_grind"))
+    # The Candy Box itself (the Yellow Shard's code, row and name) is in every seed that says so, grind option or not;
+    # the grind option adds the Gateon shelf and the Rare Candy's price.
+    candy_box_wanted = reduce_citadark_grind or bool(seed.get("candy_box"))
     # ADDENDUM 429: trade evolutions become level-ups in the species table.
     trade_evolutions_by_level = bool(seed.get("trade_evolutions_by_level"))
+    # Every species can learn every TM.
+    all_tms_learnable = bool(seed.get("all_tms_learnable"))
     # ADDENDUM 453/454: the Ability Swap on Gateon's last shelf. Every 0.1.2 seed carries True ("regardless of
     # options").
     ability_patch = bool(seed.get("ability_patch"))
@@ -3206,6 +3537,8 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     pokespot_catch_scaling = int(seed.get("catch_rate_scaling") or 0) if not max_catch_rate else 0
     # ADDENDUM 416: trainers whose Shadows keep their vanilla catch rate (Citadark Isle and/or Greevil).
     catch_rate_excluded_trainers = frozenset(int(i) for i in (seed.get("max_catch_rate_excluded_trainers") or ()))
+    # The species table's own catch rates, read before any option rewrites them (`write_shadow_record_fixes_patch`).
+    vanilla_species_catch_rates: "dict[int, int] | None" = None
 
     pokespot_assignment_raw = seed.get("pokespot_species_by_slot")
     # {game_item_id -> that item's real vanilla display name}. One field, not two, so a rename target's id and
@@ -3461,7 +3794,7 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     # when it did -- a Candy Box with no code behind it would be a shelf line that says "can't use that".
     candy_box_dol = None
     grind_rows = {"rare_candy": False, "candy_box": False}
-    if reduce_citadark_grind:
+    if candy_box_wanted:
         _candy = _game_data_module("candy_box")
         # ADDENDUM 456: `equal_to_citadark_entry` caps the Candy Box at Citadark's lowest level, read off THIS ISO
         # now that every team pass (Enhanced Difficulty, Path Level Scaling, Nightmare, Shadows) has run.
@@ -3482,10 +3815,10 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                                                                                   _entry_level),
                                               _candy.vanilla_digests())
         if candy_box_dol["applied"]:
-            print("Reduce Citadark Grind: Candy Box code written into main.dol"
+            print("Candy Box: code written into main.dol"
                   + (" (already present)." if candy_box_dol["reason"] else "."))
         else:
-            print(f"Reduce Citadark Grind: Candy Box NOT added -- {candy_box_dol['reason']}. The Rare Candy line "
+            print(f"Candy Box NOT added -- {candy_box_dol['reason']}. The Rare Candy line "
                   "still goes in.")
         summary["candy_box_dol_applied"] = candy_box_dol["applied"]
         summary["candy_box_dol_reason"] = candy_box_dol["reason"]
@@ -3514,11 +3847,26 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
         summary["ability_patch_dol_reason"] = swap_dol["reason"]
         print("Ability Swap: use routine written into main.dol."
               if ability_patch_code_ready else f"Ability Swap NOT added -- {swap_dol['reason']}.")
+    # The Escape Rope: a key item that opens the world map. In front of whatever the can't-use handler now starts with
+    # (the Ability Swap's dispatcher, normally). Its Items row only changes when this went in.
+    escape_rope_code_ready = False
+    if seed.get("escape_rope", True):
+        _rope = _game_data_module("escape_rope")
+        try:
+            _hook_word = read_dol_words(output_path, [_rope.CANT_USE_HANDLER])[_rope.CANT_USE_HANDLER]
+            rope_dol = write_dol_words_patch(output_path, _rope.dol_patch_words(_hook_word), _rope.vanilla_digests())
+        except Exception as exc:
+            rope_dol = {"applied": False, "reason": f"{type(exc).__name__}: {exc}"}
+        escape_rope_code_ready = bool(rope_dol["applied"])
+        summary["escape_rope_dol_applied"] = escape_rope_code_ready
+        summary["escape_rope_dol_reason"] = rope_dol["reason"]
+        print("Escape Rope: use routine written into main.dol." if escape_rope_code_ready
+              else f"Escape Rope NOT added -- {rope_dol['reason']}.")
 
     if (chest_dummy_item_id is not None or pokespot_assignment or item_rename_target_names
             or experience_rate != 100 or max_catch_rate or reduce_citadark_grind
             or trade_evolutions_by_level or friendship_evolutions_by_level or pokespot_catch_scaling
-            or ability_patch):
+            or ability_patch or all_tms_learnable or escape_rope_code_ready or candy_box_code_ready):
         reader = open_reader(output_path)
         try:
             fst = parse_fst(reader)
@@ -3562,6 +3910,15 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
             f"minutes, with no output until it finishes. It has not crashed; let it run."
         )
         _encode_t0 = time.time()
+        try:
+            from ..game_data.species_base_hp import all_base_hp as _base_hp
+            from .xd_species_index import INTERNAL_INDEX_TO_NATIONAL_DEX as _dex_table
+        except ImportError:  # running as a loose script rather than inside the package
+            _package_root_on_path()
+            from game_data.species_base_hp import all_base_hp as _base_hp            # type: ignore
+            from xd_species_index import INTERNAL_INDEX_TO_NATIONAL_DEX as _dex_table  # type: ignore
+        if rel_format.verify_species_stats_table(rel, _base_hp(), {i: v[0] for i, v in _dex_table.items()}):
+            vanilla_species_catch_rates = dict(rel_format.read_species_catch_rates(rel))
         chests_patched = 0
         pokespot_slots_patched = 0
         items_renamed = 0
@@ -3587,6 +3944,8 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
             else:
                 pokespot_slots_patched = rel_format.apply_pokespot_species(
                     rel_bytes, rel, pokespot_assignment)
+                odds_changed = rel_format.apply_pokespot_equal_odds(rel_bytes, rel)
+                print(f"Poke Spots: every Pokemon at a spot, rare visitors included, now appears equally often ({odds_changed} odds changed).")
         # Experience rate, refusing an unproven table. (ADDENDUM 454: move animations left this pass -- they are
         # main.dol's waza_func_data now, written before it.)
         exp_result = {"base_exp_written": 0, "exp_rate_written": 0}
@@ -3695,6 +4054,30 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                 print(f"{_what} evolutions by level NOT applied -- the Pokemon stats table on this ISO did not match "
                       "this project's base-HP census.")
             summary["trade_evolutions_written"] = (trade_evo_result or {}).get("evolutions_written", 0)
+        if all_tms_learnable:
+            try:
+                from ..game_data.species_base_hp import all_base_hp as _all_base_hp
+                from .xd_species_index import INTERNAL_INDEX_TO_NATIONAL_DEX as _index_to_dex
+            except ImportError:  # running as a loose script rather than inside the package
+                _package_root_on_path()
+                from game_data.species_base_hp import all_base_hp as _all_base_hp            # type: ignore
+                from xd_species_index import INTERNAL_INDEX_TO_NATIONAL_DEX as _index_to_dex  # type: ignore
+            _tm = _game_data_module("tm_moves")
+            _dex_of = {i: v[0] for i, v in _index_to_dex.items()}
+            all_tms_result = None
+            if rel_format.verify_species_stats_table(rel, _all_base_hp(), _dex_of):
+                try:
+                    all_tms_result = rel_format.apply_all_tms_learnable(
+                        rel_bytes, rel, sorted(i for i, dex in _dex_of.items() if dex),
+                        _tm.TM_COUNT, _tm.TM_COMPATIBILITY_OFFSET)
+                    print(f"Every TM for everyone: {all_tms_result['species_written']} species can now learn all "
+                          "50 TMs.")
+                except ValueError as exc:
+                    print(f"Every TM for everyone NOT applied -- {exc}.")
+            else:
+                print("Every TM for everyone NOT applied -- the Pokemon stats table on this ISO did not match this "
+                      "project's base-HP census.")
+            summary["all_tms_species_written"] = (all_tms_result or {}).get("species_written", 0)
         # ADDENDUM 453/454: the Ability Swap's row and name, only behind its main.dol routine.
         if ability_patch_code_ready:
             ability_patch_row_ready = apply_ability_patch_row(rel_bytes, rel)
@@ -3702,10 +4085,21 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
             print("Ability Swap: the GREEN SHARD is now the ABILITYSWAP (2000)."
                   if ability_patch_row_ready else
                   "Ability Swap NOT added -- the GREEN SHARD's Items row or name did not match this ISO.")
+        if escape_rope_code_ready:
+            _rope = _game_data_module("escape_rope")
+            rope_row = rel_format.apply_item_row_bytes(rel_bytes, rel, _rope.ESCAPE_ROPE_ITEM_ID,
+                                                       _rope.ESCAPE_ROPE_NAME_ID, _rope.row_edits())
+            summary["escape_rope_row"] = rope_row
+            print("Escape Rope: now a key item that takes you to the world map." if rope_row else
+                  "Escape Rope: its Items row did not match this ISO -- left an ordinary, unusable item.")
         # ADDENDUM 427: the two rows the Gateon grind lines sell. Each refuses unless its NameID proves the row.
-        if reduce_citadark_grind:
-            grind_rows.update(apply_grind_item_rows(rel_bytes, rel, candy_box_code_ready))
+        if reduce_citadark_grind or candy_box_code_ready:
+            grind_rows.update(apply_grind_item_rows(rel_bytes, rel, candy_box_code_ready,
+                                                    rare_candy=reduce_citadark_grind))
             summary["grind_rows"] = dict(grind_rows)
+            if candy_box_code_ready and not reduce_citadark_grind:
+                print("Candy Box: the YELLOW SHARD is now the CANDY BOX." if grind_rows["candy_box"] else
+                      "Candy Box: the YELLOW SHARD's row or name did not match this ISO -- left as it was.")
         items_rename_resolved_via: dict = {}
         if item_rename_target_names:
             rename_result = rel_format.apply_item_name_rename(
@@ -3928,6 +4322,19 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
         summary["purification_rate"] = purification_rate
         summary["purification_rate_applied"] = rate_result["applied"]
 
+    # Shadow moves capped at two, and a record holding a species that is not its own takes that species' catch
+    # rate, before the catch-rate options below build on it.
+    try:
+        record_fixes = write_shadow_record_fixes_patch(output_path, vanilla_species_catch_rates or {})
+    except (KeyError, ValueError) as exc:
+        print(f"Shadow records: left as they are -- {exc}.")
+    else:
+        print(f"Shadow records: {record_fixes['common']['capped']} trimmed to two Shadow moves, "
+              f"{record_fixes['common']['rated']} given their species' catch rate "
+              f"(of {record_fixes['common']['in_use']} in use).")
+        summary["shadow_moves_capped"] = record_fixes["common"]["capped"]
+        summary["shadow_species_rates"] = record_fixes["common"]["rated"]
+
     # ADDENDUM 441: Catch Rate Scaling, before Max Catch Rate so that option wins wherever it applies.
     catch_rate_scaling = int(seed.get("catch_rate_scaling") or 0)
     catch_progress = seed.get("catch_rate_progress_by_trainer") or {}
@@ -3988,6 +4395,33 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                   "The catch-rate tables above are still at 255.")
         summary["always_catch_applied"] = always_catch["applied"]
         summary["always_catch_reason"] = always_catch["reason"]
+
+    # Only the Sixes' Cipher Lab fights field their Shadows; in Phenac the slot is an ordinary Pokemon of that species.
+    if seed.get("ordinary_shadow_slots"):
+        try:
+            copy_result = write_ordinary_copy_patch(output_path, seed["ordinary_shadow_slots"])
+        except (KeyError, ValueError) as exc:
+            print(f"Sixes in Phenac: Shadows left in place -- {exc}.")
+        else:
+            summary["ordinary_shadow_slots"] = copy_result["written"]
+            if copy_result["written"]:
+                print("Sixes in Phenac: " + ", ".join(f"row {row} fields an ordinary copy of Shadow {ddpk} at Lv {level}"
+                                                      for row, ddpk, level in copy_result["written"]) + ".")
+            if copy_result["skipped"]:
+                print(f"Sixes in Phenac: skipped {copy_result['skipped']} (that slot no longer holds the Shadow).")
+
+    # Read back what the game will use: with Max Catch Rate, every Shadow outside the exclusions must be 255.
+    try:
+        final_rates = read_common_shadow_catch_rates(output_path) if max_catch_rate else {}
+    except (KeyError, ValueError):
+        final_rates = {}
+    if max_catch_rate and final_rates:
+        excluded_records = set(summary.get("catch_rate_shadows_excluded") or ())
+        short = sorted(i for i, rate in final_rates.items() if rate != 0xFF and i not in excluded_records)
+        if short:
+            raise ValueError(f"Max catch rate: Shadow records {short} are not at 255 after patching -- refusing to "
+                             "ship an ISO whose catch rates disagree with the settings.")
+        print(f"Max catch rate: verified, {len(final_rates) - len(excluded_records)} Shadow records at 255.")
 
     # ADDENDUM 422: the wild Poke Spot level lookup's uninitialised index. Applied whenever the Poke Spot
     # species were reassigned, since only a non-vanilla species in the "all" pool reaches the miss.
@@ -4089,6 +4523,52 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
         print(f"Shadow list: {len(list_words)} main.dol word(s) give the Shadow Monitor each Shadow's real species."
               if list_result["applied"] else f"Shadow list: NOT updated -- {list_result['reason']}.")
 
+    # Shadow Move TMs: the chosen TMs teach a Shadow move instead.
+    if seed.get("shadow_move_tms"):
+        _tm = _game_data_module("tm_moves")
+        try:
+            _tm_words = _tm.shadow_move_tm_words(seed["shadow_move_tms"])
+            tm_result = write_dol_words_patch(output_path, _tm_words)
+        except ValueError as exc:
+            tm_result = {"applied": False, "reason": str(exc)}
+        summary["shadow_move_tms_applied"] = tm_result["applied"]
+        summary["shadow_move_tms_reason"] = tm_result["reason"]
+        if tm_result["applied"]:
+            print("Shadow Move TMs: " + ", ".join(f"TM{int(tm):02d} {_tm.SHADOW_MOVE_NAMES[int(move)]}"
+                                                for tm, move in seed["shadow_move_tms"]) + ".")
+        else:
+            print(f"Shadow Move TMs: NOT applied -- {tm_result['reason']}. Every TM keeps its own move.")
+
+    # Missable Trainer Shadows: Miror B. brings two Shadows at the Poke Spots whenever two are waiting for him.
+    if seed.get("miror_b_two_shadows"):
+        _engine = _game_data_module("shadow_engine")
+        try:
+            sizes = read_final_team_sizes(output_path, _engine.MIROR_B_POKE_SPOT_ROWS)
+        except Exception as exc:
+            sizes = {"error": f"{type(exc).__name__}: {exc}"}
+        too_big = {row: size for row, size in sizes.items()
+                   if not isinstance(size, int) or size > _engine.MIROR_B_POKE_SPOT_MAX_TEAM}
+        if too_big:
+            two_result = {"applied": False, "reason": f"a Poke Spot team of his is too large for two ({too_big})"}
+        else:
+            two_result = write_dol_words_patch(output_path, _engine.MIROR_B_TWO_SHADOWS_WORDS)
+        summary["miror_b_two_shadows_applied"] = two_result["applied"]
+        summary["miror_b_two_shadows_reason"] = two_result["reason"]
+        print("Miror B.: brings two Shadows at the Poke Spots when two or more are waiting." if two_result["applied"]
+              else f"Miror B.: two-Shadow change NOT applied -- {two_result['reason']}. He brings one at a time.")
+
+    # The Escape Rope's own description, in the Bag everywhere (pocket_menu.fsys's message table, rewritten in place).
+    if escape_rope_code_ready:
+        _rope = _game_data_module("escape_rope")
+        try:
+            desc = write_item_description_patch(output_path, {_rope.ESCAPE_ROPE_DESCRIPTION_ID:
+                                                              list(_rope.ESCAPE_ROPE_DESCRIPTION_LINES)})
+        except Exception as exc:
+            desc = {"written": [], "skipped": [], "reason": f"{type(exc).__name__}: {exc}"}
+        summary["escape_rope_description"] = desc
+        print("Escape Rope: description set." if desc["written"] else
+              f"Escape Rope: description NOT changed -- {desc['reason'] or 'it did not fit'}.")
+
     # ADDENDUM 475: the game counts its own white-outs, so Death Link sends off the game rather than a party read.
     if seed.get("whiteout_counter", True):
         _whiteout = _game_data_module("whiteout_counter")
@@ -4108,6 +4588,20 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
         summary["repeatable_move_tutor_reason"] = tutor_result["reason"]
         print("Move tutor: every move can be taught again." if tutor_result["applied"] else
               f"Move tutor: NOT patched -- {tutor_result['reason']}. She keeps the one-lesson-per-move rule.")
+
+    # The tutor offers all twelve moves from the first visit.
+    _tutor_rows = _game_data_module("move_tutor")
+    unlock_result = write_dol_words_patch(output_path, _tutor_rows.unlock_all_patch_words())
+    summary["move_tutor_all_unlocked_applied"] = unlock_result["applied"]
+    print("Move tutor: all twelve moves are offered from the start." if unlock_result["applied"] else
+          f"Move tutor: rows NOT unlocked -- {unlock_result['reason']}.")
+
+    # No Shadow keeps a gauge that only the Purify Chamber's late event can open.
+    _purify_anyone = _game_data_module("purify_anyone")
+    purify_result = write_dol_words_patch(output_path, _purify_anyone.dol_patch_words())
+    summary["purify_anyone_applied"] = purify_result["applied"]
+    print("Purification: Lugia and the XD001 record open like every other Shadow." if purify_result["applied"] else
+          f"Purification: Lugia rule NOT patched -- {purify_result['reason']}.")
 
     # ADDENDUM 454: one description per world-map place, so a story-byte write can't flip the hovered text.
     if seed.get("map_descriptions_constant"):

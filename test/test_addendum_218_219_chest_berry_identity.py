@@ -455,8 +455,12 @@ class TestTheRenames(unittest.TestCase):
         self.assertEqual(unfrozen, [])
 
     def test_the_named_chests_are_all_real_ap_locations(self):
+        from ..game_data import chest_regions
+
+        # A non-item box keeps its name (its id stays reserved) but is not a location.
         named = {c for key in chest_names.CHEST_LOCATION_NAME_OVERRIDES for c in key}
-        self.assertTrue(named <= set(rc.CHEST_ID_TO_LOCATION))
+        self.assertTrue(named - set(chest_regions.NON_ITEM_CHESTS) <= set(rc.CHEST_ID_TO_LOCATION))
+        self.assertFalse(set(chest_regions.NON_ITEM_CHESTS) & set(rc.CHEST_ID_TO_LOCATION))
 
     def test_the_client_and_the_world_agree_on_every_name(self):
         """They build the string independently -- ram_client cannot import locations -- and the only thing

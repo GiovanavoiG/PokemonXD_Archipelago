@@ -57,8 +57,9 @@ class TestMirroredConstantsDoNotDrift(unittest.TestCase):
         # ADDENDUM 177: 89 -> 94 and 90 -> 95. Five fenced key-item chests became checks under KeyItemShuffle.
         # UPDATED 2026-09-15 (ADDENDUM 224): 95, not 94. The 108/113 shared-flag pair was split back into two
         # locations -- identity comes from the chest's own berry now, not from the flag they share.
-        self.assertEqual(rc.CHEST_LOCATION_COUNT, 95)
-        self.assertEqual(locations.CHEST_COVERED_CHEST_COUNT, 95)
+        # 94: chest 113 is a non-item box sharing 108's flag (chest_regions.NON_ITEM_CHESTS), not a location.
+        self.assertEqual(rc.CHEST_LOCATION_COUNT, 94)
+        self.assertEqual(locations.CHEST_COVERED_CHEST_COUNT, 94)
 
     def test_purification_count_matches_locations(self) -> None:
         self.assertEqual(rc.PURIFICATION_LOCATION_COUNT, locations.PURIFICATION_LOCATION_COUNT)

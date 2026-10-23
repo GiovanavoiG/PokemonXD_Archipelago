@@ -43,9 +43,10 @@ except ImportError:  # pragma: no cover - only when run outside an Archipelago c
 class TestLakenAndHebonAreFillerOnly(unittest.TestCase):
     def test_both_are_ruled_always_filler(self) -> None:
         for surname in ("LAKEN", "HEBON"):
-            self.assertIn(surname, repeatable_trainers.ALWAYS_FILLER_SURNAMES, surname)
-            self.assertIn(repeatable_trainers.location_name(surname),
-                          repeatable_trainers.ALWAYS_FILLER_LOCATIONS)
+            # Lifted: both always battle when talked to now, so their (Any) can hold progression.
+            self.assertNotIn(surname, repeatable_trainers.ALWAYS_FILLER_SURNAMES, surname)
+            self.assertNotIn(repeatable_trainers.location_name(surname),
+                             repeatable_trainers.ALWAYS_FILLER_LOCATIONS)
 
     def test_the_exclusion_was_needed_because_the_derivation_would_not_have_caught_it(self) -> None:
         """Both anchors are census-safe -- not missable, real region -- so this is a HAND-SET entry and the file says
@@ -84,7 +85,7 @@ class TestTheExclusionReachesTheGeneratedWorld(PokemonXDTestBase):
         checked = 0
         for location in self.multiworld.get_locations(self.player):
             if "Laken" in location.name or "Hebon" in location.name:
-                self.assertEqual(location.progress_type, LocationProgressType.EXCLUDED, location.name)
+                self.assertNotEqual(location.progress_type, LocationProgressType.EXCLUDED, location.name)
                 checked += 1
         self.assertGreaterEqual(checked, 2, "no Laken/Hebon locations were found to check at all")
 
@@ -110,17 +111,18 @@ class TestTheSurplusLabelIsRetired(unittest.TestCase):
         self.assertEqual(trainer_roster.DISTINCT_TEAM_COUNTS["MIROR B."], 9)
         # ADDENDUM 409: Miror B. has only one rematch, so his checks go up to Miror B. #2. He still fields nine distinct
         # teams -- the fights stay in the game -- but only the first two distinct wins are checks.
-        self.assertEqual(trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["MIROR B."],
-                         ["Defeat - Miror B. #1", "Defeat - Miror B. #2"])
+        # Numbered rematch checks are now removed for him as well; his (Any) is the one check.
+        self.assertEqual(trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["MIROR B."], [])
 
     def test_the_tail_is_what_is_retired_not_the_duplicate(self) -> None:
         """A label now means "the Nth distinct team you beat", so the survivors must be contiguous. Dropping
         #5 would leave a gap and imply the rest still name occurrences."""
         self.assertEqual(trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS, {"Defeat - Chobin #7"})
-        self.assertEqual(
-            trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["CHOBIN"],
-            [f"Defeat - Chobin #{n}" for n in range(1, 7)],
-        )
+        # Chobin's numbered checks have since all gone as ordinary rematches (no forced second fight), so his
+        # queue is empty and #1-#6 are removed labels like #7.
+        self.assertEqual(trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE["CHOBIN"], [])
+        for n in range(1, 8):
+            self.assertIn(f"Defeat - Chobin #{n}", trainer_roster.REMOVED_DEFEAT_LOCATIONS, n)
 
     def test_it_is_gone_from_the_seed_but_its_id_is_not_reused(self) -> None:
         self.assertNotIn("Defeat - Chobin #7", locations.LOCATION_TABLE)
@@ -149,15 +151,19 @@ class TestTheSurplusLabelIsRetired(unittest.TestCase):
             trainer_roster.trainer_label(trainer_roster.TRAINERS_BY_INDEX[i])
             for i in missable_indices.MISSABLE_TRAINER_INDICES
         }
+        # Numbered rematch checks are removed for every repeated trainer except the forced second fights, which
+        # keep their #2 at its queue position (a None holds the first). So a repeated surname queues at most its
+        # forced #2, and the one-sided half holds for every surname: no position without a team behind it.
         for surname, labels in trainer_roster.UNIQUE_SURNAME_TO_LOCATION_QUEUE.items():
+            live = [label for label in labels if label is not None]
+            needs = [label for label in live if label not in missable_labels]
+            self.assertLessEqual(len(labels), trainer_roster.DISTINCT_TEAM_COUNTS[surname], surname)
+            self.assertLessEqual(len(needs), trainer_roster._NON_MISSABLE_TEAM_COUNTS[surname], surname)
             if surname in ruled:
                 self.assertLess(len(labels), trainer_roster.DISTINCT_TEAM_COUNTS[surname], surname)
-                needs = [label for label in labels if label not in missable_labels]
-                self.assertLessEqual(len(needs), trainer_roster._NON_MISSABLE_TEAM_COUNTS[surname], surname)
                 continue
-            # ADDENDUM 406: a surname that lost its missable fight queues one label per team it cannot miss.
-            if surname in trainer_roster._REMOVED_SURNAMES:
-                self.assertEqual(len(labels), trainer_roster._NON_MISSABLE_TEAM_COUNTS[surname], surname)
+            if len(trainer_roster.TRAINERS_BY_NAME[surname]) > 1:
+                self.assertLessEqual(set(live), trainer_roster.FORCED_REMATCH_DEFEAT_LOCATIONS, surname)
                 continue
             self.assertEqual(len(labels), trainer_roster.DISTINCT_TEAM_COUNTS[surname], surname)
 
@@ -175,8 +181,16 @@ class TestTheSurplusLabelIsRetired(unittest.TestCase):
                                 & trainer_roster.RULED_OUT_DEFEAT_LOCATIONS))
         # ADDENDUM 410: - the 6 lone #1s whose win (Any) already checks.
         self.assertEqual(len(trainer_roster.ANY_DUPLICATE_DEFEAT_LOCATIONS), 6)
-        self.assertEqual(len(locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 232 - 1 - 15 - 70 + 3 - 6)
-        self.assertEqual(len(locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 143)
+        # Every numbered label of a repeated trainer is removed except the five forced second fights: 118
+        # labels, which cover all of the above except Hordel (a single fight). 232 - 119 = 113.
+        self.assertEqual(len(trainer_roster.NUMBERED_REMATCH_DEFEAT_LOCATIONS), 118)
+        self.assertEqual(len(trainer_roster.FORCED_REMATCH_DEFEAT_LOCATIONS), 5)
+        self.assertEqual({"Defeat - Hordel"},
+                         set(trainer_roster.REMOVED_DEFEAT_LOCATIONS - trainer_roster.NUMBERED_REMATCH_DEFEAT_LOCATIONS))
+        self.assertLessEqual(trainer_roster.RETIRED_UNIQUE_DEFEAT_LOCATIONS, trainer_roster.REMOVED_DEFEAT_LOCATIONS)
+        self.assertEqual(len(trainer_roster.REMOVED_DEFEAT_LOCATIONS), 119)
+        self.assertEqual(len(locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 232 - 119)
+        self.assertEqual(len(locations.ACTIVE_UNIQUE_TRAINER_DEFEAT_LOCATION_NAMES), 113)
 
 
 # ============================================================================================================

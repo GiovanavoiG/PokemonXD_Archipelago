@@ -33,6 +33,8 @@ TREE = ast.parse(SOURCE)
 # The only automatic (non-command) log output that is kept, as substrings of the call's source.
 # Grouped by the reason each one survives, so a future reader can tell "kept on purpose" from "missed."
 ALLOWED_AUTOMATIC = {
+    # Missable Trainer Shadows: once per Shadow handed to Miror B.
+    "miror_b_handoff_line",
     # ADDENDUM 453: a held Ability Patch was used -- once per Pokemon it touches.
     "Ability Patch: %s",
     # ADDENDUM 446: once per item, the Items pocket was full and it went to the PC instead.
@@ -344,8 +346,12 @@ class TestChecksSent(unittest.TestCase):
         body = match.group(0)
         self.assertIn("ctx.checked_locations", body, "the sent line does not filter already-checked ids")
         self.assertIn("Sent ", body)
-        # Still forwards the FULL id set, not just the fresh ones -- the filter is for the log line only.
-        self.assertIn("await ctx.check_locations(ids)", body)
+        # Still forwards the FULL id set, not just the fresh ones -- the filter is for the log line only. The send
+        # itself is the one `check_locations` call in `_put_on_wire`.
+        self.assertIn("await _put_on_wire(ctx, ids)", body)
+        wire = re.search(r"async def _put_on_wire\(.*?\n(?=\n\n)", SOURCE, re.S)
+        self.assertIsNotNone(wire, "_put_on_wire not found")
+        self.assertIn("await ctx.check_locations(ids)", wire.group(0))
 
     def test_the_reverse_id_map_the_line_needs_is_built(self) -> None:
         self.assertIn("ID_TO_LOCATION_NAME = {v: k for k, v in LOCATION_NAME_TO_ID.items()}", SOURCE)
