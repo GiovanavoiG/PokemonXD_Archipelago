@@ -165,7 +165,7 @@ class TestTheGateCanNowLetGo(unittest.TestCase):
     def test_the_battle_command_prints_it(self) -> None:
         start = CLIENT_SOURCE.index("def _cmd_battle(")
         end = CLIENT_SOURCE.index("def _cmd_room(")
-        self.assertIn("describe_blocking()", CLIENT_SOURCE[start:end])
+        self.assertIn("trainer_defeat_tracker.describe()", CLIENT_SOURCE[start:end])
 
 
 # ================================================================================================

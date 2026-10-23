@@ -39,7 +39,15 @@ class TestTheWatchedFights(unittest.TestCase):
                          tr.NON_PLAYER_FIGHTS["BIDEN"])
 
     def test_wired_into_the_defeat_poll(self):
-        self.assertIn("non_player_fights=trainer_roster.NON_PLAYER_FIGHTS", CLIENT)
+        """The AP patch's log names the battle, so a watched fight is dropped by its roster row."""
+        from ..ap_patch import resolve_battle
+        from ..game_data.battle_index import BATTLE_OPPONENTS, STORY_DECK
+        from ..game_data.missable_indices import NON_PLAYER_FIGHT_INDICES
+
+        watched = [b for b, (deck, index) in BATTLE_OPPONENTS.items()
+                   if deck == STORY_DECK and index in NON_PLAYER_FIGHT_INDICES]
+        for battle in watched:
+            self.assertIsNone(resolve_battle(battle))
 
 
 class TestOneCheckEach(unittest.TestCase):

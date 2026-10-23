@@ -249,17 +249,12 @@ class TestTheClientPassesCompleteness(unittest.TestCase):
         cls.body = source[start:source.index("\nasync def ", start + 1)]
         cls.source = source
 
-    def test_it_uses_the_detailed_scan(self) -> None:
-        self.assertIn("get_box_species_snapshot_detailed", self.body)
-
-    def test_it_passes_box_complete(self) -> None:
-        self.assertIn("box_complete=", self.body)
-
-    def test_completeness_is_cached_with_the_snapshot(self) -> None:
-        """The scan runs on its own ~1s cadence and the snapshot is reused between scans, so its completeness
-        has to be reused with it rather than inheriting whatever this poll happened to do."""
-        self.assertIn("_last_box_complete", self.body)
-        self.assertIn("self._last_box_complete: bool = True", self.source)
+    def test_the_client_no_longer_scans_the_boxes_for_catches(self) -> None:
+        """The catch checks read the AP patch's capture log, which a box poll cannot make look like a catch --
+        so the box scan, and the completeness guard it needed, are out of this function."""
+        self.assertIn("ap_patch.caught_dex(", self.body)
+        self.assertNotIn("get_box_species_snapshot", self.body)
+        self.assertNotIn("species_catch_tracker.poll(", self.body)
 
 
 if __name__ == "__main__":

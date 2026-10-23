@@ -13,6 +13,7 @@ import struct
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from ..tools import iso_patcher, xd_deck_format as deck_format, xd_rel_format as rel_format
 from .test_addendum_128_rel_validation_and_mart_bounds import _build_synthetic_rel
@@ -99,7 +100,11 @@ class TestShopPassEndToEnd(unittest.TestCase):
             }))
             # ADDENDUM 399: this fixture is a hand-made minimal ISO -- real FSYS, no disc header, none of
             # the census's trainers -- so the pre-flight correctly refuses it. Skipped here and nowhere else.
-            summary = iso_patcher.apply_patch(src, out, seed, _skip_preflight=True)
+            # It has no main.dol either, so the AP patch step (covered by test_start_dol_patch) is stubbed.
+            with mock.patch.object(iso_patcher, "write_start_dol_patch",
+                                   return_value={"applied": True, "reason": None, "dol_offset": 0,
+                                                 "relocated": False}):
+                summary = iso_patcher.apply_patch(src, out, seed, _skip_preflight=True)
             self.assertIsNone(summary["shop_randomization_error"])
             self.assertEqual(summary["shop_slots_patched"], 4)  # 4,13,17,1 (21 excluded)
             self.assertEqual(summary["shop_rel_structure"]["header"]["id"], 0x33)

@@ -146,10 +146,11 @@ class TestTheGateIsGoneFromTheMainLoop(unittest.TestCase):
         start = CLIENT_SOURCE.index("async def check_species_catches")
         end = CLIENT_SOURCE.index("\nasync def ", start + 1)
         body = CLIENT_SOURCE[start:end]
+        # Catches come from the AP patch's capture log; the live records are read only for the starter and the
+        # Eeveelution, and PARTY_BASE (a menu row) is not read at all.
+        self.assertIn("ap_patch.caught_dex(", body)
         self.assertIn("get_live_party_species_snapshot", body)
-        self.assertLess(body.index("get_live_party_species_snapshot"),
-                        body.index("get_owned_species_snapshot"),
-                        "PARTY_BASE is the second witness now, not the first")
+        self.assertNotIn("PARTY_BASE", body)
 
     def test_the_hint_that_asked_for_an_action_is_gone(self):
         """A one-shot instruction telling the player to do something that no longer does anything is worse

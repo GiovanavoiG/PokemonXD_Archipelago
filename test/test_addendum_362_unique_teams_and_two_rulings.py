@@ -374,8 +374,8 @@ class TestTheLedgerSurvivesARestart(unittest.TestCase):
         import pathlib
 
         source = (pathlib.Path(__file__).resolve().parents[1] / "Client.py").read_text()
-        self.assertIn('"trainer_teams": self.trainer_defeat_tracker.to_json()', source)
-        self.assertIn('self.trainer_defeat_tracker.load_json(slot_state["trainer_teams"])', source)
+        self.assertIn('"patch_trainer_defeats": self.trainer_defeat_tracker.to_json()', source)
+        self.assertIn('self.trainer_defeat_tracker.load_json(slot_state["patch_trainer_defeats"])', source)
 
 
 # ============================================================================================================

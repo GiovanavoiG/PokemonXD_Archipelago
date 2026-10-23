@@ -10439,6 +10439,22 @@ class DeathLinkBridge:
     #: in the fast window, where this class's own 1 Hz read was missing the window entirely. None keeps the
     #: old direct read, so the bridge still works on its own.
     whiteout_latch: "WhiteoutLatch | None" = None
+    #: The AP patch's `deathLink` byte reads set: a death handed to the patch that it has not whited the player out
+    #: for yet. The fence cannot come down while it is, however conscious the party reads.
+    patch_pending: bool = False
+
+    def receive_via_patch(self, cause: str = "") -> "str | None":
+        """A death arrived and the AP patch will deliver it: the caller sets the patch's byte, and the patch makes
+        the game's next battle-result check a loss. Only the fence is this method's -- the white-out that follows is
+        ours and must not be sent back out."""
+        if not self.enabled:
+            return None
+        self.receipts += 1
+        self.last_cause = cause
+        self._ours = True
+        self._release_polls = 0
+        self.patch_pending = True
+        return f"your party fainted{f' -- {cause}' if cause else ''}. The game whites you out at its next chance."
 
     def receive(self, block_base: "int | None", cause: str = "", in_battle: bool = False) -> "str | None":
         """A death arrived. Wipe the party and remember that the resulting white-out is ours.
@@ -10540,7 +10556,7 @@ class DeathLinkBridge:
 
         # The fence comes down when BOTH signals say the white-out is over -- the party healed and the flag
         # cleared. Releasing on either alone would re-arm while the other was still describing the same death.
-        if wiped is False and annihilated is not True:
+        if wiped is False and annihilated is not True and not self.patch_pending:
             self._was_wiped = False
             self._was_annihilated = False
             self._ours = False
@@ -10588,7 +10604,7 @@ class DeathLinkBridge:
         if not whiteouts:
             if self._ours and block_base is not None:
                 try:
-                    conscious = party_is_wiped(block_base) is False
+                    conscious = party_is_wiped(block_base) is False and not self.patch_pending
                 except Exception:
                     conscious = False
                 if not conscious:

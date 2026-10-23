@@ -75,8 +75,18 @@ class TestTheClientGoal(unittest.TestCase):
         self.assertNotIn("MT_BATTLE_FIRST_TRAINER_SURNAME in", self.body)
 
     def test_battlus_is_watched_through_the_exclusion(self) -> None:
-        self.assertIn("confirm_only_surnames=confirm_only", self.body)
-        self.assertIn("frozenset(MT_BATTLE_FINAL_TRAINER_SURNAMES) & exclude", self.body)
+        """With the Mt. Battle option on, his win is neither counted nor sent, but the goal still sees it."""
+        from ..ap_patch import PatchDefeatTracker
+        from ..game_data.battle_index import BATTLE_OPPONENTS, MT_BATTLE_DECK
+
+        battlus = next(b for b, opponent in BATTLE_OPPONENTS.items() if opponent == (MT_BATTLE_DECK, 100))
+        tracker = PatchDefeatTracker()
+        sent = tracker.poll([battlus], {}, lambda n: f"Defeat {n} Trainers", exclude_mt_battle=True)
+        self.assertEqual([], sent)
+        self.assertEqual(0, tracker.defeat_count)
+        self.assertIn("BATTLUS", tracker.wins_by_surname)
+        self.assertIn("MT_BATTLE_FINAL_TRAINER_SURNAMES", self.body)
+        self.assertIn("exclude_mt_battle=ctx.exclude_mt_battle_trainers", self.body)
 
     def test_a_seed_without_defeat_checks_still_watches_for_the_goal(self) -> None:
         self.assertIn("goal_watch_only = not ctx.shuffle_trainer_defeats", self.body)
