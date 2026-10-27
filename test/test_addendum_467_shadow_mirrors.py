@@ -90,14 +90,14 @@ class TestThePlan(unittest.TestCase):
     def test_the_level_fence(self) -> None:
         census = real_trainer_free_slot_census()
         shadow = {}
-        sm.plan_mirrors(census, [(167, shadow)], {167: 1})                 # Chobin #7, level 38
-        self.assertNotIn(18, shadow["mirror_trainer_indices"])             # Chobin #2's level-6 team
-        self.assertIn(124, shadow["mirror_trainer_indices"])               # Chobin #3, level 26: within 1.5x
+        sm.plan_mirrors(census, [(80, shadow)], {80: 1})                   # Clerr #2, level 16
+        self.assertNotIn(19, shadow["mirror_trainer_indices"])             # Clerr #1's level-7 team
+        self.assertIn(228, shadow["mirror_trainer_indices"])               # his later row: within 1.5x
         sm.MAX_LEVEL_RATIO = None
         try:
             shadow = {}
-            sm.plan_mirrors(census, [(167, shadow)], {167: 1})
-            self.assertIn(18, shadow["mirror_trainer_indices"])
+            sm.plan_mirrors(census, [(80, shadow)], {80: 1})
+            self.assertIn(19, shadow["mirror_trainer_indices"])
         finally:
             sm.MAX_LEVEL_RATIO = 1.5
         level = {row["trainer_index"]: row["avg_level"] for row in census}

@@ -1,17 +1,9 @@
-"""ADDENDUM 249 (2026-09-16) -- the PC-box species field is a live index, and was read raw.
+"""The PC-box species read: the record's own +0x00, the MASTER internal index, never returned raw.
 
-`read_party_species` runs its raw field through `xd_species_index.national_dex_for_live_species()`.
-`read_box_slot_species`, on the same engine and the same species enum, did not -- it returned the u32
-unconverted, bounds-checked against 1-386 and nothing else. `xd_species_index.py` had flagged that exact call
-site as "still-open follow-up work, not yet fixed here".
-
-WHY IT IS NOT COSMETIC. 109 raw values in 276-386 resolve to a DIFFERENT National Dex number, and every one of
-those wrong numbers names a real `Catch - ` location. The bounds check cannot catch any of them -- they are all
-inside 1-386. A wrong catch check is released into a multiworld and cannot be taken back.
-
-THE TRIGGER IS THE NICKNAME CASE. `species_owned_from_block` reads boxes by NAME (ADDENDUM 221) and falls back
-to this function only when the name does not resolve to a species -- which is what a nicknamed box Pokemon
-looks like, recorded in ADDENDUM 244. The fallback path and the mis-decode path are the same path."""
+109 master values from 277 up name a DIFFERENT National Dex number, and every one of those wrong numbers names a
+real `Catch - ` location, so a raw or mis-converted read is a wrong CHECK rather than a harmless unknown number.
+The 48-byte party display record is the one that carries the compacted live index (`national_dex_for_live_species`);
+the 0xC4 record does not."""
 import struct
 import unittest
 
@@ -49,58 +41,56 @@ class TestTheConversionIsNeeded(unittest.TestCase):
 
 
 class TestTheBoxReadConverts(unittest.TestCase):
-    """Exercised against a faked `read_bytes`, so it tests the function rather than a live game."""
+    """Exercised against a faked `read_bytes`, so it tests the function rather than a live game. The box record is
+    the same 0xC4 record as the party's, and its +0x00 is the MASTER index (`national_dex_for`)."""
 
     def setUp(self) -> None:
         self._read = rc.read_bytes
         self.raw = 0
+        self.asked = []
 
         def fake_read(address, length):
-            return struct.pack(">I", self.raw)[:length] if length == 4 else b"\x00" * length
+            self.asked.append((address, length))
+            return struct.pack(">H", self.raw)[:length] if length == 2 else b"\x00" * length
 
         rc.read_bytes = fake_read
 
     def tearDown(self) -> None:
         rc.read_bytes = self._read
 
+    def test_it_reads_the_records_own_species_field(self) -> None:
+        self.raw = 25
+        rc.read_box_slot_species(0x80479000, 0)
+        self.assertEqual([(rc.box_record_address(0x80479000, 0), 2)], self.asked)
+
     def test_a_value_below_the_gap_is_unchanged(self) -> None:
         self.raw = 25   # Pikachu, either way
         self.assertEqual(25, rc.read_box_slot_species(0x80479000, 0))
 
-    def test_a_value_above_the_gap_is_converted(self) -> None:
-        raw = next(r for r in range(X.LIVE_INDEX_GAP_START, 387)
-                   if X.national_dex_for_live_species(r) not in (None, r))
-        self.raw = raw
-        self.assertEqual(X.national_dex_for_live_species(raw),
-                         rc.read_box_slot_species(0x80479000, 0))
-        self.assertNotEqual(raw, rc.read_box_slot_species(0x80479000, 0))
+    def test_a_master_value_past_the_gap_is_its_own_species(self) -> None:
+        self.raw = 279                                  # Sceptile's master index
+        self.assertEqual(254, rc.read_box_slot_species(0x80479000, 0))
+        self.raw = 394                                  # Gardevoir's
+        self.assertEqual(282, rc.read_box_slot_species(0x80479000, 0))
 
     def test_an_empty_slot_is_still_none(self) -> None:
         self.raw = 0
         self.assertIsNone(rc.read_box_slot_species(0x80479000, 0))
 
-    def test_an_out_of_range_raw_is_still_none(self) -> None:
-        self.raw = 9999
-        self.assertIsNone(rc.read_box_slot_species(0x80479000, 0))
-
     def test_a_value_the_table_cannot_resolve_is_dropped_not_guessed(self) -> None:
-        """`read_party_species` holds the same contract, for the same reason: a raw value this table cannot
-        explain is not evidence of a species."""
-        unresolvable = [r for r in range(1, 387) if X.national_dex_for_live_species(r) is None]
-        for raw in unresolvable:
+        for raw in [r for r in range(1, 600) if X.national_dex_for(r) is None] + [413, 414]:
             self.raw = raw
             self.assertIsNone(rc.read_box_slot_species(0x80479000, 0), f"raw {raw}")
 
 
 class TestTheTwoReadersNowAgree(unittest.TestCase):
-    def test_the_box_and_party_readers_use_the_same_conversion(self) -> None:
-        """The inconsistency WAS the bug -- same engine, same enum, two different answers."""
+    def test_the_box_reader_and_the_live_party_object_use_the_master_index(self) -> None:
         import inspect
 
-        box = inspect.getsource(rc.read_box_slot_species)
-        party = inspect.getsource(rc.read_party_species)
-        self.assertIn("national_dex_for_live_species", box)
-        self.assertIn("national_dex_for_live_species", party)
+        self.assertIn("national_dex_for(raw)", inspect.getsource(rc.read_box_slot_species))
+        self.assertIn("national_dex_for", inspect.getsource(rc._read_shadow_record))
+        self.assertNotIn("national_dex_for_live_species", inspect.getsource(rc._read_shadow_record))
+        self.assertIn("national_dex_for_live_species", inspect.getsource(rc.read_party_species))
 
     def test_the_recap_reader_needs_no_conversion_because_it_reads_no_number(self) -> None:
         """The other call site `xd_species_index` flagged. It is name-text based end to end, so there was

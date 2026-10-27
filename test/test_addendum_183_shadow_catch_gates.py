@@ -82,8 +82,10 @@ class TestLabelJoin(unittest.TestCase):
 
 
 class TestSnagFloorIsTwoRegionsNotAnItem(unittest.TestCase):
-    def test_the_floor_names_pyrite_town_and_the_poke_spots(self) -> None:
-        self.assertEqual(rules._SNAG_FLOOR_REGIONS, ("Pyrite Town", "Poke Spots"))
+    def test_the_floor_is_the_kaminko_miror_b(self) -> None:
+        """A knocked-out Shadow comes back through Miror B., whose copy stands outside Kaminko's House in every
+        seed (game_data/kaminko_trainers.py)."""
+        self.assertEqual(rules._SNAG_FLOOR_REGIONS, ("Kaminko's House",))
 
     def test_the_miror_radar_is_never_named_as_an_item_anywhere_in_the_rules(self) -> None:
         """ADDENDUM 168's rule, and the reason the floor is spelled as a region. The Miror Radar is not in the
@@ -108,7 +110,6 @@ class TestSnagFloorIsTwoRegionsNotAnItem(unittest.TestCase):
         self.assertNotIn(rules._MIROR_RADAR_CHEST_ID,
                          key_item_chests.chest_ids_to_convert(shuffle_key_items=True))
         self.assertEqual(chest_regions.CHEST_TO_REGION[rules._MIROR_RADAR_CHEST_ID], "Poke Spots")
-        self.assertIn("Poke Spots", rules._SNAG_FLOOR_REGIONS)
 
 
 class TestCatchGatesInAWorld(PokemonXDTestBase):
@@ -160,9 +161,13 @@ class TestCatchGatesInAWorld(PokemonXDTestBase):
                         f"dex {dex} has an expansion host but none of its gates name that host's region",
                     )
 
-    def test_a_shadow_catch_is_closed_on_an_empty_state(self) -> None:
-        """The headline: with nothing collected, a shadow-sourced catch must not read as reachable. Before this
-        addendum, 61 of them did."""
+    def test_a_shadow_catch_is_open_on_an_empty_state_only_when_its_fight_is(self) -> None:
+        """With nothing collected, a shadow-sourced catch reads as reachable exactly when one of its fights is --
+        the floor (Kaminko's House) is open from the start. Before ADDENDUM 183, 61 opened with no fight at all."""
+        from BaseClasses import CollectionState
+
+        state = CollectionState(self.multiworld)
+        self.assertTrue(state.can_reach("Kaminko's House", player=self.player))
         gates, _unplaceable = self._gates()
         checked = 0
         for dex, sources in gates.items():
@@ -175,9 +180,15 @@ class TestCatchGatesInAWorld(PokemonXDTestBase):
                 location = self.multiworld.get_location(name, self.player)
             except KeyError:
                 continue
+            fight_open = any(
+                source != "pokespot" and not source.required_items
+                and all(state.can_reach(r, player=self.player) for r in (source.region, *source.required_regions))
+                for source in sources)
+            if fight_open:
+                continue
             self.assertFalse(
-                location.can_reach(self.multiworld.state),
-                f"{name} is reachable with nothing collected, but its source is a Shadow Pokemon",
+                location.can_reach(state),
+                f"{name} is reachable with nothing collected, but none of its Shadow fights is",
             )
             checked += 1
         self.assertGreater(checked, 20, "too few shadow-sourced catches examined to be meaningful")

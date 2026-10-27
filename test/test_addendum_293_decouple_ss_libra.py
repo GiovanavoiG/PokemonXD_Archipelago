@@ -284,9 +284,9 @@ class TestNothingNamedIsBehindTheShip(PokemonXDTestBase):
         state = self._everything_but_the_scooter()
         self.assertFalse(state.can_reach("SS Libra", player=self.player))
 
-    def test_the_exterior_is_sourced_at_the_ships_predecessor(self) -> None:
-        self.assertEqual(regions.TRAVEL_SHUFFLE_REROUTED_EDGES["Cipher Key Lair (exterior)"],
-                         "Kaminko's House (Robo Groudon)")
+    def test_the_exterior_is_sourced_at_the_key_lair(self) -> None:
+        # With travel shuffle the exterior is behind the Key Lair's own unlock and nothing else.
+        self.assertEqual(regions.TRAVEL_SHUFFLE_REROUTED_EDGES["Cipher Key Lair (exterior)"], "Cipher Key Lair")
         self.assertIn(("SS Libra", "Cipher Key Lair (exterior)", ()), regions.REGION_EDGES,
                       "REGION_EDGES describes the GAME's route and keeps saying so -- the reroute is applied "
                       "when the graph is built, and only with travel shuffle on")

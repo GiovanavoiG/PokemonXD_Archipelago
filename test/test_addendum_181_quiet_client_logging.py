@@ -33,6 +33,12 @@ TREE = ast.parse(SOURCE)
 # The only automatic (non-command) log output that is kept, as substrings of the call's source.
 # Grouped by the reason each one survives, so a future reader can tell "kept on purpose" from "missed."
 ALLOWED_AUTOMATIC = {
+    # Once per reload that took items away: which ones are being sent again.
+    "Your game went back to play time",
+    # Guaranteed Catches: the game lacked the always-catch code or 255 rates and the client put them back.
+    "Guaranteed Catches:",
+    # Once per load that came back without the Snag Machine past the HQ Lab's 0x03.
+    "The loaded game had no Snag Machine",
     # Missable Trainer Shadows: once per Shadow handed to Miror B.
     "miror_b_handoff_line",
     # ADDENDUM 453: a held Ability Patch was used -- once per Pokemon it touches.

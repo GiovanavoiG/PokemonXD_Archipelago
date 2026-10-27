@@ -58,7 +58,6 @@ EXCLUDED_ROOMS: "dict[int, str]" = {
 
 # Chests whose region is not enough on its own -- an extra item requirement on top of reaching the room.
 CHEST_ITEM_GATES: "dict[int, tuple[str, ...]]" = {
-    27: ("ID Card",),        # chest 27 is locked behind the ID Card
     # The Cipher Lab half is already the chest's region, so this adds the item half; both names resolve
     # through `items.requirement_to_pool_item` to one pool item. Not self-gating -- the ROM lives in chest 17,
     # and fill_restrictive will not place an item on a location whose own rule demands it.
@@ -72,8 +71,9 @@ CHEST_ITEM_GATES: "dict[int, tuple[str, ...]]" = {
     # Pyrite Town and the Poke Spots. Their region says exactly that.
 }
 
-#: ADDENDUM 405 -- chests that used to carry an item gate and must not get it back by accident.
-ALWAYS_UNGATED_CHESTS: "frozenset[int]" = frozenset({98, 99, 100})
+#: Chests that used to carry an item gate and must not get it back by accident: the ONBS three, and Cipher Lab
+#: Downstairs Chest 4 (27), which opens without the ID Card.
+ALWAYS_UNGATED_CHESTS: "frozenset[int]" = frozenset({27, 98, 99, 100})
 assert not ALWAYS_UNGATED_CHESTS & set(CHEST_ITEM_GATES), "ADDENDUM 405: an ONBS chest is item-gated again"
 
 # Gated on a region, not an item: chest 2 opens on story transition 0x6C->0x6E, the same one that opens
@@ -87,6 +87,13 @@ CHEST_REGION_GATES: "dict[int, tuple[str, ...]]" = {
     89: ("Phenac City (Post-Sixes)",),
     90: ("Phenac City (Post-Sixes)",),
     91: ("Phenac City (Post-Sixes)",),
+}
+
+
+#: Chests whose region is not their room's. ONBS 2F Chest (100, room 109) is takeable on the first Pyrite Town visit,
+#: before the ONBS raid, so it needs Pyrite Town and not the Poke Spots.
+CHEST_REGION_OVERRIDES: "dict[int, str]" = {
+    100: "Pyrite Town",
 }
 
 
@@ -110,7 +117,7 @@ def _build() -> "tuple[dict[int, str], list[int], list[int]]":
         if region is None:
             unplaced.append(chest["chest"])
             continue
-        by_chest[chest["chest"]] = region
+        by_chest[chest["chest"]] = CHEST_REGION_OVERRIDES.get(chest["chest"], region)
     return by_chest, sorted(excluded), sorted(unplaced)
 
 

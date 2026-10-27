@@ -338,8 +338,7 @@ class TestShopRandomizationOptionOn(PokemonXDTestBase):
                 self.assertNotIn(name, all_names)   # ADDENDUM 453: the Ability Patch's line, in every seed
                 continue
             self.assertIn(name, all_names)
-        self.assertEqual(len(locations.SHOP_ITEM_LOCATIONS),
-                         sum(shop.slot_count for shop in shops.CONFIRMED_SHOPS))
+        self.assertEqual(len(locations.SHOP_ITEM_LOCATIONS), sum(len(shops.check_lines(shop)) for shop in shops.CONFIRMED_SHOPS))
         self.assertIn(locations.SHOP_ITEM_LOCATIONS[0], locations.LOCATION_NAME_GROUPS["Shop Purchases"])
         self.assertNotIn(locations.SHOP_ITEM_LOCATIONS[0], locations.LOCATION_NAME_GROUPS["Overworld Items"])
 

@@ -18,15 +18,15 @@ from unittest import mock
 
 from .. import ram_client as rc
 
-from ..tools.xd_species_index import national_dex_for_live_species
+from ..tools.xd_species_index import national_dex_for
 
 BLOCK = 0x80479000
 SHADOW_ID = 84
-# The record holds a LIVE species index; what the ledger stores is its National Dex number (ADDENDUM 249).
+# The record holds the MASTER species index; what the ledger stores is its National Dex number.
 # Written through the same conversion the reader uses, so the fixture cannot quietly disagree with it.
 RECORD_INTERNAL, SECOND_INTERNAL = 216, 217
-RECORD_DEX = national_dex_for_live_species(RECORD_INTERNAL)
-SECOND_DEX = national_dex_for_live_species(SECOND_INTERNAL)
+RECORD_DEX = national_dex_for(RECORD_INTERNAL)
+SECOND_DEX = national_dex_for(SECOND_INTERNAL)
 STALE_DEX = 350
 
 

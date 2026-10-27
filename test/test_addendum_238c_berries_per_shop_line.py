@@ -340,7 +340,7 @@ class TestTheGatesActuallyBiteWhereTheyShould(PokemonXDTestBase):
         """The strictest gate in the game: Gateon's last four lines need the whole chain plus the lever."""
         everything_but_the_lever = ["Machine Part", "Data ROM & ID Card", "Music Disc", "Mayor's Note",
                                     "Elevator Key"]
-        for line in ("Gateon Port Shop AP Item 12", "Gateon Port Shop AP Item 15"):
+        for line in ("Gateon Port Shop AP Item 12", "Gateon Port Shop AP Item 14"):
             self.assertTrue(self._reach("Gateon Port Shop AP Item 1", everything_but_the_lever))
             self.assertFalse(self._reach(line, everything_but_the_lever), line)
             self.assertTrue(self._reach(line, [*everything_but_the_lever, "System Lever"]), line)

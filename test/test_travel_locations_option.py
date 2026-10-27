@@ -330,43 +330,15 @@ class TestTravelLocationAdjacency(PokemonXDTestBase):
         and less brittle."""
         self.assertFalse(self.multiworld.state.can_reach("Outskirt Stand", player=self.player))
 
-    def test_outskirt_stand_stays_closed_on_the_item_alone_with_no_real_neighbor_yet(self) -> None:
-        # No sibling travel item, and Pyrite Town isn't reachable yet -- the item alone must not be enough.
-        # This is the concrete behaviour ADDENDUM 105 pins.
+    def test_outskirt_stand_opens_on_its_own_item_alone(self) -> None:
+        # Outskirt Stand needs nothing but its own unlock: no neighbouring place and no sibling item.
         self.collect_by_name("Travel Unlock - Outskirt Stand")
-        self.assertFalse(self.multiworld.state.can_reach("Outskirt Stand", player=self.player))
-
-    def test_outskirt_stand_opens_once_pyrite_town_is_reachable(self) -> None:
-        # RETARGETED 2026-09-14 (ADDENDUM 190): Pyrite Town is now reached with its own travel unlock plus the
-        # Data ROM its suppressed chain edge carried, not by walking the key-item chain. The adjacency
-        # requirement being tested -- Outskirt Stand needs a real neighbour, and Pyrite Town is one -- is
-        # unchanged.
-        self.collect_by_name("Travel Unlock - Outskirt Stand")
-        self.collect_by_name("Travel Unlock - Pyrite Town")
-        self.collect_by_name(_pool_item("Data ROM"))
-        self.assertTrue(self.multiworld.state.can_reach("Pyrite Town", player=self.player))
         self.assertTrue(self.multiworld.state.can_reach("Outskirt Stand", player=self.player))
 
-    def test_outskirt_stand_opens_via_a_sibling_travel_item_alone(self) -> None:
-        # The Poke Spots and Snagem Hideout are the two other real destinations in Outskirt Stand's own
-        # confirmed in-location travel menu (ADDENDUM 85) -- HOLDING either one's item counts as "you could
-        # have got here from a real neighbour", whether or not that neighbour is itself reachable yet. That
-        # OR-branch is why this gateway keeps an entrance off Menu alongside its Pyrite Town one.
-        # RETARGETED by ADDENDUM 293. The sibling used to be an unreachable place as well as a held item,
-        # because Snagem's own gateway was sourced at SS Libra -- so holding its item opened nothing. That
-        # prerequisite is withdrawn ("Snagem is no longer gated behind SS libra"), and Snagem now opens on
-        # its item alone, which makes it a poor witness for "a HELD item is enough on its own".
-        #
-        # The Poke Spots are the other sibling in Outskirt Stand's own confirmed travel menu, and they are
-        # still gated on the Data ROM their suppressed chain edge carries -- so the OR-branch under test is
-        # demonstrated the way it was meant to be: the item is held, the place is NOT reachable, and
-        # Outskirt Stand opens anyway.
-        # ADDENDUM 406 took the ROM off the Poke Spots, so they are a reachable place the moment their item is
-        # held and no longer witness "held but not reachable". What is left to show is that this one sibling
-        # item, with nothing else that opens Outskirt Stand's own chain, is enough.
+    def test_a_neighbours_item_alone_does_not_open_it(self) -> None:
+        self.collect_by_name(["Travel Unlock - Poke Spots", "Travel Unlock - Snagem Hideout",
+                              "Travel Unlock - Pyrite Town"])
         self.assertFalse(self.multiworld.state.can_reach("Outskirt Stand", player=self.player))
-        self.collect_by_name(["Travel Unlock - Outskirt Stand", "Travel Unlock - Poke Spots"])
-        self.assertTrue(self.multiworld.state.can_reach("Outskirt Stand", player=self.player))
 
     def test_ss_libra_needs_the_item(self) -> None:
         self.assertFalse(self.multiworld.state.can_reach("SS Libra", player=self.player))
@@ -427,7 +399,9 @@ class TestCatchPokemonAreaGating(PokemonXDTestBase):
             gate = sources[0]
             if gate == "pokespot" or gate.required_items or gate.required_regions:
                 continue
-            needed = {gate.region, *rules._SNAG_FLOOR_REGIONS}
+            # The floor (Kaminko's House) is open from the start; the gate is the fight's own region.
+            self.assertTrue(self.multiworld.state.can_reach(rules._SNAG_FLOOR_REGIONS[0], player=1))
+            needed = {gate.region}
             if not needed <= regions_with_a_travel_item:
                 continue  # nothing would flip it reachable, so it cannot exercise the gate
             name = species.location_name_for_species(dex)
@@ -453,22 +427,11 @@ class TestCatchPokemonAreaGating(PokemonXDTestBase):
         # affect which REGIONS the assertions below are really testing.
         self.collect_by_name(_pool_item("Data ROM"))
 
-        # Granting the trainer's own region is NOT enough on its own -- the snag floor is ANDed, not implied.
-        gate_region = next(iter(needed - set(rules._SNAG_FLOOR_REGIONS)), None)
-        if gate_region is not None:
-            for travel_name, region_name in travel_locations.TRAVEL_LOCATION_TARGET_REGION.items():
-                if region_name == gate_region:
-                    self.collect_by_name(travel_locations.travel_unlock_item_name(travel_name))
-                    break
-            self.assertFalse(
-                self.can_reach_location(location_name),
-                "reaching the holding trainer's region must not be enough on its own -- Pyrite Town and the "
-                "Miror Radar's Poke Spots chest are ANDed with it",
-            )
-
-        for region_name in rules._SNAG_FLOOR_REGIONS:
-            for travel_name, target_region in travel_locations.TRAVEL_LOCATION_TARGET_REGION.items():
-                if target_region == region_name:
-                    self.collect_by_name(travel_locations.travel_unlock_item_name(travel_name))
-                    break
+        # The floor is open from the start, so the holding trainer's region is the whole of what is missing.
+        self.assertFalse(self.can_reach_location(location_name))
+        gate_region = next(iter(needed))
+        for travel_name, region_name in travel_locations.TRAVEL_LOCATION_TARGET_REGION.items():
+            if region_name == gate_region:
+                self.collect_by_name(travel_locations.travel_unlock_item_name(travel_name))
+                break
         self.assertTrue(self.can_reach_location(location_name))

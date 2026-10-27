@@ -96,7 +96,7 @@ class TestTheClient(unittest.TestCase):
         self.tick(ctx)
         self.assertFalse(ctx.lab_memo_hold.armed)
         self.assertEqual([], self.story["writes"])
-        self.assertNotIn(rc.LAB_MEMO_HOLD_AREA, ctx.area_story_memory.forced_floor_by_region)
+        self.assertNotIn(rc.LAB_MEMO_HOLD_AREA, ctx.area_story_memory.held_ceiling_by_region)
 
     def test_0f_without_memos_1_and_2_does_not_clamp(self):
         ctx = _ctx()
@@ -116,7 +116,7 @@ class TestTheClient(unittest.TestCase):
         self.assertTrue(ctx.lab_memo_hold.armed)
         # The hold only pulls the lab DOWN to 0x16: a lab still below it is left to the story.
         self.assertEqual([], self.story["writes"])
-        self.assertEqual(rc.LAB_MEMO_HOLD_BYTE, ctx.area_story_memory.forced_floor_by_region[rc.LAB_MEMO_HOLD_AREA])
+        self.assertEqual(rc.LAB_MEMO_HOLD_BYTE, ctx.area_story_memory.held_ceiling_by_region[rc.LAB_MEMO_HOLD_AREA])
         self.assertGreaterEqual(ctx.saves, 1, "the latch is persisted")
         self.story["value"] = rc.LAB_MEMO_HOLD_BYTE + 1
         self.tick(ctx)

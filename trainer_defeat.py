@@ -1,163 +1,601 @@
-"""
-Named ordinary-trainer defeat roster: one "Defeat - {trainer}" location per trainer with a confirmed real
-display name and story placement.
+"""GENERATED -- all 232 non-empty trainers from `DeckData_Story.bin`'s DTNR array, decoded by
+`xd_deck_format.DeckFile`, each name resolved from `common_rel`'s string table via its `name_id`.
 
-Only 66 of the game's 232 ordinary trainers get a named location. `real_trainer_data.py` loads the full
-byte-exact roster from data/deckdata_story_trainers.json, but that extraction only recovered each trainer's
-trainer_class/name_id/string_ptr -- the text table those point into is not decoded -- so the only source of
-readable names is data/trainer_census.json (68 hand-transcribed). Two of
-those ("Shadow Lugia" and the Citadark "Final Battles" copy of Cipher Boss Greevil) are all-Shadow-team
-placeholders rather than separate trainers, leaving 66. The other 166 are still detected and still counted via
-locations.py's TRAINER_DEFEAT_COUNT_LOCATION_COUNT cumulative bucket, which TrainerBattleDefeatTracker awards
-for every confirmed defeat whether or not a named location is queued for it.
+`index` is the DTNR array position and is the stable id; `occurrence` is 1-based among trainers sharing a
+name, in index order, so ("MIROR B.", 3) is the third Miror B. encounter. 109 names are unique, the rest need
+the occurrence counter. `trainer_class` is the raw class byte, unresolved; `team` keeps each slot's own
+`dpkm_index` / `ddpk_index`, which is what an ISO patch needs.
 
-The detection key is the trainer's `surname`, matching `ram_client.BattleRosterRecord.trainer_name` -- a
-UTF-16BE surname of about 11 chars, confirmed live as "LAKEN" for Chaser Laken. The full "Cipher Peon X"
-display name is never stored in that RAM structure, so the client can only match the surname. A trainer fought
-more than once repeats the same surname text every time and the roster cannot say which occurrence this is, so
-`ram_client.TrainerBattleDefeatTracker` dispatches each confirmed win to the next not-yet-completed location in
-that surname's queue, in the order listed below -- trainer_census.json's own pool order, which is
-story-chronological because it was transcribed off a walkthrough in play order.
-
-Open question, not confirmed live: whether the battle-roster struct exposes an ordinary trainer's entire team
-at once (needed for "every opposing record reads 0 HP" to mean "defeated") for a team larger than the two
-Pokemon bracketed by the Chaser Laken test (Metagross + Wailmer).
-"""
-
+Mt. Battle is not here -- its 100 fighters live in `DeckData_Hundred.bin`. MIRU / CRIDEL / BARDO appear in
+both rosters (story indices 30/31/32, `name_id`s 6048/6049/6050) because Mt. Battle Area 1 is story content,
+so a bare surname cannot say which deck a defeat came from. Harmless: an AP location fires once."""
 from __future__ import annotations
 
-# (region, location_name, surname) for the 66 named trainers. Generated from data/trainer_census.json -- do
-# not hand-edit without regenerating, since location names must stay byte-exact between generation
-# (locations.py) and the live client (ram_client.py's surname lookup).
-#
-# All 22 Phenac entries are filed in "Phenac City (Post-Sixes)", the region whose edge already requires both
-# the Music Disc and the Mayor's Note. They used to say plain "Phenac City", which is the tier the Music Disc's
-# own chest sits in, so a seed could put the Disc on a Phenac trainer and gate it behind itself. The census
-# rows 88-104 all carry ('Music Disc', "Mayor's Note"); seven of the 22 (Jirel, Trita, Kubara, Kuroru, Zanyu,
-# Yaida, Rikoza) have no census row at all and are moved with the rest, which is the safe direction -- a check
-# gated too late costs placement freedom, one gated too early costs the run.
-TRAINER_DEFEAT_ROSTER: list[tuple[str, str, str]] = [
-    ("Agate Village", "Defeat - Myth Trainer Eagun", "Eagun"),
-    ("Outskirt Stand", "Defeat - Cipher Admin Lovrina", "Lovrina"),
-    # The first Miror B. fight is behind the Cave Poke Spot, which comes before the fight even though
-    # story_bytes' 0x39 -> 0x3A transition covers both. Not circular: nothing requires a Defeat location. The
-    # region is the right grain -- all three spots (Rock, Oasis, Cave) carry region="Poke Spots" in
-    # map_destinations and travel randomization creates one "Travel Unlock - Poke Spots" for all three, so no
-    # state reaches another spot without the Cave one.
-    ("Poke Spots", "Defeat - Wanderer Miror B. (1st)", "Miror B."),
-    # Every Pyrite Cipher battle needs the Data ROM / ID Card AND the Poke Spots. The graph is
-    # Pyrite Town --(Data ROM)--> Poke Spots --> Pyrite Town (ONBS), so filing this row there means both; plain
-    # "Pyrite Town" needs only the item.
-    ("Pyrite Town (ONBS)", "Defeat - Cipher Commander Exol", "Exol"),
-    # Gonzap is in Snagem Hideout, behind the Elevator Key tier. This row used to open on the Machine Part
-    # alone, so a progression item placed here made the seed unwinnable.
-    ("Snagem Hideout", "Defeat - Snagem Head Gonzap", "Gonzap"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Exinn", "Exinn"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Gonrag", "Gonrag"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Jirel", "Jirel"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Resix", "Resix"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Purpsix", "Purpsix"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Greesix", "Greesix"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Yellosix", "Yellosix"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Browsix", "Browsix"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Trita", "Trita"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Kubara", "Kubara"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Kuroru", "Kuroru"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Zanyu", "Zanyu"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Yaida", "Yaida"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Rikoza", "Rikoza"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Eloin", "Eloin"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Fasin", "Fasin"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Fostin", "Fostin"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Greck", "Greck"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Ezin", "Ezin"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Faltly", "Faltly"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Peon Egrog", "Egrog"),
-    ("Phenac City (Post-Sixes)", "Defeat - Cipher Admin Snattle", "Snattle"),
-    ("Agate Village", "Defeat - Researcher Chobin", "Chobin"),
-    ("Agate Village", "Defeat - Robo Groudon (Chobin's mecha)", "Chobin"),
-    # Smarton's first fight is the post-scooter-upgrade boarding, so plain "SS Libra" -- the later of the two
-    # ship regions, reached after the Robo Groudon detour. "SS Libra (stranded)" is the Elevator Key tier. This
-    # row used to say "Realgam Tower", a whole key item early (Data ROM vs Mayor's Note).
-    ("SS Libra", "Defeat - Cipher Peon Smarton", "Smarton"),
-    ("Outskirt Stand", "Defeat - Wanderer Miror B. (rematch)", "Miror B."),
-    ("Outskirt Stand", "Defeat - Rider Willie", "Willie"),
-    ("Citadark Isle", "Defeat - Cipher Admin Gorigan", "Gorigan"),
-    ("Citadark Isle", "Defeat - Thug Zook", "Zook"),
-    ("Citadark Isle", "Defeat - Cipher Peon Smarton (Factory Control Room)", "Smarton"),
-    ("Citadark Isle", "Defeat - Navigator Abson", "Abson"),
-    ("Citadark Isle", "Defeat - Cipher Peon Dimon", "Dimon"),
-    ("Citadark Isle", "Defeat - Chaser Furgy", "Furgy"),
-    ("Citadark Isle", "Defeat - Sailor Toronba", "Toronba"),
-    ("Citadark Isle", "Defeat - Hunter Ransa", "Ransa"),
-    ("Citadark Isle", "Defeat - Cipher Admin Lovrina (Citadark)", "Lovrina"),
-    ("Citadark Isle", "Defeat - Cipher Peon Berd", "Berd"),
-    ("Citadark Isle", "Defeat - Cipher Peon Litnar", "Litnar"),
-    ("Citadark Isle", "Defeat - Cipher Peon Grupel", "Grupel"),
-    ("Citadark Isle", "Defeat - Cipher Peon Fajo", "Fajo"),
-    ("Citadark Isle", "Defeat - Hunter Ogera", "Ogera"),
-    ("Citadark Isle", "Defeat - Cipher Peon Kolest", "Kolest"),
-    ("Citadark Isle", "Defeat - Cipher Peon Uumo", "Uumo"),
-    ("Citadark Isle", "Defeat - Chaser Carol", "Carol"),
-    ("Citadark Isle", "Defeat - Rider Fego", "Fego"),
-    ("Citadark Isle", "Defeat - Cipher Peon Antol", "Antol"),
-    ("Citadark Isle", "Defeat - Cipher Peon Karbon", "Karbon"),
-    ("Citadark Isle", "Defeat - Cipher Peon Petro", "Petro"),
-    ("Citadark Isle", "Defeat - Cipher Peon Koral", "Koral"),
-    ("Citadark Isle", "Defeat - Cipher Peon Akante", "Akante"),
-    ("Citadark Isle", "Defeat - Cipher Peon Gefta", "Gefta"),
-    ("Citadark Isle", "Defeat - Cipher Peon Leden", "Leden"),
-    ("Citadark Isle", "Defeat - Cipher Admin Snattle (Citadark)", "Snattle"),
-    ("Citadark Isle", "Defeat - Cipher Peon Metring", "Metring"),
-    ("Citadark Isle", "Defeat - Cipher Admin Ardos", "Ardos"),
-    ("Citadark Isle", "Defeat - Cipher Peon Stron", "Stron"),
-    ("Citadark Isle", "Defeat - Cipher Admin Gorigan (Citadark, final)", "Gorigan"),
-    ("Citadark Isle", "Defeat - Cipher Admin Eldes", "Eldes"),
-    ("Citadark Isle", "Defeat - Legendary Trainer Eagun", "Eagun"),
-    ("Citadark Isle", "Defeat - Wanderer Miror B. (final)", "Miror B."),
-    ("Citadark Isle", "Defeat - Cipher Boss Greevil", "Greevil"),
+TRAINERS: list[dict] = [
+    {"index": 1, "name": 'HORDEL', "occurrence": 1, "total_with_name": 1, "trainer_class": 30, "name_id": 6184, "party_size": 1, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 81}]},
+    {"index": 2, "name": 'MIROR B.', "occurrence": 1, "total_with_name": 9, "trainer_class": 11, "name_id": 6103, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 2, 'species': 187, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 3, 'species': 297, 'level': 20}]},
+    {"index": 3, "name": 'MIROR B.', "occurrence": 2, "total_with_name": 9, "trainer_class": 11, "name_id": 6103, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 4, 'species': 297, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 5, 'species': 297, 'level': 20}]},
+    {"index": 4, "name": 'MIROR B.', "occurrence": 3, "total_with_name": 9, "trainer_class": 11, "name_id": 6103, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 6, 'species': 188, 'level': 30}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 7, 'species': 297, 'level': 30}]},
+    {"index": 5, "name": 'MIROR B.', "occurrence": 4, "total_with_name": 9, "trainer_class": 11, "name_id": 6103, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 8, 'species': 297, 'level': 30}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 9, 'species': 297, 'level': 30}]},
+    {"index": 6, "name": 'MIROR B.', "occurrence": 5, "total_with_name": 9, "trainer_class": 11, "name_id": 6103, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 10, 'species': 189, 'level': 40}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 11, 'species': 297, 'level': 40}]},
+    {"index": 7, "name": 'MIROR B.', "occurrence": 6, "total_with_name": 9, "trainer_class": 11, "name_id": 6103, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 12, 'species': 297, 'level': 40}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 13, 'species': 297, 'level': 40}]},
+    {"index": 8, "name": 'AFERD', "occurrence": 1, "total_with_name": 5, "trainer_class": 18, "name_id": 6020, "party_size": 1, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 14, 'species': 161, 'level': 5}]},
+    {"index": 9, "name": 'ZOOK', "occurrence": 1, "total_with_name": 2, "trainer_class": 7, "name_id": 6004, "party_size": 1, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 30}]},
+    {"index": 10, "name": 'ARDOS', "occurrence": 1, "total_with_name": 2, "trainer_class": 5, "name_id": 6005, "party_size": 1, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 16, 'species': 65, 'level': 44}]},
+    {"index": 11, "name": 'BERK', "occurrence": 1, "total_with_name": 1, "trainer_class": 31, "name_id": 6008, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 17, 'species': 309, 'level': 6}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 18, 'species': 295, 'level': 6}]},
+    {"index": 12, "name": 'CYLE', "occurrence": 1, "total_with_name": 1, "trainer_class": 24, "name_id": 6009, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 19, 'species': 304, 'level': 6}, {'slot': 1, 'kind': 'DDPK', 'ddpk_index': 83}]},
+    {"index": 13, "name": 'BOST', "occurrence": 1, "total_with_name": 1, "trainer_class": 32, "name_id": 6010, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 21, 'species': 370, 'level': 6}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 22, 'species': 183, 'level': 6}]},
+    {"index": 14, "name": 'KILEN', "occurrence": 1, "total_with_name": 1, "trainer_class": 35, "name_id": 6186, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 23, 'species': 41, 'level': 6}, {'slot': 1, 'kind': 'DDPK', 'ddpk_index': 82}]},
+    {"index": 15, "name": 'CHOBIN', "occurrence": 1, "total_with_name": 7, "trainer_class": 14, "name_id": 6025, "party_size": 1, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 25, 'species': 191, 'level': 5}]},
+    {"index": 16, "name": 'LAKEN', "occurrence": 1, "total_with_name": 3, "trainer_class": 26, "name_id": 6017, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 26, 'species': 358, 'level': 6}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 27, 'species': 328, 'level': 6}]},
+    {"index": 17, "name": 'NAPS', "occurrence": 1, "total_with_name": 2, "trainer_class": 16, "name_id": 6021, "party_size": 1, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 1}]},
+    {"index": 18, "name": 'CHOBIN', "occurrence": 2, "total_with_name": 7, "trainer_class": 14, "name_id": 6025, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 29, 'species': 191, 'level': 6}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 30, 'species': 129, 'level': 6}]},
+    {"index": 19, "name": 'CLERR', "occurrence": 1, "total_with_name": 3, "trainer_class": 21, "name_id": 6028, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 31, 'species': 43, 'level': 7}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 32, 'species': 66, 'level': 7}]},
+    {"index": 20, "name": 'BELISH', "occurrence": 1, "total_with_name": 3, "trainer_class": 23, "name_id": 6029, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 33, 'species': 286, 'level': 7}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 34, 'species': 301, 'level': 7}]},
+    {"index": 21, "name": 'CIDA', "occurrence": 1, "total_with_name": 3, "trainer_class": 20, "name_id": 6030, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 35, 'species': 350, 'level': 7}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 36, 'species': 174, 'level': 7}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 37, 'species': 175, 'level': 7}]},
+    {"index": 22, "name": 'DOSK', "occurrence": 1, "total_with_name": 3, "trainer_class": 35, "name_id": 6031, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 38, 'species': 236, 'level': 7}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 39, 'species': 88, 'level': 8}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 40, 'species': 41, 'level': 8}]},
+    {"index": 23, "name": 'HEBON', "occurrence": 1, "total_with_name": 3, "trainer_class": 28, "name_id": 6032, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 41, 'species': 290, 'level': 6}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 42, 'species': 291, 'level': 7}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 43, 'species': 293, 'level': 7}]},
+    {"index": 24, "name": 'GORPS', "occurrence": 1, "total_with_name": 1, "trainer_class": 20, "name_id": 6036, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 44, 'species': 288, 'level': 8}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 45, 'species': 339, 'level': 8}]},
+    {"index": 25, "name": 'JOLS', "occurrence": 1, "total_with_name": 1, "trainer_class": 18, "name_id": 6037, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 46, 'species': 209, 'level': 8}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 47, 'species': 326, 'level': 8}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 48, 'species': 295, 'level': 8}]},
+    {"index": 26, "name": 'LADI', "occurrence": 1, "total_with_name": 1, "trainer_class": 23, "name_id": 6038, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 49, 'species': 344, 'level': 8}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 50, 'species': 218, 'level': 8}]},
+    {"index": 27, "name": 'CRON', "occurrence": 1, "total_with_name": 1, "trainer_class": 21, "name_id": 6039, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 51, 'species': 116, 'level': 9}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 52, 'species': 63, 'level': 9}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 53, 'species': 306, 'level': 9}]},
+    {"index": 28, "name": 'EAGUN', "occurrence": 1, "total_with_name": 2, "trainer_class": 12, "name_id": 6035, "party_size": 1, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 54, 'species': 25, 'level': 12}]},
+    {"index": 29, "name": 'CIDA', "occurrence": 2, "total_with_name": 3, "trainer_class": 20, "name_id": 6030, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 55, 'species': 183, 'level': 10}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 56, 'species': 39, 'level': 10}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 57, 'species': 175, 'level': 10}]},
+    {"index": 30, "name": 'MIRU', "occurrence": 1, "total_with_name": 1, "trainer_class": 34, "name_id": 6048, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 58, 'species': 290, 'level': 9}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 59, 'species': 309, 'level': 9}]},
+    {"index": 31, "name": 'CRIDEL', "occurrence": 1, "total_with_name": 1, "trainer_class": 33, "name_id": 6049, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 60, 'species': 326, 'level': 9}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 61, 'species': 358, 'level': 10}]},
+    {"index": 32, "name": 'BARDO', "occurrence": 1, "total_with_name": 1, "trainer_class": 20, "name_id": 6050, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 62, 'species': 84, 'level': 10}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 63, 'species': 351, 'level': 10}]},
+    {"index": 33, "name": 'RESIX', "occurrence": 1, "total_with_name": 6, "trainer_class": 17, "name_id": 6040, "party_size": 2, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 14}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 65, 'species': 218, 'level': 14}]},
+    {"index": 34, "name": 'BLUSIX', "occurrence": 1, "total_with_name": 6, "trainer_class": 17, "name_id": 6041, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 66, 'species': 116, 'level': 11}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 67, 'species': 118, 'level': 12}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 3}]},
+    {"index": 35, "name": 'BROWSIX', "occurrence": 1, "total_with_name": 6, "trainer_class": 17, "name_id": 6042, "party_size": 2, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 4}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 70, 'species': 163, 'level': 14}]},
+    {"index": 36, "name": 'YELLOSIX', "occurrence": 1, "total_with_name": 6, "trainer_class": 17, "name_id": 6043, "party_size": 3, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 5}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 72, 'species': 337, 'level': 12}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 73, 'species': 170, 'level': 11}]},
+    {"index": 37, "name": 'PURPSIX', "occurrence": 1, "total_with_name": 6, "trainer_class": 17, "name_id": 6044, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 74, 'species': 109, 'level': 10}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 75, 'species': 88, 'level': 11}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 6}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 77, 'species': 72, 'level': 10}]},
+    {"index": 38, "name": 'GREESIX', "occurrence": 1, "total_with_name": 6, "trainer_class": 17, "name_id": 6045, "party_size": 6, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 78, 'species': 43, 'level': 9}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 79, 'species': 344, 'level': 9}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 80, 'species': 306, 'level': 9}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 81, 'species': 295, 'level': 8}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 82, 'species': 204, 'level': 9}, {'slot': 5, 'kind': 'DDPK', 'ddpk_index': 7}]},
+    {"index": 39, "name": 'RESIX', "occurrence": 2, "total_with_name": 6, "trainer_class": 17, "name_id": 6040, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 84, 'species': 218, 'level': 14}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 85, 'species': 339, 'level': 14}]},
+    {"index": 40, "name": 'BLUSIX', "occurrence": 2, "total_with_name": 6, "trainer_class": 17, "name_id": 6041, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 86, 'species': 116, 'level': 11}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 87, 'species': 118, 'level': 12}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 88, 'species': 398, 'level': 11}]},
+    {"index": 41, "name": 'BROWSIX', "occurrence": 2, "total_with_name": 6, "trainer_class": 17, "name_id": 6042, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 89, 'species': 163, 'level': 14}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 90, 'species': 364, 'level': 14}]},
+    {"index": 42, "name": 'YELLOSIX', "occurrence": 2, "total_with_name": 6, "trainer_class": 17, "name_id": 6043, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 91, 'species': 337, 'level': 12}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 92, 'species': 170, 'level': 11}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 93, 'species': 81, 'level': 12}]},
+    {"index": 43, "name": 'PURPSIX', "occurrence": 2, "total_with_name": 6, "trainer_class": 17, "name_id": 6044, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 94, 'species': 109, 'level': 10}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 95, 'species': 88, 'level': 11}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 96, 'species': 72, 'level': 10}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 97, 'species': 41, 'level': 10}]},
+    {"index": 44, "name": 'GREESIX', "occurrence": 2, "total_with_name": 6, "trainer_class": 17, "name_id": 6045, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 98, 'species': 43, 'level': 9}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 99, 'species': 344, 'level': 9}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 100, 'species': 306, 'level': 9}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 101, 'species': 295, 'level': 8}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 102, 'species': 204, 'level': 9}]},
+    {"index": 45, "name": 'CORLA', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6052, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 103, 'species': 361, 'level': 14}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 104, 'species': 315, 'level': 14}]},
+    {"index": 46, "name": 'JAVION', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6058, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 105, 'species': 84, 'level': 13}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 106, 'species': 304, 'level': 14}]},
+    {"index": 47, "name": 'TEKOT', "occurrence": 1, "total_with_name": 1, "trainer_class": 41, "name_id": 6056, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 107, 'species': 373, 'level': 13}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 108, 'species': 326, 'level': 14}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 109, 'species': 41, 'level': 15}]},
+    {"index": 48, "name": 'MESAK', "occurrence": 1, "total_with_name": 1, "trainer_class": 41, "name_id": 6060, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 110, 'species': 390, 'level': 13}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 111, 'species': 388, 'level': 13}]},
+    {"index": 49, "name": 'NEXIR', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6061, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 112, 'species': 220, 'level': 14}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 113, 'species': 377, 'level': 13}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 8}]},
+    {"index": 50, "name": 'SOLOX', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6059, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 115, 'species': 392, 'level': 15}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 116, 'species': 100, 'level': 16}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 117, 'species': 395, 'level': 16}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 9}]},
+    {"index": 51, "name": 'DIGOR', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6054, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 119, 'species': 63, 'level': 17}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 120, 'species': 66, 'level': 16}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 121, 'species': 328, 'level': 16}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 122, 'species': 335, 'level': 16}]},
+    {"index": 52, "name": 'CRINK', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6063, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 123, 'species': 346, 'level': 14}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 124, 'species': 323, 'level': 14}]},
+    {"index": 53, "name": 'MORBIT', "occurrence": 1, "total_with_name": 1, "trainer_class": 41, "name_id": 6062, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 125, 'species': 351, 'level': 16}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 126, 'species': 295, 'level': 14}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 127, 'species': 120, 'level': 14}]},
+    {"index": 54, "name": 'MEDA', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6064, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 128, 'species': 177, 'level': 16}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 129, 'species': 301, 'level': 14}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 130, 'species': 313, 'level': 15}]},
+    {"index": 55, "name": 'ELROK', "occurrence": 1, "total_with_name": 1, "trainer_class": 41, "name_id": 6065, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 131, 'species': 358, 'level': 17}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 132, 'species': 360, 'level': 16}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 133, 'species': 222, 'level': 15}]},
+    {"index": 56, "name": 'COFFY', "occurrence": 1, "total_with_name": 1, "trainer_class": 41, "name_id": 6066, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 134, 'species': 294, 'level': 14}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 135, 'species': 309, 'level': 17}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 136, 'species': 204, 'level': 16}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 137, 'species': 211, 'level': 15}]},
+    {"index": 57, "name": 'CABOL', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6053, "party_size": 4, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 10}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 139, 'species': 81, 'level': 15}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 140, 'species': 54, 'level': 15}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 141, 'species': 223, 'level': 16}]},
+    {"index": 58, "name": 'NOPIA', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6057, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 142, 'species': 39, 'level': 15}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 143, 'species': 411, 'level': 17}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 144, 'species': 206, 'level': 16}]},
+    {"index": 59, "name": 'KLOTS', "occurrence": 1, "total_with_name": 1, "trainer_class": 41, "name_id": 6055, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 145, 'species': 209, 'level': 16}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 146, 'species': 317, 'level': 16}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 23}]},
+    {"index": 60, "name": 'NAPS', "occurrence": 2, "total_with_name": 2, "trainer_class": 17, "name_id": 6021, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 148, 'species': 198, 'level': 18}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 149, 'species': 111, 'level': 18}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 150, 'species': 364, 'level': 18}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 151, 'species': 398, 'level': 18}]},
+    {"index": 61, "name": 'LOVRINA', "occurrence": 1, "total_with_name": 2, "trainer_class": 6, "name_id": 6067, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 152, 'species': 325, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 153, 'species': 292, 'level': 19}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 154, 'species': 363, 'level': 19}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 12}]},
+    {"index": 62, "name": 'CAIL', "occurrence": 1, "total_with_name": 4, "trainer_class": 15, "name_id": 6074, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 156, 'species': 392, 'level': 16}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 157, 'species': 209, 'level': 16}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 158, 'species': 298, 'level': 16}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 159, 'species': 228, 'level': 16}]},
+    {"index": 63, "name": 'DOBIT', "occurrence": 1, "total_with_name": 2, "trainer_class": 29, "name_id": 6075, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 160, 'species': 351, 'level': 16}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 161, 'species': 81, 'level': 16}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 162, 'species': 339, 'level': 16}]},
+    {"index": 64, "name": 'FINOL', "occurrence": 1, "total_with_name": 3, "trainer_class": 26, "name_id": 6076, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 163, 'species': 377, 'level': 16}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 164, 'species': 165, 'level': 16}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 165, 'species': 223, 'level': 16}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 166, 'species': 175, 'level': 17}]},
+    {"index": 65, "name": 'DERT', "occurrence": 1, "total_with_name": 3, "trainer_class": 28, "name_id": 6077, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 167, 'species': 218, 'level': 16}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 168, 'species': 177, 'level': 16}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 169, 'species': 43, 'level': 16}]},
+    {"index": 66, "name": 'RALING', "occurrence": 1, "total_with_name": 3, "trainer_class": 27, "name_id": 6078, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 170, 'species': 288, 'level': 17}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 171, 'species': 370, 'level': 17}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 172, 'species': 190, 'level': 17}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 173, 'species': 206, 'level': 17}]},
+    {"index": 67, "name": 'LABET', "occurrence": 1, "total_with_name": 3, "trainer_class": 26, "name_id": 6079, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 174, 'species': 220, 'level': 17}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 175, 'species': 395, 'level': 17}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 176, 'species': 198, 'level': 17}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 177, 'species': 373, 'level': 17}]},
+    {"index": 68, "name": 'DOBY', "occurrence": 1, "total_with_name": 3, "trainer_class": 35, "name_id": 6080, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 178, 'species': 66, 'level': 17}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 179, 'species': 72, 'level': 17}]},
+    {"index": 69, "name": 'AFERD', "occurrence": 2, "total_with_name": 5, "trainer_class": 18, "name_id": 6020, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 180, 'species': 162, 'level': 17}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 181, 'species': 163, 'level': 17}]},
+    {"index": 70, "name": 'AFERD', "occurrence": 3, "total_with_name": 5, "trainer_class": 18, "name_id": 6020, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 182, 'species': 162, 'level': 18}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 183, 'species': 163, 'level': 18}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 184, 'species': 301, 'level': 18}]},
+    {"index": 71, "name": 'LAKEN', "occurrence": 2, "total_with_name": 3, "trainer_class": 26, "name_id": 6017, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 185, 'species': 358, 'level': 17}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 186, 'species': 328, 'level': 17}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 187, 'species': 309, 'level': 16}]},
+    {"index": 72, "name": 'MIROR B.', "occurrence": 7, "total_with_name": 9, "trainer_class": 11, "name_id": 6103, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 188, 'species': 296, 'level': 17}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 189, 'species': 296, 'level': 17}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 190, 'species': 296, 'level': 17}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 29}]},
+    {"index": 73, "name": 'RETT', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6091, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 192, 'species': 330, 'level': 18}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 193, 'species': 323, 'level': 17}]},
+    {"index": 74, "name": 'MOCOR', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6092, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 194, 'species': 326, 'level': 18}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 195, 'species': 337, 'level': 17}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 196, 'species': 88, 'level': 18}]},
+    {"index": 75, "name": 'MESIN', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6093, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 197, 'species': 167, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 198, 'species': 292, 'level': 19}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 199, 'species': 294, 'level': 20}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 2}]},
+    {"index": 76, "name": 'ELOX', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6094, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 201, 'species': 84, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 202, 'species': 72, 'level': 18}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 203, 'species': 411, 'level': 20}]},
+    {"index": 77, "name": 'RIXOR', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6095, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 204, 'species': 211, 'level': 19}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 205, 'species': 111, 'level': 20}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 206, 'species': 170, 'level': 20}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 207, 'species': 109, 'level': 20}]},
+    {"index": 78, "name": 'TORKIN', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6096, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 208, 'species': 317, 'level': 19}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 209, 'species': 311, 'level': 21}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 15}]},
+    {"index": 79, "name": 'DILLY', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6097, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 211, 'species': 367, 'level': 19}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 212, 'species': 179, 'level': 18}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 213, 'species': 325, 'level': 20}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 214, 'species': 182, 'level': 21}]},
+    {"index": 80, "name": 'CLERR', "occurrence": 2, "total_with_name": 3, "trainer_class": 21, "name_id": 6028, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 215, 'species': 43, 'level': 16}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 216, 'species': 66, 'level': 16}]},
+    {"index": 81, "name": 'BELISH', "occurrence": 2, "total_with_name": 3, "trainer_class": 23, "name_id": 6029, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 217, 'species': 286, 'level': 16}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 218, 'species': 301, 'level': 17}]},
+    {"index": 82, "name": 'DOSK', "occurrence": 2, "total_with_name": 3, "trainer_class": 35, "name_id": 6031, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 219, 'species': 236, 'level': 16}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 220, 'species': 88, 'level': 17}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 221, 'species': 41, 'level': 16}]},
+    {"index": 83, "name": 'HEBON', "occurrence": 2, "total_with_name": 3, "trainer_class": 28, "name_id": 6032, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 222, 'species': 294, 'level': 16}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 223, 'species': 292, 'level': 17}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 224, 'species': 294, 'level': 17}]},
+    {"index": 84, "name": 'LOBAR', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6098, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 225, 'species': 215, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 226, 'species': 193, 'level': 19}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 227, 'species': 200, 'level': 20}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 16}]},
+    {"index": 85, "name": 'EDLOS', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6099, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 229, 'species': 162, 'level': 19}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 230, 'species': 288, 'level': 20}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 231, 'species': 176, 'level': 19}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 232, 'species': 225, 'level': 21}]},
+    {"index": 86, "name": 'FELDAS', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6100, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 233, 'species': 64, 'level': 22}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 234, 'species': 180, 'level': 22}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 235, 'species': 365, 'level': 21}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 17}]},
+    {"index": 87, "name": 'EXOL', "occurrence": 1, "total_with_name": 1, "trainer_class": 40, "name_id": 6101, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 237, 'species': 371, 'level': 23}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 238, 'species': 203, 'level': 23}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 18}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 240, 'species': 26, 'level': 23}]},
+    {"index": 88, "name": 'EXINN', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6122, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 241, 'species': 379, 'level': 20}, {'slot': 1, 'kind': 'DDPK', 'ddpk_index': 19}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 243, 'species': 42, 'level': 22}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 244, 'species': 287, 'level': 21}]},
+    {"index": 89, "name": 'GONRAG', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6123, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 245, 'species': 198, 'level': 22}, {'slot': 1, 'kind': 'DDPK', 'ddpk_index': 20}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 247, 'species': 168, 'level': 22}]},
+    {"index": 90, "name": 'CAIL', "occurrence": 2, "total_with_name": 4, "trainer_class": 15, "name_id": 6074, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 248, 'species': 393, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 249, 'species': 209, 'level': 20}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 250, 'species': 299, 'level': 20}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 251, 'species': 228, 'level': 20}]},
+    {"index": 91, "name": 'PELLIM', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6112, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 252, 'species': 185, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 253, 'species': 373, 'level': 21}]},
+    {"index": 92, "name": 'FENTON', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6113, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 254, 'species': 118, 'level': 21}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 255, 'species': 330, 'level': 21}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 256, 'species': 109, 'level': 21}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 257, 'species': 287, 'level': 21}]},
+    {"index": 93, "name": 'FORGS', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6114, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 258, 'species': 361, 'level': 21}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 259, 'species': 326, 'level': 20}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 260, 'species': 211, 'level': 21}]},
+    {"index": 94, "name": 'KAPEN', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6116, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 261, 'species': 386, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 262, 'species': 351, 'level': 21}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 263, 'species': 387, 'level': 20}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 264, 'species': 379, 'level': 21}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 265, 'species': 313, 'level': 22}]},
+    {"index": 95, "name": 'EZOOR', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6115, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 266, 'species': 377, 'level': 21}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 267, 'species': 216, 'level': 21}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 268, 'species': 222, 'level': 21}]},
+    {"index": 96, "name": 'ERTLIG', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6117, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 269, 'species': 286, 'level': 22}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 270, 'species': 81, 'level': 21}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 271, 'species': 120, 'level': 21}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 272, 'species': 376, 'level': 21}]},
+    {"index": 97, "name": 'GRECK', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6118, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 273, 'species': 321, 'level': 22}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 274, 'species': 299, 'level': 23}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 21}]},
+    {"index": 98, "name": 'ELOIN', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6119, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 276, 'species': 393, 'level': 22}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 277, 'species': 289, 'level': 20}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 22}]},
+    {"index": 99, "name": 'FASIN', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6121, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 279, 'species': 223, 'level': 22}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 280, 'species': 42, 'level': 22}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 11}]},
+    {"index": 100, "name": 'FOSTIN', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6120, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 282, 'species': 64, 'level': 22}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 283, 'species': 215, 'level': 22}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 284, 'species': 200, 'level': 22}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 24}]},
+    {"index": 101, "name": 'EZIN', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6124, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 286, 'species': 310, 'level': 23}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 287, 'species': 337, 'level': 23}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 25}]},
+    {"index": 102, "name": 'FALTLY', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6125, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 289, 'species': 411, 'level': 23}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 290, 'species': 234, 'level': 23}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 26}]},
+    {"index": 103, "name": 'EGROG', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6126, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 292, 'species': 163, 'level': 25}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 293, 'species': 75, 'level': 26}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 294, 'species': 367, 'level': 26}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 27}]},
+    {"index": 104, "name": 'SNATTLE', "occurrence": 1, "total_with_name": 2, "trainer_class": 6, "name_id": 6127, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 296, 'species': 171, 'level': 26}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 297, 'species': 195, 'level': 26}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 28}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 299, 'species': 385, 'level': 27}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 300, 'species': 399, 'level': 28}]},
+    {"index": 105, "name": 'EROLL', "occurrence": 1, "total_with_name": 2, "trainer_class": 21, "name_id": 6105, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 301, 'species': 163, 'level': 23}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 302, 'species': 161, 'level': 23}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 303, 'species': 41, 'level': 23}]},
+    {"index": 106, "name": 'EQUIN', "occurrence": 1, "total_with_name": 2, "trainer_class": 20, "name_id": 6111, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 304, 'species': 215, 'level': 23}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 305, 'species': 351, 'level': 23}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 306, 'species': 308, 'level': 23}]},
+    {"index": 107, "name": 'FINOL', "occurrence": 2, "total_with_name": 3, "trainer_class": 26, "name_id": 6076, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 307, 'species': 377, 'level': 23}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 308, 'species': 165, 'level': 23}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 309, 'species': 223, 'level': 23}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 310, 'species': 176, 'level': 23}]},
+    {"index": 108, "name": 'DERT', "occurrence": 2, "total_with_name": 3, "trainer_class": 28, "name_id": 6077, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 311, 'species': 218, 'level': 23}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 312, 'species': 177, 'level': 23}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 313, 'species': 44, 'level': 23}]},
+    {"index": 109, "name": 'RALING', "occurrence": 2, "total_with_name": 3, "trainer_class": 27, "name_id": 6078, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 314, 'species': 289, 'level': 23}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 315, 'species': 371, 'level': 23}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 316, 'species': 190, 'level': 23}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 317, 'species': 206, 'level': 23}]},
+    {"index": 110, "name": 'LABET', "occurrence": 2, "total_with_name": 3, "trainer_class": 26, "name_id": 6079, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 318, 'species': 220, 'level': 23}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 319, 'species': 395, 'level': 23}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 320, 'species': 198, 'level': 23}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 321, 'species': 373, 'level': 23}]},
+    {"index": 111, "name": 'DOBY', "occurrence": 2, "total_with_name": 3, "trainer_class": 35, "name_id": 6080, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 322, 'species': 66, 'level': 23}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 323, 'species': 72, 'level': 23}]},
+    {"index": 112, "name": 'RESIX', "occurrence": 3, "total_with_name": 6, "trainer_class": 17, "name_id": 6040, "party_size": 3, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 14}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 325, 'species': 218, 'level': 20}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 326, 'species': 339, 'level': 20}]},
+    {"index": 113, "name": 'BLUSIX', "occurrence": 3, "total_with_name": 6, "trainer_class": 17, "name_id": 6041, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 327, 'species': 116, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 328, 'species': 118, 'level': 20}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 329, 'species': 398, 'level': 19}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 3}]},
+    {"index": 114, "name": 'BROWSIX', "occurrence": 3, "total_with_name": 6, "trainer_class": 17, "name_id": 6042, "party_size": 3, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 4}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 332, 'species': 164, 'level': 20}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 333, 'species': 365, 'level': 20}]},
+    {"index": 115, "name": 'YELLOSIX', "occurrence": 3, "total_with_name": 6, "trainer_class": 17, "name_id": 6043, "party_size": 4, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 5}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 335, 'species': 337, 'level': 20}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 336, 'species': 170, 'level': 20}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 337, 'species': 81, 'level': 20}]},
+    {"index": 116, "name": 'PURPSIX', "occurrence": 3, "total_with_name": 6, "trainer_class": 17, "name_id": 6044, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 338, 'species': 109, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 339, 'species': 88, 'level': 20}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 6}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 341, 'species': 72, 'level': 20}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 342, 'species': 41, 'level': 20}]},
+    {"index": 117, "name": 'GREESIX', "occurrence": 3, "total_with_name": 6, "trainer_class": 17, "name_id": 6045, "party_size": 6, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 343, 'species': 43, 'level': 18}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 344, 'species': 344, 'level': 18}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 345, 'species': 306, 'level': 19}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 346, 'species': 295, 'level': 19}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 347, 'species': 204, 'level': 20}, {'slot': 5, 'kind': 'DDPK', 'ddpk_index': 7}]},
+    {"index": 118, "name": 'RESIX', "occurrence": 4, "total_with_name": 6, "trainer_class": 17, "name_id": 6040, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 349, 'species': 218, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 350, 'species': 339, 'level': 20}]},
+    {"index": 119, "name": 'BLUSIX', "occurrence": 4, "total_with_name": 6, "trainer_class": 17, "name_id": 6041, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 351, 'species': 116, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 352, 'species': 118, 'level': 20}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 353, 'species': 398, 'level': 19}]},
+    {"index": 120, "name": 'BROWSIX', "occurrence": 4, "total_with_name": 6, "trainer_class": 17, "name_id": 6042, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 354, 'species': 164, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 355, 'species': 365, 'level': 20}]},
+    {"index": 121, "name": 'YELLOSIX', "occurrence": 4, "total_with_name": 6, "trainer_class": 17, "name_id": 6043, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 356, 'species': 337, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 357, 'species': 170, 'level': 20}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 358, 'species': 81, 'level': 20}]},
+    {"index": 122, "name": 'PURPSIX', "occurrence": 4, "total_with_name": 6, "trainer_class": 17, "name_id": 6044, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 359, 'species': 109, 'level': 20}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 360, 'species': 88, 'level': 20}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 361, 'species': 72, 'level': 20}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 362, 'species': 41, 'level': 20}]},
+    {"index": 123, "name": 'GREESIX', "occurrence": 4, "total_with_name": 6, "trainer_class": 17, "name_id": 6045, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 363, 'species': 43, 'level': 18}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 364, 'species': 344, 'level': 18}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 365, 'species': 306, 'level': 19}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 366, 'species': 295, 'level': 19}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 367, 'species': 204, 'level': 20}]},
+    {"index": 124, "name": 'CHOBIN', "occurrence": 3, "total_with_name": 7, "trainer_class": 14, "name_id": 6025, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 368, 'species': 191, 'level': 26}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 369, 'species': 130, 'level': 26}]},
+    {"index": 125, "name": 'CHOBIN', "occurrence": 4, "total_with_name": 7, "trainer_class": 10, "name_id": 6025, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 370, 'species': 192, 'level': 26}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 371, 'species': 130, 'level': 26}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 372, 'species': 187, 'level': 26}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 373, 'species': 369, 'level': 26}]},
+    {"index": 126, "name": 'CAIL', "occurrence": 3, "total_with_name": 4, "trainer_class": 15, "name_id": 6074, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 374, 'species': 393, 'level': 26}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 375, 'species': 210, 'level': 26}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 376, 'species': 299, 'level': 26}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 377, 'species': 229, 'level': 26}]},
+    {"index": 127, "name": 'CHOBIN', "occurrence": 5, "total_with_name": 7, "trainer_class": 14, "name_id": 6025, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 378, 'species': 192, 'level': 26}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 379, 'species': 130, 'level': 26}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 380, 'species': 187, 'level': 26}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 381, 'species': 369, 'level': 26}]},
+    {"index": 128, "name": 'SMARTON', "occurrence": 1, "total_with_name": 2, "trainer_class": 17, "name_id": 6129, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 382, 'species': 374, 'level': 27}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 383, 'species': 344, 'level': 27}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 384, 'species': 216, 'level': 27}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 385, 'species': 109, 'level': 27}]},
+    {"index": 129, "name": 'QUELOR', "occurrence": 1, "total_with_name": 1, "trainer_class": 20, "name_id": 6189, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 386, 'species': 165, 'level': 21}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 387, 'species': 351, 'level': 21}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 388, 'species': 182, 'level': 21}]},
+    {"index": 130, "name": 'TESLOR', "occurrence": 1, "total_with_name": 1, "trainer_class": 20, "name_id": 6190, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 389, 'species': 192, 'level': 22}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 390, 'species': 162, 'level': 22}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 391, 'species': 289, 'level': 22}]},
+    {"index": 131, "name": 'NOPEL', "occurrence": 1, "total_with_name": 1, "trainer_class": 18, "name_id": 6191, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 392, 'species': 317, 'level': 23}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 393, 'species': 184, 'level': 23}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 394, 'species': 193, 'level': 23}]},
+    {"index": 132, "name": 'KALUS', "occurrence": 1, "total_with_name": 1, "trainer_class": 23, "name_id": 6192, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 395, 'species': 353, 'level': 24}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 396, 'species': 354, 'level': 24}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 397, 'species': 376, 'level': 24}]},
+    {"index": 133, "name": 'JUSTY', "occurrence": 1, "total_with_name": 1, "trainer_class": 13, "name_id": 6110, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 398, 'species': 344, 'level': 29}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 399, 'species': 28, 'level': 29}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 400, 'species': 207, 'level': 29}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 401, 'species': 320, 'level': 29}]},
+    {"index": 134, "name": 'MIROR B.', "occurrence": 8, "total_with_name": 9, "trainer_class": 11, "name_id": 6103, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 402, 'species': 296, 'level': 26}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 403, 'species': 296, 'level': 26}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 404, 'species': 296, 'level': 26}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 13}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 406, 'species': 297, 'level': 26}]},
+    {"index": 135, "name": 'WILLIE', "occurrence": 1, "total_with_name": 2, "trainer_class": 28, "name_id": 6131, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 407, 'species': 288, 'level': 24}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 408, 'species': 288, 'level': 24}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 409, 'species': 289, 'level': 26}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 410, 'species': 289, 'level': 26}]},
+    {"index": 136, "name": 'FUDLO', "occurrence": 1, "total_with_name": 1, "trainer_class": 25, "name_id": 6134, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 411, 'species': 75, 'level': 25}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 412, 'species': 111, 'level': 26}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 413, 'species': 234, 'level': 28}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 414, 'species': 200, 'level': 28}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 415, 'species': 369, 'level': 27}]},
+    {"index": 137, "name": 'GAPLY', "occurrence": 1, "total_with_name": 1, "trainer_class": 25, "name_id": 6136, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 416, 'species': 168, 'level': 26}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 417, 'species': 292, 'level': 28}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 418, 'species': 215, 'level': 28}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 419, 'species': 225, 'level': 28}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 420, 'species': 178, 'level': 27}]},
+    {"index": 138, "name": 'JINOK', "occurrence": 1, "total_with_name": 1, "trainer_class": 25, "name_id": 6139, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 421, 'species': 317, 'level': 25}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 422, 'species': 190, 'level': 26}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 423, 'species': 386, 'level': 25}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 424, 'species': 193, 'level': 25}]},
+    {"index": 139, "name": 'AGREV', "occurrence": 1, "total_with_name": 1, "trainer_class": 25, "name_id": 6132, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 425, 'species': 198, 'level': 26}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 426, 'species': 43, 'level': 26}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 427, 'species': 42, 'level': 26}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 428, 'species': 376, 'level': 27}]},
+    {"index": 140, "name": 'JEDO', "occurrence": 1, "total_with_name": 1, "trainer_class": 25, "name_id": 6135, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 429, 'species': 109, 'level': 26}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 430, 'species': 43, 'level': 26}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 431, 'species': 294, 'level': 26}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 432, 'species': 211, 'level': 25}]},
+    {"index": 141, "name": 'GOLIT', "occurrence": 1, "total_with_name": 1, "trainer_class": 25, "name_id": 6137, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 433, 'species': 223, 'level': 25}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 434, 'species': 224, 'level': 26}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 435, 'species': 28, 'level': 27}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 436, 'species': 371, 'level': 26}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 437, 'species': 327, 'level': 32}]},
+    {"index": 142, "name": 'HOBBLE', "occurrence": 1, "total_with_name": 1, "trainer_class": 25, "name_id": 6138, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 438, 'species': 203, 'level': 26}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 439, 'species': 235, 'level': 27}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 440, 'species': 310, 'level': 25}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 441, 'species': 67, 'level': 28}]},
+    {"index": 143, "name": 'BIDEN', "occurrence": 1, "total_with_name": 2, "trainer_class": 25, "name_id": 6133, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 442, 'species': 43, 'level': 27}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 443, 'species': 169, 'level': 26}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 444, 'species': 321, 'level': 26}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 445, 'species': 182, 'level': 26}]},
+    {"index": 144, "name": 'WAKIN', "occurrence": 1, "total_with_name": 1, "trainer_class": 25, "name_id": 6128, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 446, 'species': 44, 'level': 28}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 447, 'species': 44, 'level': 28}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 448, 'species': 226, 'level': 28}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 449, 'species': 205, 'level': 31}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 450, 'species': 352, 'level': 32}]},
+    {"index": 145, "name": 'GONZAP', "occurrence": 1, "total_with_name": 1, "trainer_class": 9, "name_id": 6140, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 451, 'species': 101, 'level': 30}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 452, 'species': 299, 'level': 32}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 453, 'species': 45, 'level': 30}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 454, 'species': 324, 'level': 31}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 455, 'species': 227, 'level': 32}]},
+    {"index": 146, "name": 'AFERD', "occurrence": 4, "total_with_name": 5, "trainer_class": 18, "name_id": 6020, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 456, 'species': 162, 'level': 28}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 457, 'species': 164, 'level': 28}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 458, 'species': 302, 'level': 28}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 459, 'species': 303, 'level': 28}]},
+    {"index": 147, "name": 'ZOOK', "occurrence": 2, "total_with_name": 2, "trainer_class": 7, "name_id": 6004, "party_size": 5, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 30}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 461, 'species': 84, 'level': 26}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 462, 'species': 330, 'level': 26}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 463, 'species': 379, 'level': 26}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 464, 'species': 381, 'level': 26}]},
+    {"index": 148, "name": 'BIDEN', "occurrence": 2, "total_with_name": 2, "trainer_class": 25, "name_id": 6133, "party_size": 1, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 465, 'species': 43, 'level': 27}]},
+    {"index": 149, "name": 'GREZLE', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6141, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 466, 'species': 354, 'level': 30}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 467, 'species': 292, 'level': 30}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 468, 'species': 166, 'level': 28}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 469, 'species': 387, 'level': 31}]},
+    {"index": 150, "name": 'HUMAH', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6142, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 470, 'species': 379, 'level': 29}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 471, 'species': 198, 'level': 29}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 32}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 31}]},
+    {"index": 151, "name": 'IBSOL', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6143, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 474, 'species': 353, 'level': 30}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 475, 'species': 294, 'level': 30}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 476, 'species': 178, 'level': 31}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 477, 'species': 386, 'level': 30}]},
+    {"index": 152, "name": 'KOLLO', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6146, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 478, 'species': 373, 'level': 31}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 479, 'species': 224, 'level': 31}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 480, 'species': 171, 'level': 31}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 481, 'species': 381, 'level': 32}]},
+    {"index": 153, "name": 'GOROG', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6144, "party_size": 5, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 33}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 483, 'species': 111, 'level': 29}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 484, 'species': 368, 'level': 29}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 485, 'species': 42, 'level': 29}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 486, 'species': 331, 'level': 30}]},
+    {"index": 154, "name": 'JELSTIN', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6145, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 487, 'species': 363, 'level': 32}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 488, 'species': 187, 'level': 32}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 489, 'species': 312, 'level': 31}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 490, 'species': 182, 'level': 32}]},
+    {"index": 155, "name": 'LOK', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6147, "party_size": 4, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 34}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 492, 'species': 162, 'level': 30}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 493, 'species': 176, 'level': 31}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 35}]},
+    {"index": 156, "name": 'KLETO', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6148, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 495, 'species': 376, 'level': 30}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 496, 'species': 235, 'level': 31}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 497, 'species': 232, 'level': 30}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 498, 'species': 181, 'level': 31}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 499, 'species': 73, 'level': 31}]},
+    {"index": 157, "name": 'FLIPIS', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6149, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 500, 'species': 411, 'level': 31}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 501, 'species': 317, 'level': 30}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 502, 'species': 164, 'level': 30}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 503, 'species': 287, 'level': 29}]},
+    {"index": 158, "name": 'TARG', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6150, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 504, 'species': 38, 'level': 30}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 505, 'species': 189, 'level': 30}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 506, 'species': 184, 'level': 32}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 37}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 36}]},
+    {"index": 159, "name": 'HOSPEL', "occurrence": 1, "total_with_name": 1, "trainer_class": 41, "name_id": 6151, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 509, 'species': 168, 'level': 30}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 510, 'species': 203, 'level': 29}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 511, 'species': 45, 'level': 31}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 512, 'species': 234, 'level': 31}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 513, 'species': 210, 'level': 31}]},
+    {"index": 160, "name": 'SNIDLE', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6152, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 514, 'species': 303, 'level': 31}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 515, 'species': 202, 'level': 30}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 516, 'species': 333, 'level': 35}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 46}]},
+    {"index": 161, "name": 'FUDLER', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6153, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 518, 'species': 67, 'level': 31}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 519, 'species': 76, 'level': 31}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 520, 'species': 205, 'level': 31}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 521, 'species': 226, 'level': 32}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 522, 'species': 169, 'level': 31}]},
+    {"index": 162, "name": 'ANGIC', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6154, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 523, 'species': 55, 'level': 33}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 524, 'species': 237, 'level': 33}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 525, 'species': 336, 'level': 34}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 39}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 40}]},
+    {"index": 163, "name": 'ACROD', "occurrence": 1, "total_with_name": 1, "trainer_class": 41, "name_id": 6155, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 528, 'species': 352, 'level': 34}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 529, 'species': 117, 'level': 34}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 530, 'species': 340, 'level': 35}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 531, 'species': 119, 'level': 34}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 532, 'species': 221, 'level': 34}]},
+    {"index": 164, "name": 'SMARTON', "occurrence": 2, "total_with_name": 2, "trainer_class": 17, "name_id": 6129, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 533, 'species': 374, 'level': 36}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 534, 'species': 345, 'level': 35}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 535, 'species': 110, 'level': 35}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 536, 'species': 217, 'level': 35}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 41}]},
+    {"index": 165, "name": 'GORIGAN', "occurrence": 1, "total_with_name": 2, "trainer_class": 6, "name_id": 6130, "party_size": 6, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 538, 'species': 383, 'level': 36}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 539, 'species': 342, 'level': 36}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 540, 'species': 199, 'level': 36}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 541, 'species': 217, 'level': 36}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 42}, {'slot': 5, 'kind': 'DDPK', 'ddpk_index': 43}]},
+    {"index": 166, "name": 'CHOBIN', "occurrence": 6, "total_with_name": 7, "trainer_class": 10, "name_id": 6025, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 544, 'species': 192, 'level': 37}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 545, 'species': 130, 'level': 37}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 546, 'species': 188, 'level': 37}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 547, 'species': 369, 'level': 37}]},
+    {"index": 167, "name": 'CHOBIN', "occurrence": 7, "total_with_name": 7, "trainer_class": 10, "name_id": 6025, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 548, 'species': 192, 'level': 38}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 549, 'species': 130, 'level': 38}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 550, 'species': 188, 'level': 38}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 551, 'species': 369, 'level': 38}]},
+    {"index": 168, "name": 'ABSON', "occurrence": 1, "total_with_name": 1, "trainer_class": 31, "name_id": 6158, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 552, 'species': 327, 'level': 33}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 553, 'species': 310, 'level': 33}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 554, 'species': 226, 'level': 33}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 44}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 45}]},
+    {"index": 169, "name": 'HABEN', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6159, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 557, 'species': 312, 'level': 33}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 558, 'species': 206, 'level': 33}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 559, 'species': 363, 'level': 33}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 560, 'species': 308, 'level': 33}]},
+    {"index": 170, "name": 'FURGY', "occurrence": 1, "total_with_name": 1, "trainer_class": 26, "name_id": 6160, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 561, 'species': 178, 'level': 34}, {'slot': 1, 'kind': 'DDPK', 'ddpk_index': 47}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 563, 'species': 324, 'level': 33}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 38}]},
+    {"index": 171, "name": 'GOLOS', "occurrence": 1, "total_with_name": 1, "trainer_class": 32, "name_id": 6161, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 565, 'species': 382, 'level': 34}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 566, 'species': 222, 'level': 34}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 567, 'species': 247, 'level': 37}]},
+    {"index": 172, "name": 'JETSAL', "occurrence": 1, "total_with_name": 1, "trainer_class": 27, "name_id": 6162, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 568, 'species': 215, 'level': 34}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 569, 'species': 203, 'level': 33}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 570, 'species': 42, 'level': 33}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 571, 'species': 119, 'level': 34}]},
+    {"index": 173, "name": 'LOVRINA', "occurrence": 2, "total_with_name": 2, "trainer_class": 6, "name_id": 6067, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 572, 'species': 394, 'level': 36}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 573, 'species': 375, 'level': 36}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 574, 'species': 363, 'level': 37}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 48}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 49}]},
+    {"index": 174, "name": 'BASTIL', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6163, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 577, 'species': 169, 'level': 35}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 578, 'species': 379, 'level': 35}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 579, 'species': 411, 'level': 34}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 580, 'species': 312, 'level': 34}]},
+    {"index": 175, "name": 'LITNAR', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6182, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 581, 'species': 101, 'level': 34}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 582, 'species': 200, 'level': 34}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 583, 'species': 319, 'level': 36}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 50}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 51}]},
+    {"index": 176, "name": 'GRASON', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6164, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 586, 'species': 376, 'level': 35}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 587, 'species': 302, 'level': 34}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 588, 'species': 28, 'level': 37}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 589, 'species': 355, 'level': 35}]},
+    {"index": 177, "name": 'GRUPEL', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6165, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 590, 'species': 229, 'level': 37}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 591, 'species': 38, 'level': 37}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 592, 'species': 45, 'level': 34}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 52}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 53}]},
+    {"index": 178, "name": 'KIMLY', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6183, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 595, 'species': 287, 'level': 35}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 596, 'species': 234, 'level': 34}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 597, 'species': 380, 'level': 37}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 598, 'species': 331, 'level': 35}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 599, 'species': 192, 'level': 34}]},
+    {"index": 179, "name": 'NALIX', "occurrence": 1, "total_with_name": 1, "trainer_class": 26, "name_id": 6166, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 600, 'species': 294, 'level': 35}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 601, 'species': 292, 'level': 36}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 602, 'species': 192, 'level': 34}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 603, 'species': 387, 'level': 36}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 604, 'species': 386, 'level': 36}]},
+    {"index": 180, "name": 'IBRAN', "occurrence": 1, "total_with_name": 1, "trainer_class": 27, "name_id": 6167, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 605, 'species': 110, 'level': 35}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 606, 'species': 205, 'level': 35}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 607, 'species': 202, 'level': 36}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 608, 'species': 85, 'level': 37}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 609, 'species': 227, 'level': 34}]},
+    {"index": 181, "name": 'KULIG', "occurrence": 1, "total_with_name": 1, "trainer_class": 28, "name_id": 6168, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 610, 'species': 184, 'level': 34}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 611, 'species': 310, 'level': 36}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 612, 'species': 168, 'level': 35}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 613, 'species': 224, 'level': 36}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 614, 'species': 211, 'level': 36}]},
+    {"index": 182, "name": 'JARGO', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6169, "party_size": 6, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 615, 'species': 225, 'level': 36}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 616, 'species': 352, 'level': 36}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 617, 'species': 368, 'level': 35}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 618, 'species': 381, 'level': 35}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 619, 'species': 55, 'level': 37}, {'slot': 5, 'kind': 'DPKM', 'dpkm_index': 620, 'species': 195, 'level': 35}]},
+    {"index": 183, "name": 'KOLEST', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6170, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 621, 'species': 340, 'level': 37}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 622, 'species': 110, 'level': 37}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 623, 'species': 89, 'level': 38}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 55}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 54}]},
+    {"index": 184, "name": 'KOLIN', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6171, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 626, 'species': 345, 'level': 37}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 627, 'species': 38, 'level': 37}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 628, 'species': 321, 'level': 37}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 629, 'species': 226, 'level': 37}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 630, 'species': 369, 'level': 35}]},
+    {"index": 185, "name": 'KARBON', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6172, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 631, 'species': 357, 'level': 38}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 632, 'species': 76, 'level': 38}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 633, 'species': 178, 'level': 38}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 56}]},
+    {"index": 186, "name": 'PETRO', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6173, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 635, 'species': 352, 'level': 39}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 636, 'species': 227, 'level': 39}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 637, 'species': 399, 'level': 39}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 638, 'species': 336, 'level': 39}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 57}]},
+    {"index": 187, "name": 'JAYMI', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6174, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 640, 'species': 193, 'level': 39}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 641, 'species': 363, 'level': 37}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 642, 'species': 235, 'level': 39}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 643, 'species': 45, 'level': 37}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 644, 'species': 359, 'level': 40}]},
+    {"index": 188, "name": 'GROMLET', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6175, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 645, 'species': 378, 'level': 40}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 646, 'species': 322, 'level': 40}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 647, 'species': 362, 'level': 40}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 648, 'species': 169, 'level': 44}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 649, 'species': 314, 'level': 44}]},
+    {"index": 189, "name": 'GEFTAL', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6176, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 650, 'species': 171, 'level': 41}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 651, 'species': 82, 'level': 41}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 58}]},
+    {"index": 190, "name": 'LEDEN', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6177, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 653, 'species': 234, 'level': 41}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 654, 'species': 372, 'level': 41}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 59}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 60}]},
+    {"index": 191, "name": 'SNATTLE', "occurrence": 2, "total_with_name": 2, "trainer_class": 6, "name_id": 6127, "party_size": 6, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 657, 'species': 399, 'level': 42}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 658, 'species': 195, 'level': 42}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 659, 'species': 212, 'level': 42}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 61}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 661, 'species': 385, 'level': 42}, {'slot': 5, 'kind': 'DDPK', 'ddpk_index': 62}]},
+    {"index": 192, "name": 'KLEEF', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6178, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 663, 'species': 213, 'level': 44}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 664, 'species': 242, 'level': 42}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 665, 'species': 110, 'level': 41}]},
+    {"index": 193, "name": 'ARDOS', "occurrence": 2, "total_with_name": 2, "trainer_class": 6, "name_id": 6005, "party_size": 6, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 64}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 667, 'species': 65, 'level': 44}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 668, 'species': 230, 'level': 44}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 669, 'species': 214, 'level': 44}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 63}, {'slot': 5, 'kind': 'DDPK', 'ddpk_index': 65}]},
+    {"index": 194, "name": 'GORIGAN', "occurrence": 2, "total_with_name": 2, "trainer_class": 6, "name_id": 6130, "party_size": 6, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 672, 'species': 199, 'level': 42}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 673, 'species': 217, 'level': 43}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 674, 'species': 384, 'level': 43}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 675, 'species': 343, 'level': 44}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 66}, {'slot': 5, 'kind': 'DDPK', 'ddpk_index': 67}]},
+    {"index": 195, "name": 'KOLAX', "occurrence": 1, "total_with_name": 1, "trainer_class": 17, "name_id": 6179, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 678, 'species': 347, 'level': 41}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 679, 'species': 181, 'level': 44}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 680, 'species': 307, 'level': 42}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 681, 'species': 232, 'level': 44}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 68}]},
+    {"index": 196, "name": 'ELDES', "occurrence": 1, "total_with_name": 1, "trainer_class": 6, "name_id": 6046, "party_size": 6, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 683, 'species': 302, 'level': 45}, {'slot': 1, 'kind': 'DDPK', 'ddpk_index': 69}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 70}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 686, 'species': 334, 'level': 45}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 71}, {'slot': 5, 'kind': 'DDPK', 'ddpk_index': 72}]},
+    {"index": 197, "name": 'KALLER', "occurrence": 1, "total_with_name": 1, "trainer_class": 41, "name_id": 6180, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 689, 'species': 222, 'level': 44}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 690, 'species': 73, 'level': 44}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 691, 'species': 389, 'level': 44}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 692, 'species': 329, 'level': 44}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 693, 'species': 130, 'level': 42}]},
+    {"index": 198, "name": 'LOKET', "occurrence": 1, "total_with_name": 1, "trainer_class": 41, "name_id": 6181, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 694, 'species': 300, 'level': 44}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 695, 'species': 210, 'level': 44}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 696, 'species': 241, 'level': 44}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 697, 'species': 391, 'level': 41}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 698, 'species': 366, 'level': 43}]},
+    {"index": 199, "name": 'GREEVIL', "occurrence": 1, "total_with_name": 3, "trainer_class": 4, "name_id": 6157, "party_size": 1, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 73}]},
+    {"index": 200, "name": 'GREEVIL', "occurrence": 2, "total_with_name": 3, "trainer_class": 4, "name_id": 6157, "party_size": 6, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 78}, {'slot': 1, 'kind': 'DDPK', 'ddpk_index': 75}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 79}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 77}, {'slot': 4, 'kind': 'DDPK', 'ddpk_index': 76}, {'slot': 5, 'kind': 'DDPK', 'ddpk_index': 74}]},
+    {"index": 201, "name": 'GREEVIL', "occurrence": 3, "total_with_name": 3, "trainer_class": 4, "name_id": 6157, "party_size": 6, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 706, 'species': 338, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 707, 'species': 305, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 708, 'species': 121, 'level': 50}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 709, 'species': 210, 'level': 50}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 710, 'species': 359, 'level': 50}, {'slot': 5, 'kind': 'DPKM', 'dpkm_index': 711, 'species': 142, 'level': 50}]},
+    {"index": 202, "name": 'LAKEN', "occurrence": 3, "total_with_name": 3, "trainer_class": 26, "name_id": 6017, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 712, 'species': 359, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 713, 'species': 329, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 714, 'species': 310, 'level': 50}]},
+    {"index": 203, "name": 'RESIX', "occurrence": 5, "total_with_name": 6, "trainer_class": 17, "name_id": 6040, "party_size": 3, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 14}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 716, 'species': 219, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 717, 'species': 340, 'level': 50}]},
+    {"index": 204, "name": 'BLUSIX', "occurrence": 5, "total_with_name": 6, "trainer_class": 17, "name_id": 6041, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 718, 'species': 230, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 719, 'species': 119, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 720, 'species': 400, 'level': 50}, {'slot': 3, 'kind': 'DDPK', 'ddpk_index': 3}]},
+    {"index": 205, "name": 'BROWSIX', "occurrence": 5, "total_with_name": 6, "trainer_class": 17, "name_id": 6042, "party_size": 3, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 4}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 723, 'species': 164, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 724, 'species': 366, 'level': 50}]},
+    {"index": 206, "name": 'YELLOSIX', "occurrence": 5, "total_with_name": 6, "trainer_class": 17, "name_id": 6043, "party_size": 4, "team": [{'slot': 0, 'kind': 'DDPK', 'ddpk_index': 5}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 726, 'species': 338, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 727, 'species': 171, 'level': 50}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 728, 'species': 82, 'level': 50}]},
+    {"index": 207, "name": 'PURPSIX', "occurrence": 5, "total_with_name": 6, "trainer_class": 17, "name_id": 6044, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 729, 'species': 110, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 730, 'species': 89, 'level': 50}, {'slot': 2, 'kind': 'DDPK', 'ddpk_index': 6}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 732, 'species': 73, 'level': 50}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 733, 'species': 42, 'level': 50}]},
+    {"index": 208, "name": 'GREESIX', "occurrence": 5, "total_with_name": 6, "trainer_class": 17, "name_id": 6045, "party_size": 6, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 734, 'species': 45, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 735, 'species': 345, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 736, 'species': 307, 'level': 50}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 737, 'species': 296, 'level': 50}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 738, 'species': 205, 'level': 50}, {'slot': 5, 'kind': 'DDPK', 'ddpk_index': 7}]},
+    {"index": 209, "name": 'RESIX', "occurrence": 6, "total_with_name": 6, "trainer_class": 17, "name_id": 6040, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 740, 'species': 219, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 741, 'species': 340, 'level': 50}]},
+    {"index": 210, "name": 'BLUSIX', "occurrence": 6, "total_with_name": 6, "trainer_class": 17, "name_id": 6041, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 742, 'species': 230, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 743, 'species': 119, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 744, 'species': 400, 'level': 50}]},
+    {"index": 211, "name": 'BROWSIX', "occurrence": 6, "total_with_name": 6, "trainer_class": 17, "name_id": 6042, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 745, 'species': 164, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 746, 'species': 366, 'level': 50}]},
+    {"index": 212, "name": 'YELLOSIX', "occurrence": 6, "total_with_name": 6, "trainer_class": 17, "name_id": 6043, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 747, 'species': 338, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 748, 'species': 171, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 749, 'species': 82, 'level': 50}]},
+    {"index": 213, "name": 'PURPSIX', "occurrence": 6, "total_with_name": 6, "trainer_class": 17, "name_id": 6044, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 750, 'species': 110, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 751, 'species': 89, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 752, 'species': 73, 'level': 50}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 753, 'species': 42, 'level': 50}]},
+    {"index": 214, "name": 'GREESIX', "occurrence": 6, "total_with_name": 6, "trainer_class": 17, "name_id": 6045, "party_size": 5, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 754, 'species': 45, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 755, 'species': 345, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 756, 'species': 307, 'level': 50}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 757, 'species': 296, 'level': 50}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 758, 'species': 205, 'level': 50}]},
+    {"index": 215, "name": 'CAIL', "occurrence": 4, "total_with_name": 4, "trainer_class": 15, "name_id": 6074, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 759, 'species': 394, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 760, 'species': 210, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 761, 'species': 300, 'level': 50}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 762, 'species': 229, 'level': 50}]},
+    {"index": 216, "name": 'FINOL', "occurrence": 3, "total_with_name": 3, "trainer_class": 26, "name_id": 6076, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 763, 'species': 378, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 764, 'species': 166, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 765, 'species': 224, 'level': 50}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 766, 'species': 176, 'level': 50}]},
+    {"index": 217, "name": 'DERT', "occurrence": 3, "total_with_name": 3, "trainer_class": 28, "name_id": 6077, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 767, 'species': 219, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 768, 'species': 178, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 769, 'species': 45, 'level': 50}]},
+    {"index": 218, "name": 'RALING', "occurrence": 3, "total_with_name": 3, "trainer_class": 27, "name_id": 6078, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 770, 'species': 289, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 771, 'species': 372, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 772, 'species': 190, 'level': 50}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 773, 'species': 206, 'level': 50}]},
+    {"index": 219, "name": 'LABET', "occurrence": 3, "total_with_name": 3, "trainer_class": 26, "name_id": 6079, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 774, 'species': 221, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 775, 'species': 397, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 776, 'species': 198, 'level': 50}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 777, 'species': 375, 'level': 50}]},
+    {"index": 220, "name": 'DOBY', "occurrence": 3, "total_with_name": 3, "trainer_class": 35, "name_id": 6080, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 778, 'species': 68, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 779, 'species': 73, 'level': 50}]},
+    {"index": 221, "name": 'MIROR B.', "occurrence": 9, "total_with_name": 9, "trainer_class": 11, "name_id": 6103, "party_size": 6, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 780, 'species': 297, 'level': 57}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 781, 'species': 297, 'level': 57}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 782, 'species': 297, 'level': 57}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 783, 'species': 297, 'level': 57}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 784, 'species': 297, 'level': 57}, {'slot': 5, 'kind': 'DDPK', 'ddpk_index': 80}]},
+    {"index": 222, "name": 'EAGUN', "occurrence": 2, "total_with_name": 2, "trainer_class": 12, "name_id": 6035, "party_size": 6, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 786, 'species': 172, 'level': 45}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 787, 'species': 172, 'level': 45}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 788, 'species': 25, 'level': 50}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 789, 'species': 25, 'level': 50}, {'slot': 4, 'kind': 'DPKM', 'dpkm_index': 790, 'species': 26, 'level': 55}, {'slot': 5, 'kind': 'DPKM', 'dpkm_index': 791, 'species': 26, 'level': 55}]},
+    {"index": 223, "name": 'AFERD', "occurrence": 5, "total_with_name": 5, "trainer_class": 18, "name_id": 6020, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 792, 'species': 162, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 793, 'species': 164, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 794, 'species': 302, 'level': 50}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 795, 'species': 303, 'level': 50}]},
+    {"index": 224, "name": 'EROLL', "occurrence": 2, "total_with_name": 2, "trainer_class": 21, "name_id": 6105, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 796, 'species': 164, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 797, 'species': 162, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 798, 'species': 169, 'level': 50}]},
+    {"index": 225, "name": 'EQUIN', "occurrence": 2, "total_with_name": 2, "trainer_class": 20, "name_id": 6111, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 799, 'species': 215, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 800, 'species': 352, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 801, 'species': 308, 'level': 50}]},
+    {"index": 226, "name": 'WILLIE', "occurrence": 2, "total_with_name": 2, "trainer_class": 28, "name_id": 6131, "party_size": 4, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 802, 'species': 289, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 803, 'species': 289, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 804, 'species': 289, 'level': 50}, {'slot': 3, 'kind': 'DPKM', 'dpkm_index': 805, 'species': 289, 'level': 50}]},
+    {"index": 227, "name": 'CIDA', "occurrence": 3, "total_with_name": 3, "trainer_class": 20, "name_id": 6030, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 806, 'species': 184, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 807, 'species': 40, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 808, 'species': 176, 'level': 50}]},
+    {"index": 228, "name": 'CLERR', "occurrence": 3, "total_with_name": 3, "trainer_class": 21, "name_id": 6028, "party_size": 2, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 809, 'species': 45, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 810, 'species': 68, 'level': 50}]},
+    {"index": 229, "name": 'BELISH', "occurrence": 3, "total_with_name": 3, "trainer_class": 23, "name_id": 6029, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 811, 'species': 287, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 812, 'species': 302, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 813, 'species': 303, 'level': 50}]},
+    {"index": 230, "name": 'DOSK', "occurrence": 3, "total_with_name": 3, "trainer_class": 35, "name_id": 6031, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 814, 'species': 237, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 815, 'species': 89, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 816, 'species': 169, 'level': 50}]},
+    {"index": 231, "name": 'HEBON', "occurrence": 3, "total_with_name": 3, "trainer_class": 28, "name_id": 6032, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 817, 'species': 294, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 818, 'species': 292, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 819, 'species': 294, 'level': 50}]},
+    {"index": 232, "name": 'DOBIT', "occurrence": 2, "total_with_name": 2, "trainer_class": 29, "name_id": 6075, "party_size": 3, "team": [{'slot': 0, 'kind': 'DPKM', 'dpkm_index': 820, 'species': 352, 'level': 50}, {'slot': 1, 'kind': 'DPKM', 'dpkm_index': 821, 'species': 82, 'level': 50}, {'slot': 2, 'kind': 'DPKM', 'dpkm_index': 822, 'species': 339, 'level': 50}]},
 ]
 
-# region -> [location names], in TRAINER_DEFEAT_ROSTER order -- what locations.py's LOCATIONS_BY_REGION needs.
-TRAINER_DEFEAT_LOCATIONS_BY_REGION: dict[str, list[str]] = {}
-for _region, _name, _surname in TRAINER_DEFEAT_ROSTER:
-    TRAINER_DEFEAT_LOCATIONS_BY_REGION.setdefault(_region, []).append(_name)
+TRAINERS_BY_INDEX: "dict[int, dict]" = {t["index"]: t for t in TRAINERS}
 
-# surname -> ordered queue of location names sharing it (2-3 for a trainer fought more than once). Each
-# confirmed win pops the front of the matching queue. Every non-None name appears in exactly one queue; a
-# `None` slot (see GREEVIL_DECOY_BATTLE_SENTINEL) is consumed by a kill but never dispatched as a location.
-# ADDENDUM 409: cumulative mode's named rematches of trainers trimmed to one or two checks -- Eagun's second fight
-# and Miror B.'s third (Miror B. keeps one rematch, Eagun none). Kept in the roster as the record of where the names
-# came from; retired from the location table like any other.
-RULED_OUT_NAMED_LOCATIONS: "frozenset[str]" = frozenset({
-    "Defeat - Legendary Trainer Eagun",
-    "Defeat - Wanderer Miror B. (final)",
-})
+TRAINERS_BY_NAME: "dict[str, list[dict]]" = {}
+for _t in TRAINERS:
+    TRAINERS_BY_NAME.setdefault(_t["name"], []).append(_t)
 
-SURNAME_TO_LOCATION_QUEUE: dict[str, list[str | None]] = {}
-for _region, _name, _surname in TRAINER_DEFEAT_ROSTER:
-    if _name in RULED_OUT_NAMED_LOCATIONS:
-        continue
-    SURNAME_TO_LOCATION_QUEUE.setdefault(_surname, []).append(_name)
+UNIQUELY_NAMED: "frozenset[str]" = frozenset(n for n, v in TRAINERS_BY_NAME.items() if len(v) == 1)
+"""Names held by exactly one trainer -- these can be identified from the battle roster with no ambiguity."""
 
-TRAINER_DEFEAT_LOCATION_NAMES: list[str] = [name for _region, name, _surname in TRAINER_DEFEAT_ROSTER]
 
-# ADDENDUM 414 -- cumulative mode has none of these named checks; it is just a tally. Unique mode never created
-# these (it replaces them), so no seed holds any of the 66 now: they leave the location table (frozen ids stay
-# inert, ADDENDUM 413's rule). The ROSTER stays -- it is data: `rules.py` reads it for catch-area gating, and the
-# client still dispatches against `SURNAME_TO_LOCATION_QUEUE` in cumulative mode so the Greevil goal is still
-# recognised; it simply sends nothing but the tally.
-RETIRED_CUMULATIVE_NAMED_LOCATIONS: "frozenset[str]" = frozenset(TRAINER_DEFEAT_LOCATION_NAMES)
+def trainer_label(trainer: dict) -> str:
+    """A stable, human-readable label suitable for an Archipelago location name."""
+    if trainer["total_with_name"] == 1:
+        return f"Defeat - {trainer['name'].title()}"
+    return f"Defeat - {trainer['name'].title()} #{trainer['occurrence']}"
 
-assert len(TRAINER_DEFEAT_LOCATION_NAMES) == len(set(TRAINER_DEFEAT_LOCATION_NAMES)), (
-    "TRAINER_DEFEAT_ROSTER has a duplicate location name -- every entry must be byte-unique"
+
+# {SURNAME: [location name per occurrence]}, the shape `trainer_defeat.SURNAME_TO_LOCATION_QUEUE` uses. Keys
+# are upper case because that is how the battle roster reports NPC names.
+UNIQUE_SURNAME_TO_LOCATION_QUEUE: "dict[str, list[str | None]]" = {}
+for _t in sorted(TRAINERS, key=lambda t: t["index"]):
+    UNIQUE_SURNAME_TO_LOCATION_QUEUE.setdefault(_t["name"].upper(), []).append(trainer_label(_t))
+
+
+# Unique-team dispatch: the Nth check needs an Nth distinct team, so a surname with more labels than distinct
+# teams has labels that can never fire. One does -- CHOBIN, whose occurrences 4 (index 125) and 5 (index 127)
+# are byte-identical: species {130, 187, 192, 369}, every member level 26, no Shadow slots. Surplus labels
+# retire from the END of the queue, because a label now means "the Nth distinct team you have beaten".
+#
+# The signature reads VANILLA deck data on purpose: it decides which locations exist and location ids are
+# frozen, so reading this seed's rolled options would give two seeds different location sets. Enhanced
+# Difficulty scales levels equally and cannot split a pair; Shadow Pokemon Expansion could, and is ignored
+# rather than making the location table option-dependent.
+def team_signature(trainer: dict) -> tuple:
+    """What makes one encounter's team different from another's, from the static deck data.
+
+    Ordinary members are (species, level); a Shadow slot has no species here, so it contributes its deck slot
+    instead. Sorted -- slot order is never part of the identity, because the live roster does not preserve
+    it."""
+    ordinary = sorted(
+        (member["species"], member.get("level", -1))
+        for member in trainer["team"] if "species" in member
+    )
+    shadow = sorted(
+        member.get("dpkm_index", -1)
+        for member in trainer["team"] if "species" not in member
+    )
+    return (tuple(ordinary), tuple(shadow))
+
+
+def _surplus_labels() -> "frozenset[str]":
+    """Labels beyond the number of distinct teams their surname actually fields, taken from the queue tail."""
+    retired: "set[str]" = set()
+    for surname, labels in UNIQUE_SURNAME_TO_LOCATION_QUEUE.items():
+        rows = sorted(TRAINERS_BY_NAME[surname], key=lambda t: t["index"])
+        distinct = len({team_signature(row) for row in rows})
+        surplus = len(labels) - distinct
+        if surplus > 0:
+            retired.update(labels[len(labels) - surplus:])
+    return frozenset(retired)
+
+
+RETIRED_UNIQUE_DEFEAT_LOCATIONS: "frozenset[str]" = _surplus_labels()
+"""Unique-mode defeat locations with no distinct team left to earn them. See the block above."""
+
+assert RETIRED_UNIQUE_DEFEAT_LOCATIONS == frozenset({"Defeat - Chobin #7"}), (
+    "the surplus-label derivation now returns "
+    f"{sorted(RETIRED_UNIQUE_DEFEAT_LOCATIONS)}, not just Chobin #7 -- a roster team changed, and whether "
+    "that means a new retirement or a corrected row needs reading before this number moves"
 )
 
-# Greevil is fought twice at Citadark Isle -- a one-Pokemon personal battle, then the real final battle -- and
-# the roster's surname field names the trainer, not the encounter, so both read "Greevil". The sentinel holds
-# queue position 0 so the decoy kill consumes it (the queue does not stall) while
-# `TrainerBattleDefeatTracker.poll()` never dispatches a `None`, keeping the goal off the decoy. The real
-# location keeps its exact name and frozen id; only which kill it dispatches on moves, 0 -> 1.
-GREEVIL_DECOY_BATTLE_SENTINEL: None = None
-SURNAME_TO_LOCATION_QUEUE["Greevil"].insert(0, GREEVIL_DECOY_BATTLE_SENTINEL)
-GREEVIL_DEFEAT_LOCATION_NAME: str = next(name for name in SURNAME_TO_LOCATION_QUEUE["Greevil"] if name is not None)
+# ADDENDUM 401 -- the missable trainers' numbered fights are gone, in every seed.
+#
+# Missable checks are treated as bad: for missable trainers the (Any) stays and ALL numbered fights go, not just
+# the later ones.
+#
+# A trainer is in scope when ANY of its rows is on the missable list AND it fights more than once --
+# 20 surnames (Dosk, Cida, the six Sixes, Aferd, Biden, ...). Every numbered `Defeat - X #N` for those surnames
+# goes, the missable #1 and the later rematches alike: 75 labels. What is kept:
+#
+#   * `Defeat X (Any)` for each of them -- it fires on whichever fight the player actually wins, so it does not
+#     care which occurrence was walked past;
+#   * the 26 ONE-SHOT missables (`Defeat - Digor`, `Defeat - Bost`, ...). They have no number, they are not
+#     rematches, and they are what the client now auto-sends when the area's story cap is reached.
+#
+# Retired the same way `Chobin #7` is: out of the location table (the frozen ids stay behind inert, per
+# ADDENDUM 242), out of the dispatch queue below, and out of the missable fence. One set, three consumers.
+# ADDENDUM 409 -- a trim of the roster:
+#   * the Sixes fight at many points: their #1 is at Cipher Lab and their #2 at Phenac (missable, behind the disc
+#     and the note); all their other fights are removed;
+#   * Cail's rematches are removed, and his normal fight is at Pyrite;
+#   * the rematches of Cida, Clerr, Belish, Dosk, Hebon, Aferd, Eagun, Finol, Dert, Raling, Labet, Doby, Eroll,
+#     Equin, Willie and Dobit are removed;
+#   * Miror B. keeps only one rematch (up to Miror B. #2);
+#   * Hordel is not a check, but stays randomized.
+# Only CHECKS go: the fights stay in the game, and the trainer data is randomized exactly as before.
+SIXES: "frozenset[str]" = frozenset({"RESIX", "BLUSIX", "BROWSIX", "YELLOSIX", "PURPSIX", "GREESIX"})
+_KEEP_ONLY_FIRST: "frozenset[str]" = frozenset({
+    "CAIL", "CIDA", "CLERR", "BELISH", "DOSK", "HEBON", "AFERD", "EAGUN", "FINOL", "DERT", "RALING", "LABET",
+    "DOBY", "EROLL", "EQUIN", "WILLIE", "DOBIT",
+})
+_KEEP_FIRST_TWO: "frozenset[str]" = SIXES | frozenset({"MIROR B."})
+
+
+def _ruled_out_labels() -> "frozenset[str]":
+    from .missable_indices import SINGLE_CHECK_FIGHTS
+
+    out: "set[str]" = set()
+    for trainer in TRAINERS:
+        surname = trainer["name"].upper()
+        if surname in SINGLE_CHECK_FIGHTS:
+            # ADDENDUM 436: Ardos, Zook and Biden keep one check each, their (Any), sent by one fight.
+            out.add(trainer_label(trainer))
+        elif surname == "HORDEL":
+            out.add(trainer_label(trainer))
+        elif surname in _KEEP_ONLY_FIRST and trainer["occurrence"] >= 2:
+            out.add(trainer_label(trainer))
+        elif surname in _KEEP_FIRST_TWO and trainer["occurrence"] >= 3:
+            out.add(trainer_label(trainer))
+    return frozenset(out)
+
+
+RULED_OUT_DEFEAT_LOCATIONS: "frozenset[str]" = _ruled_out_labels()
+"""ADDENDUM 409: defeat checks removed by name. Not locations in any seed; frozen ids stay inert."""
+
+# The Sixes' #2 is missable AND kept: it is placed (missable, behind the disc and the note), so it is a check
+# the client auto-sends at its area's cap rather than a fight whose check disappears.
+KEPT_MISSABLE_DEFEAT_LOCATIONS: "frozenset[str]" = frozenset(
+    trainer_label(t) for t in TRAINERS if t["name"].upper() in SIXES and t["occurrence"] == 2
+)
+
+
+# ADDENDUM 411 -- if Ardos #1 fires, Zook #1 fires, and vice versa.
+#
+# Zook #1 (deck 9) and Ardos #1 (deck 10) are back-to-back at Gateon Port. Zook's is on the missable list,
+# so ADDENDUM 401 had removed its check; Ardos's is mandatory. Linked, Zook #1 cannot be lost: the fight nobody
+# can skip sends it. So it is a location again, and each of the pair sends the other (`apply_defeat_links`).
+#
+# ADDENDUM 436 retired the pair: Ardos vs Zook is a fight the player only watches, so neither label is a check any
+# more (`missable_indices.NON_PLAYER_FIGHT_INDICES`). The mechanism stays, empty, for a future pair.
+DEFEAT_LINKS: "dict[str, str]" = {}
+LINKED_MISSABLE_DEFEAT_LOCATIONS: "frozenset[str]" = frozenset()
+"""Missable labels kept because a mandatory partner sends them. Not auto-sent at a story cap: the link covers it."""
+
+
+def _removed_missable_labels() -> "frozenset[str]":
+    from .missable_indices import MISSABLE_TRAINER_INDICES as _LISTED, CONFIRMED_UNMISSABLE
+
+    # ADDENDUM 460: the fights since marked unmissable keep the numbered-check removal they had (ADDENDUM 409's
+    # rematch removals) -- their check is the surname's (Any), or the single fight's own label.
+    MISSABLE_TRAINER_INDICES = _LISTED | CONFIRMED_UNMISSABLE
+    surnames = {
+        TRAINERS_BY_INDEX[index]["name"].upper()
+        for index in MISSABLE_TRAINER_INDICES
+        if index in TRAINERS_BY_INDEX and TRAINERS_BY_INDEX[index]["total_with_name"] > 1
+    }
+    # ADDENDUM 406 narrowed this to the MISSABLE fights themselves: Naps #2 is also gated there, and a mandatory
+    # fight, so the mandatory/non-missable rematches are still counted. ADDENDUM 401 had taken
+    # every numbered fight of these surnames -- 75 labels, 54 of them fights nobody can miss. Those 54 are back.
+    return frozenset(
+        trainer_label(TRAINERS_BY_INDEX[index])
+        for index in MISSABLE_TRAINER_INDICES
+        if index in TRAINERS_BY_INDEX and TRAINERS_BY_INDEX[index]["name"].upper() in surnames
+    ) - KEPT_MISSABLE_DEFEAT_LOCATIONS - LINKED_MISSABLE_DEFEAT_LOCATIONS
+
+
+REMOVED_MISSABLE_DEFEAT_LOCATIONS: "frozenset[str]" = _removed_missable_labels()
+"""The numbered defeat locations of the MISSABLE fights of trainers that fight more than once (ADDENDA 401/406).
+Their non-missable rematches keep their checks."""
+
+# A count, not a range: moving off it means the missable list or the roster changed underneath -- worth reading
+# before shipping. 20 surnames' missable first fights, plus Biden #2 (both of Biden's fights are missable).
+# ADDENDUM 409: 15 -- the Sixes' missable fight is now their #2, and it is kept as a check.
+# ADDENDUM 411: 14 -- Zook #1 is back, sent by Ardos #1.
+# ADDENDUM 436: 15 -- Zook #1 is unlinked (in). Retired anyway (`RULED_OUT_DEFEAT_LOCATIONS`).
+assert len(REMOVED_MISSABLE_DEFEAT_LOCATIONS) == 15, (
+    f"ADDENDUM 436 removes {len(REMOVED_MISSABLE_DEFEAT_LOCATIONS)} numbered missable fights, not 15 -- the "
+    "missable list or the roster moved"
+)
+assert len(KEPT_MISSABLE_DEFEAT_LOCATIONS) == 6
+assert not (KEPT_MISSABLE_DEFEAT_LOCATIONS & RULED_OUT_DEFEAT_LOCATIONS)
+assert all(DEFEAT_LINKS[DEFEAT_LINKS[name]] == name for name in DEFEAT_LINKS), "a defeat link must go both ways"
+
+# ADDENDUM 410 -- a trainer that has only an (Any) and a #1 loses the #1.
+#
+# After the trims above, six surnames are left with exactly two checks: `Defeat X (Any)` and `Defeat - X #1`. In
+# unique mode a label fires on the Nth DISTINCT team beaten, so a one-label queue's #1 fires on the first win --
+# the same win `(Any)` fires on. Two checks, one event. The #1 goes; the (Any) stays, and it is the one that does
+# not care which of the trainer's fights the player wins. Every surname that fights more than once has an (Any)
+# (asserted in repeatable_trainers, which imports this module and so cannot be imported from here).
+def _any_duplicate_labels() -> "frozenset[str]":
+    out: "set[str]" = set()
+    for surname, rows in ((name.upper(), group) for name, group in TRAINERS_BY_NAME.items()):
+        if len(rows) < 2:
+            continue
+        live = [
+            trainer_label(row) for row in sorted(rows, key=lambda r: r["index"])
+            if trainer_label(row) not in RETIRED_UNIQUE_DEFEAT_LOCATIONS
+            and trainer_label(row) not in REMOVED_MISSABLE_DEFEAT_LOCATIONS
+            and trainer_label(row) not in RULED_OUT_DEFEAT_LOCATIONS
+        ]
+        if len(live) == 1 and live[0].endswith(" #1"):
+            out.add(live[0])
+    return frozenset(out)
+
+
+ANY_DUPLICATE_DEFEAT_LOCATIONS: "frozenset[str]" = _any_duplicate_labels()
+"""ADDENDUM 410: a surname's lone `#1`, which fires on the same win as its `(Any)`. Not a location in any seed."""
+
+assert ANY_DUPLICATE_DEFEAT_LOCATIONS == frozenset(
+    f"Defeat - {name} #1" for name in ("Cail", "Clerr", "Belish", "Eagun", "Dert", "Dobit")
+), f"ADDENDUM 410 now removes {sorted(ANY_DUPLICATE_DEFEAT_LOCATIONS)} -- the roster or a removal moved"
+
+# Numbered fights are not checks: a trainer who fights more than once is checked by `Defeat X (Any)`. The story's
+# forced rematches keep their #2, because the player cannot avoid them and they sit later in the game.
+FORCED_REMATCH_DEFEAT_LOCATIONS: "frozenset[str]" = frozenset({
+    "Defeat - Naps #2", "Defeat - Smarton #2", "Defeat - Snattle #2", "Defeat - Gorigan #2", "Defeat - Lovrina #2",
+})
+NUMBERED_REMATCH_DEFEAT_LOCATIONS: "frozenset[str]" = frozenset(
+    trainer_label(t) for t in TRAINERS if t["total_with_name"] > 1
+) - FORCED_REMATCH_DEFEAT_LOCATIONS
+assert FORCED_REMATCH_DEFEAT_LOCATIONS <= {trainer_label(t) for t in TRAINERS}
+
+#: Every unique-mode label that is not a location, for whatever reason. One set for every consumer.
+REMOVED_DEFEAT_LOCATIONS: "frozenset[str]" = (
+    REMOVED_MISSABLE_DEFEAT_LOCATIONS | RULED_OUT_DEFEAT_LOCATIONS | ANY_DUPLICATE_DEFEAT_LOCATIONS
+    | NUMBERED_REMATCH_DEFEAT_LOCATIONS
+)
+# Disjoint by construction today (Chobin is not missable), asserted so the two can never double-count.
+assert not (REMOVED_MISSABLE_DEFEAT_LOCATIONS & RETIRED_UNIQUE_DEFEAT_LOCATIONS)
+
+# The queue the client dispatches against must agree with the location set the seed was built from, or a win
+# would be checked off against a name this multiworld has no id for. A surname whose every label is removed
+# keeps an EMPTY queue rather than losing its key: the tracker still has to recognise the fight as a win, so
+# `Defeat X (Any)` -- dispatched off the surname, not the queue -- still fires.
+# A kept forced rematch (#2) stays at its position, with None for the earlier fight that is no longer a check: a label
+# means "the Nth distinct team you have beaten", so the second team must still land on #2.
+for _surname in list(UNIQUE_SURNAME_TO_LOCATION_QUEUE):
+    _labels = UNIQUE_SURNAME_TO_LOCATION_QUEUE[_surname]
+    if any(_label in FORCED_REMATCH_DEFEAT_LOCATIONS for _label in _labels):
+        _positional = [_label if _label in FORCED_REMATCH_DEFEAT_LOCATIONS else None for _label in _labels]
+        while _positional and _positional[-1] is None:
+            _positional.pop()
+        UNIQUE_SURNAME_TO_LOCATION_QUEUE[_surname] = _positional
+        continue
+    UNIQUE_SURNAME_TO_LOCATION_QUEUE[_surname] = [
+        _label for _label in _labels
+        if _label not in RETIRED_UNIQUE_DEFEAT_LOCATIONS
+        and _label not in REMOVED_DEFEAT_LOCATIONS
+    ]
+
+# How many distinct teams each surname fields, for the tracker's fence and for `/teams`.
+DISTINCT_TEAM_COUNTS: "dict[str, int]" = {
+    _surname: len({team_signature(_row) for _row in _rows})
+    for _surname, _rows in ((_n.upper(), _v) for _n, _v in TRAINERS_BY_NAME.items())
+}
+
+# ADDENDUM 401: a surname whose numbered fights were all removed has an EMPTY queue on purpose, and is checked
+# for exactly that instead -- an emptied queue is the whole change, and a partly-emptied one would be a bug.
+_REMOVED_SURNAMES: "frozenset[str]" = frozenset(
+    _surname for _surname, _rows in ((_n.upper(), _v) for _n, _v in TRAINERS_BY_NAME.items())
+    if any(trainer_label(_row) in REMOVED_MISSABLE_DEFEAT_LOCATIONS for _row in _rows)
+)
+# ADDENDA 406/409: the queue is exactly the surname's live labels, in roster order, and every one of them must be
+# earnable WITHOUT a missable fight. A label means "the Nth distinct team you have beaten", and the fights a
+# removed check stood for are still in the game, so they still count toward N.
+from .missable_indices import MISSABLE_TRAINER_INDICES as _MISSABLE  # noqa: E402
+
+_NON_MISSABLE_TEAM_COUNTS: "dict[str, int]" = {}
+for _surname, _rows in ((_n.upper(), _v) for _n, _v in TRAINERS_BY_NAME.items()):
+    _NON_MISSABLE_TEAM_COUNTS[_surname] = len(
+        {team_signature(_row) for _row in _rows if _row["index"] not in _MISSABLE}
+    )
+    _live = [
+        trainer_label(_row) for _row in sorted(_rows, key=lambda r: r["index"])
+        if trainer_label(_row) not in RETIRED_UNIQUE_DEFEAT_LOCATIONS
+        and trainer_label(_row) not in REMOVED_DEFEAT_LOCATIONS
+    ]
+    assert [_l for _l in UNIQUE_SURNAME_TO_LOCATION_QUEUE.get(_surname, []) if _l is not None] == _live, (
+        f"{_surname}: the queue must be exactly its live labels in roster order -- got "
+        f"{UNIQUE_SURNAME_TO_LOCATION_QUEUE.get(_surname)}"
+    )
+    # A label for a missable fight (a one-shot like Bost, or the Sixes' kept #2) is auto-sent at its area's cap;
+    # every other label needs a team the player cannot miss.
+    _missable_labels = {trainer_label(_row) for _row in _rows if _row["index"] in _MISSABLE}
+    _needs = len([label for label in _live if label not in _missable_labels])
+    assert _needs <= _NON_MISSABLE_TEAM_COUNTS[_surname], (
+        f"{_surname} has {_needs} labels but only {_NON_MISSABLE_TEAM_COUNTS[_surname]} distinct teams the "
+        "player cannot miss -- a label nobody can earn"
+    )
+
+
+assert not (set(DEFEAT_LINKS) & REMOVED_DEFEAT_LOCATIONS), "a linked defeat check must be a location"
+assert all(name in sum(UNIQUE_SURNAME_TO_LOCATION_QUEUE.values(), []) for name in DEFEAT_LINKS)
+
+
+def apply_defeat_links(completed: "list[str]", already_checked: "set[str] | frozenset[str]") -> "list[str]":
+    """ADDENDUM 411. The tracker's dispatch, with the linked pairs applied. Pure, so it is tested without a game.
+
+    1. Each linked label brings its partner: Ardos #1 sends Zook #1, Zook #1 sends Ardos #1.
+    2. A missable linked label the tracker reaches AFTER its partner already sent it means that fight was skipped
+       and this win is a LATER team -- Zook at the Key Lair, his first distinct team beaten. The label is already
+       checked, so the win takes the surname's next unchecked label instead (Zook #2), which it would otherwise
+       never reach: a queue position, once used, is not handed out again."""
+    out: "list[str]" = []
+    for name in completed:
+        if name in LINKED_MISSABLE_DEFEAT_LOCATIONS and name in already_checked:
+            for queue in UNIQUE_SURNAME_TO_LOCATION_QUEUE.values():
+                if name in queue:
+                    later = [n for n in queue[queue.index(name) + 1:]
+                             if n not in already_checked and n not in out and n not in completed]
+                    if later:
+                        name = later[0]
+                    break
+        if name not in out:
+            out.append(name)
+    for name in list(out):
+        partner = DEFEAT_LINKS.get(name)
+        if partner is not None and partner not in out:
+            out.append(partner)
+    return out
+
+
+# ADDENDUM 436 -- the fights the player only watches, as the client's tracker needs them: {SURNAME: (every label of
+# that surname in roster order, the labels of the watched fights)}. A confirmed win is resolved against the whole
+# list by team fingerprint; one that lands on a watched fight is ignored.
+def _non_player_fights() -> "dict[str, tuple[tuple[str, ...], frozenset[str]]]":
+    from .missable_indices import NON_PLAYER_FIGHT_INDICES
+
+    out: "dict[str, tuple[tuple[str, ...], frozenset[str]]]" = {}
+    for index in sorted(NON_PLAYER_FIGHT_INDICES):
+        surname = TRAINERS_BY_INDEX[index]["name"].upper()
+        rows = sorted((t for t in TRAINERS if t["name"].upper() == surname), key=lambda t: t["index"])
+        labels = tuple(trainer_label(t) for t in rows)
+        watched = frozenset(trainer_label(t) for t in rows if t["index"] in NON_PLAYER_FIGHT_INDICES)
+        out[surname] = (labels, watched)
+    return out
+
+
+NON_PLAYER_FIGHTS: "dict[str, tuple[tuple[str, ...], frozenset[str]]]" = _non_player_fights()
+# Every surname with a watched fight also has a fight the player DOES fight -- the one its check comes from.
+assert all(len(labels) > len(watched) for labels, watched in NON_PLAYER_FIGHTS.values())
+
+# ADDENDUM 439: Zook (Any) must never be sent at the Gateon fight. Where each
+# watched fight is staged, as an `AREA_GROUPS` place: a win by that surname in that place is the watched fight, whatever
+# the fingerprints say. Each surname's PLAYED fight is somewhere else -- Zook at the Key Lair, Ardos at Citadark, Biden
+# at Snagem (ADDENDUM 436) -- so the room alone separates them.
+WATCHED_FIGHT_AREAS: "dict[str, str]" = {
+    "ZOOK": "Gateon Port",          # Ardos vs Zook
+    "ARDOS": "Gateon Port",         # the same fight, from Ardos's side
+    "BIDEN": "Cipher Key Lair",     # Zook vs Biden
+}
+assert set(WATCHED_FIGHT_AREAS) == set(NON_PLAYER_FIGHTS)

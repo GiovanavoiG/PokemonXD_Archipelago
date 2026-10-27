@@ -84,10 +84,10 @@ class TestRenamePolicy(unittest.TestCase):
         # line is still distinct, which is what this test was written to protect.
         names = self.renamer.desired_names(156, self.berries)
         labelled = [t for t in names.values() if t != ram_client.NO_CHECK_NAME]
-        self.assertEqual(shops.SHOPS_BY_ROOM[156].slot_count, len(labelled))
+        self.assertEqual(len(shops.check_lines(shops.SHOPS_BY_ROOM[156])), len(labelled))
         self.assertEqual(len(labelled), len(set(labelled)), "two shelf lines share a label")
         self.assertEqual("GATEON 01", names[self.berries[0]])
-        self.assertEqual("GATEON 15", names[self.berries[14]])
+        self.assertEqual("GATEON 14", names[self.berries[14]])            # line 15: the Ability Swap's is skipped
         self.assertEqual(ram_client.NO_CHECK_NAME, names[self.berries[-1]])
 
     def test_a_fully_bought_shop_says_so(self) -> None:

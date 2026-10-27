@@ -1,103 +1,283 @@
+"""ADDENDUM 390 (2026-09-28) -- Death Link sends on the game's own annihilation flag, not a window nobody measured.
+
+Death Links were not being SENT at all. A money-based white-out fingerprint would fail with no money, so the send
+is based on the actual white-out code instead. `fightEncountAnnihilationRecovery` calls `heroDecPokedoru(maxPartyLevel * 16)` and that
+CLAMPS, so a broke player produces no money signature at all. And the real function has a better signal in it.
+
+WHAT WAS ACTUALLY WRONG. Every other link in the chain checks out -- the option reaches slot data, the client
+arms the DeathLink tag, `send_death` is CommonContext's own, the poll runs every tick, `read_party` reads the
+live `Pokemon` objects rather than the display cache, a fainted member still counts as occupied, and an
+unreadable party returns None rather than False. The send was edge-triggered on OBSERVING the party at all-zero
+HP, and ADDENDUM 351 asserted that "a party sits at zero HP for the whole of a losing battle's end sequence"
+without ever capturing it. A white-out heals the party in the same sequence that ends the battle, so that
+window may simply not exist to be seen.
+
+THE SIGNAL, READ OUT OF THE WHITE-OUT ITSELF. `fightEncountCheckZenmetu` (0x801F0D9C) guards on three things
+and the second is a latch:
+
+    encounter = fightGetEncountData(...)     # 0x801F19CC
+    if encounter->zenmetuFlag: return        # 0x801F16B8
+
+Both accessors are short enough to read whole, and they resolve against this project's own measured SDA base:
+
+    0x801F19CC   lwz r4, -29856(r13)  /  lwz r0, 0(r4)  /  mulli r0, r3, 60  /  lwz r3, -29852(r13)
+    0x801F16B8   lbz r3, 4(r3)
+
+That the function refuses to run again while the flag is set is what proves it PERSISTS -- so unlike the HP
+window it cannot be missed between polls.
+
+ALSO FIXED, found while reading:
+
+  * `receive()` set `_ours` BEFORE checking whether it had wiped anything, so a death arriving while the party
+    was already down latched the loop fence with no wipe behind it, suppressing the next genuine white-out.
+  * `describe()` was dead code -- nothing called it. `sends` sat at zero with no way for a player to report a
+    number, which is exactly why this only showed up as nothing being sent at all. `!deathlink` calls it now.
+
+Flag 803 was considered and rejected: `GSflagOff(803)` is in the white-out, but a DOL-wide search for
+`li r3,803` finds it cleared in six places and set in one, so it is battle state and not a white-out marker.
 """
-National Dex species table (1-386): dex number -> display name.
+from __future__ import annotations
 
-Keys are National Dex numbers, confirmed for 1-251 against live RAM on two save files (Jolteon=135,
-Teddiursa=216, Eevee=133, Sunkern=191) and by decoding the game's own Pokemon-stats table.
+import pathlib
+import unittest
 
-CAVEAT for 252 and up: XD's internal species index is NOT the National Dex. Internal 332 is Trapinch (dex
-328), 311 is Surskit (283), 382 is Aron (304) -- decoded from the PokeSpot wild-encounter tables in
-`common_rel.rel` and cross-checked against Serebii and a GameFAQs FAQ via each stats entry's stored
-National-Index field. 162 of ~415 internal indices point somewhere else than their number suggests. So for any
-species value out of DTNR/DPKM/PokeSpot data or live RAM that could be >= 252, use
-`tools/xd_species_index.py` (`national_dex_for()` / `name_for()`), not this dict. Live RAM uses a third
-indexing again -- the internal index compacted with the 25 reserved 252+ slots removed --
-`xd_species_index.national_dex_for_live_species()`, which is what ram_client.py's `read_party_species()`,
-`PartyMember.national_dex` and `get_owned_species_snapshot()` already route through.
-
-Generates one "Catch - {species}" location per species. They are deliberately out of logic
-(locations.py's `SPECIES_LOCATION_PROGRESS_TYPE`): XD has very limited wild-encounter access, so optional
-bonus checks are the only choice that cannot produce an unwinnable seed.
-"""
-
-NATIONAL_DEX: dict[int, str] = {
-    1: "Bulbasaur", 2: "Ivysaur", 3: "Venusaur", 4: "Charmander", 5: "Charmeleon", 6: "Charizard",
-    7: "Squirtle", 8: "Wartortle", 9: "Blastoise", 10: "Caterpie", 11: "Metapod", 12: "Butterfree",
-    13: "Weedle", 14: "Kakuna", 15: "Beedrill", 16: "Pidgey", 17: "Pidgeotto", 18: "Pidgeot",
-    19: "Rattata", 20: "Raticate", 21: "Spearow", 22: "Fearow", 23: "Ekans", 24: "Arbok",
-    25: "Pikachu", 26: "Raichu", 27: "Sandshrew", 28: "Sandslash", 29: "Nidoran-F", 30: "Nidorina",
-    31: "Nidoqueen", 32: "Nidoran-M", 33: "Nidorino", 34: "Nidoking", 35: "Clefairy", 36: "Clefable",
-    37: "Vulpix", 38: "Ninetales", 39: "Jigglypuff", 40: "Wigglytuff", 41: "Zubat", 42: "Golbat",
-    43: "Oddish", 44: "Gloom", 45: "Vileplume", 46: "Paras", 47: "Parasect", 48: "Venonat",
-    49: "Venomoth", 50: "Diglett", 51: "Dugtrio", 52: "Meowth", 53: "Persian", 54: "Psyduck",
-    55: "Golduck", 56: "Mankey", 57: "Primeape", 58: "Growlithe", 59: "Arcanine", 60: "Poliwag",
-    61: "Poliwhirl", 62: "Poliwrath", 63: "Abra", 64: "Kadabra", 65: "Alakazam", 66: "Machop",
-    67: "Machoke", 68: "Machamp", 69: "Bellsprout", 70: "Weepinbell", 71: "Victreebel", 72: "Tentacool",
-    73: "Tentacruel", 74: "Geodude", 75: "Graveler", 76: "Golem", 77: "Ponyta", 78: "Rapidash",
-    79: "Slowpoke", 80: "Slowbro", 81: "Magnemite", 82: "Magneton", 83: "Farfetch'd", 84: "Doduo",
-    85: "Dodrio", 86: "Seel", 87: "Dewgong", 88: "Grimer", 89: "Muk", 90: "Shellder", 91: "Cloyster",
-    92: "Gastly", 93: "Haunter", 94: "Gengar", 95: "Onix", 96: "Drowzee", 97: "Hypno", 98: "Krabby",
-    99: "Kingler", 100: "Voltorb", 101: "Electrode", 102: "Exeggcute", 103: "Exeggutor", 104: "Cubone",
-    105: "Marowak", 106: "Hitmonlee", 107: "Hitmonchan", 108: "Lickitung", 109: "Koffing", 110: "Weezing",
-    111: "Rhyhorn", 112: "Rhydon", 113: "Chansey", 114: "Tangela", 115: "Kangaskhan", 116: "Horsea",
-    117: "Seadra", 118: "Goldeen", 119: "Seaking", 120: "Staryu", 121: "Starmie", 122: "Mr. Mime",
-    123: "Scyther", 124: "Jynx", 125: "Electabuzz", 126: "Magmar", 127: "Pinsir", 128: "Tauros",
-    129: "Magikarp", 130: "Gyarados", 131: "Lapras", 132: "Ditto", 133: "Eevee", 134: "Vaporeon",
-    135: "Jolteon", 136: "Flareon", 137: "Porygon", 138: "Omanyte", 139: "Omastar", 140: "Kabuto",
-    141: "Kabutops", 142: "Aerodactyl", 143: "Snorlax", 144: "Articuno", 145: "Zapdos", 146: "Moltres",
-    147: "Dratini", 148: "Dragonair", 149: "Dragonite", 150: "Mewtwo", 151: "Mew",
-    152: "Chikorita", 153: "Bayleef", 154: "Meganium", 155: "Cyndaquil", 156: "Quilava",
-    157: "Typhlosion", 158: "Totodile", 159: "Croconaw", 160: "Feraligatr", 161: "Sentret",
-    162: "Furret", 163: "Hoothoot", 164: "Noctowl", 165: "Ledyba", 166: "Ledian", 167: "Spinarak",
-    168: "Ariados", 169: "Crobat", 170: "Chinchou", 171: "Lanturn", 172: "Pichu", 173: "Cleffa",
-    174: "Igglybuff", 175: "Togepi", 176: "Togetic", 177: "Natu", 178: "Xatu", 179: "Mareep",
-    180: "Flaaffy", 181: "Ampharos", 182: "Bellossom", 183: "Marill", 184: "Azumarill", 185: "Sudowoodo",
-    186: "Politoed", 187: "Hoppip", 188: "Skiploom", 189: "Jumpluff", 190: "Aipom", 191: "Sunkern",
-    192: "Sunflora", 193: "Yanma", 194: "Wooper", 195: "Quagsire", 196: "Espeon", 197: "Umbreon",
-    198: "Murkrow", 199: "Slowking", 200: "Misdreavus", 201: "Unown", 202: "Wobbuffet", 203: "Girafarig",
-    204: "Pineco", 205: "Forretress", 206: "Dunsparce", 207: "Gligar", 208: "Steelix", 209: "Snubbull",
-    210: "Granbull", 211: "Qwilfish", 212: "Scizor", 213: "Shuckle", 214: "Heracross", 215: "Sneasel",
-    216: "Teddiursa", 217: "Ursaring", 218: "Slugma", 219: "Magcargo", 220: "Swinub", 221: "Piloswine",
-    222: "Corsola", 223: "Remoraid", 224: "Octillery", 225: "Delibird", 226: "Mantine", 227: "Skarmory",
-    228: "Houndour", 229: "Houndoom", 230: "Kingdra", 231: "Phanpy", 232: "Donphan", 233: "Porygon2",
-    234: "Stantler", 235: "Smeargle", 236: "Tyrogue", 237: "Hitmontop", 238: "Smoochum", 239: "Elekid",
-    240: "Magby", 241: "Miltank", 242: "Blissey", 243: "Raikou", 244: "Entei", 245: "Suicune",
-    246: "Larvitar", 247: "Pupitar", 248: "Tyranitar", 249: "Lugia", 250: "Ho-Oh", 251: "Celebi",
-    252: "Treecko", 253: "Grovyle", 254: "Sceptile", 255: "Torchic", 256: "Combusken", 257: "Blaziken",
-    258: "Mudkip", 259: "Marshtomp", 260: "Swampert", 261: "Poochyena", 262: "Mightyena", 263: "Zigzagoon",
-    264: "Linoone", 265: "Wurmple", 266: "Silcoon", 267: "Beautifly", 268: "Cascoon", 269: "Dustox",
-    270: "Lotad", 271: "Lombre", 272: "Ludicolo", 273: "Seedot", 274: "Nuzleaf", 275: "Shiftry",
-    276: "Taillow", 277: "Swellow", 278: "Wingull", 279: "Pelipper", 280: "Ralts", 281: "Kirlia",
-    282: "Gardevoir", 283: "Surskit", 284: "Masquerain", 285: "Shroomish", 286: "Breloom", 287: "Slakoth",
-    288: "Vigoroth", 289: "Slaking", 290: "Nincada", 291: "Ninjask", 292: "Shedinja", 293: "Whismur",
-    294: "Loudred", 295: "Exploud", 296: "Makuhita", 297: "Hariyama", 298: "Azurill", 299: "Nosepass",
-    300: "Skitty", 301: "Delcatty", 302: "Sableye", 303: "Mawile", 304: "Aron", 305: "Lairon",
-    306: "Aggron", 307: "Meditite", 308: "Medicham", 309: "Electrike", 310: "Manectric", 311: "Plusle",
-    312: "Minun", 313: "Volbeat", 314: "Illumise", 315: "Roselia", 316: "Gulpin", 317: "Swalot",
-    318: "Carvanha", 319: "Sharpedo", 320: "Wailmer", 321: "Wailord", 322: "Numel", 323: "Camerupt",
-    324: "Torkoal", 325: "Spoink", 326: "Grumpig", 327: "Spinda", 328: "Trapinch", 329: "Vibrava",
-    330: "Flygon", 331: "Cacnea", 332: "Cacturne", 333: "Swablu", 334: "Altaria", 335: "Zangoose",
-    336: "Seviper", 337: "Lunatone", 338: "Solrock", 339: "Barboach", 340: "Whiscash", 341: "Corphish",
-    342: "Crawdaunt", 343: "Baltoy", 344: "Claydol", 345: "Lileep", 346: "Cradily", 347: "Anorith",
-    348: "Armaldo", 349: "Feebas", 350: "Milotic", 351: "Castform", 352: "Kecleon", 353: "Shuppet",
-    354: "Banette", 355: "Duskull", 356: "Dusclops", 357: "Tropius", 358: "Chimecho", 359: "Absol",
-    360: "Wynaut", 361: "Snorunt", 362: "Glalie", 363: "Spheal", 364: "Sealeo", 365: "Walrein",
-    366: "Clamperl", 367: "Huntail", 368: "Gorebyss", 369: "Relicanth", 370: "Luvdisc", 371: "Bagon",
-    372: "Shelgon", 373: "Salamence", 374: "Beldum", 375: "Metang", 376: "Metagross", 377: "Regirock",
-    378: "Regice", 379: "Registeel", 380: "Latias", 381: "Latios", 382: "Kyogre", 383: "Groudon",
-    384: "Rayquaza", 385: "Jirachi", 386: "Deoxys",
-}
+from .. import ram_client as rc
 
 
-def location_name_for_species(dex_number: int) -> str:
-    return f"Catch - {NATIONAL_DEX[dex_number]}"
+class TestTheAddressesComeFromTheDisassembly(unittest.TestCase):
+    def test_the_two_pointers_are_the_sda_displacements(self) -> None:
+        self.assertEqual(rc.MIROR_SDA_BASE - 29856, rc.ENCOUNTER_COUNT_PTR)
+        self.assertEqual(rc.MIROR_SDA_BASE - 29852, rc.ENCOUNTER_RECORDS_PTR)
+        self.assertEqual(0x804E8980, rc.ENCOUNTER_COUNT_PTR)
+        self.assertEqual(0x804E8984, rc.ENCOUNTER_RECORDS_PTR)
+
+    def test_the_record_shape_is_the_one_the_accessors_use(self) -> None:
+        self.assertEqual(60, rc.ENCOUNTER_RECORD_STRIDE, "mulli r0, r3, 60")
+        self.assertEqual(0x04, rc.ENCOUNTER_ZENMETU_FLAG_OFFSET, "lbz r3, 4(r3)")
 
 
-# name -> dex number: the client reads a numeric species id off live RAM and needs the location name.
-SPECIES_LOCATION_TO_DEX: dict[str, int] = {location_name_for_species(n): n for n in NATIONAL_DEX}
+class TestTheFlagReadRefusesRatherThanGuessing(unittest.TestCase):
+    """None, never False. "I cannot see the battle state" must not read as "you are fine" any more than it may
+    read as "you died" -- the same rule `party_is_wiped` already follows."""
 
-# Every Eeveelution this game's era has (no Leafeon/Glaceon/Sylveon). The only guaranteed Eevee is the story
-# gift, and evolving it produces exactly one of these five -- but a seed may have trimmed the other four's
-# "Catch - {X}" locations entirely (they go away when a species has no obtainable path this seed), so which
-# one the player picks would decide whether evolving nets a check at all. `EEVEELUTION_LOCATION_NAME` is
-# always present and fires on any of the five instead.
-EEVEELUTION_DEX_NUMBERS: frozenset[int] = frozenset({134, 135, 136, 196, 197})  # Vaporeon/Jolteon/Flareon/Espeon/Umbreon
+    def setUp(self) -> None:
+        self.saved = rc.read_bytes
+        # ADDENDUM 400: BYTE-ADDRESSABLE, not a dict keyed by whole reads.
+        #
+        # The old fake mapped an exact start address to an exact blob, so it only answered a read that began
+        # where a write had begun. `read_annihilation_flag` now takes the records array in ONE bulk read
+        # instead of `count` single-byte reads -- it is sampled at 20 Hz in the fast window, where 64 round
+        # trips a tick is a load rather than a diagnostic -- and the old fake returned zeros for that read
+        # while still answering the per-byte ones. A fake that cannot be read across is a fake that pins the
+        # access pattern instead of the behaviour.
+        self.mem: "dict[int, int]" = {}
+        rc.read_bytes = lambda address, length: bytes(
+            self.mem.get(address + offset, 0) for offset in range(length))
+
+    def tearDown(self) -> None:
+        rc.read_bytes = self.saved
+
+    def _write(self, address: int, data: bytes) -> None:
+        for offset, byte in enumerate(data):
+            self.mem[address + offset] = byte
+
+    def _u32(self, address: int, value: int) -> None:
+        self._write(address, value.to_bytes(4, "big"))
+
+    def test_uninitialised_pointers_give_no_answer(self) -> None:
+        self.assertIsNone(rc.read_annihilation_flag())
+
+    def test_a_records_pointer_outside_mem1_gives_no_answer(self) -> None:
+        self._u32(rc.ENCOUNTER_COUNT_PTR, 0x80500000)
+        self._u32(0x80500000, 4)
+        self._u32(rc.ENCOUNTER_RECORDS_PTR, 0x00001234)
+        self.assertIsNone(rc.read_annihilation_flag())
+
+    def test_an_implausible_count_gives_no_answer(self) -> None:
+        self._u32(rc.ENCOUNTER_COUNT_PTR, 0x80500000)
+        self._u32(0x80500000, 999999)
+        self._u32(rc.ENCOUNTER_RECORDS_PTR, 0x80600000)
+        self.assertIsNone(rc.read_annihilation_flag())
+
+    def _sane_tables(self, count: int = 4, records: int = 0x80600000) -> int:
+        self._u32(rc.ENCOUNTER_COUNT_PTR, 0x80500000)
+        self._u32(0x80500000, count)
+        self._u32(rc.ENCOUNTER_RECORDS_PTR, records)
+        return records
+
+    def test_all_clear_reads_false(self) -> None:
+        self._sane_tables()
+        self.assertIs(False, rc.read_annihilation_flag())
+
+    def test_a_set_flag_on_any_record_reads_true(self) -> None:
+        records = self._sane_tables(count=4)
+        for index in range(4):
+            self.setUp()
+            records = self._sane_tables(count=4)
+            self._write(records + index * rc.ENCOUNTER_RECORD_STRIDE
+                        + rc.ENCOUNTER_ZENMETU_FLAG_OFFSET, b"\x01")
+            self.assertIs(True, rc.read_annihilation_flag(), f"record {index}")
+
+    def test_it_reads_the_flag_field_and_not_its_neighbours(self) -> None:
+        records = self._sane_tables(count=1)
+        for offset in (0x00, 0x01, 0x02, 0x03, 0x05, 0x06):
+            self._write(records + offset, b"\xFF")
+        self.assertIs(False, rc.read_annihilation_flag(),
+                      "only +0x04 is the annihilation flag")
+
+
+class _Bridge(unittest.TestCase):
+    """Drives `DeathLinkBridge.poll` with both signals under test control."""
+
+    def setUp(self) -> None:
+        self.saved = (rc.party_is_wiped, rc.read_annihilation_flag, rc.wipe_party)
+        self.wiped: "bool | None" = False
+        self.flag: "bool | None" = False
+        self.wrote = 1
+        rc.party_is_wiped = lambda block_base: self.wiped
+        rc.read_annihilation_flag = lambda: self.flag
+        rc.wipe_party = lambda block_base: self.wrote
+        self.bridge = rc.DeathLinkBridge()
+        self.bridge.enabled = True
+
+    def tearDown(self) -> None:
+        rc.party_is_wiped, rc.read_annihilation_flag, rc.wipe_party = self.saved
+
+    def poll(self):
+        return self.bridge.poll(0x80000000)
+
+
+class TestTheFlagSendsADeath(_Bridge):
+    def test_a_white_out_the_hp_window_never_showed_still_sends(self) -> None:
+        """The reported bug, as a test: the party is never observed at zero, and a death goes out anyway."""
+        self.wiped = False
+        self.flag = True
+        should_send, note = self.poll()
+        self.assertTrue(should_send)
+        self.assertIn("annihilation flag", note or "")
+        self.assertEqual(1, self.bridge.sends_by_flag)
+        self.assertEqual(0, self.bridge.sends_by_hp)
+
+    def test_it_is_edge_triggered_because_the_flag_is_a_latch(self) -> None:
+        self.flag = True
+        self.assertTrue(self.poll()[0])
+        for _ in range(10):
+            self.assertFalse(self.poll()[0], "a latch held for many polls must be one death")
+        self.assertEqual(1, self.bridge.sends)
+
+    def test_it_re_arms_once_the_white_out_is_over(self) -> None:
+        self.flag = True
+        self.assertTrue(self.poll()[0])
+        self.flag = False
+        self.poll()
+        self.flag = True
+        self.assertTrue(self.poll()[0], "a second white-out is a second death")
+        self.assertEqual(2, self.bridge.sends)
+
+    def test_the_hp_edge_still_works_on_its_own(self) -> None:
+        """Kept deliberately: if the flag is wrong on some build, this degrades to the old behaviour rather
+        than to nothing."""
+        self.flag = False
+        self.wiped = True
+        self.assertFalse(self.poll()[0])             # ADDENDUM 472: the HP edge needs two polls
+        should_send, note = self.poll()
+        self.assertTrue(should_send)
+        self.assertEqual(1, self.bridge.sends_by_hp)
+        self.assertIn("0 HP", note or "")
+
+    def test_both_signals_at_once_are_one_death(self) -> None:
+        self.wiped = True
+        self.flag = True
+        self.assertTrue(self.poll()[0])
+        self.assertFalse(self.poll()[0])
+        self.assertFalse(self.poll()[0])             # ADDENDUM 472: the HP edge confirming later is the same death
+        self.assertEqual(1, self.bridge.sends)
+
+    def test_no_answer_from_either_sends_nothing(self) -> None:
+        self.wiped = None
+        self.flag = None
+        for _ in range(5):
+            self.assertFalse(self.poll()[0])
+        self.assertEqual(0, self.bridge.sends)
+
+    def test_an_unreadable_party_does_not_release_the_fence(self) -> None:
+        """`wiped is None` while the flag is still set is "no answer", and must not look like recovery."""
+        self.flag = True
+        self.assertTrue(self.poll()[0])
+        self.wiped = None
+        self.poll()
+        self.assertFalse(self.poll()[0], "the same white-out must not fire twice")
+
+
+class TestTheLoopFence(_Bridge):
+    def test_a_received_death_is_not_rebroadcast(self) -> None:
+        self.bridge.receive(0x80000000, "someone else died")
+        self.wiped = True
+        self.flag = True
+        self.assertFalse(self.poll()[0])
+        self.assertEqual(1, self.bridge.suppressed)
+        self.assertEqual(0, self.bridge.sends)
+
+    def test_the_fence_comes_down_when_both_signals_clear(self) -> None:
+        self.bridge.receive(0x80000000)
+        self.wiped = True
+        self.flag = True
+        self.poll()
+        self.wiped = False
+        self.flag = False
+        self.poll()
+        self.wiped = True
+        self.flag = True
+        self.assertTrue(self.poll()[0], "a later real white-out must still send")
+
+    def test_a_receive_that_wiped_nothing_does_not_latch_the_fence(self) -> None:
+        """The bug: `_ours` was set before checking `written`, so a death arriving while the party was already
+        down fenced a white-out that had nothing to do with it."""
+        self.wrote = 0
+        self.bridge.receive(0x80000000)
+        self.wiped = True
+        self.flag = True
+        should_send, _note = self.poll()
+        self.assertTrue(should_send, "nothing was wiped, so there is nothing of ours to fence")
+        self.assertEqual(0, self.bridge.suppressed)
+
+    def test_a_receive_that_did_wipe_still_fences(self) -> None:
+        self.wrote = 3
+        self.bridge.receive(0x80000000)
+        self.wiped = True
+        self.flag = True
+        self.assertFalse(self.poll()[0])
+
+
+class TestItIsObservable(unittest.TestCase):
+    def test_describe_names_both_signals(self) -> None:
+        bridge = rc.DeathLinkBridge()
+        bridge.enabled = True
+        text = bridge.describe()
+        self.assertIn("annihilation flag", text)
+        self.assertIn("0 HP", text)
+
+    def test_it_says_when_the_flag_cannot_be_read(self) -> None:
+        bridge = rc.DeathLinkBridge()
+        bridge.enabled = True
+        bridge.flag_readable = False
+        self.assertIn("NOT readable", bridge.describe())
+
+    def test_off_says_off(self) -> None:
+        self.assertIn("off for this seed", rc.DeathLinkBridge().describe())
+
+    def test_a_command_finally_calls_it(self) -> None:
+        """It existed since ADDENDUM 351 and nothing reached it, which is why `sends == 0` was invisible."""
+        source = (pathlib.Path(__file__).resolve().parent.parent / "Client.py").read_text(encoding="utf-8")
+        self.assertIn("def _cmd_deathlink(", source)
+        self.assertIn("death_link_bridge.describe()", source)
+
+    def test_the_command_reports_the_flag_too(self) -> None:
+        source = (pathlib.Path(__file__).resolve().parent.parent / "Client.py").read_text(encoding="utf-8")
+        start = source.index("def _cmd_deathlink(")
+        body = source[start:start + 2000]
+        self.assertIn("read_annihilation_flag()", body)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -141,10 +141,10 @@ class TestSphereLogicDefaultOptions(PokemonXDTestBase):
         one-edge-short probe the memo version used.
         """
         self.collect_key_item_chain(4)  # everything but the System Lever -- Citadark Isle not yet
-        self.assertFalse(self.can_reach_location("Citadark Isle Chest 2"))
+        self.assertFalse(self.can_reach_location("Citadark Isle 1F Chest"))
         self.assertFalse(self.can_reach_location(DEEPEST_CHEST))
         self.collect_key_item_chain(5)  # + the System Lever -- Citadark Isle now reachable
-        self.assertTrue(self.can_reach_location("Citadark Isle Chest 2"))
+        self.assertTrue(self.can_reach_location("Citadark Isle 1F Chest"))
         self.assertTrue(self.can_reach_location(DEEPEST_CHEST))
 
     # REWRITTEN BY ADDENDUM 432. Both tests below asserted the retired LADDER: threshold N open as soon as the one

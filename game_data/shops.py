@@ -167,14 +167,34 @@ def is_disabled_shop_room(room_id: "int | None") -> bool:
     return room_id is not None and room_id in _disabled_rooms
 
 
-def shop_location_name(shop_name: str, slot: int) -> str:
-    """"{Shop Name} AP Item {n}" -- the shop location name format."""
-    return f"{shop_name} AP Item {slot}"
+#: Shelf lines that always sell their own item and are never a check. A shop's checks are numbered past them, so
+#: they run 1..N with no gap: Gateon's line 13 sells the Ability Swap, so its lines 14 and 15 are AP Items 13 and 14.
+NO_CHECK_LINES: "dict[str, frozenset[int]]" = {"Gateon Port Shop": frozenset({13})}
+
+
+def check_number(shop_name: str, line: int) -> "int | None":
+    """The check number of a shelf line (what its location and its live label say), or None for a line that is
+    never a check."""
+    skipped = NO_CHECK_LINES.get(shop_name, frozenset())
+    if line in skipped:
+        return None
+    return line - sum(1 for s in skipped if s < line)
+
+
+def shop_location_name(shop_name: str, line: int) -> str:
+    """"{Shop Name} AP Item {n}" -- the shop location name for shelf line `line`. A line that is never a check gets a
+    name no location has, so a lookup by it simply misses."""
+    number = check_number(shop_name, line)
+    return f"{shop_name} line {line} (no check)" if number is None else f"{shop_name} AP Item {number}"
+
+
+def check_lines(shop: Shop) -> "tuple[int, ...]":
+    return tuple(line for line in range(1, shop.slot_count + 1) if check_number(shop.name, line) is not None)
 
 
 def shop_location_names(shop: Shop) -> "tuple[str, ...]":
     """One name per randomized stock line in THAT shop -- see the section comment above SHOPS."""
-    return tuple(shop_location_name(shop.name, slot) for slot in range(1, shop.slot_count + 1))
+    return tuple(shop_location_name(shop.name, line) for line in check_lines(shop))
 
 
 def all_shop_location_names() -> "tuple[str, ...]":
@@ -199,8 +219,8 @@ def shop_for_room(room_id: "int | None") -> "Shop | None":
 def location_name_to_shop_and_slot() -> "dict[str, tuple[Shop, int]]":
     out: "dict[str, tuple[Shop, int]]" = {}
     for shop in CONFIRMED_SHOPS:
-        for slot in range(1, shop.slot_count + 1):
-            out[shop_location_name(shop.name, slot)] = (shop, slot)
+        for line in check_lines(shop):
+            out[shop_location_name(shop.name, line)] = (shop, line)
     return out
 
 
@@ -209,7 +229,7 @@ assert len(ALL_SHOP_ROOM_IDS) == sum(1 + len(shop.aliases) for shop in SHOPS), (
 )
 assert canonical_shop_room(164) == 163, "the Outskirt Stand's exterior must collapse onto its interior"
 assert len(set(shop.name for shop in SHOPS)) == len(SHOPS), "two shops share a display name"
-assert len(all_shop_location_names()) == sum(shop.slot_count for shop in CONFIRMED_SHOPS)
+assert len(all_shop_location_names()) == sum(len(check_lines(shop)) for shop in CONFIRMED_SHOPS)
 assert all(shop.slot_count > 0 for shop in SHOPS), (
     "every shop needs a real slot count -- a zero would silently create no checks for it"
 )
@@ -256,7 +276,9 @@ def live_name_for_slot(room_id: int, slot: int) -> "str | None":
     an AP slot number -- see `ram_client.ItemNameRenamer.desired_names`. This is the one place the format is
     written down and what the import-time budget check below measures. None for a room with no label."""
     label = SHOP_SHORT_LABELS.get(room_id)
-    return None if label is None else f"{label} {slot:02d}"
+    shop = shop_for_room(room_id)
+    number = check_number(shop.name, slot) if shop is not None else slot
+    return None if label is None or number is None else f"{label} {number:02d}"
 
 
 for _shop in CONFIRMED_SHOPS:

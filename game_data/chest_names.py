@@ -38,7 +38,7 @@ CHEST_LOCATION_NAME_OVERRIDES: "dict[tuple[int, ...], str]" = {
     (20,): "Cipher Lab Left Door Chest 2",
     # Was "Cipher Lab Chest 1". The rest keep their numbering, so the list reads 2-5 with no 1.
     (17,): "Lovrina Defeat Item",
-    (18,): "Cipher Lab Chest 2",
+    (18,): "Cipher Lab ID Card Shiny",   # was "Cipher Lab Chest 2"
     (19,): "Cipher Lab Chest 3",
     (21,): "Cipher Lab Chest 4",
     (22,): "Cipher Lab Chest 5",
@@ -122,27 +122,27 @@ CHEST_LOCATION_NAME_OVERRIDES: "dict[tuple[int, ...], str]" = {
     (113,): 'Kaminko Crane Room Chest 2',
     # Room 68 sits between the Key Lair's 4F (room 67) and its roof (room 70). Called 5F once; id 1462.
     (54,): 'Cipher Key Lair Basement Chest',
-    # No floor labels for Citadark in this project, so these are numbered by room order and that is all the
-    # numbering claims. A test pins it -- a silent shift renames every Citadark chest at once.
-    (75,): 'Citadark Isle Chest 1',   # room 73
-    (59,): 'Citadark Isle Chest 2',   # room 76
-    (60,): 'Citadark Isle Chest 3',   # room 77
-    (61,): 'Citadark Isle Chest 4',   # room 77
-    (62,): 'Citadark Isle Chest 5',   # room 80
-    (63,): 'Citadark Isle Chest 6',   # room 80
-    (64,): 'Citadark Isle Chest 7',   # room 80
-    (65,): 'Citadark Isle Chest 8',   # room 81
-    (66,): 'Citadark Isle Chest 9',   # room 81
-    (57,): 'Citadark Isle Chest 10',   # room 82
-    (67,): 'Citadark Isle Chest 11',   # room 83
-    (68,): 'Citadark Isle Chest 12',   # room 83
-    (69,): 'Citadark Isle Chest 13',   # room 83
-    (70,): 'Citadark Isle Chest 14',   # room 84
-    (71,): 'Citadark Isle Chest 15',   # room 84
-    (72,): 'Citadark Isle Chest 16',   # room 85
-    (73,): 'Citadark Isle Chest 17',   # room 85
-    (74,): 'Citadark Isle Chest 18',   # room 85
-    (58,): 'Citadark Isle Chest 19',   # room 88
+    # Named after where Bulbapedia's Citadark Isle item list puts each one, matched by the vanilla item each held
+    # (every room's items agree with that list). Room 73 is the Dome, 76-85 the fortress floors, 88 the exterior.
+    (75,): 'Citadark Dome 1F Chest',   # room 73, was 'Citadark Isle Chest 1'
+    (59,): 'Citadark Isle 1F Chest',   # room 76, was 'Citadark Isle Chest 2'
+    (60,): 'Citadark Isle 2F Magma Islet Chest 1',   # room 77, was 'Citadark Isle Chest 3'
+    (61,): 'Citadark Isle 2F Magma Islet Chest 2',   # room 77, was 'Citadark Isle Chest 4'
+    (62,): 'Citadark Isle 3F Chest by Cipher Peon Jargo',   # room 80, was 'Citadark Isle Chest 5'
+    (63,): 'Citadark Isle 3F Elevator Path Chest',   # room 80, was 'Citadark Isle Chest 6'
+    (64,): 'Citadark Isle 3F Chest by Chaser Nalix',   # room 80, was 'Citadark Isle Chest 7'
+    (65,): 'Citadark Isle 3F-2 Hidden Chest',   # room 81, was 'Citadark Isle Chest 8'
+    (66,): 'Citadark Isle 3F-2 Chest past Hunter Ibran',   # room 81, was 'Citadark Isle Chest 9'
+    (57,): 'Citadark Isle 4F Spiral Path Chest',   # room 82, was 'Citadark Isle Chest 10'
+    (67,): 'Citadark Isle 5F North Platform Chest',   # room 83, was 'Citadark Isle Chest 11'
+    (68,): 'Citadark Isle 5F Northwest Platform Chest',   # room 83, was 'Citadark Isle Chest 12'
+    (69,): 'Citadark Isle 5F Southeast Platform Chest',   # room 83, was 'Citadark Isle Chest 13'
+    (70,): 'Citadark Isle 6F Chest by Cipher Peon Geftal',   # room 84, was 'Citadark Isle Chest 14'
+    (71,): 'Citadark Isle 6F East Elevator Chest',   # room 84, was 'Citadark Isle Chest 15'
+    (72,): 'Citadark Isle B1F Left Room Chest',   # room 85, was 'Citadark Isle Chest 16'
+    (73,): 'Citadark Isle B1F Right Room Chest',   # room 85, was 'Citadark Isle Chest 17'
+    (74,): 'Citadark Isle B1F Wave Pool Chest',   # room 85, was 'Citadark Isle Chest 18'
+    (58,): 'Citadark Isle Docks Overlook Chest',   # room 88, was 'Citadark Isle Chest 19'
 }
 
 # The room each named chest is claimed to be in, checked against the ISO table below so neither can drift.

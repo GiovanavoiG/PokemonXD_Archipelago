@@ -79,13 +79,22 @@ class TestTheHold(unittest.TestCase):
 
 
 class TestTheHoverTarget(unittest.TestCase):
-    def test_forced_floor_outranks_the_lab_mark(self) -> None:
+    def test_the_ceiling_pulls_a_late_lab_down(self) -> None:
         memory = rc.AreaStoryByteMemory()
         memory.highest_by_region["Pokemon HQ Lab"] = 0x30
         self.assertEqual(0x30, memory.target_for("Pokemon HQ Lab"))
-        memory.forced_floor_by_region["Pokemon HQ Lab"] = 0x16
+        memory.held_ceiling_by_region["Pokemon HQ Lab"] = 0x16
         self.assertEqual(0x16, memory.target_for("Pokemon HQ Lab"))
         self.assertNotEqual(0x16, memory.target_for("Agate Village"))
+
+    def test_the_ceiling_never_raises_an_early_lab(self) -> None:
+        """An early Machine Part must not skip the lab's steps between the Krane Memo 1-2 handover and 0x16."""
+        memory = rc.AreaStoryByteMemory()
+        memory.highest_by_region["Pokemon HQ Lab"] = 0x0F
+        memory.held_ceiling_by_region["Pokemon HQ Lab"] = 0x16
+        self.assertEqual(0x0F, memory.target_for("Pokemon HQ Lab"))
+        memory.highest_by_region["Pokemon HQ Lab"] = 0x11
+        self.assertEqual(0x11, memory.target_for("Pokemon HQ Lab"))
 
 
 class TestTheClientArmsIt(unittest.TestCase):

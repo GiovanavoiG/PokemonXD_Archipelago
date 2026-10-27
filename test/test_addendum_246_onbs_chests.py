@@ -137,7 +137,7 @@ class TestTheRegionIsTheWholeGate(PokemonXDTestBase):
         state.sweep_for_advancements()
         self.assertTrue(onbs.can_reach(state), "the test's own premise -- the region is now reachable")
 
-        names = {locations.CHEST_ID_TO_LOCATION[c] for c in ONBS_CHESTS}
+        names = {locations.CHEST_ID_TO_LOCATION[c] for c in ONBS_CHESTS if c != 100}   # 100 (2F) is filed under Pyrite Town
         for location in self.multiworld.get_locations(1):
             if location.name in names:
                 self.assertTrue(location.can_reach(state),

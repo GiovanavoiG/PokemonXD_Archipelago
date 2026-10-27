@@ -1,354 +1,250 @@
+"""ADDENDUM 389 (2026-09-28) -- one failed read stopped killing shop descriptions, and NO CHECK survives a reboot.
+
+Symptoms: the Pyrite Town vending machine (the small shop) did not update its descriptions with AP items; in
+fact every shop after the first one of a session broke, and shops did not keep the NO CHECK indicator after a
+reboot.
+
+The second and third symptoms are what identified both bugs. Working only for the first shop of a session is
+the shape of a session-scoped kill switch, and failing after a reboot is the shape of state that was never
+persisted.
+
+FAULT ONE -- ONE FAILED MEM1 READ DISABLED THE FEATURE FOR THE SESSION.
+
+`ItemDescriptionWriter` has to SEARCH for the description table, because it moves and is only resident while a
+menu is open. That search reads megabytes of MEM1 in chunks. Both read paths did this:
+
+    except Exception:
+        self.enabled = False                      # <- for the rest of the session
+        self.last_error = "MEM1 read failed during description table search"
+
+So a single unlucky read -- the menu closing mid-sweep, a chunk landing somewhere the bridge would not serve
+-- turned every shop after the first one generic, permanently, with nothing said. The first shop worked
+because it was found before any sweep had a chance to fail.
+
+The class's own canary already reasons correctly about exactly this: "A failed read is not evidence the table
+was reset. 'Still ours' skips a rewrite this poll and asks again next poll." The search did the opposite. It
+now counts the failure in `read_failures` and comes back next poll, and `_scan_slice` advances its cursor
+past the bad chunk so a permanently unreadable address costs one chunk per sweep instead of the feature.
+
+A failed WRITE still disables, and that is kept deliberately: a bridge that cannot write is not going to
+start working, and retrying a write every poll against a dead bridge is not free.
+
+FAULT TWO -- THE NO CHECK MARKER WAS SESSION STATE.
+
+`ShopPurchaseTracker.purchased_by_room` says what it is in its own comment: "berry ids already bought there
+this session". It is never persisted, so a reboot emptied it and every bought line went back to advertising
+an AP item it could no longer send.
+
+`bought_berries_in_room` DERIVES the set from the server's checked locations instead -- authoritative, replayed
+in full on reconnect, and free across a reboot. It is the argument `should_have_key_item_ids` already makes for
+the key-item reconciler: "an incrementally-maintained set is a second copy of the truth that can drift."
+
+It is UNIONED with the session tracker rather than replacing it, because a purchase credited this tick has not
+reached `checked_locations` yet and the shelf is meant to advance while the player is still standing at it.
 """
-Launcher integration for the ISO-patch step.
-
-generate_output() only produces a small `.appxd` seed file, never a full ISO or a diff against one (patch.py
-says why). This wires tools/iso_patcher.py into the Launcher's "open a patch file" flow, so opening a `.appxd`
--- double-click, drag-and-drop, "Open Patch", or the "Pokemon XD Client" component __init__.py registers via
-launch_client_or_patch -- walks the player through picking their own ISO and produces a patched COPY. The
-source ISO is never opened write-capable; apply_patch() enforces that. All byte-level work stays in
-tools/iso_patcher.py.
-
-`Utils.open_filename`/`save_filename` each create and tear down their own `tkinter.Tk()` root per call where
-kdialog/zenity is unavailable, and back-to-back calls -- what `prompt_and_patch` does -- hang on Windows when
-the first dialog was dismissed by double-click: the new root's message pump waits on dispatch state the
-destroyed root left behind. `_run_dialog_chain` uses one persistent hidden root and pumps it (`root.update()`)
-between dialogs. Linux keeps using Utils where a native dialog tool exists; those are subprocesses.
-"""
-
 from __future__ import annotations
 
-import sys
-import traceback
-from pathlib import Path
+import pathlib
+import types
+import unittest
 
-_TOOLS_DIR = str(Path(__file__).resolve().parent / "tools")
-_ISO_PATCHER_SCRIPT = str(Path(__file__).resolve().parent / "tools" / "iso_patcher.py")
+from .. import ram_client as rc
+from ..game_data import item_descriptions as ids
+from ..game_data import shops
+from ..items import USELESS_BERRY_IDS
 
-# Set by `_ensure_visible_console()`, consumed and cleared by `_release_console()`. Holds the process's real
-# stdout/stderr/stdin from BEFORE the redirection so they can be put back exactly.
-_console_state: dict = {}
-
-
-def _ensure_visible_console() -> bool:
-    """Attach a visible Windows console to this process via `AllocConsole()` and point `sys.stdout`/`stderr`
-    at it, so apply_patch()'s print() progress becomes visible. No subprocess, so no external Python has to
-    resolve for the window to appear.
-
-    Returns True only when it ALLOCATED the console here. One the process already had (a dev terminal) is
-    somebody else's: not redirected, not prompted at, not freed, and `_release_console()` must only run
-    against one this allocated. `_has_console()` answers "is there a console at all"."""
-    import ctypes
-    from ctypes import wintypes
-
-    # ctypes assumes a 32-bit c_int return for any function it has not been told about, which truncates a
-    # 64-bit HWND from GetConsoleWindow. Declare the real WinAPI types.
-    kernel32 = ctypes.windll.kernel32
-    kernel32.GetConsoleWindow.restype = wintypes.HWND
-    kernel32.AllocConsole.restype = wintypes.BOOL
-    kernel32.SetConsoleTitleW.argtypes = [wintypes.LPCWSTR]
-    kernel32.SetConsoleTitleW.restype = wintypes.BOOL
-
-    if kernel32.GetConsoleWindow():
-        return False  # already has one (e.g. a dev terminal) -- not ours to redirect, prompt at, or free
-
-    if not kernel32.AllocConsole():
-        return False
-
-    kernel32.SetConsoleTitleW("Pokemon XD Patch - Progress")
-    # Saved before anything is replaced. Either may legitimately be None in a frozen, GUI-launched Launcher;
-    # None is what gets restored then, and print() against a None sys.stdout is a documented no-op.
-    _console_state["stdout"] = sys.stdout
-    _console_state["stderr"] = sys.stderr
-    _console_state["stdin"] = sys.stdin
-    sys.stdout = open("CONOUT$", "w", encoding="utf-8", errors="replace", buffering=1)  # noqa: SIM115
-    sys.stderr = open("CONOUT$", "w", encoding="utf-8", errors="replace", buffering=1)  # noqa: SIM115
-    # CONIN$ too: the console ends on a "press Enter" prompt and `input()` reads sys.stdin, which in a
-    # GUI-launched Launcher is None or unusable -- without this the window would close instantly or hang.
-    try:
-        sys.stdin = open("CONIN$", "r", encoding="utf-8", errors="replace")  # noqa: SIM115
-    except OSError:
-        sys.stdin = _console_state["stdin"]  # no console input available -- the prompt degrades, see below
-    _disable_quick_edit()
-    _console_state["allocated"] = True
-    return True
+BASE = ids.MEASURED_BAND_LOW_START + 0x1000
+SIZE = 0x8000
 
 
-# ADDENDUM 437. The patch could stall after the trade-evolutions line until Enter was pressed. Windows consoles
-# start in QuickEdit mode: a click inside the window begins a text selection, and while a selection
-# is open the console stops accepting output -- the next print() BLOCKS the whole patch until Enter (or Esc) ends the
-# selection. The trade-evolutions line is the last print before the common_rel re-encode, the patch's longest silent
-# stretch, which is exactly when a player clicks the window to see whether it is still alive. Turning QuickEdit off
-# for the console this module allocated means a click can never pause the patch. Never raises: a console that keeps
-# QuickEdit only means the old behaviour.
-ENABLE_QUICK_EDIT_MODE = 0x0040
-ENABLE_EXTENDED_FLAGS = 0x0080
+class _FakeMem1:
+    """Just enough MEM1 to hold the description table, with switchable read failures."""
+
+    def __init__(self) -> None:
+        self.table = bytearray(SIZE)
+        self.clock = 1000.0
+        self.big_reads_fail = False
+        self.writes_fail = False
+        self.load()
+
+    def load(self) -> None:
+        """What a menu open does: the table is re-read from disc, so every entry is vanilla again."""
+        self.table = bytearray(SIZE)
+        magic_at = ids.MSG_MAGIC_OFFSET
+        self.table[magic_at:magic_at + len(ids.MSG_MAGIC)] = ids.MSG_MAGIC
+        for berry in USELESS_BERRY_IDS:
+            offset = ids.entry_offset(berry)
+            if offset is not None:
+                self.table[offset:offset + 12] = b"VANILLA\x00\x00\x00\x00\x00"
+
+    def read(self, address: int, length: int) -> bytes:
+        if self.big_reads_fail and length > 1024:
+            raise RuntimeError("MEM1 read failed (the menu closed mid-sweep)")
+        out = bytearray(length)
+        for i in range(length):
+            here = address + i
+            if BASE <= here < BASE + SIZE:
+                out[i] = self.table[here - BASE]
+        return bytes(out)
+
+    def write(self, address: int, data: bytes) -> None:
+        if self.writes_fail:
+            raise RuntimeError("MEM1 write failed")
+        for i, byte in enumerate(data):
+            here = address + i
+            if BASE <= here < BASE + SIZE:
+                self.table[here - BASE] = byte
 
 
-def quick_edit_off(mode: int) -> int:
-    """The console input mode with QuickEdit cleared. ENABLE_EXTENDED_FLAGS has to be set for the change to apply."""
-    return (mode & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS
+def _scout(shop_name: str, slots: int) -> "dict[str, tuple[str, str | None]]":
+    return {shops.shop_location_name(shop_name, n): (f"Item {n}", "Someone")
+            for n in range(1, slots + 1)}
 
 
-def _disable_quick_edit() -> bool:
-    try:
-        import ctypes
-        import msvcrt
-        from ctypes import wintypes
+class _WriterCase(unittest.TestCase):
+    def setUp(self) -> None:
+        self.mem = _FakeMem1()
+        self._saved = (rc.read_bytes, rc.write_bytes, rc.time)
+        rc.read_bytes = self.mem.read
+        rc.write_bytes = self.mem.write
+        rc.time = types.SimpleNamespace(monotonic=lambda: self.mem.clock)
+        self.writer = rc.ItemDescriptionWriter()
 
-        kernel32 = ctypes.windll.kernel32
-        handle = msvcrt.get_osfhandle(sys.stdin.fileno())
-        mode = wintypes.DWORD()
-        if not kernel32.GetConsoleMode(wintypes.HANDLE(handle), ctypes.byref(mode)):
-            return False
-        return bool(kernel32.SetConsoleMode(wintypes.HANDLE(handle), quick_edit_off(mode.value)))
-    except Exception:
-        return False
+    def tearDown(self) -> None:
+        rc.read_bytes, rc.write_bytes, rc.time = self._saved
 
-
-def _has_console() -> bool:
-    """Whether this process has a console attached at all, whoever created it."""
-    if sys.platform != "win32":
-        return False
-    try:
-        import ctypes
-        from ctypes import wintypes
-
-        kernel32 = ctypes.windll.kernel32
-        kernel32.GetConsoleWindow.restype = wintypes.HWND
-        return bool(kernel32.GetConsoleWindow())
-    except Exception:
-        return False
+    def run_polls(self, room: int, shop_name: str, slots: int, count: int = 20,
+                  step: float = 0.5, purchased=()) -> int:
+        before = self.writer.writes
+        for _ in range(count):
+            self.mem.clock += step
+            self.writer.poll(room, _scout(shop_name, slots), set(purchased))
+        return self.writer.writes - before
 
 
-def _release_console(message: str) -> None:
-    """Hold the console open on `message` until Enter, restore the saved streams, close the CONOUT$/CONIN$
-    handles this module opened, and FreeConsole().
+class TestTheFirstShopAlwaysWorked(_WriterCase):
+    """The control: prove the fake reproduces the working case before testing the broken one."""
 
-    The redirection is process-wide and the process is the Launcher, so without this it outlived the patch and
-    the window went on to catch the CLIENT's output once the player started the client in the same session.
-    Only acts on a console `_ensure_visible_console()` allocated. Safe to call twice or with nothing
-    allocated, and never raises: failing to tidy up must not fail a patch that already succeeded."""
-    if not _console_state.get("allocated"):
-        return
-    try:
-        print(message)
-    except Exception:
-        pass
-    try:
-        input()
-    except Exception:
-        # No usable console input (CONIN$ refused above, or stdin closed underneath us). Better to fall
-        # through and tidy up than to hang a window the player cannot answer.
-        pass
-    for stream_name in ("stdout", "stderr", "stdin"):
-        replacement = getattr(sys, stream_name, None)
-        setattr(sys, stream_name, _console_state.get(stream_name))
-        # Only close what this module opened -- never the stream that was there before.
-        if replacement is not None and replacement is not _console_state.get(stream_name):
-            try:
-                replacement.close()
-            except Exception:
-                pass
-    try:
-        import ctypes
+    def test_a_shop_gets_its_descriptions(self) -> None:
+        self.assertEqual(18, self.run_polls(21, "Mt. Battle Shop", 18))
+        self.assertTrue(self.writer.enabled)
 
-        ctypes.windll.kernel32.FreeConsole()
-    except Exception:
-        pass
-    _console_state.clear()
+    def test_a_second_shop_does_too(self) -> None:
+        self.run_polls(21, "Mt. Battle Shop", 18)
+        self.mem.load()                      # the next menu open reloads the table from disc
+        self.assertEqual(4, self.run_polls(119, "Pyrite Vending Machine", 4))
 
 
-def _import_iso_patcher():
-    """Return the `tools/iso_patcher` module, imported THROUGH the package so it gets a real `__package__`
-    and its relative imports resolve, zip or loose checkout, with nothing read as a file.
+class TestAFailedSearchReadIsNotFatal(_WriterCase):
+    def _force_a_sweep(self) -> None:
+        """Make the next polls actually search: forget where the table was and every address it has been."""
+        self.writer.table_base = None
+        self.writer._hot_bases.clear()
 
-    A rootless `sys.path.insert(tools_dir); import iso_patcher` leaves `__package__` empty, so every
-    `from ..game_data import ...` raises and the patcher's ImportError fallbacks look for those modules as
-    files -- inside an installed `.apworld`, a zip no file read can see into ("No such file or directory:
-    ...game_data/shadow_move_slots.py"). The sys.path branch is kept only for this file run with no parent
-    package; it inserts once."""
-    if __package__:
-        from .tools import iso_patcher
+    def test_the_feature_stays_enabled(self) -> None:
+        self.run_polls(21, "Mt. Battle Shop", 18)
+        self._force_a_sweep()
+        self.mem.big_reads_fail = True
+        self.run_polls(21, "Mt. Battle Shop", 18, count=10, step=2.0)
+        self.assertTrue(self.writer.enabled, "one bad read must not switch descriptions off for the session")
 
-        return iso_patcher
+    def test_the_failures_are_counted_and_reported(self) -> None:
+        """Silence is what made this take a play session to find."""
+        self.run_polls(21, "Mt. Battle Shop", 18)
+        self._force_a_sweep()
+        self.mem.big_reads_fail = True
+        self.run_polls(21, "Mt. Battle Shop", 18, count=10, step=2.0)
+        self.assertGreater(self.writer.read_failures, 0)
+        self.assertIsNotNone(self.writer.last_error)
 
-    # pragma: no cover - standalone execution with no parent package
-    if _TOOLS_DIR not in sys.path:
-        sys.path.insert(0, _TOOLS_DIR)
-    import iso_patcher  # type: ignore[import-not-found]
+    def test_a_later_shop_still_works_once_reads_recover(self) -> None:
+        """The player-visible promise: shop two is not collateral damage from shop one's sweep."""
+        self.run_polls(21, "Mt. Battle Shop", 18)
+        self._force_a_sweep()
+        self.mem.big_reads_fail = True
+        self.run_polls(21, "Mt. Battle Shop", 18, count=10, step=2.0)
+        self.mem.big_reads_fail = False
+        self.mem.load()
+        self.assertEqual(4, self.run_polls(119, "Pyrite Vending Machine", 4))
+        self.assertTrue(self.writer.enabled)
 
-    return iso_patcher
+    def test_the_sweep_cursor_moves_past_a_bad_chunk(self) -> None:
+        """Otherwise one permanently unreadable address stalls the sweep on that chunk forever, which is the
+        same outage wearing a different hat."""
+        self._force_a_sweep()
+        self.mem.big_reads_fail = True
+        seen = set()
+        for _ in range(6):
+            self.mem.clock += 2.0
+            self.writer.poll(21, _scout("Mt. Battle Shop", 18), set())
+            seen.add(self.writer._scan_cursor)
+        self.assertGreater(len(seen), 1, f"the cursor never moved: {seen}")
 
 
-def _has_native_linux_dialog() -> bool:
-    """True only when Utils.open_filename/save_filename would use a native, subprocess-based dialog
-    (kdialog/zenity) rather than the Tkinter fallback that needs the shared-root workaround."""
-    from shutil import which
+class TestAFailedWriteStillDisables(_WriterCase):
+    def test_it_gives_up_on_a_bridge_that_cannot_write(self) -> None:
+        """Kept deliberately. A write failure is not bad luck on one address -- retrying every poll against a
+        dead bridge costs traffic for a cosmetic that is not coming back."""
+        self.mem.writes_fail = True
+        self.run_polls(21, "Mt. Battle Shop", 18)
+        self.assertFalse(self.writer.enabled)
+        self.assertIsNotNone(self.writer.last_error)
 
-    from Utils import is_linux
+    def test_the_search_and_the_write_are_told_apart(self) -> None:
+        """The two paths now behave differently, so the source must not have collapsed back into one rule."""
+        source = (pathlib.Path(__file__).resolve().parent.parent / "ram_client.py").read_text(encoding="utf-8")
+        start = source.index("class ItemDescriptionWriter")
+        end = source.index("class ", start + 10)
+        body = source[start:end]
+        self.assertEqual(1, body.count("self.enabled = False"),
+                         "only the WRITE path may disable this feature")
+        self.assertIn("self.read_failures += 1", body)
 
-    return is_linux and (which("kdialog") is not None or which("zenity") is not None)
 
+class TestTheNoCheckMarkerIsDerived(unittest.TestCase):
+    """Structural: `bought_berries_in_room` lives in `Client.py`, which needs `websockets` to import."""
 
-def _run_dialog_chain(need_seed: bool) -> tuple[str | None, str | None, str | None]:
-    """Run the seed/source/output dialog sequence and return `(seed_path, source, output)`. Anything the
-    player was never asked for comes back None, and cancelling anywhere returns `(None, None, None)`. On Linux
-    with a native dialog tool this delegates to Utils; everywhere else it drives `tkinter.filedialog` against
-    one shared hidden root -- see the module docstring."""
-    if _has_native_linux_dialog():
-        from Utils import open_filename, save_filename
+    def setUp(self) -> None:
+        self.source = (pathlib.Path(__file__).resolve().parent.parent / "Client.py").read_text(
+            encoding="utf-8")
 
-        seed_path = None
-        if need_seed:
-            seed_path = open_filename(
-                "Select your Pokemon XD Archipelago patch (.appxd)",
-                (("Pokemon XD patch", (".appxd",)),),
-            )
-            if not seed_path:
-                return None, None, None
+    def test_the_helper_exists(self) -> None:
+        self.assertIn("def bought_berries_in_room(", self.source)
 
-        source = open_filename(
-            "Select your Pokemon XD: Gale of Darkness ISO",
-            (("GameCube disc image", (".iso", ".gcm", ".ciso")),),
+    def test_it_reads_the_servers_checked_locations(self) -> None:
+        start = self.source.index("def bought_berries_in_room(")
+        body = self.source[start:start + 1800]
+        self.assertIn("ctx.checked_locations", body)
+        self.assertIn("LOCATION_NAME_TO_ID", body)
+        self.assertIn("shops.shop_location_name", body)
+
+    def test_it_unions_rather_than_replaces(self) -> None:
+        """A purchase credited this tick has not reached `checked_locations` yet, and the shelf is supposed to
+        advance while the player is still at the counter."""
+        start = self.source.index("def bought_berries_in_room(")
+        body = self.source[start:start + 1800]
+        self.assertIn("purchased_by_room", body)
+        self.assertIn("out = set(live)", body)
+
+    def test_the_description_writer_is_given_the_derived_set(self) -> None:
+        self.assertIn("bought_berries_in_room(ctx, room_id)", self.source)
+        self.assertNotIn(
+            "ctx.shop_tracker.purchased_by_room.get(room_id, set()) if room_id is not None else set(),",
+            self.source,
+            "the description call site must no longer take the session-only dict",
         )
-        if not source:
-            return None, None, None
 
-        source_path = Path(source)
-        suggested_name = f"{source_path.stem} (AP){source_path.suffix}"
-        output = save_filename(
-            "Save patched ISO copy as",
-            (("GameCube disc image", (".iso", ".gcm", ".ciso")),),
-            suggest=suggested_name,
-        )
-        if not output:
-            return None, None, None
-        return seed_path, source, _with_disc_extension(output, source)
+    def test_the_renamer_is_given_it_too(self) -> None:
+        """The NO CHECK greying on the shelf LABEL has the same reboot problem as the description."""
+        start = self.source.index("renamer.purchased_by_room")
+        body = self.source[start:start + 400]
+        self.assertIn("bought_berries_in_room(ctx, room_id)", body)
 
-    import tkinter
-    import tkinter.filedialog
-
-    try:
-        root = tkinter.Tk()
-    except tkinter.TclError:
-        return None, None, None  # no GUI available at all -- same as the player cancelling
-    root.withdraw()
-    try:
-        seed_path = None
-        if need_seed:
-            seed_path = tkinter.filedialog.askopenfilename(
-                title="Select your Pokemon XD Archipelago patch (.appxd)",
-                filetypes=[("Pokemon XD patch", ".appxd")],
-                parent=root,
-            )
-            if not seed_path:
-                return None, None, None
-            root.update()  # let the dialog's own close/dispatch fully settle before opening the next one
-
-        source = tkinter.filedialog.askopenfilename(
-            title="Select your Pokemon XD: Gale of Darkness ISO",
-            filetypes=[("GameCube disc image", ".iso .gcm .ciso")],
-            parent=root,
-        )
-        if not source:
-            return None, None, None
-        root.update()
-
-        source_path = Path(source)
-        suggested_name = f"{source_path.stem} (AP){source_path.suffix}"
-        output = tkinter.filedialog.asksaveasfilename(
-            title="Save patched ISO copy as",
-            filetypes=[("GameCube disc image", ".iso .gcm .ciso")],
-            initialfile=suggested_name,
-            parent=root,
-        )
-        if not output:
-            return None, None, None
-        return seed_path, source, _with_disc_extension(output, source)
-    finally:
-        root.destroy()
+    def test_a_shop_slot_maps_to_the_berry_that_names_it(self) -> None:
+        """The numbering this depends on, asserted against the data rather than assumed: line N is berry N."""
+        for shop in shops.CONFIRMED_SHOPS:
+            self.assertLessEqual(shop.slot_count, len(USELESS_BERRY_IDS), shop.name)
 
 
-_DISC_EXTENSIONS = (".iso", ".gcm", ".ciso")
-
-
-def _with_disc_extension(output: str, source: str) -> str:
-    """Give the save name a disc-image extension if it has none. The patched copy is the same format as the
-    source, so the source's own extension is used (.iso when the source has an unusual one)."""
-    if Path(output).suffix.lower() in _DISC_EXTENSIONS:
-        return output
-    source_suffix = Path(source).suffix.lower()
-    return output + (source_suffix if source_suffix in _DISC_EXTENSIONS else ".iso")
-
-
-def _apply_with_visible_progress(iso_patcher, source: str, output: str, seed_path: str, overwrite: bool) -> dict:
-    """Call `iso_patcher.apply_patch()` with a visible progress console on Windows. Its printouts go to the
-    Launcher's own stdout, invisible when the Launcher is not itself running from a console -- the normal case
-    for a double-clicked `.appxd` -- so patching a ~1GB ISO looked like a frozen window for the whole copy and
-    LZSS re-encode. With no console available, or off Windows, this proceeds without one."""
-    console_available = False
-    if sys.platform == "win32":
-        try:
-            _ensure_visible_console()
-        except Exception:
-            pass  # the progress window is a nice-to-have -- patching still proceeds fully in-process below
-        console_available = _has_console()
-
-    if console_available:
-        print("Patching Pokemon XD ISO -- this can take a few minutes for a real disc image. Do not close "
-              "this window.\n")
-
-    # The console is handed back on both paths. Through an exception the window stays up long enough to read
-    # the traceback -- the only place the error is legible in full, since prompt_and_patch's message box shows
-    # the exception text alone -- and the exception is re-raised unchanged.
-    try:
-        result = iso_patcher.apply_patch(Path(source), Path(output), Path(seed_path), overwrite=overwrite)
-    except BaseException:
-        if console_available:
-            traceback.print_exc()
-        _release_console("\nPatch FAILED. Press Enter to close.")
-        raise
-
-    _release_console("\nPatch Complete. Press Enter to close.")
-    return result
-
-
-def prompt_and_patch(seed_path: str | None = None) -> str | None:
-    """Walk the player through selecting their source ISO and an output path, then apply `seed_path`'s
-    trainer-species data via iso_patcher.apply_patch(). Prompts for the seed too if it is not given.
-
-    Returns the new ISO's path, or None if the player cancelled or patching failed -- a failure is reported by
-    message box, and this never raises out to the Launcher.
-    """
-    from Utils import messagebox
-
-    try:
-        iso_patcher = _import_iso_patcher()
-    except Exception as e:  # noqa: BLE001 - surfaced to the player, not a silent failure
-        traceback.print_exc()
-        messagebox("Pokemon XD Patch - Error", f"Could not load the ISO patcher tool:\n{e}", error=True)
-        return None
-
-    resolved_seed_path, source, output = _run_dialog_chain(need_seed=not seed_path)
-    if seed_path is None:
-        seed_path = resolved_seed_path
-    if not source or not output:
-        return None  # player cancelled somewhere in the chain -- not an error
-
-    try:
-        # overwrite=True: the save dialog already had the player confirm this destination, including the OS's
-        # own "file exists, overwrite?" prompt, so apply_patch() has nothing useful to add on top.
-        summary = _apply_with_visible_progress(iso_patcher, source, output, seed_path, overwrite=True)
-    except Exception as e:  # noqa: BLE001 - surfaced to the player via messagebox, not swallowed
-        traceback.print_exc()
-        messagebox("Pokemon XD Patch - Error", f"Could not patch the ISO:\n{e}", error=True)
-        return None
-
-    slots_patched = summary.get("trainer_slots_patched", 0)
-    messagebox(
-        "Pokemon XD Patch",
-        f"Patched copy created:\n{summary['output']}\n\n"
-        f"{slots_patched} trainer Pokemon species assignments applied.\n\n"
-        'Load this copy in Dolphin, then use "Pokemon XD Client" to connect.',
-    )
-    return str(summary["output"])
+if __name__ == "__main__":
+    unittest.main()

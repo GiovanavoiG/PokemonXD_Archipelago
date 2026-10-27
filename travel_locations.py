@@ -1,629 +1,178 @@
+"""ADDENDUM 465 -- what the engine does with a trainer's Shadow Pokemon, and the two places this project fell short.
+
+The hypothesis checked here: trainers with Shadows carry a marker saying which of their Pokemon are Shadows, and a
+marker left unset on generated Shadows would explain them respawning infinitely. Below: the marker, the real cause
+of the respawn, and the engine's other Shadow behaviours.
+
+THE MARKER IS SET. A trainer row (DTNR) marks its Shadow slots with `shadowMask` at +0x04 (bit i = slot i is a DDPK
+index), and `write_shadow_multi_trainer_patch` sets the bit for every slot it fills. The Shadow record (DDPK) marks
+itself with +0x03 bit 7, which the engine reads as `DeckDarkPokemon::isScenarioPokemon` (0x8028B9B8); the expansion
+writes 0x80 there, the value every vanilla record carries. Neither is why a Shadow comes back.
+
+WHY A SNAGGED SHADOW COMES BACK. Each Shadow has a 0x48-byte record in the save, one per DDPK index (all 128 --
+`darkPokemonGetDarkPokemon` bounds-checks 128, `deckInitDarkPokemon` fills 128). Its status (byte 0, bits 5-7) is set
+to 2 when the player wins and the Shadow flees to Miror B (`_darkPokemonSetUnderTaker`) and 3 when it is snagged
+(`fightActionFlowSyuuryou`); 4 is purified. Building a trainer's team, `_fightTrainerCreateDeckPokemon` (0x801FAA5C)
+looks at that status for each Shadow slot, and when it is 2 or more:
+
+    fight mode 1            -> the slot is skipped
+    swap mode 1             -> the slot is taken from a swap deck (or skipped when the swap deck is 0)
+    neither                 -> the Shadow is built again
+
+Fight mode and swap mode are NOT on the trainer. They are FIGHT_ENCOUNT fields (+0x10, +0x0D, swap deck +0x0E) that
+a room script sets with its fight command (`AppScript::cmpFight`) just before the battle, and every fight clears them
+to 0. The game never needed them for an ordinary trainer, because no ordinary trainer with a Shadow is fought twice.
+This project puts Shadows on trainers that are (re-fightable ones the census missed, Miror B's own teams), and there
+the third line rebuilds the Shadow from its deck record -- a fresh, snaggable copy on every rematch.
+
+THE FIX (`RESPAWN_FIX_WORDS`), five words in place, no cave: the same decisions in a different order, with one new
+outcome. A Shadow with status 2 (fled to Miror B) and no script mode is still built, exactly as before -- that is how
+Miror B fields the Shadows that ran from you (`_fightTrainer_GetUnderTakerDarkPoke` builds them through this same
+routine), and it must not change. (ADDENDUM 468, below, narrows that to Miror B.'s own builders.) A Shadow with status 3 or 4 (snagged or purified) and no script mode now falls into
+the swap branch, whose swap deck is 0 (cleared every fight), and is skipped -- what fight mode 1 already does in the
+vanilla game. Fight mode 1 and swap mode 1 behave exactly as before.
+
+    0x801FAAF0  cmpwi r3,2        status < 2 -> build (unchanged)
+    0x801FAAF4  blt   build       (unchanged)
+    0x801FAAF8  cmplwi r19,1      fight mode 1 ...  (unchanged)
+    0x801FAAFC  beq   skip           ... -> skip               was: bne -> the swap-mode test
+    0x801FAB00  cmplwi r18,1      swap mode 1 ...               was: li r3,1
+    0x801FAB04  beq   swap           ... -> the swap block     was: b end
+    0x801FAB08  cmpwi r3,2        fled to Miror B ...           was: cmplwi r18,1
+    0x801FAB0C  beq   build          ... -> build, as vanilla   was: bne build
+    0x801FAB10  (swap block)      snagged/purified: swap deck 0 -> skip
+
+r3 still holds the status at 0x801FAB08: nothing between the status call and there writes it.
+
+THE SECOND GAP: `darkPokemonList` (0x804044E8, 128 u16). At new game `deckInitDarkPokemon` stamps every save record's
+Pokemon id from this main.dol table, one entry per DDPK index -- for all 83 vanilla Shadows it is exactly the species
+of the Shadow's DPKM record (measured against the real decks, 83/83). Entries 84-127, the slots Shadow Pokemon
+Expansion fills, all read 280 (Torchic), and a Shadow whose species was randomized keeps its vanilla entry. The record's
+id is what the PDA's Shadow Monitor lists, names and sorts by, and what the `cmpDarkPokemon` script command reports. So
+`dark_pokemon_list_words` rewrites the table from the FINAL disc: every in-use DDPK record's species. New game only --
+an existing save keeps the ids it was started with.
 """
-Travel-destination unlock data for the "Randomize Travel Locations" YAML option
-(options.RandomizeTravelLocations, items "Travel Unlock - {name}", ADDENDUM 104, 2026-09-09).
-
-With the option on, every destination in `TRAVEL_LOCATION_BITS` becomes its own progression item instead of being
-vanilla-accessible. Receiving one live-writes that destination's FULL-icon bit(s) into the travel-control record,
-making it selectable on the in-game map -- a live RAM write via Client.py, never an ISO patch, and always an OR
-into the target byte, since several destinations share one.
-
-WHERE THE BITS COME FROM -- this project's own live Dolphin-bridge investigation, not a guess. ADDENDUM 83/84
-found the 20-byte record and `+0x08` as a per-destination unlock bitmask (Kaminko Mansion, Gateon Port, Snagem
-Hideout, Outskirt Stand); ADDENDUM 85 found `+0x09` (Cave Poke Spot, Pyrite Town, Agate Village) and that
-"access" and "map icon shown" are sometimes separate bits for one location -- a low "partial" bit beneath a
-higher "full icon" bit; ADDENDUM 90 added `+0x0A` (Phenac City) and Outskirt Stand's 3-bit combo; ADDENDUM 91
-fixed `travel_record_base = BLOCK_BASE + 0x10720` (identical across two independent reboots) and bit-mapped
-`+0x0D`/`+0x0E`/`+0x0F`/`+0x11` (Oasis Poke Spot, Realgam Tower, Cipher Key Lair, Rockground Poke Spot, Kaminko's
-House, Cipher Lab, Mt. Battle, SS Libra, Orre Colosseum). That addendum's "Master reveal everything reference
-table" is the authoritative source for every entry below.
-
-ALWAYS OPEN BY DESIGN, never items (ADDENDUM 106): Kaminko Mansion and the HQ Lab have no gating bit at all
-(ADDENDUM 84; the lab was never a separate destination), while Agate Village (`+0x09` `0x20`) and Gateon Port
-(`+0x08` `0x08`) do and are written proactively. "The Under" is not a reachable area in XD (corrected
-2026-09-09) and never had a bit; Citadark Isle goes through the story byte, not this bitmask.
-
-Adjacency is confirmed for Outskirt Stand and SS Libra only (ADDENDUM 105). For the other twelve no source solid
-enough to encode exists -- Bulbapedia's Orre article says outright that "it is not known if there are any
-connecting routes" -- so they stay item-gated; `pokemon-xd-addendum-106-...md` has the per-location travel-menu
-testing list that would close the gap.
-
-SAVE SAFETY, unresolved: this record has never been confirmed to persist across a Dolphin reboot. ADDENDUM 91
-established that its ADDRESS relocates by a fixed offset from BLOCK_BASE but never tested whether its CONTENTS
-survive, so treat every bit as possibly resetting to baseline on every reboot -- which is why persisting what was
-received and re-flipping it on reconnect is required rather than nice to have.
-"""
-
 from __future__ import annotations
 
-from dataclasses import dataclass
+import struct
 
-# `ram_client` needs `dolphin_memory_engine`, which only ever exists on the CLIENT side, and this module is
-# imported by items.py at world-generation time. So it is imported lazily inside the functions that touch live
-# memory. Do NOT hoist it: generation would fail with ModuleNotFoundError on any machine that only generates.
-
-# ADDENDUM 91: always this fixed offset from the already-resolved player-state block base
-# (ram_client.resolve_block_base), confirmed identical across two independent reboots, so any caller holding a
-# valid block_base can derive it without a separate resolution step.
-TRAVEL_RECORD_OFFSET_FROM_BLOCK_BASE = 0x10720
-
-# Kept here rather than hardcoded in Client.py so the two cannot drift on the exact prefix text.
-TRAVEL_UNLOCK_ITEM_PREFIX = "Travel Unlock - "
-
-
-@dataclass(frozen=True)
-class TravelBit:
-    byte_offset: int  # offset from travel_record_base (e.g. 0x08 for the first bitmask byte)
-    full_bits: int  # bit(s), OR'd together, that grant this destination's FULL ("?" icon shown) access
-    # Set only where the partial bit was measured in play rather than derived. Outskirt Stand is the single
-    # case, and it also shows the derivation is slightly too eager: `full >> 1` would give it 0x01|0x10, but
-    # ADDENDUM 90's confirmed access combo is 0x02|0x10|0x20 -- no 0x01. That 0x01 has never been observed set,
-    # so clearing it would be harmless, but harmless is not measured.
-    measured_partial_bits: "int | None" = None
-
-    @property
-    def partial_bits(self) -> int:
-        """The lower "partial/access-only" bit(s) ADDENDUM 85 found beneath the full-icon bit(s). Clearing only the
-        full-icon bit leaves a destination selectable or half-drawn but without a proper icon (ADDENDUM 172).
-
-        DERIVED, and checkable. Every byte here is 2-bit PAIRS, one per destination: full-icon bit at the odd
-        position, partial beneath it at the even one. Byte 0x08 proves it, since three destinations share it --
-        0x01/0x02 and 0x10/0x20 are Outskirt Stand's two pairs, 0x04/0x08 Gateon Port's, 0x40/0x80 Snagem's. And
-        Outskirt Stand's partial was confirmed in play (ADDENDUM 90: access is 0x02|0x10|0x20, the full-icon
-        state drops 0x10), where 0x10 is exactly `0x20 >> 1`. So `full >> 1` reproduces the measured case and
-        never leaves a destination's own pair. Setting stayed full-bits-only until ADDENDUM 380 -- see
-        `_or_write_bit`."""
-        if self.measured_partial_bits is not None:
-            return self.measured_partial_bits
-        return (self.full_bits >> 1) & 0xFF
-
-    @property
-    def all_bits(self) -> int:
-        """Everything this destination owns -- what a clear has to take away."""
-        return self.full_bits | self.partial_bits
-
-
-# Every travel destination with an independently-confirmed, live-writable bit that is not one of the always-open
-# locations. Declaration order is NOT story/travel order, and `items._table` numbers by index into it, so
-# reordering renumbers item ids. "Gateon Port" was moved out to `ALWAYS_OPEN_TRAVEL_BITS` (ADDENDUM 106).
-TRAVEL_LOCATION_BITS: dict[str, TravelBit] = {
-    "Snagem Hideout": TravelBit(0x08, 0x80),
-    # The one destination whose partial bit was measured rather than derived (ADDENDUM 90): its full access is
-    # the 3-bit combo 0x02|0x10|0x20, and the full-icon state drops 0x10. So 0x10 IS the partial bit.
-    "Outskirt Stand": TravelBit(0x08, 0x02 | 0x20, measured_partial_bits=0x10),
-    "Cave Poke Spot": TravelBit(0x09, 0x02),
-    "Pyrite Town": TravelBit(0x09, 0x08),
-    "Phenac City": TravelBit(0x0A, 0x80),
-    "Oasis Poke Spot": TravelBit(0x0D, 0x02),
-    "Realgam Tower": TravelBit(0x0E, 0x02),
-    # ADDENDUM 378: the item, the `Unlock -` location and regions.py's `Travel Gateway -` region all derive from
-    # `TRAVEL_LOCATION_NAMES`, which comes from this table. This key's POSITION is unchanged, which keeps the ids.
-    "Cipher Key Lair": TravelBit(0x0E, 0x08),
-    "Rockground Poke Spot": TravelBit(0x0E, 0x80),
-    # "Kaminko's House" (`TravelBit(0x0F, 0x02)`) removed 2026-09-25, ADDENDUM 356. Its item gated nothing:
-    # Kaminko's is always-open, so it sat in TRAVEL_CLEAR_EXEMPT (never re-locked) and out of
-    # `gateway_only_regions` (chain edge never suppressed). Frozen id 249 is retired, not reused, like 239
-    # (Gateon Port, ADDENDUM 106) and the three per-spot ids ADDENDUM 177 merged.
-    "Cipher Lab": TravelBit(0x0F, 0x08),
-    "Mt. Battle": TravelBit(0x0F, 0x20),
-    "SS Libra": TravelBit(0x0F, 0x80),
-    # "Orre Colosseum" (`TravelBit(0x11, 0x04)`) removed 2026-10-09, ADDENDUM 446, along with every check there.
-    # Its item opened an empty region that led nowhere, and its
-    # only check was `Unlock - Orre Colosseum`. The client no longer touches the bit, so the game reveals the icon
-    # at its own vanilla moment. Frozen item id 253 and location id 1431 are retired, never reused.
-}
-
-#: ADDENDUM 446: the bit the game owns again. Kept as a record so a later audit can tell "removed" from "never
-#: mapped" (ADDENDUM 91 measured it), and asserted absent from the managed table below.
-RETIRED_TRAVEL_BITS: "dict[str, TravelBit]" = {
-    "Orre Colosseum": TravelBit(0x11, 0x04),
-}
-
-# ADDENDUM 177: the three Poke Spots are ONE unlock. Two layers kept apart -- `TRAVEL_LOCATION_BITS` stays the
-# PHYSICAL truth, one bit per spot in its own byte, because the game needs all three written or the icons
-# disagree; this layer is what the multiworld sees. Collapsing the bit table would have meant inventing a
-# multi-byte TravelBit and losing the per-spot measurements ADDENDA 85/91 confirmed.
-TRAVEL_UNLOCK_MEMBERS: dict[str, tuple[str, ...]] = {
-    "Poke Spots": ("Cave Poke Spot", "Oasis Poke Spot", "Rockground Poke Spot"),
-}
-
-_GROUPED_DESTINATIONS: "frozenset[str]" = frozenset(
-    member for members in TRAVEL_UNLOCK_MEMBERS.values() for member in members
+RESPAWN_FIX_WORDS: "tuple[tuple[int, int, int], ...]" = (
+    (0x801FAAFC, 0x4082000C, 0x4182001C),   # bne +0xC (-> swap-mode test)   -> beq skip (0x801FAB18)
+    (0x801FAB00, 0x38600001, 0x28120001),   # li r3,1                        -> cmplwi r18,1
+    (0x801FAB04, 0x48000170, 0x4182000C),   # b end                          -> beq swap block (0x801FAB10)
+    (0x801FAB08, 0x28120001, 0x2C030002),   # cmplwi r18,1                   -> cmpwi r3,2
+    (0x801FAB0C, 0x40820038, 0x41820038),   # bne build                      -> beq build (0x801FAB44)
 )
-
-# The unlock names the multiworld deals in: every ungrouped destination plus one per group, in the bit table's
-# order, each group taking its first member's position (so the Poke Spots unlock sits where "Cave Poke Spot"
-# was and this list stays recognisable against the record layout).
-def _unlock_names() -> list[str]:
-    names: list[str] = []
-    for destination in TRAVEL_LOCATION_BITS:
-        if destination not in _GROUPED_DESTINATIONS:
-            names.append(destination)
-            continue
-        group = next(g for g, members in TRAVEL_UNLOCK_MEMBERS.items() if destination in members)
-        if group not in names:
-            names.append(group)
-    return names
-
-
-TRAVEL_LOCATION_NAMES: list[str] = _unlock_names()
-
-
-def travel_unlock_members(unlock_name: str) -> "tuple[str, ...]":
-    """The physical destinations one unlock name covers; a plain destination covers itself, so callers need not
-    know whether they hold a group."""
-    return TRAVEL_UNLOCK_MEMBERS.get(unlock_name, (unlock_name,))
-
-# ADDENDUM 106: confirmed bits for locations that are always open by design and never items, written
-# proactively so the real map matches what AP logic treats as free rather than showing an unselectable icon.
-# Kaminko Mansion and the HQ Lab have no entry because neither has a bit at all -- see the module docstring.
-ALWAYS_OPEN_TRAVEL_BITS: dict[str, TravelBit] = {
-    "Gateon Port": TravelBit(0x08, 0x08),
-    "Agate Village": TravelBit(0x09, 0x20),
+#: The untouched neighbours the five words are reasoned against; asserted by the test on the real main.dol.
+RESPAWN_CONTEXT_WORDS: "dict[int, int]" = {
+    0x801FAAEC: 0x4BF50809,   # bl DarkPokemon::getStatus
+    0x801FAAF0: 0x2C030002,   # cmpwi r3,2
+    0x801FAAF4: 0x41800050,   # blt build (0x801FAB44)
+    0x801FAAF8: 0x28130001,   # cmplwi r19,1   (fight mode)
+    0x801FAB10: 0x56FA043F,   # clrlwi. r26,r23,16   (swap deck number)
+    0x801FAB14: 0x4082000C,   # bne swap-from-deck
+    0x801FAB18: 0x38600001,   # li r3,1   (skip)
+    0x801FAB1C: 0x48000158,   # b end
 }
 
-# Which existing regions.py region a travel item unlocks reachability to (see create_and_connect_regions). Since
-# ADDENDUM 171/168 gave the graph 21 real regions, 13 of 14 are exact 1:1 matches rather than the old
-# seven-region approximations; the one merge is deliberate, all three Poke Spots on one region.
-#
-# ADDENDUM 185 gave Orre Colosseum a region of its own that held nothing and led nowhere; ADDENDUM 446 removed the
-# destination, its item, its check and that region.
-#: The map cursor's name for it (`map_destinations`). Not a region of the logic graph since ADDENDUM 446.
-ORRE_COLOSSEUM_REGION = "Orre Colosseum"
+DARK_POKEMON_LIST_ADDRESS = 0x804044E8
+DARK_POKEMON_LIST_LENGTH = 128
+PLACEHOLDER_SPECIES = 280      # what entries 84-127 hold in the shipped game (internal 280, Torchic)
 
-TRAVEL_LOCATION_TARGET_REGION: dict[str, str] = {
-    "Snagem Hideout": "Snagem Hideout",
-    "Outskirt Stand": "Outskirt Stand",
-    "Poke Spots": "Poke Spots",
-    "Pyrite Town": "Pyrite Town",
-    "Phenac City": "Phenac City",
-    "Realgam Tower": "Realgam Tower",
-    "Cipher Key Lair": "Cipher Key Lair",   # ADDENDUM 378 -- an identity row now, like every other one here
-    # "Kaminko's House" removed 2026-09-25 (ADDENDUM 356) alongside its bit-table entry. regions.py iterates
-    # THIS table to build gateways, so leaving it would have built `Travel Gateway - Kaminko's House` behind an
-    # item that no longer exists -- harmless in itself, but a dead entrance a later audit mistakes for a gate.
-    "Cipher Lab": "Cipher Lab",
-    "Mt. Battle": "Mt. Battle",
-    "SS Libra": "SS Libra",
-}
-
-# ADDENDUM 171: the vanilla unlock moment becomes a CHECK. Mt. Battle, for example, is unlocked in vanilla at story
-# byte 0x23 > 0x24; the same applies to every destination after Kaminko/Agate/Gateon/HQ Lab. The GAME
-# still unlocks destinations as the story advances, and ADDENDUM 104 only ever added bits, so progressing
-# normally gave every destination free. Now an
-# unreceived destination's bit is held clear every tick, and the byte that would have unlocked it in the
-# unmodified game sends its own AP location instead: the item grants the access, the story grants the check.
-# Thresholds come from game_data/story_bytes.py rather than being typed again.
-TRAVEL_UNLOCK_LOCATION_PREFIX = "Unlock - "
-
-
-def travel_unlock_location_name(destination: str) -> str:
-    """The AP location that fires when the story reaches `destination`'s vanilla unlock point."""
-    return f"{TRAVEL_UNLOCK_LOCATION_PREFIX}{destination}"
-
-
-# ADDENDUM 185: where a destination's CHECK fires can differ from what its ITEM opens. Orre Colosseum was the one
-# entry (Realgam's byte) until ADDENDUM 446 removed it. Any destination absent here answers with its target region.
-TRAVEL_UNLOCK_STORY_REGION: "dict[str, str]" = {}
-
-
-def vanilla_unlock_story_byte(destination: str) -> "int | None":
-    """The story byte at which the unmodified game would unlock `destination`, or None when there is no story data
-    for it -- which reads as "never fire the check from the story byte"."""
-    from .game_data import story_bytes
-
-    region = TRAVEL_UNLOCK_STORY_REGION.get(destination) or TRAVEL_LOCATION_TARGET_REGION.get(destination)
-    if region is None:
-        return None
-    # ADDENDUM 279's first-visit floors answer "what byte should this room be BUILT from", not "at what byte does
-    # the game unlock this icon" -- you never unlock Gateon, the lab or Kaminko's. Unscoped, this handed Kaminko a
-    # threshold of 0x03 and so an `Unlock - Kaminko's House` location that has never existed.
-    if region in story_bytes.ALWAYS_OPEN_REGIONS:
-        return None
-    # `area_unlock_floor`, not `area_entry_floor` (ADDENDA 247/324): the SS Libra icon appears in vanilla at 0x4E,
-    # when the stranded ship becomes reachable, not at the 0x5A scooter upgrade, so `Unlock - SS Libra` was
-    # credited twelve bytes late. Same for the Key Lair, whose icon is the exterior at 0x5D, not 0x64.
-    return story_bytes.area_unlock_floor(region)
-
-
-# ADDENDUM 355/356: an `Unlock - D` check is earned in the area BEFORE D, not in D itself.
-#
-# Nine fired at once on walking into Gateon Port, all credited from the story byte -- which cannot answer this in
-# the only mode these locations exist in, because the client FORGES the byte there: arriving anywhere writes that
-# area's entry floor so the rooms build (ADDENDUM 177). Travel straight to Snagem, get written in at 0x62, beat
-# Gonzap, and the game advances the byte from a value we invented -- real progress, which `StoryProgressWitness`
-# cannot and should not refuse -- so "the byte is past 0x30" stops meaning "you have been to Pyrite". ADDENDUM
-# 355's fix, the mark in D ITSELF, then made every `Unlock - D` require
-# `Travel Unlock - D` first: deferred self-credit, the shape ADDENDUM 270 forbids.
-#
-# The PREDECESSOR answers both -- it is where the byte really moves ("you finish the Cipher Lab and PYRITE's icon
-# appears") and it is never D. Unforgeable, since `AreaStoryByteMemory.visited` is only written from `observe()`,
-# which refuses our own writes. Derived as the group whose unlock floor is the largest value strictly below D's
-# threshold, over the same `area_unlock_floor` that produces it, and resolving to:
-#     Cipher Lab, Mt. Battle   <- Agate Village        Phenac City      <- Poke Spots
-#     Pyrite Town              <- Cipher Lab           Realgam Tower    <- Phenac City
-#     Poke Spots               <- Pyrite Town
-#     SS Libra                 <- Realgam Tower        Cipher Key Lair  <- SS Libra
-#     Outskirt Stand, Snagem Hideout                   <- Cipher Key Lair
-#
-# `TRAVEL_UNLOCK_STORY_REGION` (empty since ADDENDUM 446) is consulted first, for a destination whose check fires
-# somewhere other than its own target region.
-_UNLOCK_PREDECESSORS: "dict[str, tuple[str, ...]]" = {}
-
-
-def _build_unlock_predecessors() -> "dict[str, tuple[str, ...]]":
-    from .game_data import story_bytes
-
-    # The GROUP is the unit: Pyrite's ONBS half and Phenac's Mayor's House are the same place to the player.
-    floors: "dict[int, list[str]]" = {}
-    for group in story_bytes.AREA_GROUPS:
-        floor = story_bytes.area_unlock_floor(group)
-        if floor is not None:
-            floors.setdefault(floor, []).append(group)
-
-    built: "dict[str, tuple[str, ...]]" = {}
-    for destination in TRAVEL_LOCATION_NAMES:
-        threshold = vanilla_unlock_story_byte(destination)
-        if threshold is None:
-            continue
-        below = [value for value in floors if value < threshold]
-        if not below:
-            continue
-        groups = floors[max(below)]
-        # A tie is a real ambiguity, not a detail to average over: two groups sharing one floor means the ladder
-        # does not say which of them the byte moved in. Nothing ties today; if one ever does, answer it.
-        assert len(groups) == 1, f"{destination}: ambiguous predecessor {groups} at floor {max(below):#04x}"
-        built[destination] = tuple(story_bytes.AREA_GROUPS[groups[0]])
-    return built
-
-
-def unlock_predecessor_region(destination: str) -> str:
-    """The ENTRY TIER of the area one rung below `destination` on the story ladder, or "" when there is none.
-
-    The group's first member, since `AREA_GROUPS` lists every group entry-first -- the tier a player arrives in,
-    and what `Unlock - {destination}` is filed under in locations.py, so AP's logic gates the check the same way
-    the client credits it. The sibling tiers are not lost: `travel_item_by_sibling_region()` already requires
-    their travel item, so filing on the entry tier is the loosest of the group's rules."""
-    members = _UNLOCK_PREDECESSORS.get(destination)
-    return members[0] if members else ""
-
-
-def unlock_witness_regions(destination: str) -> "tuple[str, ...]":
-    """Every region whose story mark can earn `Unlock - {destination}`: the PREDECESSOR area's whole group,
-    never `destination` itself (ADDENDUM 356).
-
-    Empty when this project cannot name a predecessor, which reads as "never credit" the same way a missing
-    threshold does."""
-    return _UNLOCK_PREDECESSORS.get(destination, ())
-
-
-_UNLOCK_PREDECESSORS.update(_build_unlock_predecessors())
-
-# Every destination with a threshold must have a predecessor -- one without would be a check no mark could ever
-# earn -- and no destination may be its own witness, which is ADDENDUM 270's finding as an assertion.
-for _destination in TRAVEL_LOCATION_NAMES:
-    if vanilla_unlock_story_byte(_destination) is None:
-        continue
-    _witnesses = unlock_witness_regions(_destination)
-    assert _witnesses, f"{_destination}: has a threshold but no predecessor area to earn it in"
-    _own = TRAVEL_UNLOCK_STORY_REGION.get(_destination) or TRAVEL_LOCATION_TARGET_REGION.get(_destination)
-    assert _own not in _witnesses, f"{_destination}: would credit itself -- see ADDENDUM 270"
-del _destination, _witnesses, _own
-
-
-def clear_travel_location_bit(record_base: int, location_name: str) -> bool:
-    """AND-NOT the opposite of `_or_write_bit`: holds `location_name`'s bit(s) CLEAR. Returns True only on a real
-    change, so the caller can log a transition rather than every tick.
-
-    Touches only this location's own bits -- several destinations share a byte, so a blunt overwrite would
-    re-lock a sibling the player has received."""
-    from . import ram_client  # lazy -- see the module docstring
-
-    # ADDENDUM 177: one unlock name can cover several physical destinations (the Poke Spots). Every member's
-    # bits are cleared, and "changed" means ANY of them moved.
-    changed = False
-    for destination in travel_unlock_members(location_name):
-        bit = TRAVEL_LOCATION_BITS[destination]
-        address = record_base + bit.byte_offset
-        current = ram_client.read_bytes(address, 1)[0]
-        # ADDENDUM 172: the PARTIAL bit goes too, or the destination is left in ADDENDUM 85's in-between state
-        # rather than actually locked. See TravelBit.partial_bits.
-        updated = current & ~bit.all_bits & 0xFF
-        if updated != current:
-            ram_client.write_bytes(address, bytes([updated]))
-            changed = True
-    return changed
-
-
-assert not set(RETIRED_TRAVEL_BITS) & set(TRAVEL_LOCATION_BITS), "a retired travel bit is managed again"
-
-assert set(TRAVEL_LOCATION_TARGET_REGION) == set(TRAVEL_LOCATION_NAMES), (
-    "travel_locations.py: TRAVEL_LOCATION_TARGET_REGION must cover exactly the same names as "
-    "TRAVEL_LOCATION_BITS -- every randomizable travel destination needs a target region to wire into "
-    "regions.py's graph when randomize_travel_locations is on."
+VANILLA_DARK_POKEMON_LIST: "tuple[int, ...]" = (
+    0, 216, 37, 341, 318, 179, 367, 298, 167, 339, 330, 363, 316, 320, 228, 335,
+    361, 392, 355, 346, 204, 220, 177, 306, 52, 21, 88, 86, 348, 100, 380, 58,
+    46, 90, 15, 17, 12, 114, 20, 49, 70, 24, 57, 97, 55, 322, 82, 85,
+    83, 359, 115, 378, 126, 127, 219, 78, 107, 106, 108, 123, 113, 349, 121, 125,
+    305, 143, 62, 122, 51, 338, 397, 105, 131, 249, 145, 146, 144, 128, 112, 103,
+    149, 175, 286, 165, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280,
+    280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280,
+    280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280, 280,
 )
+assert len(VANILLA_DARK_POKEMON_LIST) == DARK_POKEMON_LIST_LENGTH
 
 
-# ADDENDUM 105: two destinations have a live-confirmed adjacency constraint on top of their own item. ADDENDUM 85
-# found Outskirt Stand's travel menu offers only {Cave Poke Spot, Pyrite Town, Snagem Hideout}; ADDENDUM 91 found
-# that boarding SS Libra without the scooter drops the player at Phenac City, making Phenac the ship's departure
-# point. An `AdjacencyRequirement` is an EXTRA clause ANDed onto a gateway rule, itself an OR: hold a
-# `sibling_items` entry, or `can_reach()` one of `regions` (ordinary region names, never gateway nodes, so no
-# cycle). Everything else stays item-only, since an unconfirmed adjacency would be a guess.
+def dark_pokemon_list_words(species_by_ddpk: "dict[int, int]") -> "tuple[tuple[int, int, int], ...]":
+    """(address, vanilla word, new word) for every word of the table that changes. `species_by_ddpk` is
+    {DDPK index: internal species} for the records in use; index 0 and anything absent keep their vanilla entry."""
+    table = list(VANILLA_DARK_POKEMON_LIST)
+    for index, species in species_by_ddpk.items():
+        if 0 < int(index) < DARK_POKEMON_LIST_LENGTH and 0 < int(species) < 0x10000:
+            table[int(index)] = int(species)
+    words = []
+    for i in range(0, DARK_POKEMON_LIST_LENGTH, 2):
+        vanilla = (VANILLA_DARK_POKEMON_LIST[i] << 16) | VANILLA_DARK_POKEMON_LIST[i + 1]
+        new = (table[i] << 16) | table[i + 1]
+        if new != vanilla:
+            words.append((DARK_POKEMON_LIST_ADDRESS + 2 * i, vanilla, new))
+    return tuple(words)
+
+
+assert struct.calcsize(">H") * DARK_POKEMON_LIST_LENGTH == 0x100   # the map's size for `darkPokemonList`
+
+
+# ---- ADDENDUM 468 ------------------------------------------------------------------------------------------------
+# A Shadow (including ADDENDUM 467's copies) leaves every ordinary trainer's team once it is defeated or snagged; a
+# defeated one goes to Miror B.
 #
-# KNOWN LIMITATION: "Outskirt Stand" and "Phenac City" are the two chain links regions.py must leave open from
-# turn one, or the first Krane Memo has nowhere valid to go, and both are this table's region targets -- so that
-# OR-branch is trivially True. What it does fix is each gateway's own ENTRANCE rule (TestTravelLocationAdjacency
-# exercises it directly); Outskirt Stand's sibling_items branch is not trivial and has real effect today.
-@dataclass(frozen=True)
-class AdjacencyRequirement:
-    sibling_items: tuple[str, ...] = ()  # OR'd: state.has() on these OTHER travel-unlock item names
-    regions: tuple[str, ...] = ()  # OR'd: state.can_reach() on these existing regions.py region names
-
-
-TRAVEL_LOCATION_ADJACENCY: dict[str, AdjacencyRequirement] = {
-    # The Outskirt Stand sits far out on the map; it is reached from a place near it: the Cave Poke Spot, Pyrite Town,
-    # the Snagem Hideout, Phenac City, Realgam Tower or the Cipher Key Lair.
-    "Outskirt Stand": AdjacencyRequirement(
-        # ADDENDUM 177: "Cave Poke Spot" folded into the "Poke Spots" unlock, so the group's item is the sibling.
-        sibling_items=("Poke Spots", "Snagem Hideout"),
-        regions=("Pyrite Town", "Phenac City", "Realgam Tower", "Cipher Key Lair (exterior)", "Cipher Key Lair"),
-    ),
-    # ADDENDUM 324 moved SS Libra's entry to TRAVEL_LOCATION_REQUIRED_REGIONS below. It was
-    # `AdjacencyRequirement(regions=("Phenac City",))`, which had no teeth for the reason stated above.
-}
-
-
-# ADDENDUM 176: HARD region prerequisites, their own table rather than a flag on `AdjacencyRequirement`, because
-# an adjacency is an OR a sibling item can satisfy and this is "that region must be reachable, full stop". The
-# base chain already enforced them with travel randomization off (REGION_EDGES runs SS Libra -> Cipher Key Lair
-# (exterior) -> Outskirt Stand -> Snagem Hideout -> Cipher Key Lair); the hole was the gateway straight off Menu,
-# whose only requirement is its own item. Keys are TRAVEL LOCATION names, not always region names, and the
-# assertions below check both halves so a typo cannot sit here doing nothing.
+# A beaten, unsnagged Shadow gets status 2 (`_darkPokemonSetUnderTaker`, at the end of a battle the player WON -- or
+# any battle when the record's +0x15 flag is set -- and only when the record's +0x00 "worth" byte is non-zero). The
+# fix above still built a status-2 Shadow, because Miror B. fields the fled ones through this same routine. Now it
+# looks at WHO is building the team: an ordinary trainer (`_fightTrainerCreateDeckNormal`, the only caller whose
+# return address is 0x801FADBC) skips it, exactly as a snagged one; Miror B.'s Poke Spot and Colosseum builders
+# (`_fightTrainerCreateDeckUnderTaker*`, `_fightTrainer_GetUnderTakerDarkPoke`) and the virtual decks still build it.
 #
-# Two entries are gone, neither replaced, for the same unconfirmed-adjacency reason as above. ADDENDUM 293
-# withdrew Snagem's SS Libra prerequisite: since ADDENDUM 273 the `SS Libra` region means "the multiworld has sent
-# the Scooter", so naming it put Snagem and the whole Key Lair branch behind one item. ADDENDUM 332 then decoupled
-# the Key Lair from Snagem -- that gate existed because the game's own route runs through the hideout, and here
-# the hover writes `AREA_ENTRY_FLOOR_OVERRIDES["Cipher Key Lair"]`, which IS "Gonzap beaten, the Lair open".
-# (`Defeat - Zook #2` still names Snagem in `PLACEMENTS[147].required_regions` -- a fact about that FIGHT.)
+# Room: add modes 1 and 2 (a script hanging one Shadow on one slot) were two byte-for-byte equivalent blocks; mode 2
+# now branches into mode 1's, which frees mode 2's body for the four-word caller check.
 #
-# SS LIBRA'S ENTRY remains, as a hard AND rather than ADDENDUM 105's toothless adjacency (ADDENDUM 324). "After
-# Phenac" is the CLEARED town, "Phenac City (Post-Sixes)": plain "Phenac City" is open from turn one and the
-# Mayor's House tier stops half way through. That is what the vanilla chain says too, so travel shuffle stops
-# being looser than the unmodified game, and the Disc and Note land on every path to the ship. With travel
-# randomization off none of this applies -- `ScooterStoryHold` keeps the ship before Snagem there.
+#     0x801FAB0C  beq  callerCheck   status 2, no script mode          (465: beq build)
+#     0x801FAB58  bne  0x801FABF0    add mode 1, other slot -> done     (was: bne -> the mode-2 test)
+#     0x801FABA8  b    0x801FAB4C    add mode 2 -> mode 1's body        (was: clrlwi r3,r21,24)
+#     0x801FABAC  lhz  r0,0x46(r1)   low half of the saved return address
+#     0x801FABB0  cmplwi r0,0xADBC   _fightTrainerCreateDeckNormal?
+#     0x801FABB4  beq  skip          ... -> skipped: it is with Miror B. now
+#     0x801FABB8  b    build         Miror B. / virtual decks build it, as before
 #
-# ADDENDUM 481 relaxed it to the town itself: SS Libra's items are logically behind JUST the Phenac unlock (no Phenac
-# clear), plus the Scooter Upgrade when that is shuffled. With travel shuffle the "Phenac City" region's one entrance is its own gateway, so this is exactly
-# "hold Travel Unlock - Phenac City"; the Scooter Upgrade stays where ADDENDUM 273 put it, on the SS Libra region.
-# REVERT: `("Phenac City (Post-Sixes)",)`.
-TRAVEL_LOCATION_REQUIRED_REGIONS: dict[str, tuple[str, ...]] = {
-    "SS Libra": ("Phenac City",),
-}
-
-
-def required_regions_for(travel_location_name: str) -> "tuple[str, ...]":
-    return TRAVEL_LOCATION_REQUIRED_REGIONS.get(travel_location_name, ())
-
-
-# ADDENDUM 190: the story chain is NOT a second way in. The gateways were an extra entrance alongside it while
-# the client only ADDED map bits; ADDENDUM 171 made `enforce_travel_locks` hold every unreceived bit clear every
-# tick, and nobody changed the graph, which went on offering the vanilla chain to places the client was re-locking.
-# MEASURED before the fix: holding every progression item EXCEPT the twelve travel unlocks, all 675 locations were
-# still reachable.
-#
-# Single source of truth for both halves -- `enforce_travel_locks` skips these when clearing bits and
-# `gateway_only_regions()` subtracts them. EMPTY since ADDENDUM 356 retired Kaminko's House, its only member, and
-# kept so a future always-open destination has somewhere to go. Never a tombstone: a retired name left here would
-# silently exempt it if anyone re-added its bit.
-TRAVEL_CLEAR_EXEMPT: "frozenset[str]" = frozenset()
-
-
-def gateway_only_regions() -> "frozenset[str]":
-    """Regions whose ONLY entrance is their travel gateway when randomize_travel_locations is on.
-
-    Every destination whose map bit the client holds clear -- reaching it any other way is a promise the game
-    cannot keep. Derived from the exempt set rather than listed again, so the graph cannot disagree with what the
-    client re-locks. One region per destination, the one the gateway CONNECTS TO; the others behind the same map
-    icon go through `travel_item_by_sibling_region()`, for the reason that function gives."""
-    return frozenset(
-        region for name, region in TRAVEL_LOCATION_TARGET_REGION.items()
-        if name not in TRAVEL_CLEAR_EXEMPT
-    )
-
-
-def travel_item_by_sibling_region() -> "dict[str, str]":
-    """`{region: the travel item that must also be held to reach it}`, for every region behind a destination's map
-    icon that is not the region its gateway connects to.
-
-    ADDENDUM 270: one icon is often several regions (`story_bytes.AREA_GROUPS`), and `gateway_only_regions()`
-    covers only the gateway's own target. A SIBLING tier entered from elsewhere kept its chain edge, so the graph
-    believed you could reach it without the destination's item while the client held that bit clear every tick.
-    MEASURED with `Travel Unlock - Pyrite Town` withheld: nine progression-eligible locations in
-    `Pyrite Town (ONBS)` still reachable, three chests and six trainer defeats, so a key item on any of them
-    generates cleanly and cannot be finished. `Kaminko's House (Robo Groudon)` behind SS Libra is the same shape,
-    two chests.
-
-    NOT just "add them to gateway_only" -- tried, and wrong: that suppresses the chain edge while the gateway
-    connects to its own target, so the siblings strand with no entrance at all (ONBS, the Kaminko crane room and
-    two shops went unreachable under `all_state`). Their edge must SURVIVE and gain the item."""
-    from .game_data import story_bytes
-
-    gateways = gateway_only_regions()
-    out: "dict[str, str]" = {}
-    for name, region in TRAVEL_LOCATION_TARGET_REGION.items():
-        if name in TRAVEL_CLEAR_EXEMPT:
-            continue
-        for members in story_bytes.AREA_GROUPS.values():
-            if region not in members:
-                continue
-            for sibling in members:
-                # The gateway's own target is already handled, and a region that is some OTHER destination's
-                # gateway target has its own item and must not be given a second one.
-                if sibling == region or sibling in gateways:
-                    continue
-                out[sibling] = travel_unlock_item_name(name)
-    return out
-
-
-assert set(TRAVEL_LOCATION_REQUIRED_REGIONS) <= set(TRAVEL_LOCATION_TARGET_REGION), (
-    "a hard-prerequisite key is not a real travel location name -- it would silently gate nothing"
+# Status 3/4 (snagged, purified) still fall into the swap block and are skipped; fight mode 1 / swap mode 1 behave as
+# before. The other four callers return to 0x801FB220, 0x801FB5DC, 0x801FB81C and 0x801FB9F0.
+FLED_SHADOW_SKIP_ENABLED = True
+NORMAL_DECK_RETURN_ADDRESS = 0x801FADBC
+FLED_SHADOW_SKIP_WORDS: "tuple[tuple[int, int, int], ...]" = (
+    (0x801FAB0C, 0x41820038, 0x418200A0),   # beq build (465)               -> beq caller check (0x801FABAC)
+    (0x801FAB58, 0x40820048, 0x40820098),   # bne mode-2 test (0x801FABA0)   -> bne done (0x801FABF0)
+    (0x801FABA8, 0x56A3063E, 0x4BFFFFA4),   # clrlwi r3,r21,24               -> b mode 1's body (0x801FAB4C)
+    (0x801FABAC, 0x57A0063E, 0xA0010046),   # clrlwi r0,r29,24               -> lhz r0,0x46(r1)
+    (0x801FABB0, 0x7C030040, 0x2800ADBC),   # cmplw r3,r0                    -> cmplwi r0,0xADBC
+    (0x801FABB4, 0x4082003C, 0x4182FF64),   # bne done                       -> beq skip (0x801FAB18)
+    (0x801FABB8, 0x56D5063E, 0x4BFFFF8C),   # clrlwi r21,r22,24              -> b build (0x801FAB44)
 )
-def _prerequisite_region_is_real(region: str) -> bool:
-    """A prerequisite may name a destination's own region OR a deeper tier of that destination's area.
+#: The callers of `_fightTrainerCreateDeckPokemon` (bl site -> return address); only the first is an ordinary trainer.
+CREATE_DECK_POKEMON_CALL_SITES: "dict[int, str]" = {
+    0x801FADB8: "_fightTrainerCreateDeckNormal",
+    0x801FB21C: "_fightTrainerCreateDeckVirtual",
+    0x801FB5D8: "_fightTrainerCreateDeckUnderTakerInColosseum",
+    0x801FB818: "_fightTrainerCreateDeckUnderTaker",
+    0x801FB9EC: "_fightTrainer_GetUnderTakerDarkPoke",
+}
+assert NORMAL_DECK_RETURN_ADDRESS == 0x801FADB8 + 4
+assert len({(a + 4) & 0xFFFF for a in CREATE_DECK_POKEMON_CALL_SITES}) == len(CREATE_DECK_POKEMON_CALL_SITES)
 
-    ADDENDUM 324 widened this from "must be some destination's target region": "Phenac City (Post-Sixes)" is not
-    a map icon, it is the tier that means the town has been done. The invariant kept is that the name is a REAL
-    region of a real destination's area, so a typo still fails -- hence the test against `AREA_GROUPS`."""
-    from .game_data import story_bytes
-
-    targets = set(TRAVEL_LOCATION_TARGET_REGION.values())
-    if region in targets:
-        return True
-    for area, members in story_bytes.AREA_GROUPS.items():
-        if region in members and (area in targets or set(members) & targets):
-            return True
-    return False
-
-
-assert all(
-    _prerequisite_region_is_real(region)
-    for regions_needed in TRAVEL_LOCATION_REQUIRED_REGIONS.values()
-    for region in regions_needed
-), "a hard prerequisite names a region no travel destination's area contains"
+#: A relocated Citadark Shadow keeps its own DDPK record, and Greevil's six (74-79) have worth 0: beaten, they never
+#: flee, so they could be neither skipped elsewhere nor met again with Miror B. They get the value every generated
+#: Shadow carries.
+RELOCATED_SHADOW_WORTH = 128
+RELOCATED_SHADOW_WORTH_ENABLED = True   # `iso_patcher.apply_relocated_shadow_worth` writes it
 
 
-def travel_unlock_item_name(location_name: str) -> str:
-    return f"{TRAVEL_UNLOCK_ITEM_PREFIX}{location_name}"
-
-
-def travel_location_name_from_item(item_name: str) -> str | None:
-    """Inverse of `travel_unlock_item_name` -- None if `item_name` isn't a travel-unlock item at all."""
-    if not item_name.startswith(TRAVEL_UNLOCK_ITEM_PREFIX):
-        return None
-    name = item_name[len(TRAVEL_UNLOCK_ITEM_PREFIX):]
-    return name if name in TRAVEL_LOCATION_NAMES else None
-
-
-def _or_write_bit(record_base: int, bit: TravelBit) -> None:
-    """Shared OR-not-overwrite write, for both item-triggered unlocks and the always-open proactive write.
-    Several locations share a byte, so it must never clobber a sibling's bit(s)."""
-    from . import ram_client  # lazy -- see the module docstring
-
-    address = record_base + bit.byte_offset
-    current = ram_client.read_bytes(address, 1)[0]
-    # ADDENDUM 380: a grant CLEARS the partial bit as well as setting the full one. Every clear path here takes
-    # `all_bits` (ADDENDUM 172), while this, the only SET path, took `full_bits` alone -- so a clear produced 00
-    # and a grant produced full|partial whenever the partial was already set. And the game sets the partial bit
-    # itself the moment the story reveals an area, so the icon was drawn from a pattern meaning neither "hidden"
-    # nor "available".
-    #
-    # One write, not two: set-then-clear would leave a poll-width window where both bits are set, which is the
-    # exact state being fixed. The mask is computed first and written once.
-    updated = (current | bit.full_bits) & ~bit.partial_bits & 0xFF
-    if updated != current:
-        ram_client.write_bytes(address, bytes([updated]))
-
-
-def write_travel_location_bit(record_base: int, location_name: str) -> None:
-    """Puts `location_name` into the FULL ("?" icon shown) state at an already-resolved record base -- full bit(s)
-    set, partial bit(s) cleared (ADDENDUM 380, see `_or_write_bit`).
-
-    Idempotent and meant to be re-called: it writes only on a real change, so `sync_travel_locations` can run it
-    every poll, which is what keeps the icon right after the story sets the partial bit for an area the player
-    already holds. The Poke Spots item writes all three spots' bits (ADDENDUM 177), since the game keeps a bit
-    per spot and writing one would leave the other two icons dark."""
-    for destination in travel_unlock_members(location_name):
-        _or_write_bit(record_base, TRAVEL_LOCATION_BITS[destination])
-
-
-def revealed_by_game(record_base: int, location_name: str, received: bool) -> bool:
-    """ADDENDUM 434: has the GAME revealed `location_name` on the map? The moment it does is the `Unlock -` check.
-
-    Location unlock checks are sent when a partial travel-visibility bit of any kind is detected, not off the story
-    byte. The game sets a destination's bits itself when the story reveals it
-    (ADDENDUM 380 saw it set the partial bit), and this client owns every other write to them, so a bit we would
-    not have left there is the game's reveal:
-
-      * NOT received: `enforce_travel_locks` holds full AND partial clear every tick, so ANY of `all_bits` set is
-        the game's.
-      * received: `_or_write_bit` holds full set and partial clear every tick, so only a PARTIAL bit is news --
-        the full bit is ours.
-
-    Must be read BEFORE either of those writes in the tick, or the evidence is erased first. A grouped unlock (the
-    Poke Spots) is revealed when ANY member is: the game reveals the spots one at a time. Read-only."""
-    from . import ram_client  # lazy -- see the module docstring
-
-    for destination in travel_unlock_members(location_name):
-        bit = TRAVEL_LOCATION_BITS[destination]
-        current = ram_client.read_bytes(record_base + bit.byte_offset, 1)[0]
-        watched = bit.partial_bits if received else bit.all_bits
-        if current & watched:
-            return True
-    return False
-
-
-def read_travel_location_unlocked(record_base: int, location_name: str) -> bool:
-    """True if every one of `location_name`'s full-icon bits is currently set at the given record base."""
-    from . import ram_client  # lazy -- see the module docstring
-
-    # ADDENDUM 177: a grouped unlock counts as unlocked only when EVERY member is -- a half-written group is the
-    # in-between state this function exists to distinguish.
-    for destination in travel_unlock_members(location_name):
-        bit = TRAVEL_LOCATION_BITS[destination]
-        current = ram_client.read_bytes(record_base + bit.byte_offset, 1)[0]
-        if (current & bit.full_bits) != bit.full_bits:
-            return False
-    return True
-
-
-def write_always_open_bits(record_base: int) -> None:
-    """ADDENDUM 106: writes every `ALWAYS_OPEN_TRAVEL_BITS` bit so the real map matches what AP logic treats as
-    free from turn one, instead of showing an unselectable icon on a fresh save.
-
-    Called EVERY POLL while the ADDENDUM 280 gate is open, not once per boot, which ADDENDUM 380 relies on: a
-    granted destination has to be re-asserted for as long as the game can still set its partial bit."""
-    for bit in ALWAYS_OPEN_TRAVEL_BITS.values():
-        _or_write_bit(record_base, bit)
-
-
-# ADDENDUM 280: the always-open pair is not open at byte zero. ADDENDUM 106 made Agate Village and Gateon Port
-# free from turn one, which is right about the ITEM POOL and wrong about WHEN the map should offer them -- the
-# client writes those bits on the first poll after `block_base` resolves, before the lab's opening beats have
-# run, and travelling out of them early is what strands the run.
-#
-# A TIMING GATE, NOT A LOGIC GATE, which is what keeps generation untouched: reaching 0x0F in the lab needs no
-# item from anybody, so both stay exactly as reachable as they were in sphere zero and regions.py does not change.
-ALWAYS_OPEN_GATE_AREA = "Pokemon HQ Lab"
-ALWAYS_OPEN_GATE_BYTE = 0x0F
-
-
-def clear_always_open_bits(record_base: int) -> bool:
-    """Hold every `ALWAYS_OPEN_TRAVEL_BITS` entry's bit(s) CLEAR. Returns True when something actually changed.
-
-    Has to exist rather than the client simply declining to write: the GAME sets these bits itself, since they
-    are genuinely always-open in vanilla, so not writing them leaves them set. Clears `all_bits`
-    (full | partial), matching `clear_travel_location_bit`, because a partial bit left standing is ADDENDUM 85's
-    "selectable but no proper icon" state."""
-    from . import ram_client  # lazy -- see the module docstring
-
-    changed = False
-    for bit in ALWAYS_OPEN_TRAVEL_BITS.values():
-        address = record_base + bit.byte_offset
-        current = ram_client.read_bytes(address, 1)[0]
-        wanted = current & ~bit.all_bits & 0xFF
-        if wanted != current:
-            ram_client.write_bytes(address, bytes([wanted]))
-            changed = True
-    return changed
-
-
-def read_always_open_bits_set(record_base: int) -> bool:
-    """True if every `ALWAYS_OPEN_TRAVEL_BITS` entry's bit(s) are currently set at the given record base."""
-    from . import ram_client  # lazy -- see the module docstring
-
-    for bit in ALWAYS_OPEN_TRAVEL_BITS.values():
-        current = ram_client.read_bytes(record_base + bit.byte_offset, 1)[0]
-        if (current & bit.full_bits) != bit.full_bits:
-            return False
-    return True
+# ---- Miror B. brings two at the Poke Spots ----------------------------------------------------------------------
+# `_fightTrainerCreateDeckUnderTaker` builds his regular team (two Pokemon on every Poke Spot row, story 2-7), lists
+# the Shadows waiting for him (status 2, worth not 0) and asks `_fightTrainer_GetUnderTakerDarkPoke` for
+# `1 + (waiting >= 7)` of them. Lowering the 7 to 2 makes it two whenever two are waiting -- the same two-Shadow
+# path the game already takes at seven, so nothing new is built. His colosseum builder always asks for one and is
+# left alone. The picker fills slots from the end of the regular team, so the patcher only applies this when every
+# Poke Spot row still has at most four Pokemon.
+MIROR_B_TWO_SHADOWS_WORDS: "tuple[tuple[int, int, int], ...]" = (
+    (0x801FB850, 0x38000007, 0x38000002),   # li r0,7 (waiting >= 7 -> two)  ->  li r0,2
+)
+MIROR_B_POKE_SPOT_ROWS: "tuple[int, ...]" = (2, 3, 4, 5, 6, 7)
+MIROR_B_POKE_SPOT_MAX_TEAM = 4

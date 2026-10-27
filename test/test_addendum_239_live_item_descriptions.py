@@ -223,10 +223,12 @@ class TestWriterPolicy(unittest.TestCase):
         """ADDENDUM 238c is what makes this honest. Before per-shop-line berries, which check a line sent
         depended on the order the player bought in, and ADDENDUM 235 said naming a line after a specific AP
         slot "would be a claim the tracker does not support"."""
-        scouted = {f"Gateon Port Shop AP Item {n}": (f"Item{n}", None) for n in range(1, 16)}
+        scouted = {f"Gateon Port Shop AP Item {n}": (f"Item{n}", None) for n in range(1, 15)}
         lines = self._lines(scouted)
         for index, berry in enumerate(self.berries[:15]):
-            self.assertEqual(lines[berry], [f"Item{index + 1}"])
+            number = shops.check_number("Gateon Port Shop", index + 1)
+            if number is not None:
+                self.assertEqual(lines[berry], [f"Item{number}"])
 
     def test_a_berry_past_the_shops_line_count_keeps_its_vanilla_description(self) -> None:
         """Gateon has 15 lines. Berry 16-20 name no line of it, so they are left alone entirely rather than

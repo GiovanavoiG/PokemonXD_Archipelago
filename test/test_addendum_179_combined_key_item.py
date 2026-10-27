@@ -90,7 +90,8 @@ class TestTheDataTablesStillDescribeTheGame(unittest.TestCase):
         self.assertNotIn(items.COMBINED_KEY_ITEM_NAME, named)
 
     def test_the_chest_gate_still_names_the_id_card(self) -> None:
-        self.assertEqual(chest_regions.CHEST_ITEM_GATES[27], ("ID Card",))
+        self.assertEqual(chest_regions.CHEST_ITEM_GATES[17], ("Data ROM", "ID Card"))
+        self.assertNotIn(27, chest_regions.CHEST_ITEM_GATES)   # Downstairs Chest 4 opens without the card
 
     def test_the_trainer_census_still_names_both(self) -> None:
         named = {n for p in trainer_placements.PLACEMENTS.values() for n in p.required_items}
@@ -127,10 +128,10 @@ class TestOneItemOpensEverythingBothUsedTo(PokemonXDTestBase):
             self.assertTrue(self.multiworld.state.can_reach(region, player=self.player), region)
 
     def test_the_same_one_item_opens_the_id_card_chest(self) -> None:
-        """Chest 27 was behind the ID Card. One item now satisfies both gates, which is the whole feature."""
+        """Chest 23 (the Krane chest) is behind the Data ROM and the ID Card; one item satisfies both gates."""
         from .. import locations
 
-        name = locations.CHEST_ID_TO_LOCATION[27]
+        name = locations.CHEST_ID_TO_LOCATION[23]
         self.collect_key_item_chain(1)
         self.assertFalse(self.can_reach_location(name))
         self.collect_by_name(items.COMBINED_KEY_ITEM_NAME)

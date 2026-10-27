@@ -57,7 +57,7 @@ class TestShelfLabels(unittest.TestCase):
         for shop in shops.CONFIRMED_SHOPS:
             names = self.renamer.desired_names(shop.room_id, self.berries)
             labelled = [text for text in names.values() if text != ram_client.NO_CHECK_NAME]
-            self.assertEqual(shop.slot_count, len(labelled), shop.name)
+            self.assertEqual(len(shops.check_lines(shop)), len(labelled), shop.name)
             self.assertEqual(len(labelled), len(set(labelled)),
                              f"{shop.name} shows duplicate shelf labels")
 
@@ -67,8 +67,13 @@ class TestShelfLabels(unittest.TestCase):
         because the patcher deals berries per shop line and the tracker credits by that index."""
         bag = self.renamer.desired_names(None, self.berries)
         shelf = self.renamer.desired_names(156, self.berries)
-        for item_id in self.berries[:shops.SHOPS_BY_ROOM[156].slot_count]:
+        for line in range(1, 13):                       # Gateon's lines before the Ability Swap's
+            item_id = self.berries[line - 1]
             self.assertEqual(bag[item_id].split()[-1], shelf[item_id].split()[-1])
+        # Past it, the shelf counts checks, not lines: line 14 is GATEON 13, AP Item 13.
+        self.assertEqual(ram_client.NO_CHECK_NAME, shelf[self.berries[12]])
+        self.assertEqual("GATEON 13", shelf[self.berries[13]])
+        self.assertEqual("Gateon Port Shop AP Item 13", shops.shop_location_name("Gateon Port Shop", 14))
         # And the label really is the location name's number.
         from ..game_data.shops import shop_location_name
         line = 7
@@ -101,8 +106,8 @@ class TestShelfLabels(unittest.TestCase):
         this shop, so nothing bought on it can send anything."""
         cap = shops.SHOPS_BY_ROOM[156].slot_count
         names = self.renamer.desired_names(156, self.berries)
-        for item_id in self.berries[:cap]:
-            self.assertNotEqual(ram_client.NO_CHECK_NAME, names[item_id])
+        for line in shops.check_lines(shops.SHOPS_BY_ROOM[156]):
+            self.assertNotEqual(ram_client.NO_CHECK_NAME, names[self.berries[line - 1]])
         for item_id in self.berries[cap:]:
             self.assertEqual(ram_client.NO_CHECK_NAME, names[item_id])
 

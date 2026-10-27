@@ -368,11 +368,14 @@ GREEVIL_SHADOW_TRAINERS = frozenset({GREEVIL_LUGIA_TRAINER, 200})
 
 
 def shadow_removal_trainers(nightmare_citadark: bool, remove_citadark: bool, remove_greevil: bool,
-                            nightmare_greevil: bool = False) -> "frozenset[int]":
+                            nightmare_greevil: bool = False, admins_only: bool = False) -> "frozenset[int]":
     """ADDENDUM 431: the trainers whose Shadows leave them this seed. Nightmare Citadark takes every Citadark
     trainer but Lugia's fight; Nightmare Greevil his final battle's; Remove Citadark Shadows every one but Greevil's;
-    Remove Greevil Shadows his two."""
+    Remove Greevil Shadows his two; Citadark Admins Only every Citadark trainer that is not an admin."""
     out: "set[int]" = set()
+    if admins_only:
+        from .citadark_admins import REMOVED_TRAINER_INDICES
+        out |= REMOVED_TRAINER_INDICES
     if nightmare_citadark:
         out |= nightmare_trainer_indices()
     if nightmare_greevil:

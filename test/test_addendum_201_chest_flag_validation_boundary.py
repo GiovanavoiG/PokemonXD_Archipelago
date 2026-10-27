@@ -19,17 +19,6 @@ from ..game_data import chest_flags
 
 
 class TestTheEvidenceOnlyCoversOneCluster(unittest.TestCase):
-    def test_every_directly_evidenced_chest_is_in_the_validated_range(self) -> None:
-        for flag_id in chest_flags.DIRECTLY_EVIDENCED_FLAG_IDS:
-            self.assertTrue(chest_flags.flag_is_validated(flag_id), flag_id)
-
-    def test_the_five_evidence_chests_are_the_ones_addendum_173_measured(self) -> None:
-        """Named here so a future edit to the table cannot quietly widen what counts as measured."""
-        self.assertEqual(
-            {chest_flags.CHEST_FLAG_IDS[c] for c in (3, 40, 95, 96, 97)},
-            set(chest_flags.DIRECTLY_EVIDENCED_FLAG_IDS),
-        )
-
     def test_the_flag_ids_really_do_fall_in_separate_clusters(self) -> None:
         """The premise. If the ids were one contiguous run there would be nothing to extrapolate across."""
         ids = sorted({f for f in chest_flags.CHEST_FLAG_IDS.values() if f})
@@ -52,11 +41,10 @@ class TestTheEvidenceOnlyCoversOneCluster(unittest.TestCase):
         self.assertEqual(143, next(c["room"] for c in chest_table.CHESTS if c["chest"] == 1))
         self.assertTrue(chest_flags.chest_flag_is_validated(1))
 
-    def test_a_chest_in_a_still_unmeasured_cluster_is_unvalidated(self) -> None:
-        """Chest 43 (Cipher Key Lair, flag 1192) is in cluster 1192-1198, which has no measurement.
-        (Was chest 29 until ADDENDUM 204 measured cluster 1440-1455.)"""
-        self.assertEqual(1192, chest_flags.CHEST_FLAG_IDS[43])
-        self.assertFalse(chest_flags.chest_flag_is_validated(43))
+    def test_every_flagged_chest_is_placed(self) -> None:
+        """The game's flag descriptors place every chest flag, so no cluster is left unanswered."""
+        self.assertEqual((), chest_flags.unvalidated_chest_ids())
+        self.assertTrue(chest_flags.chest_flag_is_validated(43))
 
     def test_the_chest_that_worked_is_validated(self) -> None:
         self.assertTrue(chest_flags.chest_flag_is_validated(3))
@@ -81,20 +69,10 @@ class TestTheClientRefusesRatherThanGuesses(unittest.TestCase):
         reported = set(ram_client.open_chest_ids(b"\xff" * length))
         self.assertEqual(set(), reported & set(chest_flags.unvalidated_chest_ids()))
 
-    def test_the_undetectable_list_is_non_empty_and_names_real_locations(self) -> None:
-        names = ram_client.undetectable_chest_locations()
-        self.assertGreater(len(names), 0)
-        for name in names:
+    def test_the_undetectable_list_names_only_real_locations(self) -> None:
+        for name in ram_client.undetectable_chest_locations():
             self.assertIn(name, ram_client.CHEST_LOCATION_NAMES)
-
-    def test_a_chest_from_an_unmeasured_cluster_is_on_the_undetectable_list(self) -> None:
-        """Was chest 1 until ADDENDUM 204 measured it; chest 43 now carries the same assertion."""
-        self.assertIn(
-            ram_client.CHEST_ID_TO_LOCATION[43], ram_client.undetectable_chest_locations()
-        )
-        self.assertNotIn(
-            ram_client.CHEST_ID_TO_LOCATION[1], ram_client.undetectable_chest_locations()
-        )
+        self.assertNotIn(ram_client.CHEST_ID_TO_LOCATION[43], ram_client.undetectable_chest_locations())
 
 
 class TestTheInverseDecoderRoundTrips(unittest.TestCase):
@@ -149,8 +127,8 @@ class TestManualCheckCoversThem(unittest.TestCase):
     def test_it_offers_exactly_the_undetectable_set(self) -> None:
         """The data half, which IS importable: only chests that genuinely cannot fire, never a detectable one."""
         offered = set(ram_client.undetectable_chest_locations())
-        self.assertIn(ram_client.CHEST_ID_TO_LOCATION[43], offered)    # cluster 1192-1198, unmeasured
-        self.assertNotIn(ram_client.CHEST_ID_TO_LOCATION[1], offered)  # measured by ADDENDUM 204
+        self.assertNotIn(ram_client.CHEST_ID_TO_LOCATION[43], offered)
+        self.assertNotIn(ram_client.CHEST_ID_TO_LOCATION[1], offered)
         self.assertNotIn(ram_client.CHEST_ID_TO_LOCATION[3], offered)
         self.assertNotIn(ram_client.CHEST_ID_TO_LOCATION[40], offered)
 

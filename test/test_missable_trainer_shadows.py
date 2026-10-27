@@ -78,6 +78,25 @@ class TestTheHandOff(unittest.TestCase):
         self.assertEqual([], moved)
         self.assertEqual(0, memory.record(10)[0] >> 5)
 
+    def test_a_species_already_caught_is_left_alone(self) -> None:
+        memory = _Memory()
+        cap = missable_autosend.AUTO_SEND_AT_STORY_BYTE[self.LABEL]
+        pusher = ram_client.MissableShadowPusher(
+            [{"label": self.LABEL, "shadows": [{"species": 1010, "name": "Aipom", "ddpk": None, "dex": 190}]}],
+            rng=random.Random(5))
+        with mock.patch.object(ram_client, "read_bytes", memory.read), \
+                mock.patch.object(ram_client, "write_bytes", memory.write):
+            moved = pusher.poll(BLOCK, cap, already_caught=lambda dex: dex == 190)
+            self.assertEqual([], moved)
+            self.assertEqual(0, memory.record(10)[0] >> 5)
+            self.assertIn("Aipom", pusher.skipped_caught)
+            moved = pusher.poll(BLOCK, cap, already_caught=lambda dex: False)
+        self.assertEqual(["Aipom sent to Miror B. from a missable trainer."], moved)
+
+    def test_the_client_asks_the_server_for_the_catch(self) -> None:
+        body = CLIENT[CLIENT.index("async def check_missable_shadows"):CLIENT.index("async def enforce_travel_locks")]
+        self.assertIn("already_caught=lambda dex: _species_catch_sent(ctx, dex)", body)
+
     def test_an_unmet_shadow_goes_to_miror_b_with_a_pid_and_ivs(self) -> None:
         memory = _Memory()
         cap = missable_autosend.AUTO_SEND_AT_STORY_BYTE[self.LABEL]

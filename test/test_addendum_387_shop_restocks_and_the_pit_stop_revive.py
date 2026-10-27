@@ -49,7 +49,6 @@ class TestWhichLinesAreRestocks(unittest.TestCase):
                 "Gateon Port Shop AP Item 9", "Gateon Port Shop AP Item 10",
                 "Gateon Port Shop AP Item 11", "Gateon Port Shop AP Item 12",
                 "Gateon Port Shop AP Item 13", "Gateon Port Shop AP Item 14",
-                "Gateon Port Shop AP Item 15",
                 "Pyrite Town Shop AP Item 11", "Pyrite Town Shop AP Item 12",
             ],
             sorted(L.FILLER_ONLY_SHOP_LOCATIONS,
@@ -76,6 +75,8 @@ class TestWhichLinesAreRestocks(unittest.TestCase):
         for shop in shops.CONFIRMED_SHOPS:
             for numbers, _gate in ss.gated_shop_lines(shop.name):
                 for number in numbers:
+                    if shops.check_number(shop.name, number) is None:
+                        continue                                  # never a check at all
                     self.assertIn(shops.shop_location_name(shop.name, number),
                                   L.FILLER_ONLY_SHOP_LOCATIONS)
 

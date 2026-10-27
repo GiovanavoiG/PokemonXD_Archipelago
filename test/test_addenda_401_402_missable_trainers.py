@@ -56,7 +56,7 @@ class TestWhatWasRemoved(unittest.TestCase):
     def test_the_expected_numbers(self) -> None:
         """ADDENDUM 406 narrowed 75 to 21: only the MISSABLE fights go; the mandatory/non-missable rematches are
         still counted."""
-        self.assertEqual(39, len(missable_indices.MISSABLE_TRAINER_INDICES))  # ADDENDUM 440: +4 Phenac invasion; 460: -13 reclassified unmissable
+        self.assertEqual(41, len(missable_indices.MISSABLE_TRAINER_INDICES))  # +2 Kollo and Hospel;  # ADDENDUM 440: +4 Phenac invasion; 460: -13 reclassified unmissable
         self.assertEqual(20, len(_surnames_in_scope()))
         # ADDENDUM 409: the Sixes' #2 is at Phenac (missable, behind the Disc and the Note) -- their missable fight is
         # now their #2, and it is KEPT as a check. 21 missable fights of in-scope surnames, six of them kept.
@@ -201,7 +201,7 @@ class TestTheSchedule(unittest.TestCase):
         # the 26 one-shots. ADDENDUM 436: Biden's (Any) is not missable any more, so it is not scheduled.
         # ADDENDUM 438: + Zook's (Any), which the Key Lair's raised entry floor can step over.
         # The Sixes' #2 fights are no longer locations (numbered rematch checks removed), so they are not scheduled.
-        self.assertEqual(26, len(SCHEDULE))  # ADDENDUM 440: +4 Phenac invasion; 460: - Bost and five Snagem fights
+        self.assertEqual(28, len(SCHEDULE))  # +2 Kollo and Hospel;  # ADDENDUM 440: +4 Phenac invasion; 460: - Bost and five Snagem fights
         self.assertFalse(trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS & set(SCHEDULE))
 
     def test_every_surviving_missable_fight_is_scheduled(self) -> None:
@@ -213,7 +213,7 @@ class TestTheSchedule(unittest.TestCase):
         # ADDENDUM 411: Zook #1 survives too, but is NOT scheduled -- Ardos #1, a fight nobody can miss, sends it.
         self.assertEqual(trainer_roster.LINKED_MISSABLE_DEFEAT_LOCATIONS, one_shots - set(SCHEDULE))
         one_shots -= trainer_roster.LINKED_MISSABLE_DEFEAT_LOCATIONS
-        self.assertEqual(25, len(one_shots))  # ADDENDUM 440: +4 Phenac invasion; 460: - Bost and five Snagem fights
+        self.assertEqual(27, len(one_shots))  # +2 Kollo and Hospel;  # ADDENDUM 440: +4 Phenac invasion; 460: - Bost and five Snagem fights
         self.assertEqual(0, len(one_shots & trainer_roster.KEPT_MISSABLE_DEFEAT_LOCATIONS))
         self.assertLessEqual(one_shots, set(SCHEDULE))
 
@@ -235,8 +235,8 @@ class TestTheSchedule(unittest.TestCase):
 
     def test_bost_is_the_only_override_and_the_phenac_cipher_fights_wait_for_snattle(self) -> None:
         # ADDENDUM 436: missable Phenac trainers send upon defeating Snattle (ONLY Cipher members).
-        self.assertEqual({"Defeat - Bost": 0x19, "Defeat - Ibsol": 0x6B, "Defeat - Jelstin": 0x6B,
-                          "Defeat - Fudler": 0x6B}, missable_autosend.CAP_OVERRIDES)
+        self.assertEqual({"Defeat - Bost": 0x19, "Defeat - Ibsol": 0x6B, "Defeat - Kollo": 0x6B, "Defeat - Jelstin": 0x6B,
+                          "Defeat - Hospel": 0x6B, "Defeat - Fudler": 0x6B}, missable_autosend.CAP_OVERRIDES)
         phenac = [n for n in ("Pellim", "Fenton", "Forgs", "Kapen", "Ezoor", "Ertlig")]
         for name in phenac:
             self.assertEqual(missable_autosend.SNATTLE_DEFEATED, SCHEDULE[f"Defeat - {name}"], name)

@@ -46,8 +46,10 @@ class TestThePokeSpotsAreOneUnlock(unittest.TestCase):
     def test_the_outskirt_adjacency_follows_the_rename(self) -> None:
         """Its sibling list named "Cave Poke Spot", which is no longer an item anyone can hold -- so the
         adjacency would have been unsatisfiable by that half."""
-        self.assertIn("Poke Spots", tl.TRAVEL_LOCATION_ADJACENCY["Outskirt Stand"].sibling_items)
-        self.assertNotIn("Cave Poke Spot", tl.TRAVEL_LOCATION_ADJACENCY["Outskirt Stand"].sibling_items)
+        # Outskirt Stand has no adjacency any more (its own unlock is enough), and no adjacency names a merged spot.
+        self.assertNotIn("Outskirt Stand", tl.TRAVEL_LOCATION_ADJACENCY)
+        for adjacency in tl.TRAVEL_LOCATION_ADJACENCY.values():
+            self.assertNotIn("Cave Poke Spot", adjacency.sibling_items)
 
 
 class TestThePokeSpotItemOpensTheRegion(PokemonXDTestBase):
@@ -180,8 +182,7 @@ class TestOnlyConfirmedShops(unittest.TestCase):
         self.assertEqual(len(shops.CONFIRMED_SHOPS), 9)
         self.assertEqual([s.room_id for s in shops.EXCLUDED_SHOPS], [61])
         self.assertEqual(len(shops.UNCONFIRMED_SHOPS), 0)
-        self.assertEqual(locations.SHOP_LOCATION_COUNT,
-                         sum(shop.slot_count for shop in shops.CONFIRMED_SHOPS))
+        self.assertEqual(locations.SHOP_LOCATION_COUNT, sum(len(shops.check_lines(shop)) for shop in shops.CONFIRMED_SHOPS))
         # These two used to be identical because nothing was ever parked or excluded. They now differ by
         # exactly room 61: ALL_SHOP_ROOM_IDS is every row, SHOP_ROOM_IDS is what actually credits a purchase.
         self.assertEqual(shops.ALL_SHOP_ROOM_IDS - shops.SHOP_ROOM_IDS, {61})
@@ -211,9 +212,10 @@ class TestOnlyConfirmedShops(unittest.TestCase):
         self.assertEqual({shop.room_id: shop.slot_count for shop in shops.SHOPS}, expected)
         for shop in shops.CONFIRMED_SHOPS:
             names = shops.shop_location_names(shop)
-            self.assertEqual(len(names), shop.slot_count, shop.name)
-            self.assertEqual(names[-1], f"{shop.name} AP Item {shop.slot_count}")
-            self.assertNotIn(f"{shop.name} AP Item {shop.slot_count + 1}", locations.LOCATION_TABLE)
+            count = len(shops.check_lines(shop))
+            self.assertEqual(len(names), count, shop.name)
+            self.assertEqual(names[-1], f"{shop.name} AP Item {count}")      # numbered without a gap
+            self.assertNotIn(f"{shop.name} AP Item {count + 1}", locations.LOCATION_TABLE)
 
     def test_the_counts_reconcile_with_addendum_110s_independent_total(self) -> None:
         """The reason to believe these numbers rather than treat them as another estimate. ADDENDUM 110 summed the
@@ -232,7 +234,7 @@ class TestOnlyConfirmedShops(unittest.TestCase):
         """Mt. Battle sells 18 randomizable lines and Gateon 15, both past the retired 12 -- so those slots are
         new names. Everything at 1..12 keeps the id it already had, which is why shrinking a shop costs nothing
         either: the tail names just go inert."""
-        for name in ("Mt. Battle Shop AP Item 18", "Gateon Port Shop AP Item 15"):
+        for name in ("Mt. Battle Shop AP Item 18", "Gateon Port Shop AP Item 14"):
             self.assertIn(name, locations.LOCATION_TABLE)
             self.assertGreater(locations.LOCATION_TABLE[name].id_offset, 1646)
         for name in ("Mt. Battle Shop AP Item 1", "Gateon Port Shop AP Item 12"):
@@ -257,8 +259,7 @@ class TestOnlyConfirmedShops(unittest.TestCase):
         """Nothing is parked right now, and that must not have quietly become load-bearing: parking is what makes
         a wrong room id cheap to withdraw, so the empty case has to behave."""
         self.assertEqual(shops.UNCONFIRMED_SHOPS, ())
-        self.assertEqual(len(shops.all_shop_location_names()),
-                         sum(shop.slot_count for shop in shops.CONFIRMED_SHOPS))
+        self.assertEqual(len(shops.all_shop_location_names()), sum(len(shops.check_lines(shop)) for shop in shops.CONFIRMED_SHOPS))
 
     def test_room_119_holding_a_chest_too_is_not_a_conflict(self) -> None:
         """A RETRACTION, pinned so it is not re-derived. An earlier comment called room 119 suspect because the

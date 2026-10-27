@@ -175,8 +175,7 @@ class TestTheShopTable(unittest.TestCase):
         The COUNT is not the interesting assertion -- it moved three times in one day. The relationship is: the
         location count is the cap times however many shops are confirmed, whatever that number is."""
         # ADDENDUM 178: per-shop counts replaced the flat cap, so this is a SUM rather than a product.
-        self.assertEqual(locations.SHOP_LOCATION_COUNT,
-                         sum(shop.slot_count for shop in shops.CONFIRMED_SHOPS))
+        self.assertEqual(locations.SHOP_LOCATION_COUNT, sum(len(shops.check_lines(shop)) for shop in shops.CONFIRMED_SHOPS))
         self.assertEqual(len(shops.CONFIRMED_SHOPS) + len(shops.UNCONFIRMED_SHOPS)
                          + len(shops.EXCLUDED_SHOPS), len(shops.SHOPS))
         # 2026-09-15: the whole Battle CD shop is excluded. Room 61's nine Battle CD lines leave the
@@ -184,8 +183,9 @@ class TestTheShopTable(unittest.TestCase):
         # still hold, but it creates no checks. 104 - 9 = 95.
         # ADDENDUM 238c: 95 -> 96. Agate Village went from 8 lines to 9 once the count became the union
         # across its three tiers rather than one shelf snapshot -- its Great Ball only appears after the ONBS
-        # crisis, so no single shelf shows all nine.
-        self.assertEqual(locations.SHOP_LOCATION_COUNT, 96)
+        # crisis, so no single shelf shows all nine. 96 -> 95: Gateon's line 13 always sells the Ability Swap, so it
+        # has no location name at all now and Gateon's checks are numbered 1..14 without a gap.
+        self.assertEqual(locations.SHOP_LOCATION_COUNT, 95)
 
     def test_the_two_known_shop_rooms_agree_with_the_live_room_names(self) -> None:
         """21 and 156 are the two rooms this project has actually confirmed in game (ram_client's own
@@ -251,8 +251,7 @@ class TestShopsAreGatedByTheirTown(PokemonXDTestBase):
         What survives, and is what the test still checks: the OPENING shelf is gated by the town and nothing
         else. Slot 1 of a reachable shop is reachable; slot 1 of an unreachable one is not."""
         self.assertTrue(self.can_reach_location("Gateon Port Shop AP Item 1"))
-        self.assertFalse(self.can_reach_location(
-            f"Gateon Port Shop AP Item {shops.SHOPS_BY_ROOM[156].slot_count}"))
+        self.assertFalse(self.can_reach_location(shops.shop_location_names(shops.SHOPS_BY_ROOM[156])[-1]))
         for slot in (1, shops.SHOPS_BY_ROOM[21].slot_count):
             self.assertFalse(self.can_reach_location(f"Mt. Battle Shop AP Item {slot}"))
 

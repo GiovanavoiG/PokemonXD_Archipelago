@@ -1,77 +1,35 @@
 """Per-chest "already opened" flag: where it lives in the player-state block and how to read it.
 
-Every XDTreasureBoxData entry carries a u16BE flag id at entry offset +0x06. The id indexes a global bitfield
-of u32BE words in the player-state block:
+Every XDTreasureBoxData entry carries a u16BE flag id at entry offset +0x06. It is an ordinary game flag -- the same
+id space the map scripts' getFlag/setFlag use -- so where its bit lives is not measured but READ, from the game's own
+flag descriptor table (6 bytes per flag id, in common.rel; `ram_client._gs_descriptor` reads the same table live for
+the trainer beaten flags):
 
-    i    = flag_id - FLAG_ANCHOR_ID
-    word = BLOCK_BASE + FLAG_WORD_BASE_OFFSET + 4 * (i // 32)      # floor division, i may be negative
-    open = u32BE(word) & (1 << (i % 32))
+    byte 0 & 0x3F   width in bits (1 for every chest)
+    byte 0 >> 3 & 0x18   which storage group (0x18 for every chest: the save block's flag words)
+    bytes 2-3       bit position inside that group's storage
 
-Measured live 2026-09-13 on the player's save: chest 3 (room 138) flipped BLOCK_BASE+0x107AC 0x00 -> 0x08 and
-chest 40 (room 49) flipped BLOCK_BASE+0x107B2 0x00 -> 0x40, the only changes outside the Bag in a 0x30000-byte
-span. BLOCK_BASE was 0x80479504 in all four dumps. A search over bits-per-flag x bit order x word swap x every
-offset in +/-8192 left one family: 1 bit per flag, LSB-first, 4-byte swap. Two alignments fit and answer
-identically for all 115 chests; this file uses the 4-byte-aligned one, the other being anchor 1867 with base
-0x107AB. Do not read it as "bit index = chest id": that fits the first sample by luck and breaks on the second.
+That group's storage sits at BLOCK_BASE + FLAG_STORAGE_OFFSET in every save and every boot looked at, and bit p is
+bit p % 32 of the u32BE word at storage + 4 * (p // 32):
 
-The four dumps decode monotonically -- 95/96/97, then +3, then +40 -- and 95, 96, 97 are consecutive ids all in
-room 117, i.e. one room cleared, which is what a real save leaves behind rather than an arbitrary bit pattern.
+    open = u32BE(BLOCK_BASE + 0x106B0 + 4 * (p // 32)) >> (p % 32) & 1
 
-This is the GLOBAL flag array, not a chest-only one: set bits at BLOCK_BASE+0x10791, +0x1079C and +0x107E1 in
-the same dumps decode to no chest. Nothing may be written into it on a guess.
+The earlier cluster model (offsets 696/464/483 per cluster) was fitted to bytes measured with the block base taken
+four bytes high, so its 1862-1944 cluster sat one word low and its 1440-1455 spacing was a guess; read against the
+descriptor table it agrees with every live sample in absolute terms, and saves read this way open their chests in
+story order (HQ Lab, then Gateon, Agate and Mt. Battle, then the Cave spot and Pyrite).
 
 Chests 108 and 113 share flag id 1149, so opening either sets the same bit. AMBIGUOUS_CHEST_IDS names them;
 anything needing per-chest identity must treat the pair as one.
 """
 from __future__ import annotations
 
-# The flag id whose bit sits at bit 0 of the word at FLAG_WORD_BASE_OFFSET.
-FLAG_ANCHOR_ID = 1859
-FLAG_WORD_BASE_OFFSET = 0x107AC
-
 # Chests whose flag id is 0 -- the game records nothing for them. Both are in room 175, the debug room
 # chest_regions.EXCLUDED_ROOMS already drops on independent grounds.
 UNFLAGGED_CHEST_IDS: "frozenset[int]" = frozenset({114, 115})
 
-
-# Flag ids fall in six clusters, not one contiguous run, and ADDENDUM 173's model was fitted entirely inside
-# 1862..1944; it reaches the others by arithmetic alone:
-#
-#     1130..1149   i -729..-710   20 chests   <- the HQ Lab, Gateon, Agate, Phenac, Cipher Lab...
-#     1192..1198   i -667..-661    7 chests
-#     1440..1455   i -419..-404    4 chests
-#     1712..1727   i -147..-132    8 chests
-#     1862..1944   i   +3..  +85   72 chests   <- the only cluster any measurement touched
-#     2276..2277   i +417.. +418    2 chests
-#
-# The four original dumps contradict the extrapolation: every byte the single-line model assigns to the four
-# below-anchor clusters (0x10750-0x10753, 0x1075A-0x1075B, 0x10774, 0x1077A-0x1077B, 0x10798-0x1079A) and to
-# 0x107E3 above it is ZERO in all four, on a save that had already cleared room 117 -- while a dense band of set
-# bits at 0x1071C..0x10730 maps to no chest at all. So an unmeasured cluster gets no answer rather than a wrong
-# one: `chest_flag_is_validated` is False there and `ram_client.chest_is_open_in_block` returns None.
-DIRECTLY_EVIDENCED_FLAG_IDS: "frozenset[int]" = frozenset({1872, 1873, 1874, 1886, 1905})
-
-# Kept for callers; superseded by CLUSTER_POSITION_OFFSETS, which now covers more than one cluster.
-VALIDATED_FLAG_ID_RANGE: "tuple[int, int]" = (1862, 1944)
-
-
-def flag_is_validated(flag_id: int) -> bool:
-    """True when the flag's whole CLUSTER has been measured. Derived from CLUSTER_POSITION_OFFSETS rather than
-    a hard-coded range, so measuring another cluster does not mean editing this fence."""
-    return flag_bit_position(flag_id) is not None
-
-
-def chest_flag_is_validated(chest_id: int) -> bool:
-    """False for a chest this module can only locate arithmetically, and for a chest with no flag at all."""
-    flag_id = CHEST_FLAG_IDS.get(chest_id)
-    return bool(flag_id) and flag_is_validated(flag_id)
-
-
-def unvalidated_chest_ids() -> "tuple[int, ...]":
-    return tuple(sorted(
-        chest_id for chest_id, flag_id in CHEST_FLAG_IDS.items()
-        if flag_id and not flag_is_validated(flag_id)
-    ))
+#: Where the chests' flag group keeps its words, from BLOCK_BASE.
+FLAG_STORAGE_OFFSET = 0x106B0
 
 # GENERATED from the player's own ISO (common_rel, XDTreasureBoxData entry offset +0x06). Do not hand-edit.
 CHEST_FLAG_IDS: "dict[int, int]" = {
@@ -192,6 +150,42 @@ CHEST_FLAG_IDS: "dict[int, int]" = {
     115: 0,  # room 175
 }
 
+#: {flag id: bit position in the flag storage}, from the game's flag descriptor table (common.rel). Every chest flag
+#: is one bit wide and in the save block's flag group. Do not hand-edit.
+CHEST_FLAG_BITS: "dict[int, int]" = {
+    1130: 1074, 1131: 1075, 1132: 1076, 1133: 1077, 1134: 1078, 1135: 1079, 1136: 1080, 1137: 1081, 1138: 1082,
+    1139: 1083, 1140: 1084, 1141: 1085, 1142: 1086, 1143: 1087, 1144: 1088, 1145: 1089, 1146: 1090, 1147: 1091,
+    1149: 1093, 1192: 1145, 1193: 1146, 1194: 1147, 1195: 1148, 1196: 1149, 1197: 1150, 1198: 1151, 1440: 1567,
+    1444: 1572, 1454: 1630, 1455: 1631, 1712: 1897, 1713: 1898, 1714: 1899, 1715: 1900, 1716: 1901, 1717: 1902,
+    1718: 1903, 1727: 1912, 1862: 2051, 1863: 2052, 1864: 2053, 1865: 2054, 1866: 2055, 1868: 2057, 1871: 2060,
+    1872: 2061, 1873: 2062, 1874: 2063, 1875: 2064, 1876: 2065, 1877: 2066, 1884: 2073, 1885: 2074, 1886: 2075,
+    1888: 2077, 1889: 2078, 1890: 2079, 1891: 2080, 1892: 2081, 1893: 2082, 1894: 2083, 1895: 2084, 1896: 2085,
+    1897: 2086, 1898: 2087, 1899: 2088, 1900: 2089, 1901: 2090, 1902: 2091, 1903: 2092, 1904: 2093, 1905: 2094,
+    1906: 2095, 1907: 2096, 1908: 2097, 1909: 2098, 1910: 2099, 1911: 2100, 1912: 2101, 1913: 2102, 1914: 2103,
+    1915: 2104, 1916: 2105, 1917: 2106, 1918: 2107, 1919: 2108, 1920: 2109, 1921: 2110, 1922: 2111, 1923: 2112,
+    1924: 2113, 1925: 2114, 1926: 2115, 1927: 2116, 1928: 2117, 1929: 2118, 1930: 2119, 1931: 2120, 1933: 2122,
+    1934: 2123, 1935: 2124, 1936: 2125, 1937: 2126, 1938: 2127, 1939: 2128, 1940: 2129, 1941: 2130, 1942: 2131,
+    1943: 2132, 1944: 2133, 2276: 2470, 2277: 2471,
+}
+
+
+def flag_is_validated(flag_id: int) -> bool:
+    """True when the game's descriptor table places this flag (every chest flag does)."""
+    return flag_id in CHEST_FLAG_BITS
+
+
+def chest_flag_is_validated(chest_id: int) -> bool:
+    """False only for a chest with no flag at all."""
+    flag_id = CHEST_FLAG_IDS.get(chest_id)
+    return bool(flag_id) and flag_is_validated(flag_id)
+
+
+def unvalidated_chest_ids() -> "tuple[int, ...]":
+    return tuple(sorted(
+        chest_id for chest_id, flag_id in CHEST_FLAG_IDS.items()
+        if flag_id and not flag_is_validated(flag_id)
+    ))
+
 
 def _ambiguous() -> "frozenset[int]":
     seen: "dict[int, list[int]]" = {}
@@ -209,78 +203,37 @@ def _ambiguous() -> "frozenset[int]":
 AMBIGUOUS_CHEST_IDS: "frozenset[int]" = _ambiguous()
 
 
-# The array is one contiguous bitfield, but flag ids do not map onto it as a straight line: the offset is a
-# property of the CLUSTER. Expressing each measurement as an absolute bit position from BLOCK_BASE+0x10700:
-#
-#     chest 98  flag 1875  ->  position 1392     flag_id - position = 483     (the ADDENDUM 173 cluster)
-#     chest  1  flag 1136  ->  position  440     flag_id - position = 696
-#     chest  4  flag 1140  ->  position  444     flag_id - position = 696     (PREDICTED first, then measured)
-#
-# 213 array slots sit between the two clusters with nothing known in them; other game flags share this array
-# and some of them may be wider than one bit, so nothing here guesses at them.
-#
-# Within a cluster it is one bit per flag id. That was tested, not assumed: chest 1 (flag 1136) measured at bit
-# 0 of BLOCK_BASE+0x10734 predicts chest 4 (flag 1140) at bit 4 of the same byte, stated in advance and hit.
-#
-# How to measure one: stand still, read a 1 KB window, open exactly one chest, read again. A clean sample
-# changes ONE byte. Walking between rooms first changes about twelve -- story flags share this array and fire
-# constantly -- so such a run is contaminated, not interpretable.
-#
-# Still unmeasured: clusters 1192-1198, 1712-1727 and 2276-2277 -- 17 of the 115 chests (96 have a measured
-# flag; 114 and 115 have none at all). Fixing one takes two dumps around opening a single chest in it, then the
-# same search anchored in that band. One sample can never tell a real mapping from a coincidence.
-CLUSTER_POSITION_OFFSETS: "tuple[tuple[int, int, int], ...]" = (
-    # (first flag id, last flag id, offset)  -- position = flag_id - offset
-    (1130, 1149, 696),   # measured: chest 1, then chest 4 predicted from it and confirmed
-    (1440, 1455, 464),   # measured: chest 80 only; spacing assumed -- see below
-    (1862, 1944, 483),   # measured: chests 3, 40, 95, 96, 97
-)
-
-# Positions stay in flag-id order but the offsets go 696, 464, 483 -- not even monotone -- so no formula fitted
-# to two clusters predicts a third. Never interpolate an offset for an unmeasured cluster; measure it.
-#
-# 1440-1455 has one measurement (chest 80), which fixes its offset but not its spacing; the one-bit-per-id rule
-# is carried over from the other two clusters there. Opening chest 93 (Pyrite room 119, predicted
-# BLOCK_BASE+0x10778 mask 0x80) or chest 29 (Mt. Battle exterior, predicted +0x10779 mask 0x10) would settle it.
-
-# The origin the offsets above are measured from. Word-aligned, and deliberately not FLAG_WORD_BASE_OFFSET,
-# which is one cluster's own base -- mistaking it for the array origin is what produced the single-line model.
-FLAG_ARRAY_ORIGIN_OFFSET = 0x10700
-
-
 def flag_bit_position(flag_id: int) -> "int | None":
-    """Absolute bit position in the flag array, or None for a flag in a cluster nobody has measured."""
-    for lo, hi, offset in CLUSTER_POSITION_OFFSETS:
-        if lo <= flag_id <= hi:
-            return flag_id - offset
-    return None
+    """The flag's bit position in its storage, or None for a flag this table does not hold."""
+    return CHEST_FLAG_BITS.get(flag_id)
 
 
 def flag_word_offset(flag_id: int) -> int:
-    """Offset from BLOCK_BASE of the u32BE word holding `flag_id`'s bit.
-
-    Resolved per cluster. An unmeasured cluster still gets the old single-line answer so callers keep a shape to
-    work with, but `chest_flag_is_validated` is False there and the client refuses to act on it."""
-    position = flag_bit_position(flag_id)
-    if position is not None:
-        return FLAG_ARRAY_ORIGIN_OFFSET + 4 * (position // 32)
-    i = flag_id - FLAG_ANCHOR_ID
-    return FLAG_WORD_BASE_OFFSET + 4 * (i // 32)   # floor division on purpose: i is negative for low ids
+    """Offset from BLOCK_BASE of the u32BE word holding `flag_id`'s bit."""
+    return FLAG_STORAGE_OFFSET + 4 * (CHEST_FLAG_BITS[flag_id] // 32)
 
 
 def flag_word_bit(flag_id: int) -> int:
     """Which bit of that word, counted from the word's LSB (0..31)."""
-    position = flag_bit_position(flag_id)
-    if position is not None:
-        return position % 32
-    return (flag_id - FLAG_ANCHOR_ID) % 32
+    return CHEST_FLAG_BITS[flag_id] % 32
 
 
 def flag_byte_offset_and_mask(flag_id: int) -> "tuple[int, int]":
     """The same bit as a byte offset from BLOCK_BASE plus an 8-bit mask, for callers reading one byte. The
-    `3 -` is the big-endian byte order inside the word -- what made the raw measurements look scrambled."""
+    `3 -` is the big-endian byte order inside the word."""
     bit = flag_word_bit(flag_id)
     return flag_word_offset(flag_id) + (3 - bit // 8), 1 << (bit % 8)
+
+
+_FLAG_BY_POSITION: "dict[int, int]" = {position: flag_id for flag_id, position in CHEST_FLAG_BITS.items()}
+
+
+def flag_at_byte_bit(byte_offset: int, bit_in_byte: int) -> "int | None":
+    """Inverse of `flag_byte_offset_and_mask`: the chest flag a set bit at this byte/bit is, or None when that bit
+    belongs to some other game flag. Used by the `/chestflags` diagnostic."""
+    word = byte_offset & ~0x3
+    position = ((word - FLAG_STORAGE_OFFSET) // 4) * 32 + (3 - (byte_offset - word)) * 8 + bit_in_byte
+    return _FLAG_BY_POSITION.get(position)
 
 
 def chest_flag_id(chest_id: int) -> "int | None":
@@ -294,22 +247,6 @@ def chest_byte_offset_and_mask(chest_id: int) -> "tuple[int, int] | None":
     return None if flag_id is None else flag_byte_offset_and_mask(flag_id)
 
 
-def flag_at_byte_bit(byte_offset: int, bit_in_byte: int) -> int:
-    """Inverse of `flag_byte_offset_and_mask`: which flag id a set bit at this byte/bit means. Used by the
-    `/chestflags` diagnostic, where naming the set bits is how a disagreement with the model shows up."""
-    word = byte_offset & ~0x3
-    bit = (3 - (byte_offset - word)) * 8 + bit_in_byte
-    # Measured clusters first, so the diagnostic names a bit the way the forward mapping placed it. Their
-    # position ranges are disjoint, so a position can match at most one.
-    position = ((word - FLAG_ARRAY_ORIGIN_OFFSET) // 4) * 32 + bit
-    for lo, hi, offset in CLUSTER_POSITION_OFFSETS:
-        if lo - offset <= position <= hi - offset:
-            return position + offset
-    # Outside every measured cluster: the old single-line reading, known wrong there. Treat it as "what the old
-    # model would have called this bit", never as a fact.
-    return FLAG_ANCHOR_ID + ((word - FLAG_WORD_BASE_OFFSET) // 4) * 32 + bit
-
-
 def flagged_chest_ids() -> "tuple[int, ...]":
     return tuple(sorted(c for c in CHEST_FLAG_IDS if CHEST_FLAG_IDS[c]))
 
@@ -317,3 +254,5 @@ def flagged_chest_ids() -> "tuple[int, ...]":
 assert UNFLAGGED_CHEST_IDS == frozenset(c for c in CHEST_FLAG_IDS if not CHEST_FLAG_IDS[c]), (
     "UNFLAGGED_CHEST_IDS disagrees with the generated table"
 )
+assert set(CHEST_FLAG_BITS) == {f for f in CHEST_FLAG_IDS.values() if f}, "a chest flag has no descriptor"
+assert len(_FLAG_BY_POSITION) == len(CHEST_FLAG_BITS), "two chest flags share a bit"

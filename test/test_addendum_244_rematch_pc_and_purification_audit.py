@@ -47,14 +47,13 @@ class TestTheRefightFenceCoversTheWholeShape(unittest.TestCase):
 
     def test_the_set_is_big_enough_to_be_doing_something(self) -> None:
         """A fence that shrank to nothing would pass every test above. 150 of the 232 story trainers."""
-        self.assertEqual(len(self.excluded), 134)   # ADDENDUM 487: -4 mirrored first fights (Clerr, Belish, Dert, Cail #1); 466: -4 Agate rematch rows, -6 461 refusals, -4 final rows; 461: + Cida, Dosk, Raling, Labet, Doby; 460: -13 unmissable, + Bost unconfirmed  # ADDENDUM 459: + Agate's same-team rematches 24-27; 440: + the four Phenac invasion trainers;   # ADDENDUM 341 lifted 337's +Wakin/+Gonzap
+        self.assertEqual(len(self.excluded), 137)   # +2 Kollo and Hospel;   # +1: Chobin #7 fenced again (every Chobin row is); ADDENDUM 487: -4 mirrored first fights (Clerr, Belish, Dert, Cail #1); 466: -4 Agate rematch rows, -6 461 refusals, -4 final rows; 461: + Cida, Dosk, Raling, Labet, Doby; 460: -13 unmissable, + Bost unconfirmed  # ADDENDUM 459: + Agate's same-team rematches 24-27; 440: + the four Phenac invasion trainers;   # ADDENDUM 341 lifted 337's +Wakin/+Gonzap
         self.assertEqual(len(_FINAL), 35)
 
     def test_the_five_and_the_two_brothers(self) -> None:
         """The rows ADDENDUM 236 named from the real plan that showed the problem."""
-        for index in (215, 223, 226, 232):   # ADDENDUM 466: 167 (Chobin #7) is a safe final row and may host now
+        for index in (167, 215, 223, 226, 232):   # 167 (Chobin #7) is fenced again: Chobin never hosts a Shadow
             self.assertIn(index, self.excluded, index)
-        self.assertNotIn(167, self.excluded)
         for index in (34, 35):
             self.assertIn(index, self.excluded, index)
 

@@ -258,7 +258,8 @@ class TestEachChestIsFiledWhereTheIsoPutsIt(unittest.TestCase):
     def test_every_chest_location_sits_in_its_own_rooms_region(self) -> None:
         by_id = {c["chest"]: c for c in chest_table.CHESTS}
         for chest_id, name in locations.CHEST_ID_TO_LOCATION.items():
-            expected = chest_regions.ROOM_TO_REGION[by_id[chest_id]["room"]]
+            expected = chest_regions.CHEST_REGION_OVERRIDES.get(
+                chest_id, chest_regions.ROOM_TO_REGION[by_id[chest_id]["room"]])
             if chest_id == 113:
                 continue  # the shared-flag pair is filed with 108 on purpose -- see TestTheSharedFlagPair
             self.assertEqual(locations.CHEST_LOCATION_TO_REGION[name], expected, chest_id)
@@ -282,7 +283,7 @@ class TestTheItemGates(PokemonXDTestBase):
         the chain's second link -- so "collect the whole chain, the chest is still shut" is no longer possible.
         The gate is probed the other way instead, which tests the same thing: one link in (the Machine Part
         only) the chest is shut, and it opens exactly when the packaged item arrives."""
-        name = locations.CHEST_ID_TO_LOCATION[27]
+        name = locations.CHEST_ID_TO_LOCATION[23]   # chest 27 is ungated now; the Krane chest still needs the card
         self.collect_key_item_chain(1)   # the Machine Part -- not the packaged card
         self.assertFalse(self.can_reach_location(name))
         self.collect_key_item_chain(2)   # + Data ROM & ID Card

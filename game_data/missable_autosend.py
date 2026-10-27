@@ -45,9 +45,11 @@ from __future__ import annotations
 CAP_OVERRIDES: "dict[str, int]" = {
     "Defeat - Bost": 0x19,
     # The Key Lair's window closes at 0x69, "entered the Cipher Key Lair" -- the byte the game writes as you walk in,
-    # before any of these three can be fought. 0x6B, "Gorigan defeated", is the Lair finished, written inside it.
+    # before any of these five can be fought. 0x6B, "Gorigan defeated", is the Lair finished, written inside it.
     "Defeat - Ibsol": 0x6B,
+    "Defeat - Kollo": 0x6B,
     "Defeat - Jelstin": 0x6B,
+    "Defeat - Hospel": 0x6B,
     "Defeat - Fudler": 0x6B,
 }
 
@@ -68,30 +70,34 @@ PHENAC_AREA_REGIONS: "frozenset[str]" = frozenset({
 one_shot_indices: "dict[int, str]" = {}
 
 
-def _build() -> "tuple[dict[str, int], dict[str, tuple[tuple[str, int], ...]]]":
-    from . import missable_indices, repeatable_trainers, story_bytes, trainer_placements, trainer_roster
+def region_for(index: int) -> "str | None":
+    from . import trainer_placements
+    placement = trainer_placements.PLACEMENTS.get(index)
+    return placement.region if placement is not None else None
 
-    windows = story_bytes.REGION_STORY_WINDOW
+
+def cap_for(label: str, index: int) -> "int | None":
+    """The story byte at which fight `index` (labelled `label`) counts as missed: its area's cap."""
+    from . import missable_indices, story_bytes, trainer_roster
+    if label in CAP_OVERRIDES:
+        return CAP_OVERRIDES[label]
+    region = region_for(index)
+    trainer = trainer_roster.TRAINERS_BY_INDEX.get(index) or {}
+    if region in PHENAC_AREA_REGIONS and trainer.get("trainer_class") == CIPHER_PEON_CLASS:
+        return SNATTLE_DEFEATED            # ADDENDUM 436
+    if index in missable_indices.PHENAC_INVASION_INDICES:
+        return SNATTLE_DEFEATED            # ADDENDUM 440: "send them when Phenac is done"
+    window = story_bytes.REGION_STORY_WINDOW.get(region) if region is not None else None
+    return window.ceiling if window is not None else None
+
+
+def _build() -> "tuple[dict[str, int], dict[str, tuple[tuple[str, int], ...]]]":
+    from . import missable_indices, repeatable_trainers, story_bytes, trainer_roster
+
     schedule: "dict[str, int]" = {}
     by_area: "dict[str, tuple[tuple[str, int], ...]]" = {}
     unresolved: "list[str]" = []
     one_shot_indices.clear()
-
-    def region_for(index: int) -> "str | None":
-        placement = trainer_placements.PLACEMENTS.get(index)
-        return placement.region if placement is not None else None
-
-    def cap_for(label: str, index: int) -> "int | None":
-        if label in CAP_OVERRIDES:
-            return CAP_OVERRIDES[label]
-        region = region_for(index)
-        trainer = trainer_roster.TRAINERS_BY_INDEX.get(index) or {}
-        if region in PHENAC_AREA_REGIONS and trainer.get("trainer_class") == CIPHER_PEON_CLASS:
-            return SNATTLE_DEFEATED            # ADDENDUM 436
-        if index in missable_indices.PHENAC_INVASION_INDICES:
-            return SNATTLE_DEFEATED            # ADDENDUM 440: "send them when Phenac is done"
-        window = windows.get(region) if region is not None else None
-        return window.ceiling if window is not None else None
 
     # The one-shots: their own label, their own area.
     for index in sorted(missable_indices.MISSABLE_TRAINER_INDICES):

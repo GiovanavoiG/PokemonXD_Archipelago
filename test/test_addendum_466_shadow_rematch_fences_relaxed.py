@@ -12,7 +12,7 @@ from . import PokemonXDTestBase
 from ..game_data import missable_trainers as mt
 from ..game_data import trainer_roster as tr
 
-NEWLY_OPEN = {24, 25, 26, 27, 13, 21, 22, 66, 67, 68, 60, 147, 164, 167}
+NEWLY_OPEN = {24, 25, 26, 27, 13, 21, 22, 66, 67, 68, 60, 147, 164}   # 167 (Chobin #7) is fenced again
 
 
 class TestTheFence(unittest.TestCase):
@@ -20,15 +20,16 @@ class TestTheFence(unittest.TestCase):
         now = mt.shadow_expansion_excluded_trainer_indices()
         with mock.patch.object(mt, "SHADOW_REMATCH_FENCES_RELAXED", False):
             before = mt.shadow_expansion_excluded_trainer_indices()
-        self.assertEqual(152, len(before), "the revert switch must give back ADDENDUM 461's fence exactly")
+        self.assertEqual(154, len(before), "the revert switch must give back ADDENDUM 461's fence exactly")
         # + ADDENDUM 487: the mirrored first fights (Clerr, Belish, Dert #1 -- the other four were already open).
         from ..game_data.shadow_mirrors import MIRRORED_SHADOW_HOSTS
         self.assertEqual(NEWLY_OPEN | (set(MIRRORED_SHADOW_HOSTS) & before), set(before - now))
         self.assertEqual(set(), set(now - before), "relaxing must never exclude anything new")
 
     def test_the_final_rows(self):
-        self.assertEqual(["NAPS", "ZOOK", "SMARTON", "CHOBIN"],
-                         [tr.TRAINERS_BY_INDEX[i]["name"] for i in (60, 147, 164, 167)])
+        self.assertEqual(["NAPS", "ZOOK", "SMARTON"],
+                         [tr.TRAINERS_BY_INDEX[i]["name"] for i in (60, 147, 164)])
+        self.assertIn(167, mt.shadow_expansion_excluded_trainer_indices(), "Chobin never hosts a Shadow")
         self.assertIn(202, mt.shadow_expansion_excluded_trainer_indices(), "Laken #3 stays out")
 
     def test_still_fenced(self):

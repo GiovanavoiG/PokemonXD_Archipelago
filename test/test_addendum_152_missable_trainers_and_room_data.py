@@ -23,7 +23,7 @@ class TestTheMissableList(unittest.TestCase):
         """EXPANDED 2026-09-13 (ADDENDUM 167) from {8, 51} to the full compiled list. Pinned as a
         count plus spot checks rather than the whole literal set, so the set can be corrected without
         rewriting an assertion that merely restates it."""
-        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 39)  # ADDENDUM 440: +4; 460: -13 unmissable
+        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 41)  # +2 Kollo and Hospel;  # ADDENDUM 440: +4; 460: -13 unmissable
         self.assertTrue({8, 51}.issubset(missable_trainers.MISSABLE_TRAINER_INDICES),
                         "the original two must survive the expansion")
 
@@ -82,7 +82,7 @@ class TestTheMissableList(unittest.TestCase):
         # ADDENDUM 411: + Zook #1, kept because Ardos #1 sends it -- still a missable fight, still fenced. 33.
         # ADDENDUM 436: - Zook #1 again -- Ardos vs Zook is a fight the player only watches. 32.
         # The Sixes' #2 fights are numbered rematch checks and no longer locations: 31 - 6 = 25.
-        self.assertEqual(len(names), 25)  # ADDENDUM 440: +4; 460: - Bost and five Snagem fights
+        self.assertEqual(len(names), 27)  # +2 Kollo and Hospel;  # ADDENDUM 440: +4; 460: - Bost and five Snagem fights
         self.assertNotIn("Defeat - Zook #1", names)
         self.assertIn("Defeat - Digor", names)
         self.assertNotIn("Defeat - Bost", names)   # ADDENDUM 460: unmissable
@@ -148,7 +148,7 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
         # ADDENDUM 411: 64 -- Zook #1 is a location again and fenced like every missable fight.
         # ADDENDUM 436: 60 -- Ardos #1/#2 and Zook #1/#2 are not checks any more.
         # Numbered rematch checks removed outside the forced second fights: 29.
-        self.assertEqual(len(fenced), 29)  # ADDENDUM 440: +4; 460: - Bost and five Snagem fights
+        self.assertEqual(len(fenced), 31)  # +2 Kollo and Hospel;  # ADDENDUM 440: +4; 460: - Bost and five Snagem fights
         self.assertEqual(
             len(fenced),
             len(missable_trainers.FILLER_ONLY_TRAINER_INDICES)
@@ -208,9 +208,9 @@ class TestExcludedEvenAtTheMostPermissiveSetting(_UniqueModeBase):
         `Defeat - Chobin #3` is the example: blank in `Missable?`, "earlier (3 of 7)" next to it.
         The fence is now the union of both columns, the name expansion over both, the 37 rows with no region
         data, and the goal fight (ADDENDUM 193). See game_data/census_repeat_column.py."""
-        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 39)  # ADDENDUM 440: +4; 460: -13 unmissable
-        self.assertEqual(len(missable_trainers.UNREDOABLE_TRAINER_INDICES), 149)   # ADDENDUM 440: +4; 460: -6 (Bost, Snagem)
-        self.assertEqual(len(missable_trainers.FILLER_ONLY_TRAINER_INDICES), 148)   # ADDENDUM 407: -Naps #2; 440: +4; 460: -6
+        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 41)  # +2 Kollo and Hospel;  # ADDENDUM 440: +4; 460: -13 unmissable
+        self.assertEqual(len(missable_trainers.UNREDOABLE_TRAINER_INDICES), 151)  # +2 Kollo and Hospel;   # ADDENDUM 440: +4; 460: -6 (Bost, Snagem)
+        self.assertEqual(len(missable_trainers.FILLER_ONLY_TRAINER_INDICES), 150)  # +2 Kollo and Hospel;   # ADDENDUM 407: -Naps #2; 440: +4; 460: -6
         self.assertTrue(missable_trainers.MISSABLE_TRAINER_INDICES
                         <= missable_trainers.FILLER_ONLY_TRAINER_INDICES,
                         "the workbook's own rows must all survive the widening")

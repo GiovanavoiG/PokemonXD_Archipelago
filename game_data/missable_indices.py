@@ -45,7 +45,9 @@ MISSABLE_TRAINER_INDICES: "frozenset[int]" = frozenset({
     106,  # Equin 1
     148,  # Biden 2
     151,  # Ibsol
+    152,  # Kollo
     154,  # Jelstin
+    159,  # Hospel
     161,  # Fudler
     # ADDENDUM 460: Bost, Dosk, Cida, Labet, Raling, Doby, Willie and everyone in Snagem are unmissable.
     # Removed from this list: Bost (13), Cida 1 (21), Dosk 1 (22), Raling 1 (66), Labet 1 (67), Doby 1 (68),

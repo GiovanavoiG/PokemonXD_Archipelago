@@ -64,12 +64,12 @@ ONE_SHORT = FULL_CHAIN - 1
 # uncertain Overworld Items since found in play not to be real. Any Citadark location does this job
 # -- what these tests measure is the REGION's gate, never the location -- so it is a real chest now, and one
 # constant rather than two classes naming their own.
-CITADARK_PROBE = "Citadark Isle Chest 2"
+CITADARK_PROBE = "Citadark Isle 1F Chest"
 
 
 class TestTheOptions(unittest.TestCase):
     def test_the_ranges_and_defaults(self) -> None:
-        self.assertEqual((RoboKyogrePartsRequired.range_start, RoboKyogrePartsRequired.range_end), (1, 20))
+        self.assertEqual((RoboKyogrePartsRequired.range_start, RoboKyogrePartsRequired.range_end), (1, 40))
         self.assertEqual(RoboKyogrePartsRequired.default, 8)
         self.assertEqual((RoboKyogrePartsAvailable.range_start, RoboKyogrePartsAvailable.range_end), (1, 40))
         self.assertEqual(RoboKyogrePartsAvailable.default, 12)

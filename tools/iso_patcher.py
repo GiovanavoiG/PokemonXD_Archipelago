@@ -443,6 +443,7 @@ FSYS_RECORD_COMP_SIZE_OFF = 0x14
 FSYS_RECORD_NAME_OFF = 0x24
 FSYS_RECORD_FILE_FORMAT_OFF = 0x02  # 1-byte file type ("File Format")
 FSYS_RECORD_FULL_NAME_OFF = 0x1C  # pointer to the full "name.ext" string, when present
+FSYS_RECORD_SIZE = 0x70
 FSYS_ENTRY_ALIGN = 32  # every real entry's data_off in the captured containers is an exact multiple of 32,
                         # with zero exceptions -- see rebuild_fsys_container_grown.
 
@@ -1226,6 +1227,17 @@ def apply_enhanced_difficulty_story_edit(decompressed: bytes, deck: deck_format.
                                  f"({deck.dpkm_entries} entries)")
             struct.pack_into(">H", buf, deck.dpkm_data + int(dpkm_index) * 0x20, int(species))
         boosted = bytes(buf)
+    # Mt. Battle's randomized members: four u16 moves at +0x14.
+    moves_assignment = plan.get("moves_assignment") or {}
+    if moves_assignment:
+        buf = bytearray(boosted)
+        for dpkm_index, moves in moves_assignment.items():
+            if not 0 < int(dpkm_index) < deck.dpkm_entries:
+                raise ValueError(f"moves_assignment names DPKM {dpkm_index}, out of range for this deck "
+                                 f"({deck.dpkm_entries} entries)")
+            padded = ([int(m) for m in moves] + [0, 0, 0, 0])[:4]
+            struct.pack_into(">HHHH", buf, deck.dpkm_data + int(dpkm_index) * 0x20 + 0x14, *padded)
+        boosted = bytes(buf)
     boosted_deck = deck_format.DeckFile(boosted)  # re-parse: same layout, only level/species bytes changed
 
     grown, new_indices = grow_dpkm_section(boosted, boosted_deck, plan["new_dpkm_entries"])
@@ -1798,6 +1810,358 @@ def apply_grind_shelf(pm_rel_bytes: bytearray, pm_rel, candy_box_ready: bool) ->
             raise RuntimeError(f"Gateon line {line} is item {was} in the mart table, not {vanilla}")
         plan[pool] = (vanilla, item)
     return rel_format.apply_mart_pool_items(pm_rel_bytes, pm_rel, candy.GATEON_FINAL_MART, plan)
+
+
+def _replace_fsys_entries(container: bytes, new_raw_by_index: "dict[int, tuple[bytes, int, int]]") -> bytes:
+    """Rebuild a .fsys with some entries replaced, by index (several entries can share a name). `new_raw_by_index`:
+    {entry index: (raw LZSS blob, comp size, decomp size)}. Every entry keeps its order; each data_off after a
+    changed entry moves by however much that entry grew or shrank, kept 32-aligned."""
+    entries = sorted(parse_fsys_all(container), key=lambda e: e["data_off"])
+    first = entries[0]["data_off"]
+    out = bytearray(container[:first])
+    placed = {}
+    for i, entry in enumerate(entries):
+        end = entries[i + 1]["data_off"] if i + 1 < len(entries) else len(container)
+        blob = new_raw_by_index[entry["index"]][0] if entry["index"] in new_raw_by_index \
+            else container[entry["data_off"]:end]
+        if len(out) % FSYS_ENTRY_ALIGN:
+            out += b"\x00" * (FSYS_ENTRY_ALIGN - len(out) % FSYS_ENTRY_ALIGN)
+        placed[entry["index"]] = len(out)
+        out += blob
+    if len(out) % FSYS_ENTRY_ALIGN:
+        out += b"\x00" * (FSYS_ENTRY_ALIGN - len(out) % FSYS_ENTRY_ALIGN)
+    for entry in entries:
+        struct.pack_into(">I", out, entry["record_off"] + FSYS_RECORD_DATA_OFF, placed[entry["index"]])
+        if entry["index"] in new_raw_by_index:
+            _raw, comp, decomp = new_raw_by_index[entry["index"]]
+            struct.pack_into(">I", out, entry["record_off"] + FSYS_RECORD_COMP_SIZE_OFF, comp)
+            struct.pack_into(">I", out, entry["record_off"] + FSYS_RECORD_DECOMP_SIZE_OFF, decomp)
+    return bytes(out)
+
+
+def _room_entry(container: bytes, file_format: int) -> "tuple[dict, bytes]":
+    """The one entry of `file_format` in a room's .fsys and its decompressed bytes."""
+    matches = [e for e in parse_fsys_all(container) if e["file_format"] == file_format]
+    if len(matches) != 1:
+        raise ValueError(f"expected one entry of format {file_format}, found {len(matches)}")
+    entry = matches[0]
+    raw = container[entry["data_off"]:entry["data_off"] + 0x10 + entry["comp_size"]]
+    return entry, deck_format.lzss_decode(raw)[:entry["decomp_size"]]
+
+
+def _append_fsys_entry(container: bytes, record: bytes, name: str, raw: bytes) -> bytes:
+    """A .fsys with one more entry at the end: `record` (an 0x70-byte entry record copied from another archive, its
+    data offset and name re-pointed) and `raw`, the entry's stored bytes. The offset array, names and records are laid
+    out again and every data offset moves with them; the archive's own trailer is kept at the end."""
+    if container[:4] != b"FSYS" or len(record) != FSYS_RECORD_SIZE:
+        raise ValueError("not an archive, or not a whole entry record")
+    count = struct.unpack_from(">I", container, FSYS_ENTRY_COUNT_OFF)[0]
+    entries = parse_fsys_all(container)
+    by_data = sorted(entries, key=lambda e: e["data_off"])
+    blobs = {}
+    for i, entry in enumerate(by_data):
+        end = by_data[i + 1]["data_off"] if i + 1 < len(by_data) else entry["data_off"] + 0x10 + entry["comp_size"]
+        blobs[entry["index"]] = container[entry["data_off"]:end]
+    records = [bytearray(container[e["record_off"]:e["record_off"] + FSYS_RECORD_SIZE]) for e in entries]
+    records.append(bytearray(record))
+    names = [e["name"] for e in entries] + [name]
+
+    def pad(buf: bytearray, to: int) -> None:
+        buf += b"\x00" * (-len(buf) % to)
+
+    out = bytearray(container[:FSYS_OFFSET_ARRAY_OFF])
+    array_at = len(out)
+    out += b"\x00" * (4 * (count + 1))
+    pad(out, 16)
+    names_at = len(out)
+    name_offsets = []
+    for text in names:
+        name_offsets.append(len(out))
+        out += text.encode("ascii") + b"\x00"
+    pad(out, 16)
+    record_offsets = []
+    for rec in records:
+        pad(out, 16)
+        record_offsets.append(len(out))
+        out += rec
+    pad(out, FSYS_ENTRY_ALIGN)
+    data_at = len(out)
+    placed = {}
+    for entry in by_data:
+        pad(out, FSYS_ENTRY_ALIGN)
+        placed[entry["index"]] = len(out)
+        out += blobs[entry["index"]]
+    pad(out, FSYS_ENTRY_ALIGN)
+    placed[count] = len(out)
+    out += raw
+    while len(out) % FSYS_ENTRY_ALIGN != FSYS_ENTRY_ALIGN - 4:
+        out += b"\x00"
+    out += b"FSYS"
+    for i, at in enumerate(record_offsets):
+        struct.pack_into(">I", out, array_at + 4 * i, at)
+        struct.pack_into(">I", out, at + FSYS_RECORD_DATA_OFF, placed[i])
+        struct.pack_into(">I", out, at + FSYS_RECORD_NAME_OFF, name_offsets[i])
+    struct.pack_into(">I", out, FSYS_ENTRY_COUNT_OFF, count + 1)
+    struct.pack_into(">I", out, 0x1C, data_at)
+    struct.pack_into(">I", out, 0x20, len(out))
+    struct.pack_into(">I", out, 0x40, array_at)
+    struct.pack_into(">I", out, 0x44, names_at)
+    struct.pack_into(">I", out, 0x48, data_at)
+    return bytes(out)
+
+
+
+def write_kaminko_trainers_patch(output_path: Path, with_trainers: bool = True) -> dict:
+    """Kaminko's House (game_data/kaminko_trainers.py): S3_out.fsys's floor module, floor script and message file are
+    rebuilt with Miror B. (and the twelve trainer slots when `with_trainers`), his model is copied in from the
+    Outskirt Stand's archive, and the container is moved to free space."""
+    kt = _game_data_module("kaminko_trainers")
+    result = {"applied": False, "reason": None}
+    output_path = Path(output_path).resolve()
+    try:
+        reader = open_reader(output_path)
+        try:
+            fst = parse_fst(reader)
+            room_off, room_len, room_record = find_by_basename(fst, kt.FLOOR_ROOM + ".fsys")
+            container = reader.read(room_off, room_len)
+            model_room, model_name = kt.MIROR_MODEL_SOURCE
+            off, length, _rec = find_by_basename(fst, model_room + ".fsys")
+            model_container = reader.read(off, length)
+            try:
+                off, length, _rec = find_by_basename(fst, kt.PEOPLE_ARCHIVE)
+                archive = reader.read(off, length)
+                held = {struct.unpack_from(">I", archive, e["record_off"])[0] for e in parse_fsys_all(archive)}
+                with_models = set(kt.TRAINER_MODELS.values()) <= held
+            except Exception:
+                with_models = False
+            sources = {}
+            for room in sorted({src[0] for _t, _b, src in kt.KAMINKO_TRAINERS if src}):
+                try:
+                    off, length, _rec = find_by_basename(fst, room + ".fsys")
+                    _entry, msg = _room_entry(reader.read(off, length), 10)
+                    sources[room] = kt.message_entries(msg)
+                except Exception:
+                    sources[room] = {}
+        finally:
+            reader.close()
+        rel_entry, rel = _room_entry(container, 28)
+        scd_entry, scd = _room_entry(container, 14)
+        msg_entry, msg = _room_entry(container, 10)
+        if kt.SLOT_FUNCTION_PREFIX in scd:
+            # Built by an earlier version: only the slot and Miror B. positions may have moved since.
+            new_files = {rel_entry["index"]: (rel_entry, kt.reposition_slots(rel, with_trainers))}
+            older = with_trainers and struct.pack(">I", kt.CHARACTER_SET_MODEL) not in scd
+            reason = "already patched" + (" by an older build; patch the original disc for the trainers' own models"
+                                          if older else "")
+            if not new_files or new_files[rel_entry["index"]][1] == rel:
+                result.update(applied=True, reason=reason)
+                return result
+            result["reason"] = reason
+        else:
+            new_files = {}
+        new_files = new_files or {
+            rel_entry["index"]: (rel_entry, kt.build_floor_rel(rel, with_trainers)),
+            scd_entry["index"]: (scd_entry, kt.build_floor_script(scd, with_trainers, with_models)),
+            msg_entry["index"]: (msg_entry, kt.build_messages(msg, kt.floor_lines(sources, with_trainers))),
+        }
+        encoded = {}
+        for index, (entry, data) in new_files.items():
+            raw = container[entry["data_off"]:entry["data_off"] + 0x10 + entry["comp_size"]]
+            new_raw, comp, _grew = deck_format.patch_entry_decompressed(raw, data, allow_grow=True,
+                                                                        allow_decomp_resize=True)
+            new_raw = new_raw[:comp]
+            if deck_format.lzss_decode(new_raw)[:len(data)] != data:
+                raise RuntimeError(f"entry {index} does not decode back to what was built")
+            encoded[index] = (new_raw, comp, len(data))
+        new_container = _replace_fsys_entries(container, encoded)
+        models = [e for e in parse_fsys_all(model_container) if e["name"] == model_name and e["file_format"] == 4]
+        if len(models) != 1:
+            raise ValueError(f"{model_room}.fsys does not hold exactly one {model_name}")
+        model = models[0]
+        if not any(e["name"] == model_name for e in parse_fsys_all(container)):   # an older rebuild has him
+            new_container = _append_fsys_entry(
+                new_container, model_container[model["record_off"]:model["record_off"] + FSYS_RECORD_SIZE],
+                model_name, model_container[model["data_off"]:model["data_off"] + 0x10 + model["comp_size"]])
+        writer = open_writer(output_path)
+        try:
+            new_offset = find_free_region(writer, len(new_container))
+            writer.ensure_region_allocated(new_offset, len(new_container))
+            writer.write(new_offset, new_container)
+            writer.write(room_record + FST_RECORD_FILE_OFFSET_OFF, struct.pack(">I", new_offset))
+            writer.write(room_record + FST_RECORD_FILE_LENGTH_OFF, struct.pack(">I", len(new_container)))
+        finally:
+            writer.close()
+        verify = open_reader(output_path)
+        try:
+            off, length, _rec = find_by_basename(parse_fst(verify), kt.FLOOR_ROOM + ".fsys")
+            back = verify.read(off, length)
+        finally:
+            verify.close()
+        if back != new_container:
+            raise RuntimeError("read-back verification failed -- the rebuilt S3_out.fsys did not stick")
+        for index, (_entry, data) in new_files.items():
+            entry = [e for e in parse_fsys_all(back) if e["index"] == index][0]
+            raw = back[entry["data_off"]:entry["data_off"] + 0x10 + entry["comp_size"]]
+            if deck_format.lzss_decode(raw)[:entry["decomp_size"]] != data:
+                raise RuntimeError(f"read-back verification failed -- S3_out entry {index} changed")
+        result.update(applied=True, new_offset=new_offset, length=len(new_container), models=with_models,
+                      lines_copied=sum(1 for _t, _b, src in kt.KAMINKO_TRAINERS
+                                       if src and sources.get(src[0], {}).get(src[1])))
+        return result
+    except Exception as exc:
+        result["reason"] = f"{type(exc).__name__}: {exc}"
+        return result
+
+
+def write_citadark_admins_only_patch(output_path: Path) -> dict:
+    """Citadark Admins Only (game_data/citadark_admins.py): the beaten trainers two Citadark floors leave standing are
+    made invisible and moved under the floor, in each room's floor module. Each rebuilt .fsys goes to free space."""
+    ca = _game_data_module("citadark_admins")
+    result = {"applied": False, "reason": None, "rooms": []}
+    output_path = Path(output_path).resolve()
+    try:
+        reader = open_reader(output_path)
+        try:
+            fst = parse_fst(reader)
+            containers = {}
+            for room in ca.HIDDEN_CHARACTERS:
+                off, length, record = find_by_basename(fst, room + ".fsys")
+                containers[room] = (reader.read(off, length), record)
+        finally:
+            reader.close()
+        rebuilt = {}
+        for room, (container, record) in containers.items():
+            rel_entry, rel = _room_entry(container, 28)
+            if ca.is_hidden(rel, room):
+                continue
+            new_rel = ca.hide_characters(rel, room)
+            raw = container[rel_entry["data_off"]:rel_entry["data_off"] + 0x10 + rel_entry["comp_size"]]
+            new_raw, comp, _grew = deck_format.patch_entry_decompressed(raw, new_rel, allow_grow=True)
+            new_raw = new_raw[:comp]
+            if deck_format.lzss_decode(new_raw)[:len(new_rel)] != new_rel:
+                raise RuntimeError(f"{room}'s floor module does not decode back to what was built")
+            rebuilt[room] = (_replace_fsys_entries(container, {rel_entry["index"]: (new_raw, comp, len(new_rel))}),
+                             record, new_rel)
+        if not rebuilt:
+            result.update(applied=True, reason="already patched")
+            return result
+        # One free region for all of them, each container 0x8000-aligned inside it.
+        layout, total = [], 0
+        for room, (new_container, record, _rel) in rebuilt.items():
+            total += -total % 0x8000
+            layout.append((total, new_container, record))
+            total += len(new_container)
+        writer = open_writer(output_path)
+        try:
+            base = find_free_region(writer, total)
+            writer.ensure_region_allocated(base, total)
+            for at, new_container, record in layout:
+                writer.write(base + at, new_container)
+                writer.write(record + FST_RECORD_FILE_OFFSET_OFF, struct.pack(">I", base + at))
+                writer.write(record + FST_RECORD_FILE_LENGTH_OFF, struct.pack(">I", len(new_container)))
+        finally:
+            writer.close()
+        verify = open_reader(output_path)
+        try:
+            fst = parse_fst(verify)
+            for room, (new_container, _record, new_rel) in rebuilt.items():
+                off, length, _rec = find_by_basename(fst, room + ".fsys")
+                back = verify.read(off, length)
+                if back != new_container or _room_entry(back, 28)[1] != new_rel:
+                    raise RuntimeError(f"read-back verification failed -- {room}.fsys did not stick")
+        finally:
+            verify.close()
+        result.update(applied=True, rooms=sorted(rebuilt))
+        return result
+    except Exception as exc:
+        result["reason"] = f"{type(exc).__name__}: {exc}"
+        return result
+
+
+def write_shiny_chest_patch(output_path: Path, shuffled_chests=(17, 18, 80)) -> dict:
+    """The shining key-item chests stay until opened, and the Music Disc house's scene waits for the real disc
+    (game_data/shiny_chests.py): each room's floor script is rewritten in place (same length) and its .fsys moved to
+    free space, all of them in one region."""
+    sc = _game_data_module("shiny_chests")
+    patches = sc.patches_for(shuffled_chests)
+    if not patches:
+        return {"applied": True, "reason": "no shuffled chest needs it", "rooms": []}
+    return _write_room_script_patches(output_path, patches, sc)
+
+
+def write_citadark_trigger_patch(output_path: Path) -> dict:
+    """Citadark 1F's floor script with Lovrina's story windows opened (game_data/citadark_scripts.py), on the disc.
+    The client opens the same windows in RAM, but only after the room has loaded: `preprocess`, which places her on
+    a return visit, has run by then."""
+    sc = _game_data_module("shiny_chests")
+    cd = _game_data_module("citadark_scripts")
+    patch = sc.RoomPatch("D6_fort_1F", cd.CITADARK_1F_SIZE, cd._1F_CODE0, cd.CITADARK_1F_WORD_EDITS,
+                         cd.CITADARK_1F_ANCHORS, frozenset())
+    return _write_room_script_patches(output_path, (patch,), sc)
+
+
+def _write_room_script_patches(output_path: Path, patches, sc) -> dict:
+    """Each room's floor script (fsys entry format 14) rewritten in place by `sc.patch_script` (same length), its
+    .fsys moved to free space, all of them in one region, then read back."""
+    result = {"applied": False, "reason": None, "rooms": []}
+    output_path = Path(output_path).resolve()
+    try:
+        reader = open_reader(output_path)
+        try:
+            fst = parse_fst(reader)
+            containers = {}
+            for patch in patches:
+                off, length, record = find_by_basename(fst, patch.room + ".fsys")
+                containers[patch.room] = (reader.read(off, length), record)
+        finally:
+            reader.close()
+        rebuilt = {}
+        for patch in patches:
+            container, record = containers[patch.room]
+            entry, script = _room_entry(container, 14)
+            if sc.is_patched(script, patch):
+                continue
+            new_script = sc.patch_script(script, patch)
+            raw = container[entry["data_off"]:entry["data_off"] + 0x10 + entry["comp_size"]]
+            new_raw, comp, _grew = deck_format.patch_entry_decompressed(raw, new_script, allow_grow=True)
+            new_raw = new_raw[:comp]
+            if deck_format.lzss_decode(new_raw)[:len(new_script)] != new_script:
+                raise RuntimeError(f"{patch.room}'s script does not decode back to what was built")
+            rebuilt[patch.room] = (_replace_fsys_entries(container, {entry["index"]: (new_raw, comp, len(new_script))}),
+                                   record, new_script)
+        if not rebuilt:
+            result.update(applied=True, reason="already patched")
+            return result
+        layout, total = [], 0
+        for room, (new_container, record, _script) in rebuilt.items():
+            total += -total % 0x8000
+            layout.append((total, new_container, record))
+            total += len(new_container)
+        writer = open_writer(output_path)
+        try:
+            base = find_free_region(writer, total)
+            writer.ensure_region_allocated(base, total)
+            for at, new_container, record in layout:
+                writer.write(base + at, new_container)
+                writer.write(record + FST_RECORD_FILE_OFFSET_OFF, struct.pack(">I", base + at))
+                writer.write(record + FST_RECORD_FILE_LENGTH_OFF, struct.pack(">I", len(new_container)))
+        finally:
+            writer.close()
+        verify = open_reader(output_path)
+        try:
+            fst = parse_fst(verify)
+            for room, (new_container, _record, new_script) in rebuilt.items():
+                off, length, _rec = find_by_basename(fst, room + ".fsys")
+                back = verify.read(off, length)
+                if back != new_container or _room_entry(back, 14)[1] != new_script:
+                    raise RuntimeError(f"read-back verification failed -- {room}.fsys did not stick")
+        finally:
+            verify.close()
+        result.update(applied=True, rooms=sorted(rebuilt))
+        return result
+    except Exception as exc:
+        result["reason"] = f"{type(exc).__name__}: {exc}"
+        return result
 
 
 def write_item_description_patch(output_path: Path, lines_by_string_id: "dict[int, list[str]]") -> dict:
@@ -3610,6 +3974,11 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                 int(k): int(v)
                 for k, v in (mt_battle_enhanced_difficulty_plan_raw.get("species_assignment") or {}).items()
             },
+            # The randomized teams' moves, with Exclude Mt. Battle Trainers off.
+            "moves_assignment": {
+                int(k): [int(m) for m in v]
+                for k, v in (mt_battle_enhanced_difficulty_plan_raw.get("moves_assignment") or {}).items()
+            },
         }
         if mt_battle_enhanced_difficulty_plan_raw else None
     )
@@ -4491,6 +4860,28 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
         summary["infinite_tms_applied"] = tm_result["applied"]
         summary["infinite_tms_reason"] = tm_result["reason"]
 
+    # Room music: a room whose story flags select none of its music rows plays its first row instead of keeping the
+    # previous room's music. Unconditional -- a fix.
+    music_result = write_dol_words_patch(output_path, _game_data_module("floor_music").dol_patch_words())
+    if music_result["applied"]:
+        print("Room music: every room starts its own music on entry"
+              + (" (already present)." if music_result["reason"] else "."))
+    else:
+        print(f"Room music: NOT applied -- {music_result['reason']}. Some rooms may keep the previous room's music.")
+    summary["floor_music_applied"] = music_result["applied"]
+    summary["floor_music_reason"] = music_result["reason"]
+
+    # Increased Walk Speed -- the people module's 30.0 float constant becomes 60.0.
+    if seed.get("increased_walk_speed"):
+        walk_result = write_dol_words_patch(output_path, _game_data_module("walk_speed").dol_patch_words())
+        if walk_result["applied"]:
+            print("Increased Walk Speed: overworld walking is faster"
+                  + (" (already present)." if walk_result["reason"] else "."))
+        else:
+            print(f"Increased Walk Speed: NOT applied -- {walk_result['reason']}. Walking keeps its normal speed.")
+        summary["increased_walk_speed_applied"] = walk_result["applied"]
+        summary["increased_walk_speed_reason"] = walk_result["reason"]
+
     # ADDENDUM 465: a snagged Shadow is not rebuilt on a rematch, and the save's Shadow list knows each Shadow's real
     # species. Both read or follow the FINAL decks, so this runs after every deck pass above. Unconditional: each is
     # a fix, and on an unmodified Shadow roster the list write is empty.
@@ -4579,6 +4970,69 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
               f"0x{_whiteout.COUNTER_ADDRESS:08X})." if whiteout_result["applied"] else
               f"White-outs: counter NOT installed -- {whiteout_result['reason']}. Death Link falls back to watching "
               "the party.")
+
+    # Miror B. stands outside Kaminko's House in every seed; missable trainers too, twelve at a time, when asked for.
+    with_trainers = bool(seed.get("kaminko_trainers"))
+    kaminko_result = write_kaminko_trainers_patch(output_path, with_trainers)
+    summary["kaminko_trainers_applied"] = kaminko_result["applied"] and with_trainers
+    summary["kaminko_miror_b_applied"] = kaminko_result["applied"]
+    summary["kaminko_trainers_reason"] = kaminko_result["reason"]
+    print(("Kaminko's House: Miror B. added outside" + (", with twelve missable-trainer spots." if with_trainers
+                                                         else "."))
+          if kaminko_result["applied"] else f"Kaminko's House: NOT patched -- {kaminko_result['reason']}.")
+    if kaminko_result["applied"] and with_trainers:
+        summary["kaminko_trainer_models_applied"] = bool(kaminko_result.get("models"))
+        print("Kaminko's House: each trainer appears with their own model." if kaminko_result.get("models")
+              else "Kaminko's House: trainers keep Chobin's model"
+              + (f" -- {kaminko_result['reason']}." if kaminko_result.get("reason") else
+                 " (a model was not found on this disc)."))
+
+    # Miror B. outside Kaminko's House: his regular Pokemon are level 10 at most.
+    if kaminko_result["applied"]:
+        _miror_lv = _game_data_module("kaminko_miror_level")
+        lv_result = write_dol_words_patch(output_path, _miror_lv.dol_patch_words())
+        summary["kaminko_miror_level_cap_applied"] = lv_result["applied"]
+        print("Kaminko Miror B.: regular team capped at level 10." if lv_result["applied"]
+              else f"Kaminko Miror B.: level cap NOT applied -- {lv_result['reason']}.")
+
+    # Key items shuffled: the Cipher Lab's ID Card and Data ROM chests stay until opened, whatever the Bag holds, and
+    # opening the Music Disc chest no longer runs the disc's scene before the real disc is held.
+    _shuffled_chests = set(seed.get("shuffled_key_item_chest_ids") or ())
+    if {17, 18, 80} & _shuffled_chests:
+        shiny_result = write_shiny_chest_patch(output_path, _shuffled_chests)
+        summary["shiny_chests_applied"] = shiny_result["applied"]
+        summary["shiny_chests_reason"] = shiny_result["reason"]
+        print("Key-item chests: the ID Card and Data ROM chests stay until you open them, and the Music Disc's scene "
+              "waits for the disc" + (" (already present)." if shiny_result["reason"] else ".")
+              if shiny_result["applied"] else
+              f"Key-item chests: NOT patched -- {shiny_result['reason']}.")
+
+    # Citadark Admins Only: the beaten trainers two floors would leave standing are hidden.
+    if seed.get("citadark_admins_only"):
+        admins_result = write_citadark_admins_only_patch(output_path)
+        summary["citadark_admins_only_applied"] = admins_result["applied"]
+        summary["citadark_admins_only_reason"] = admins_result["reason"]
+        print("Citadark Admins Only: the other trainers' figures removed from Citadark 1F and 3F"
+              + (" (already present)." if admins_result["reason"] else ".")
+              if admins_result["applied"] else
+              f"Citadark Admins Only: NOT patched -- {admins_result['reason']}. Beaten trainers may still be seen "
+              "standing on Citadark 1F and 3F; they will not fight.")
+
+    # Lovrina on Citadark 1F is placed whatever the story value, including on a return after losing to her.
+    lovrina_result = write_citadark_trigger_patch(output_path)
+    summary["citadark_trigger_applied"] = lovrina_result["applied"]
+    summary["citadark_trigger_reason"] = lovrina_result["reason"]
+    print("Citadark 1F: Lovrina is there until you beat her" + (" (already present)." if lovrina_result["reason"] else ".")
+          if lovrina_result["applied"] else f"Citadark 1F: Lovrina's placement NOT patched -- {lovrina_result['reason']}.")
+
+    # Skip Opening Movie: New Game links straight to the HQ Lab, past the opening cutscene.
+    if seed.get("skip_opening_movie"):
+        _movie = _game_data_module("opening_movie")
+        movie_result = write_dol_words_patch(output_path, _movie.dol_patch_words())
+        summary["skip_opening_movie_applied"] = movie_result["applied"]
+        summary["skip_opening_movie_reason"] = movie_result["reason"]
+        print("Opening cutscene: skipped." if movie_result["applied"] else
+              f"Opening cutscene: NOT skipped -- {movie_result['reason']}.")
 
     # ADDENDUM 488: the Agate move tutor never marks a move as taught, so she teaches each one as often as asked.
     if seed.get("repeatable_move_tutor", True):

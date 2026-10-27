@@ -316,8 +316,13 @@ REFIGHTABLE_FINAL_SHADOW_HOSTS: "frozenset[int]" = frozenset({
     60,    # Naps #2, Cipher Lab
     147,   # Zook #2, Cipher Key Lair (exterior)
     164,   # Smarton #2, Cipher Key Lair
-    167,   # Chobin #7, Kaminko's House
 })
+
+# Chobin never carries a Shadow, on any of his seven rows. They all sit in Kaminko's House, but the manor's script
+# stages each one at its own point in the story -- Robo Groudon #6 (battle 368) from story 870 and #7 (battle 369)
+# from 890 to 970 -- so a Shadow on one would be counted the moment the manor is reachable, long before the fight
+# exists. Kept out of every way a Shadow is placed: generated, moved, missable-hosted and mirrored.
+CHOBIN_TRAINER_INDICES: "frozenset[int]" = frozenset({15, 18, 124, 125, 127, 166, 167})
 #: Set to False to put all three ADDENDUM 466 fences back exactly as ADDENDUM 461 left them.
 SHADOW_REMATCH_FENCES_RELAXED = True
 
@@ -340,6 +345,8 @@ def missable_shadow_host_indices() -> "frozenset[int]":
             continue
         if index in NO_SNAG_TRAINER_INDICES or index in POST_GOAL_TRAINER_INDICES or index in citadark:
             continue
+        if index in CHOBIN_TRAINER_INDICES:
+            continue
         out.add(index)
     return frozenset(out)
 
@@ -361,14 +368,15 @@ def shadow_expansion_excluded_trainer_indices(allow_missable_hosts: bool = False
     allowed = missable_shadow_host_indices() if allow_missable_hosts else frozenset()
     if not SHADOW_REMATCH_FENCES_RELAXED:   # ADDENDUM 461's fence, kept verbatim for a revert
         return ((frozenset(UNREDOABLE_TRAINER_INDICES) - CONFIRMED_UNMISSABLE - allowed)
-                | NO_SNAG_TRAINER_INDICES | SAME_TEAM_REMATCH_TRAINER_INDICES | SHADOW_HOST_REFUSED)
+                | NO_SNAG_TRAINER_INDICES | SAME_TEAM_REMATCH_TRAINER_INDICES | SHADOW_HOST_REFUSED
+                | CHOBIN_TRAINER_INDICES)
     # ADDENDUM 466: rematches may host a Shadow -- a snagged one is no longer rebuilt (ADDENDUM 465).
     # ADDENDUM 487: and the first fights whose second fight always carries the mirror (`shadow_mirrors`).
     from .shadow_mirrors import mirrored_host_rows
 
     return ((frozenset(UNREDOABLE_TRAINER_INDICES) - CONFIRMED_UNMISSABLE - REFIGHTABLE_FINAL_SHADOW_HOSTS
              - mirrored_host_rows() - allowed)
-            | NO_SNAG_TRAINER_INDICES)
+            | NO_SNAG_TRAINER_INDICES | CHOBIN_TRAINER_INDICES)
 
 
 def _check_refightable_final_hosts() -> None:

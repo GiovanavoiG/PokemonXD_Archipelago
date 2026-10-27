@@ -59,17 +59,15 @@ class TestCumulativeMode(PokemonXDTestBase):
                 self.assertEqual(LocationProgressType.EXCLUDED, created[name].progress_type, name)
 
 
-class TestWildCatchesNeedPyriteOrOutskirt(PokemonXDTestBase):
-    """Wild Pokemon (the catches that are not Shadows) are gated behind either Pyrite Town OR Outskirt Stand."""
+class TestWildCatchesNeedOnlyThePokeSpots(PokemonXDTestBase):
+    """Wild Pokemon (the catches that are not Shadows) need the Poke Spots and nothing else."""
     options = {"randomize_travel_locations": True}
 
     def test_the_constant(self) -> None:
         from .. import rules
-        self.assertEqual(("Pyrite Town", "Outskirt Stand"), rules.WILD_CATCH_ANY_REGIONS)
+        self.assertEqual((), rules.WILD_CATCH_ANY_REGIONS)
 
     def test_a_poke_spot_only_species(self) -> None:
-        from unittest import mock
-
         from .. import rules
         world = self.multiworld.worlds[self.player]
         gates, _unplaceable = rules._catch_gates_for_species(world)
@@ -78,24 +76,10 @@ class TestWildCatchesNeedPyriteOrOutskirt(PokemonXDTestBase):
         created = {loc.name: loc for loc in self.multiworld.get_locations(self.player)}
         wild_only = [d for d in wild_only if species.location_name_for_species(d) in created]
         self.assertTrue(wild_only, "the vanilla Poke Spot species have no Shadow source")
-        location = created[species.location_name_for_species(wild_only[0])]
-        state = self.multiworld.get_all_state(False)
-
-        def reach(only):
-            real = type(state).can_reach
-
-            def fake(self_state, name, *args, **kwargs):
-                if name in ("Pyrite Town", "Outskirt Stand"):
-                    return name in only
-                return True
-            return mock.patch.object(type(state), "can_reach", fake)
-
-        with reach(set()):
-            self.assertFalse(location.access_rule(state))
-        with reach({"Pyrite Town"}):
-            self.assertTrue(location.access_rule(state))
-        with reach({"Outskirt Stand"}):
-            self.assertTrue(location.access_rule(state))
+        name = species.location_name_for_species(wild_only[0])
+        self.assertFalse(self.can_reach_location(name))
+        self.collect_by_name("Travel Unlock - Poke Spots")
+        self.assertTrue(self.can_reach_location(name), "the Poke Spots alone are enough")
 
 
 class TestRandomizedShadows(PokemonXDTestBase):

@@ -150,7 +150,7 @@ class TestOnbsNamesNoItem(unittest.TestCase):
 
     def test_no_onbs_chest_is_item_gated(self) -> None:
         for chest in (98, 99, 100):
-            self.assertEqual("Pyrite Town (ONBS)", chest_regions.CHEST_TO_REGION[chest])
+            self.assertEqual("Pyrite Town" if chest == 100 else "Pyrite Town (ONBS)", chest_regions.CHEST_TO_REGION[chest])
             self.assertNotIn(chest, chest_regions.CHEST_ITEM_GATES)
 
     def test_onbs_still_needs_pyrite_and_the_spots(self) -> None:

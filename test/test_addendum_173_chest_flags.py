@@ -13,10 +13,11 @@ from ..game_data import chest_flags as cf
 from ..game_data import chest_table as ct
 
 
-# The two live measurements the model was fitted to (BLOCK_BASE 0x80479504, 2026-09-13).
+# The two live measurements (2026-09-13), from the block base as it resolves now: the session read it as 0x80479504,
+# four bytes high, so the bytes it named were +0x107AC and +0x107B2 -- the same addresses.
 MEASURED = (
-    (3, 0x107AC, 0x08),    # room 138
-    (40, 0x107B2, 0x40),   # room 49
+    (3, 0x107B0, 0x08),    # room 138
+    (40, 0x107B6, 0x40),   # room 49
 )
 
 # What each of the four dumps decodes to. chests 95/96/97 were already open before either test and were NOT
@@ -63,16 +64,9 @@ class TestTheBitfieldModel(unittest.TestCase):
         for chest_id in cf.flagged_chest_ids():
             self.assertEqual(cf.flag_word_offset(cf.CHEST_FLAG_IDS[chest_id]) % 4, 0, chest_id)
 
-    def test_low_flag_ids_floor_divide_rather_than_truncate(self) -> None:
-        """Flag ids below the anchor give a NEGATIVE index, and C-style truncation toward zero would put them
-        in the wrong word. Chest 16's flag (1144) is well below the anchor, so it is the live case."""
-        self.assertLess(cf.CHEST_FLAG_IDS[16], cf.FLAG_ANCHOR_ID)
-        self.assertLess(cf.flag_word_offset(cf.CHEST_FLAG_IDS[16]), cf.FLAG_WORD_BASE_OFFSET)
-        self.assertIn(cf.flag_word_bit(cf.CHEST_FLAG_IDS[16]), range(32))
-
-    def test_the_anchor_is_where_the_first_measurement_put_it(self) -> None:
-        self.assertEqual(cf.FLAG_WORD_BASE_OFFSET, 0x107AC)
-        self.assertEqual(cf.FLAG_ANCHOR_ID, 1859)
+    def test_the_storage_is_where_the_game_keeps_it(self) -> None:
+        self.assertEqual(cf.FLAG_STORAGE_OFFSET, 0x106B0)
+        self.assertEqual(cf.flag_word_offset(1136), 0x106B0 + 4 * (1080 // 32))
 
 
 class TestTheGeneratedTable(unittest.TestCase):

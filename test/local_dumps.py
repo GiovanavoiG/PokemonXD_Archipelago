@@ -25,3 +25,37 @@ def snagem_2f_script() -> "bytes | None":
     for offset, value in _SNAGEM_2F_STATE:
         script[offset] = value
     return bytes(script)
+
+
+# The Cipher Lab floors' scripts, as the ISO bridge dumped their .fsys files off the unpatched disc.
+def cipher_lab_script(floor: str) -> "bytes | None":
+    path = DUMPS / f"xd_D1_labo_{floor}.bin"
+    if not path.is_file():
+        return None
+    from ..tools import iso_patcher
+    from ..tools.xd_deck_format import lzss_decode
+
+    container = path.read_bytes()
+    for entry in iso_patcher.parse_fsys_all(container):
+        data = lzss_decode(container[entry["data_off"]:])[:entry["decomp_size"]]
+        if data[:4] == b"TCOD":
+            return bytes(data)
+    return None
+
+
+def map_script(name: str) -> "bytes | None":
+    """A map's script from the disc's own .fsys, as `dump_maps.py` copied it into bridge/dumps/maps."""
+    path = DUMPS / "maps" / f"{name}.fsys"
+    if not path.is_file():
+        return None
+    from ..tools import iso_patcher
+    from ..tools.xd_deck_format import lzss_decode
+
+    container = path.read_bytes()
+    for entry in iso_patcher.parse_fsys_all(container):
+        if entry["name"] != name:
+            continue
+        data = lzss_decode(container[entry["data_off"]:])[:entry["decomp_size"]]
+        if data[:4] == b"TCOD":
+            return bytes(data)
+    return None

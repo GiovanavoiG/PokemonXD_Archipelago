@@ -65,10 +65,10 @@ class TestTheMissableFenceIsBackAndWider(unittest.TestCase):
         cannot be redone, and this project had only ever read that one. See
         test_workbook_fence_and_sphere_zero.py, which asserts the fence against the workbook directly rather
         than against a remembered total."""
-        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 39)  # ADDENDUM 440: +4; 460: -13 now unmissable
-        self.assertEqual(len(missable_trainers.UNREDOABLE_TRAINER_INDICES), 149)   # ADDENDUM 440: +4; 460: -6
+        self.assertEqual(len(missable_trainers.MISSABLE_TRAINER_INDICES), 41)  # +2 Kollo and Hospel;  # ADDENDUM 440: +4; 460: -13 now unmissable
+        self.assertEqual(len(missable_trainers.UNREDOABLE_TRAINER_INDICES), 151)  # +2 Kollo and Hospel;   # ADDENDUM 440: +4; 460: -6
         # ADDENDUM 407: minus Naps #2, the one mandatory rematch made progression-eligible.
-        self.assertEqual(len(missable_trainers.FILLER_ONLY_TRAINER_INDICES), 148)   # ADDENDUM 440: +4; 460: -6
+        self.assertEqual(len(missable_trainers.FILLER_ONLY_TRAINER_INDICES), 150)  # +2 Kollo and Hospel;   # ADDENDUM 440: +4; 460: -6
         self.assertTrue(missable_trainers.MISSABLE_TRAINER_INDICES
                         <= missable_trainers.FILLER_ONLY_TRAINER_INDICES)
 
@@ -167,7 +167,12 @@ class TestShadowCatchToggleOn(PokemonXDTestBase):
                 loc = self.multiworld.get_location(species.location_name_for_species(dex), self.player)
             except KeyError:
                 continue
-            self.assertFalse(loc.can_reach(self.multiworld.state), loc.name)
+            state = self.multiworld.state
+            if any(s != "pokespot" and not s.required_items
+                   and all(state.can_reach(r, player=self.player) for r in (s.region, *s.required_regions))
+                   for s in sources):
+                continue   # one of its fights is open from the start, and so is the floor (Kaminko's House)
+            self.assertFalse(loc.can_reach(state), loc.name)
             checked += 1
         self.assertGreater(checked, 20)
 

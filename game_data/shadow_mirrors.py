@@ -95,11 +95,11 @@ def occurrences_of(trainer_index: int) -> "list[int]":
 
 def mirror_excluded_trainer_indices(extra: "frozenset[int] | set[int]" = frozenset()) -> "frozenset[int]":
     from .catch_rate_exclusions import citadark_trainer_indices
-    from .missable_trainers import POST_GOAL_TRAINER_INDICES
+    from .missable_trainers import CHOBIN_TRAINER_INDICES, POST_GOAL_TRAINER_INDICES
     from .real_trainer_data import PERMANENTLY_EXCLUDED_TRAINER_INDICES
     from .shadow_regions import NO_SNAG_TRAINER_INDICES
 
-    return (frozenset(POST_GOAL_TRAINER_INDICES) | frozenset(citadark_trainer_indices())
+    return (frozenset(POST_GOAL_TRAINER_INDICES) | frozenset(citadark_trainer_indices()) | CHOBIN_TRAINER_INDICES
             | frozenset(NO_SNAG_TRAINER_INDICES) | frozenset(PERMANENTLY_EXCLUDED_TRAINER_INDICES)
             | MIROR_B_POKE_SPOT_ROWS | frozenset(int(i) for i in extra))
 

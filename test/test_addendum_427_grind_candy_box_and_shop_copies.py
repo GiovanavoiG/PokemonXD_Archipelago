@@ -65,7 +65,7 @@ class TestTheOption(unittest.TestCase):
 
     def test_the_two_lines_are_restock_lines(self):
         names = locations.grind_shop_location_names()
-        self.assertEqual({"Gateon Port Shop AP Item 14", "Gateon Port Shop AP Item 15"}, set(names))
+        self.assertEqual({"Gateon Port Shop AP Item 13", "Gateon Port Shop AP Item 14"}, set(names))   # lines 14, 15
         self.assertTrue(names <= locations.FILLER_ONLY_SHOP_LOCATIONS)
 
 
@@ -75,9 +75,8 @@ class TestGrindOn(PokemonXDTestBase):
     def test_the_two_checks_are_gone_and_the_seed_says_so(self):
         world = self.multiworld.worlds[self.player]
         names = {loc.name for loc in self.multiworld.get_locations(self.player)}
-        self.assertNotIn("Gateon Port Shop AP Item 14", names)
-        self.assertNotIn("Gateon Port Shop AP Item 15", names)
-        self.assertNotIn("Gateon Port Shop AP Item 13", names)   # ADDENDUM 453: the Ability Patch, always
+        self.assertNotIn("Gateon Port Shop AP Item 13", names)   # line 14, the Candy Box
+        self.assertNotIn("Gateon Port Shop AP Item 14", names)   # line 15, the Rare Candy
         self.assertIn("Gateon Port Shop AP Item 12", names)
         world.pre_output()
         with tempfile.TemporaryDirectory() as tmp:
@@ -93,8 +92,9 @@ class TestGrindOff(PokemonXDTestBase):
 
     def test_the_checks_stay(self):
         names = {loc.name for loc in self.multiworld.get_locations(self.player)}
+        self.assertIn("Gateon Port Shop AP Item 13", names)
         self.assertIn("Gateon Port Shop AP Item 14", names)
-        self.assertIn("Gateon Port Shop AP Item 15", names)
+        self.assertNotIn("Gateon Port Shop AP Item 15", names)   # numbered without the Ability Swap's line
 
 
 # --- the shelf --------------------------------------------------------------------------------------------------

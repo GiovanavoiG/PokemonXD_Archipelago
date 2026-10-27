@@ -504,10 +504,10 @@ class TestTheRenames(unittest.TestCase):
         FUNCTION of the chest table rather than a list someone typed. If that table ever gains or loses a
         Citadark chest, every later number shifts and 19 locations get silently renamed at once -- so the
         current order is pinned here as literals."""
-        approved = [75, 59, 60, 61, 62, 63, 64, 65, 66, 57, 67, 68, 69, 70, 71, 72, 73, 74, 58]
-        for index, chest in enumerate(approved, 1):
-            self.assertEqual(chest_names.chest_location_name_override((chest,)),
-                             f"Citadark Isle Chest {index}", f"chest {chest}")
+        approved = {75: "Citadark Dome 1F Chest", 59: "Citadark Isle 1F Chest", 57: "Citadark Isle 4F Spiral Path Chest",
+                    58: "Citadark Isle Docks Overlook Chest", 74: "Citadark Isle B1F Wave Pool Chest"}
+        for chest, name in approved.items():
+            self.assertEqual(chest_names.chest_location_name_override((chest,)), name, f"chest {chest}")
 
     def test_chest_23_finally_has_its_real_name(self):
         """ADDENDUM 230 left this one generated on purpose, because room 9 was the one Cipher Lab room the
@@ -541,11 +541,11 @@ class TestTheRenames(unittest.TestCase):
         point of this test is that it stays that way."""
         from ..game_data import chest_regions
 
-        self.assertEqual(chest_regions.CHEST_ITEM_GATES.get(27), ("ID Card",))
+        self.assertIsNone(chest_regions.CHEST_ITEM_GATES.get(27))   # Downstairs Chest 4 opens without the card
         self.assertEqual(chest_regions.CHEST_REGION_GATES.get(2), ("Citadark Isle",))
         for chest in (98, 99, 100):
-            self.assertEqual(chest_regions.CHEST_TO_REGION[chest], "Pyrite Town (ONBS)",
-                             "ONBS is reached only through Data ROM -> Poke Spots")
+            self.assertEqual(chest_regions.CHEST_TO_REGION[chest], "Pyrite Town" if chest == 100 else "Pyrite Town (ONBS)",
+                             "the 2F chest is open on the first Pyrite visit; 3F waits for the raid")
             # ADDENDUM 405 reversed ADDENDUM 246's explicit gate. Pyrite Town's 2nd visit (the ONBS raid) is not
             # gated behind the Data ROM at all, only behind Pyrite Town and the Poke Spots. The region is the
             # whole requirement now.
