@@ -645,6 +645,11 @@ Pokemon XD Gale of Darkness:
     'false': 50
     'true': 0
 
+  increased_walk_speed:
+    # You and the people in the overworld walk faster.
+    'false': 50
+    'true': 0
+
   ##############
   # Death Link #
   ##############

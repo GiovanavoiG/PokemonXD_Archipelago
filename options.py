@@ -300,6 +300,14 @@ class DisableMoveAnimations(Toggle):
     display_name = "Disable Move Animations"
 
 
+class IncreasedWalkSpeed(Toggle):
+    """
+    You and the people in the overworld walk faster.
+    """
+
+    display_name = "Increased Walk Speed"
+
+
 class ExperienceRate(Range):
     """
     EXP gain rate, in percentage. Reduces the need for grinding.
@@ -952,6 +960,7 @@ class PokemonXDOptions(PerGameCommonOptions):
     hold_b_to_advance: HoldBToAdvance
     battle_speed: BattleSpeed
     disable_move_animations: DisableMoveAnimations
+    increased_walk_speed: IncreasedWalkSpeed
 
     # -- Death Link --
     death_link: PokemonXDDeathLink
@@ -1038,6 +1047,7 @@ OPTION_GROUPS: "list[OptionGroup]" = [
         HoldBToAdvance,
         BattleSpeed,
         DisableMoveAnimations,
+        IncreasedWalkSpeed,
     ]),
     OptionGroup("Death Link", [
         PokemonXDDeathLink,

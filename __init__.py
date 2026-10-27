@@ -1739,6 +1739,8 @@ class PokemonXDWorld(World):
             "infinite_tms": False,
             "all_tms_learnable": False,
             "shadow_move_tms": [],
+            # A plain flag -- the patcher changes one main.dol float, the people module's 30.0, to 60.0.
+            "increased_walk_speed": False,
             # ADDENDUM 441: 0 is vanilla. With it on, {trainer index: 0..1000 progress} travels too.
             "catch_rate_scaling": 0,
             "catch_rate_progress_by_trainer": None,
@@ -1994,6 +1996,7 @@ class PokemonXDWorld(World):
         seed_data["text_speed"] = int(self.options.text_speed)
         seed_data["hold_b_to_advance"] = bool(self.options.hold_b_to_advance)
         seed_data["battle_speed"] = int(self.options.battle_speed)
+        seed_data["increased_walk_speed"] = bool(getattr(self.options, "increased_walk_speed", 0))
         seed_data["max_catch_rate"] = bool(catch_guaranteed)   # ADDENDUM 447/448
         seed_data["infinite_tms"] = bool(getattr(self.options, "infinite_tms", 0))   # ADDENDUM 463
         seed_data["all_tms_learnable"] = bool(getattr(self.options, "all_pokemon_learn_all_tms", 0))
