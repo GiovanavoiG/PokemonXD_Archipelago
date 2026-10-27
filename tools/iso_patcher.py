@@ -4491,6 +4491,17 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
         summary["infinite_tms_applied"] = tm_result["applied"]
         summary["infinite_tms_reason"] = tm_result["reason"]
 
+    # Increased Walk Speed -- the people module's 30.0 float constant becomes 60.0.
+    if seed.get("increased_walk_speed"):
+        walk_result = write_dol_words_patch(output_path, _game_data_module("walk_speed").dol_patch_words())
+        if walk_result["applied"]:
+            print("Increased Walk Speed: overworld walking is faster"
+                  + (" (already present)." if walk_result["reason"] else "."))
+        else:
+            print(f"Increased Walk Speed: NOT applied -- {walk_result['reason']}. Walking keeps its normal speed.")
+        summary["increased_walk_speed_applied"] = walk_result["applied"]
+        summary["increased_walk_speed_reason"] = walk_result["reason"]
+
     # ADDENDUM 465: a snagged Shadow is not rebuilt on a rematch, and the save's Shadow list knows each Shadow's real
     # species. Both read or follow the FINAL decks, so this runs after every deck pass above. Unconditional: each is
     # a fix, and on an unmodified Shadow roster the list write is empty.
