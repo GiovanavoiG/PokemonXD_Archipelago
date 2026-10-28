@@ -99,6 +99,18 @@ class PurificationProgressionCap(Range):
     default = 30
 
 
+class PurificationUnlocks(Toggle):
+    """
+    Adds a "Purify Unlock - {species}" item for every Shadow Pokemon in your seed. A Shadow's heart stays
+    closed -- it can be snagged and used, but never purified -- until its unlock is received.
+
+    With "Purification Checks" on, the unlocks behind the checks that can hold progression are progression
+    items themselves; the rest are useful.
+    """
+
+    display_name = "Purification Unlocks"
+
+
 class TrainerDefeatCheckCount(Range):
     """
     Only meaningful when Shuffle Trainer Defeats is on with setting Cumulative. Defaults to 100.
@@ -969,6 +981,7 @@ class PokemonXDOptions(PerGameCommonOptions):
     # -- Shadow Pokemon --
     purification_checks: PurificationChecks
     purification_progression_cap: PurificationProgressionCap
+    purification_unlocks: PurificationUnlocks
     shadow_pokemon_expansion: ShadowPokemonExpansion
     missable_trainer_shadows: MissableTrainerShadows
     kaminko_missable_trainers: KaminkoMissableTrainers
@@ -1060,6 +1073,7 @@ OPTION_GROUPS: "list[OptionGroup]" = [
     OptionGroup("Shadow Pokemon", [
         PurificationChecks,
         PurificationProgressionCap,
+        PurificationUnlocks,
         ShadowPokemonExpansion,
         MissableTrainerShadows,
         KaminkoMissableTrainers,

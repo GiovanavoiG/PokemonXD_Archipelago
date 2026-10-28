@@ -24,6 +24,8 @@ An Archipelago world for the GameCube game *Pokemon XD: Gale of Darkness* (USA, 
 - **Species catches** — one per entry, 1–386.
 - **Shop purchases** — every shop slot becomes its own check when Randomize Shops is on.
 - **Travel unlocks** — 11 fast-travel destinations become items when Location Shuffle is on.
+- **Purification unlocks** — with Purification Unlocks on, every Shadow species in your seed gets a
+  "Purify Unlock - {species}" item, and that Shadow cannot be purified until it arrives.
 
 **Goal:** reach Citadark Isle and beat Cipher's boss — or win Mt. Battle, if you set that goal instead.
 
