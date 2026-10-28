@@ -1,161 +1,86 @@
 """
-Shadow Pokemon expansion: which real trainers get brand-new, genuinely-distinct Shadow Pokemon beyond the
-game's fixed 83, and what species/level/moves each gets, drawn from the world's own seeded RNG.
+Where each "Catch - {species}" check can actually be caught THIS seed.
 
-Hard capacity ceiling, read before raising `SHADOW_EXPANSION_MAX_NEW_POKEMON`: a vanilla ISO has exactly 44
-free DDPK indices (128 slots in `DeckData_DarkPokemon.bin`, 83 used by the vanilla roster, 1 reserved sentinel
-at index 0, from scanning the real container bytes, ADDENDUM 69), so `ShadowPokemonExpansion` is a 0-44 Range
-and there is nowhere for a 45th. The full ceiling booted and battled cleanly on real hardware: 22 trainers,
-all 44 slots at once. Mt. Battle is out of scope permanently, and already out structurally -- do not wire an
-`mtbattle_team_census()` census into the `free_slot_census` this module is handed.
+This cannot go in the location name: names are part of the datapackage and must be identical for every seed,
+while which trainer holds Luvdisc changes per seed. So it goes in AP's two per-seed channels instead --
+`World.extend_hint_information` (shown in brackets after the location in hints and the spoiler) and slot_data
+`catch_sources` (what the client's `/catches` command prints, so the player need not spend hints).
+
+Built from the same per-seed caches `rules._catch_gates_for_species` reads. The shadow pool is shuffled in
+place, so re-deriving any of this later would describe the vanilla game and the text would disagree with the
+logic.
 """
-
 from __future__ import annotations
 
-from ..game_data.evolution_data import family_of_internal
+from typing import Any
 
-import random
-
-from ..game_data.real_trainer_data import PERMANENTLY_EXCLUDED_TRAINER_INDICES
-from ..game_data import shadow_move_slots
-from .team_shuffle import Species, choose_moveset, resolve_natural_evolution
-
-SHADOW_EXPANSION_MAX_NEW_POKEMON = 44  # the real, disc-format-level ceiling -- see module docstring
-# Tracks assign_movesets' default. Generated shadows live in grown DDPK entries rather than the in-place DPKM
-# budget ADDENDUM 35 measured, but keeping the two in step leaves one place to look on a budget change.
-SHADOW_EXPANSION_MOVE_COUNT = 4
-# The real Shadow-move id census: all 83 vanilla DDPK entries carry exactly 2 non-zero shadow_moves, 18
-# distinct ids, contiguous 356-373 (ADDENDUM 61). Selection lives in game_data/shadow_move_slots.py, which
-# also records which SLOT each id is legal in.
-REAL_SHADOW_MOVE_IDS: list[int] = list(range(356, 374))
+_POKESPOT_LABEL = {"rock": "Rock Spot", "oasis": "Oasis Spot", "cave": "Cave Spot",
+                   "all": "Rock Spot, Oasis Spot or Cave Spot (rare visitor)"}
 
 
-def _moveset_for(species_id: int, level: int, level_up_moves: dict[int, list[tuple[int, int]]],
-                  rng: random.Random, move_count: int = SHADOW_EXPANSION_MOVE_COUNT) -> list[int]:
-    """Move selection for a brand-new DPKM entry with no existing slot to look up; delegates to
-    `team_shuffle.choose_moveset`. Returns [] rather than padding when the species has no real level-up data --
-    `grow_dpkm_section` treats a short `moves` list as "leave the rest zero"."""
-    learnset = level_up_moves.get(species_id, [])
-    return choose_moveset(species_id, level, learnset, rng, move_count)
+def _host_label(index: int) -> "str | None":
+    from .game_data import trainer_roster
+
+    trainer = trainer_roster.TRAINERS_BY_INDEX.get(index)
+    if trainer is None:
+        return None
+    label = trainer_roster.trainer_label(trainer)
+    return label[len("Defeat - "):] if label.startswith("Defeat - ") else label
 
 
-def build_shadow_expansion_plans(
-    free_slot_census: list[dict],
-    species_pool: dict[int, Species],
-    level_up_moves: dict[int, list[tuple[int, int]]],
-    excluded_species: set[int],
-    target_count: int,
-    rng: random.Random,
-    max_new_pokemon: int = SHADOW_EXPANSION_MAX_NEW_POKEMON,
-    excluded_trainer_indices: frozenset[int] = frozenset(),
-    level_multiplier: float = 1.0,
-    line_reserved_species: "set[int] | None" = None,
-) -> list[dict]:
-    """Picks `target_count` brand-new Shadow Pokemon -- clamped to `max_new_pokemon` and to the real free-slot
-    capacity in `free_slot_census` (`real_trainer_free_slot_census()`'s output) -- and returns
-    `[{"trainer_index": int, "new_pokemon": [{"species", "level", "moves", "shadow_moves"}, ...]}]`, the shape
-    `iso_patcher.write_shadow_multi_trainer_patch` consumes.
+def sources_by_dex(world: Any) -> "dict[int, list[str]]":
+    """dex -> human-readable sources, earliest-recorded first, duplicates dropped."""
+    from .game_data import shadow_regions, trainer_placements
 
-    Exclusions are what that census omits, `excluded_trainer_indices`, and
-    `PERMANENTLY_EXCLUDED_TRAINER_INDICES`, always applied on top so callers need not merge it in; legendaries
-    and `excluded_species` (the 83 vanilla Shadow species) are dropped from `species_pool`. Species are drawn
-    WITHOUT REPLACEMENT, so no two new Shadows in a seed share a species, and trainers are filled ROUND-ROBIN
-    rather than one at a time, spreading new content over as many trainers as the target allows -- there are no
-    trainer-index bands, because this option must work without Enhanced Difficulty. Each new Pokemon's level is
-    its trainer's average team level times `level_multiplier`, rounded, clamped 1-100. Deterministic given the
-    same `rng` state -- pass the world's own seeded `self.random`."""
-    eligible = [
-        t for t in free_slot_census
-        if t["trainer_index"] not in excluded_trainer_indices
-        and t["trainer_index"] not in PERMANENTLY_EXCLUDED_TRAINER_INDICES
-    ]
-    total_capacity = sum(t["free_slots"] for t in eligible)
-    target_count = max(0, min(target_count, max_new_pokemon, total_capacity))
-    if target_count == 0:
-        return []
+    out: "dict[int, list[str]]" = {}
 
-    # ADDENDUM 486: one Shadow per evolution line. `excluded_species` is every Shadow already in the seed (and the
-    # gift line), so whole LINES go, not just those species -- and the picks below take a line each.
-    # `line_reserved_species` names the species whose LINES are taken -- the Shadows really in this seed -- when that is
-    # narrower than `excluded_species` (with Randomize Shadow Species on, the vanilla 83 are excluded as species only).
-    taken_lines = {family_of_internal(sid)
-                   for sid in (excluded_species if line_reserved_species is None else line_reserved_species)}
-    candidate_species = [
-        sid for sid, sp in species_pool.items()
-        if not sp.is_legendary and sid not in excluded_species and family_of_internal(sid) not in taken_lines
-    ]
-    target_count = min(target_count, len(candidate_species))
-    if target_count == 0:
-        return []
-    chosen_species = rng.sample(candidate_species, target_count)
+    def add(dex: int, text: str) -> None:
+        bucket = out.setdefault(dex, [])
+        if text not in bucket:
+            bucket.append(text)
 
-    trainers = list(eligible)
-    rng.shuffle(trainers)
-    remaining_free_slots = {t["trainer_index"]: t["free_slots"] for t in trainers}
-    avg_level_by_trainer = {t["trainer_index"]: t["avg_level"] for t in trainers}
-    order = [t["trainer_index"] for t in trainers]
+    # ADDENDUM 432: the region is where the carrying fight is, by trainer row (`shadow_regions.gates_for_ddpk`).
+    by_ddpk = getattr(world, "_shadow_catch_ddpks", None) or {}
+    for dex, labels in (getattr(world, "_shadow_catch_labels", None) or {}).items():
+        ddpks = list(by_ddpk.get(dex, ()))
+        for position, location_name in enumerate(labels):
+            label = shadow_regions.trainer_label_from_location(location_name)
+            if position < len(ddpks):
+                gates = shadow_regions.gates_for_ddpk(ddpks[position])
+                region = gates[0].region if gates else None
+            else:
+                gate = shadow_regions.gate_for_label(label)
+                region = gate.region if gate else None
+            add(dex, f"Shadow: {label}, {region}" if region else f"Shadow: {label}")
 
-    assigned_counts: dict[int, int] = {idx: 0 for idx in order}
-    total_assigned = 0
-    while total_assigned < target_count:
-        progressed = False
-        for idx in order:
-            if total_assigned >= target_count:
-                break
-            if remaining_free_slots[idx] > 0:
-                assigned_counts[idx] += 1
-                remaining_free_slots[idx] -= 1
-                total_assigned += 1
-                progressed = True
-        if not progressed:
-            break  # every eligible trainer's free slots are exhausted -- total_capacity already bounds this
-    assigned_counts = {idx: count for idx, count in assigned_counts.items() if count > 0}
+    missable_hosts = getattr(world, "_missable_shadow_hosts", None) or {}
+    for dex, hosts in (getattr(world, "_shadow_catch_expansion_hosts", None) or {}).items():
+        for index in hosts:
+            label = _host_label(index) or f"trainer #{index}"
+            region = trainer_placements.region_for(index)
+            text = f"Shadow: {label}, {region}" if region else f"Shadow: {label}"
+            if int(index) in missable_hosts:
+                text += " (Miror B. if missed)"
+            add(dex, text)
 
-    plans: list[dict] = []
-    species_cursor = 0
-    # The dedup set is post-evolution and starts from the vanilla Shadow species the caller reserved: without
-    # that, a new Shadow could evolve into a species a vanilla Shadow already is (ADDENDUM 198).
-    claimed: set[int] = set(excluded_species)
+    for entry in (getattr(world, "_pokespot_species_assignment", None) or []):
+        dex = entry.get("new_dex")
+        if isinstance(dex, int):
+            add(dex, f"Wild: {_POKESPOT_LABEL.get(entry.get('pool'), 'Poke Spot')}")
+    return out
 
-    def _free(species_id: int) -> bool:
-        return species_id not in claimed and family_of_internal(species_id) not in taken_lines
 
-    def _take(species_id: int) -> int:
-        claimed.add(species_id)
-        taken_lines.add(family_of_internal(species_id))
-        return species_id
+def sources_by_location(world: Any) -> "dict[str, str]":
+    """"Catch - {species}" -> "source; source", only for catch locations this seed actually created."""
+    from .species import location_name_for_species
 
-    def _claim(pick: int, at_level: int) -> int:
-        """Evolve `pick` to `at_level` and reserve the result, trying other candidates on a collision -- of species,
-        or (ADDENDUM 486) of evolution line."""
-        evolved = resolve_natural_evolution(pick, at_level, species_pool)
-        if _free(evolved):
-            return _take(evolved)
-        for alternative in chosen_species[species_cursor:] + candidate_species:
-            evolved = resolve_natural_evolution(alternative, at_level, species_pool)
-            if _free(evolved):
-                return _take(evolved)
-        return _take(pick)  # pool exhausted -- an unevolved duplicate beats failing generation
-
-    for idx in sorted(assigned_counts):
-        # `level_multiplier` is what carries Enhanced Difficulty's scaling into the trainer average; it
-        # defaults to 1.0, so Shadow Expansion on its own behaves exactly as before.
-        level = max(1, min(100, round(avg_level_by_trainer[idx] * level_multiplier)))
-        new_pokemon = []
-        for _ in range(assigned_counts[idx]):
-            species_id = chosen_species[species_cursor]
-            species_cursor += 1
-            # Evolve to the level this Pokemon actually joins at, like every other randomized Pokemon.
-            species_id = _claim(species_id, level)
-            new_pokemon.append({
-                "species": species_id,
-                "level": level,
-                "moves": _moveset_for(species_id, level, level_up_moves, rng),
-                # Shadow-move legality is POSITIONAL: ids 367-373 never appear in slot 0 in any of the 83
-                # vanilla entries, and five of 356-366 appear in no slot but 0. Sampling 2 uniformly from all 18
-                # put an illegal move (no PP in-game) in slot 0 for 14 of 44 Shadows in a real seed. Measured
-                # table: game_data/shadow_move_slots.py.
-                "shadow_moves": shadow_move_slots.choose_shadow_moves(rng, 2),
-            })
-        plans.append({"trainer_index": idx, "new_pokemon": new_pokemon})
-    return plans
+    created = {location.name for location in world.multiworld.get_locations(world.player)}
+    out: "dict[str, str]" = {}
+    for dex, texts in sources_by_dex(world).items():
+        try:
+            name = location_name_for_species(dex)
+        except KeyError:
+            continue
+        if name in created and texts:
+            out[name] = "; ".join(texts)
+    return out

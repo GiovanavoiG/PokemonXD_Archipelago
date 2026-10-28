@@ -4882,6 +4882,17 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
         summary["increased_walk_speed_applied"] = walk_result["applied"]
         summary["increased_walk_speed_reason"] = walk_result["reason"]
 
+    # Quick Purification Ceremony -- the ceremony's move-effect sequences are never loaded or looked up.
+    if seed.get("quick_purification_ceremony"):
+        ceremony_result = write_dol_words_patch(output_path, _game_data_module("quick_ceremony").dol_patch_words())
+        if ceremony_result["applied"]:
+            print("Quick Purification Ceremony: the ceremony plays without its effects"
+                  + (" (already present)." if ceremony_result["reason"] else "."))
+        else:
+            print(f"Quick Purification Ceremony: NOT applied -- {ceremony_result['reason']}. The ceremony plays as normal.")
+        summary["quick_purification_ceremony_applied"] = ceremony_result["applied"]
+        summary["quick_purification_ceremony_reason"] = ceremony_result["reason"]
+
     # ADDENDUM 465: a snagged Shadow is not rebuilt on a rematch, and the save's Shadow list knows each Shadow's real
     # species. Both read or follow the FINAL decks, so this runs after every deck pass above. Unconditional: each is
     # a fix, and on an unmodified Shadow roster the list write is empty.

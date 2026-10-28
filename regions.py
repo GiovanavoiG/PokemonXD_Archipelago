@@ -1,132 +1,379 @@
-"""Real-PokemonXDWorld-pipeline test for Enhanced Difficulty's Mt. Battle extension and the new Goal option
-(2026-09-09, ADDENDUM 93: the Enhanced Difficulty YAML option also randomizes and fills the Mt. Battle trainer
-teams, while Shadow Pokemon still never randomize into Mt. Battle).
+"""
+Region graph for the Pokemon XD: Gale of Darkness apworld.
 
-Mirrors `test_generate_output_combined.py`'s approach (a real `MultiWorld`/fill/`generate_output` cycle,
-reading the produced `seed.json` back out) rather than testing `build_enhanced_difficulty_plan`/`mtbattle_team_
-census()` in isolation (already covered by ad hoc checks during development) -- this is the test that would
-have caught a wiring mistake in `__init__.py`'s `generate_output()` itself (wrong option gating, the Mt. Battle
-block silently never running, `mt_battle_enhanced_difficulty_plan` never reaching `seed_data`, etc.), the same
-class of bug this project's own combined-options tests exist to catch."""
-import json
-import tempfile
-import zipfile
-from pathlib import Path
+An explicit edge list rather than an ordered chain, because regions branch. With `randomize_travel_locations`
+off, a region needs its predecessor plus whatever key item its story transition needs; with it on, each
+destination's `Travel Unlock` item is an additional entrance ANDed with those gates and the two confirmed
+adjacency rules.
+"""
 
-from Fill import distribute_items_restrictive
+from BaseClasses import Region
 
-from . import PokemonXDTestBase
+from . import travel_locations
+from . import items
+from .items import PokemonXDItem, ItemClassification
+from .locations import (PokemonXDLocation, LOCATIONS_BY_REGION, EVENT_LOCATION_NAME, MT_BATTLE_EVENT_LOCATION_NAME,
+                        GREEVIL_DEFEATED_EVENT_LOCATION_NAME,
+                        create_regions_and_locations)
+from .game_data.shadow_regions import POST_GOAL_EVENT_ITEM as GREEVIL_DEFEATED_EVENT_ITEM
 
+# The gates are the key items and the story order (game_data/story_bytes.py, game_data/key_items.py).
+REGION_EDGES: "tuple[tuple[str, str, tuple[str, ...]], ...]" = (
+    # (from, to, required item names) -- "Menu" means "open from the start"
+    ("Menu", "Pokemon HQ Lab", ()),
+    # The vanilla progression line: HQ > Kaminko > HQ > Gateon > HQ > Agate. The "four always open" rule is
+    # only about travel-randomization mode and lives in the travel block below.
+    ("Pokemon HQ Lab", "Kaminko's House", ()),
+    ("Kaminko's House", "Gateon Port", ()),
+    ("Gateon Port", "Agate Village", ("Machine Part",)),
+    ("Agate Village", "Mt. Battle", ()),
+    # Vanilla unlocks Cipher Lab at Mt. Battle. ADDENDUM 406: the lab itself is not behind the Data ROM in either travel
+    # mode -- only Lovrina, her defeat item and chest 23 are. Those carry the gate themselves (trainer_placements,
+    # chest_regions.CHEST_ITEM_GATES), as does Naps #2.
+    ("Mt. Battle", "Cipher Lab", ()),
+    # Pyrite is visited in two halves. ADDENDUM 406: neither is behind the Data ROM, and the Poke Spots do not need
+    # it either (and ADDENDUM 405: the ONBS raid is gated only behind Pyrite Town and the Poke Spots).
+    ("Cipher Lab", "Pyrite Town", ()),
+    ("Pyrite Town", "Poke Spots", ()),
+    ("Poke Spots", "Pyrite Town (ONBS)", ()),
+    ("Pyrite Town (ONBS)", "Realgam Tower", ()),
+    ("Realgam Tower", "Phenac City", ()),
+    # Three tiers rather than one region: chest 80 holds the Music Disc and chest 78 the Mayor's Note, so a
+    # single "needs both" region would gate both items behind themselves.
+    ("Phenac City", "Phenac City (Mayor's House)", ("Music Disc",)),
+    ("Phenac City (Mayor's House)", "Phenac City (Post-Sixes)", ("Music Disc", "Mayor's Note")),
+    ("Phenac City (Post-Sixes)", "SS Libra (stranded)", ("Elevator Key",)),
+    ("SS Libra (stranded)", "Kaminko's House (Robo Groudon)", ()),
+    # The ship needs the Scooter Upgrade in both travel modes. Named directly rather than through
+    # `requirement_to_pool_item`: it is not a vanilla key item with a packaging story.
+    ("Kaminko's House (Robo Groudon)", "SS Libra", (items.SCOOTER_ITEM_NAME,)),
+    ("SS Libra", "Cipher Key Lair (exterior)", ()),
+    ("Cipher Key Lair (exterior)", "Outskirt Stand", ()),
+    ("Outskirt Stand", "Snagem Hideout", ()),
+    # Gonzap's Key is deliberately not required: no chest in the treasure table holds it or a Shadow Ball, so
+    # it gates no AP location at all.
+    ("Snagem Hideout", "Cipher Key Lair", ()),
+    ("Cipher Key Lair", "Cipher Key Lair (deep)", ("System Lever",)),
+    ("Cipher Key Lair (deep)", "Citadark Isle", ()),
+)
 
-class TestMtBattleEnhancedDifficultyOnExcludeOff(PokemonXDTestBase):
-    options = {
-        # ADDENDUM 196: the expansion defaults to 44 now; this test asserts the no-expansion path.
-        "shadow_pokemon_expansion": 0,
-        # ADDENDUM 197: Enhanced Difficulty is a Choice now. "fill_enemy_team" is the setting that
-        # reproduces what this option did when it was a plain on/off, and the level scaling it used
-        # to carry is its own toggle, so both are set to keep this test exercising what it always did.
-        "enhanced_difficulty": "fill_enemy_team",
-        "enhanced_difficulty_level_scaling": True,
-        "exclude_mt_battle_trainers": False,
-        "goal": "win_mt_battle",
-    }
+# ADDENDUM 418: with travel shuffle OFF, Pyrite Town is behind the Data ROM, and so is everything the chain reaches
+# through it: every Pyrite Town item in vanilla locations is gated behind the Data ROM and ID Card, as is everything
+# after Pyrite Town -- everything except Agate, Gateon, Mt. Battle and Cipher Lab.
+# Kept out of REGION_EDGES on purpose: travel mode carries a suppressed chain edge's items onto its gateway, and
+# ADDENDUM 406 left travel mode's Pyrite, Poke Spots and ONBS off the ROM. One edge is enough -- the vanilla chain
+# is linear past the lab, so Poke Spots, the ONBS, Realgam and on inherit it.
+VANILLA_TRAVEL_EDGE_ITEMS: "dict[tuple[str, str], tuple[str, ...]]" = {
+    ("Cipher Lab", "Pyrite Town"): ("Data ROM",),
+}
 
-    def test_mt_battle_plan_is_populated_and_pads_trainers_when_not_excluded(self) -> None:
-        distribute_items_restrictive(self.multiworld)
+# With travel shuffle ON, re-source these edges. `SS Libra -> Cipher Key Lair (exterior)` was the one edge
+# still running through the ship, putting the Scooter Upgrade in front of the exterior, the deep tier and
+# Citadark; the ship's predecessor implies everything that path did. Not applied with shuffle off: there the
+# ladder is the only route to 0x62 and `ram_client.ScooterStoryHold` pins the story byte at 0x5A until the
+# Scooter arrives, so the fill could place the Scooter in Snagem and strand the run. With shuffle on, hovering
+# Snagem makes `AreaStoryByteMemory` write `story_bytes.SNAGEM_BASE_FLOOR` (0x62) and they walk in.
+TRAVEL_SHUFFLE_REROUTED_EDGES: "dict[str, str]" = {
+    # The exterior is behind the Key Lair's own map icon: TU Cipher Key Lair and nothing else.
+    "Cipher Key Lair (exterior)": "Cipher Key Lair",
+}
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            self.world.generate_output(tmp_dir)
-            appxd_files = list(Path(tmp_dir).glob("*.appxd"))
-            self.assertEqual(len(appxd_files), 1)
-            with zipfile.ZipFile(appxd_files[0]) as zf:
-                seed_data = json.loads(zf.read("seed.json"))
+# ADDENDUM 435 widened this to BOTH travel modes. With location shuffle off Citadark can be Parts-only, while the
+# placement still tries to have most of the story completed most of the time. The late-story weighting is a placement
+# bias (`PokemonXDWorld._bind_parts_to_late_story`), not a logic gate, and the client gives a vanilla-travel player
+# their story byte back after an early ride (`StoryByteOverride.return_story_after_citadark`).
+#
+# ADDENDUM 433: with travel shuffle ON and the Parts gate ON, Citadark Isle is reached from Gateon Port with the Parts
+# and nothing else -- it is not gated behind the Key Lair in location shuffle. The client's Parts override
+# (`ram_client.StoryByteOverride`) lifts Gateon's byte to the ride value "regardless of story progress", and Gateon
+# is open from the start in that mode, so the Key Lair travel unlock and the System Lever never stood between the
+# player and the ride. The Parts count stays the gate (ADDENDUM 430's fence reads Citadark's entrances, whatever
+# they are). Not applied with the Parts gate off, where the ride is reached by playing the story.
+TRAVEL_SHUFFLE_PARTS_SOURCE: "dict[str, str]" = {
+    "Citadark Isle": "Gateon Port",
+}
 
-        mt_plan = seed_data.get("mt_battle_enhanced_difficulty_plan")
-        self.assertTrue(
-            mt_plan, "mt_battle_enhanced_difficulty_plan is empty/None -- Enhanced Difficulty's Mt. Battle "
-                      "extension silently produced nothing even though enhanced_difficulty was enabled and "
-                      "exclude_mt_battle_trainers was off"
-        )
-        # Real DeckData_Hundred.bin census (ADDENDUM 92): 100 trainers, 321 total DPKM team slots -- every
-        # existing member should get the level boost regardless of exclude_mt_battle_trainers.
-        self.assertEqual(len(mt_plan["level_assignment"]), 321)
-        # With exclude_mt_battle_trainers off, the same ramp rule as the main story roster should pad a real
-        # majority of Mt. Battle's 100 trainers (trainers 1-5 excluded by the ramp itself, everything past 15
-        # gets filled toward 6 wherever it has room) -- not a fragile exact count, just "padding is genuinely
-        # happening," matching this project's own "assert the invariant, not an over-fit exact number" style.
-        padded_trainers = {s["trainer_index"] for s in mt_plan["team_slot_plan"]}
-        self.assertGreater(len(padded_trainers), 50)
-        self.assertTrue(padded_trainers.issubset(set(range(1, 101))))
+# Every region the graph names, in a stable order (first appearance).
+REGION_NAMES: "tuple[str, ...]" = tuple(
+    dict.fromkeys([edge[1] for edge in REGION_EDGES])
+)
 
-        # Enhanced Difficulty's ordinary Story-side plan must still be produced independently (this option
-        # never stops doing what it already did) -- and the two plans' trainer_index values must never be
-        # treated as the same namespace by anything reading this seed.json (ADDENDUM 92/93's core warning).
-        self.assertTrue(seed_data.get("enhanced_difficulty_plan"))
+# A reroute has to name a real edge and a real region, or it is a typo that silently changes nothing.
+assert all(target in REGION_NAMES and source in REGION_NAMES
+           for target, source in TRAVEL_SHUFFLE_REROUTED_EDGES.items()), (
+    "ADDENDUM 293: a rerouted edge names a region the graph does not have"
+)
+assert all(target in REGION_NAMES and source in REGION_NAMES
+           for target, source in TRAVEL_SHUFFLE_PARTS_SOURCE.items()), (
+    "ADDENDUM 433: the Parts route names a region the graph does not have"
+)
+assert all(any(edge[1] == target for edge in REGION_EDGES)
+           for target in TRAVEL_SHUFFLE_REROUTED_EDGES), (
+    "ADDENDUM 293: a rerouted edge names a target nothing connects to, so the reroute would do nothing"
+)
 
-        # Shadow Pokemon Expansion must never reference Mt. Battle even though this seed didn't touch that
-        # option at all here -- covered directly (not just by omission) since a future regression that wires
-        # Shadow Expansion into Mt. Battle's census would very likely start emitting trainer_index values
-        # in this exact 1-100 range that this seed's new_shadow_pokemon_plans should never contain.
-        shadow_plans = seed_data.get("new_shadow_pokemon_plans") or []
-        self.assertEqual(shadow_plans, [], "shadow_pokemon_expansion was off for this seed but produced a plan")
-
-        # Goal option reaches the client via slot_data.
-        self.assertEqual(seed_data.get("player"), self.player)
-
-
-class TestMtBattleEnhancedDifficultyExcluded(PokemonXDTestBase):
-    options = {
-        # ADDENDUM 197: Enhanced Difficulty is a Choice now. "fill_enemy_team" is the setting that
-        # reproduces what this option did when it was a plain on/off, and the level scaling it used
-        # to carry is its own toggle, so both are set to keep this test exercising what it always did.
-        "enhanced_difficulty": "fill_enemy_team",
-        "enhanced_difficulty_level_scaling": True,
-        "exclude_mt_battle_trainers": True,
-        # Path Level Scaling became default-on with the 2026-10-10 options.py; this test is about
-        # Enhanced Difficulty alone and its docstring says "with path scaling off", so it says so explicitly.
-        "path_level_scaling": False,
-    }
-
-    def test_nothing_from_enhanced_difficulty_reaches_mt_battle_when_excluded(self) -> None:
-        """RETARGETED by ADDENDUM 388. This asserted the opposite -- 321 levels boosted with the exclude
-        toggle ON -- and that was the bug: the option reads "Excludes Mt Battle from
-        enhanced difficulty", is on by default, and still multiplied every Mt. Battle level by 1.33. Measured
-        across all 100 trainers, vanilla's 9..70 mean 48.5 was arriving as 11..93 mean 64.0.
-
-        The plan object is still PRODUCED, because path scaling writes its Mt. Battle ramp into the same
-        structure and that is a different option. With path scaling off, as here, it is simply empty."""
-        distribute_items_restrictive(self.multiworld)
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            self.world.generate_output(tmp_dir)
-            appxd_files = list(Path(tmp_dir).glob("*.appxd"))
-            with zipfile.ZipFile(appxd_files[0]) as zf:
-                seed_data = json.loads(zf.read("seed.json"))
-
-        mt_plan = seed_data.get("mt_battle_enhanced_difficulty_plan")
-        self.assertTrue(mt_plan is not None,
-                        "mt_battle_enhanced_difficulty_plan should still be produced -- path scaling writes "
-                        "its Mt. Battle ramp into it, and that is a separate option")
-        # ADDENDUM 388: exclude means both halves -- no padding AND no multiplier.
-        self.assertEqual(mt_plan["level_assignment"], {})
-        self.assertEqual(mt_plan["new_dpkm_entries"], [])
-        self.assertEqual(mt_plan["team_slot_plan"], [])
-
-
-class TestGoalOptionDefaultsToDefeatGreevil(PokemonXDTestBase):
-    options = {}
-
-    def test_goal_defaults_to_defeat_greevil_and_reaches_slot_data(self) -> None:
-        # option_defeat_greevil == 0, the Goal option's documented default.
-        self.assertEqual(self.world.options.goal.value, 0)
-        slot_data = self.world.fill_slot_data()
-        self.assertEqual(slot_data.get("goal"), 0)
+# Retired. Kept so older slot data and the tests that referenced them still import.
+REGION_CHAIN: list[str] = list(REGION_NAMES)
+MEMOS_REQUIRED: list[int] = [0] * len(REGION_CHAIN)
 
 
-class TestGoalOptionWinMtBattle(PokemonXDTestBase):
-    options = {"goal": "win_mt_battle"}
+def create_and_connect_regions(world) -> None:
+    menu = Region("Menu", world.player, world.multiworld)
+    world.multiworld.regions.append(menu)
 
-    def test_goal_win_mt_battle_reaches_slot_data(self) -> None:
-        self.assertEqual(self.world.options.goal.value, 1)
-        slot_data = self.world.fill_slot_data()
-        self.assertEqual(slot_data.get("goal"), 1)
+    regions = create_regions_and_locations(world)
+
+    # The Parts are a key, not a finish line: they gate the Citadark Isle entrance, not the goal.
+    parts_for_citadark = (int(world.options.robo_kyogre_parts_required)
+                          if world.options.robo_kyogre_parts_unlock_citadark else 0)
+    travel_shuffle = bool(world.options.randomize_travel_locations)
+
+    # Create any graph region locations.py did not already make (it only makes regions that hold locations).
+    for region_name in REGION_NAMES:
+        if region_name not in regions:
+            region = Region(region_name, world.player, world.multiworld)
+            world.multiworld.regions.append(region)
+            regions[region_name] = region
+
+    # An access rule may only name an item that actually enters the pool: `all_state` never holds one that was
+    # never created, so naming it makes every region past that edge unreachable -- the Elevator Key gate once
+    # took out Outskirt Stand, Snagem, the Key Lair and Citadark at once.
+    shuffle_key_items = bool(getattr(world.options, "key_item_shuffle", 1))
+    # Independent of the above and of travel randomization: one option covering both travel modes.
+    shuffle_scooter = bool(getattr(world.options, "shuffle_scooter_upgrade", 0))
+
+    def _item_is_in_the_pool(item_name: str) -> bool:
+        if item_name in items.NEVER_SHUFFLED_KEY_ITEM_NAMES:
+            return False
+        if item_name in items.ITEMS_REMOVED_FROM_POOL:
+            return False
+        if item_name in items.GATING_KEY_ITEM_NAMES:
+            return shuffle_key_items
+        # The Scooter follows its own option, which is what makes `shuffle_scooter_upgrade` off mean "SS Libra
+        # is ungated" rather than "sealed".
+        if item_name in items.OPTION_GATED_PROGRESSION_ITEMS:
+            return shuffle_scooter
+        return True
+
+    def _required_items(required: "tuple[str, ...]", target: str) -> "tuple[str, ...]":
+        """The pool item names one edge into `target` really needs, after translation and pool filtering."""
+        # REGION_EDGES names "Data ROM" because that is what the game requires; the ROM and the ID Card ship
+        # as one item. Translating here keeps the table a description of the game, not of the item pool.
+        names = [items.requirement_to_pool_item(name) for name in required]
+        names = [name for name in dict.fromkeys(names) if _item_is_in_the_pool(name)]
+        # ADDENDUM 406 retired the Cipher Lab / Data ROM split: travel shuffle used to replace the lab's way in
+        # with the ROM. The lab is reached like any other destination now; the ROM gates what is inside it.
+        return tuple(names)
+
+    def _edge_rule(required: "tuple[str, ...]", target: str):
+        """The access rule for one edge. `None` means unconditional, which AP wants rather than a lambda that
+        always returns True."""
+        names = _required_items(required, target)
+        parts = parts_for_citadark if target == "Citadark Isle" else 0
+        if not names and not parts:
+            return None
+
+        def rule(state, names=names, parts=parts):
+            for item_name in names:
+                if not state.has(item_name, world.player):
+                    return False
+            if parts and state.count(items.MACGUFFIN_ITEM_NAME, world.player) < parts:
+                return False
+            return True
+
+        return rule
+
+    # With travel randomization on the story chain is not a second way in: Client.enforce_travel_locks holds
+    # every not-yet-received destination's map bit clear each tick. Measured before this, a travel-shuffle
+    # world holding every progression item except the twelve travel unlocks still reached all 675 locations.
+    # So the chain edge is suppressed for regions whose bit is really held clear (derived from the client's own
+    # exempt set, so the two cannot drift), and its item requirement moves onto the gateway. Regions with no
+    # unlock of their own keep chaining, which keeps the Music Disc, Mayor's Note, System Lever and Parts
+    # load-bearing.
+    gateway_only: "frozenset[str]" = (
+        travel_locations.gateway_only_regions() if travel_shuffle else frozenset()
+    )
+    gateway_extra_items: "dict[str, tuple[str, ...]]" = {}
+
+    # `gateway_only` is one region per destination, but a map icon often covers several
+    # (`story_bytes.AREA_GROUPS`). A sibling tier is reached through the game once the icon let you into the
+    # area, so its chain edge must survive and gain the destination's item; suppressing it strands it, since
+    # the gateway connects to its own target only.
+    sibling_travel_item: "dict[str, str]" = (
+        travel_locations.travel_item_by_sibling_region() if travel_shuffle else {}
+    )
+
+    start_with_spots = bool(getattr(world.options, "start_with_poke_spots", 0))
+    for source, target, required in REGION_EDGES:
+        # Start With Miror Radar and Poke Spots: the spots open from the start (below), so the ONBS raid keeps its
+        # Pyrite requirement by coming off Pyrite Town directly.
+        if start_with_spots and (source, target) == ("Poke Spots", "Pyrite Town (ONBS)"):
+            source = "Pyrite Town"
+        if target in gateway_only:
+            carried = _required_items(required, target)
+            if carried:
+                gateway_extra_items[target] = carried
+            continue
+        # Applied here, not in REGION_EDGES: the game's own route to the Key Lair really does run through the
+        # ship. What changes is the route AP may assume, in the mode where the client delivers the other one.
+        if travel_shuffle:
+            source = TRAVEL_SHUFFLE_REROUTED_EDGES.get(target, source)
+        else:
+            required = tuple(required) + VANILLA_TRAVEL_EDGE_ITEMS.get((source, target), ())
+        # ADDENDUM 433 (shuffle on) and 435 (shuffle off): with the Parts gate, the ride from Gateon is the way in.
+        if parts_for_citadark:
+            source = TRAVEL_SHUFFLE_PARTS_SOURCE.get(target, source)
+        origin = menu if source == "Menu" else regions[source]
+        rule = _edge_rule(required, target)
+        needed_item = sibling_travel_item.get(target)
+        if needed_item is not None:
+            def rule(state, _base=rule, _item=needed_item, _player=world.player):
+                if not state.has(_item, _player):
+                    return False
+                return True if _base is None else _base(state)
+        if rule is None:
+            origin.connect(regions[target], name=f"{source} -> {target}")
+        else:
+            origin.connect(regions[target], name=f"{source} -> {target}", rule=rule)
+
+    if start_with_spots:
+        menu.connect(regions["Poke Spots"], name="Menu -> Poke Spots (start)")
+
+    # Checked live by the client when it detects a species, not by walking anywhere, so it hangs off Menu.
+    menu.connect(regions["Pokemon Storage"], name="Menu -> Pokemon Storage")
+
+    # Same for the 32 cumulative purification-count locations: checked off the purification-count tracker.
+    menu.connect(regions["Shadow Pokemon Purification"], name="Menu -> Shadow Pokemon Purification")
+
+    # No "Chest Opening", "Shop Purchases" or "Travel Unlocks" region any more: chests, shop lines and unlock
+    # checks are places, so locations.py files each in the region that contains it. The chest bucket was once
+    # created but never connected, leaving all 90 chest locations unreachable.
+
+    # The 232 cumulative trainer-defeat counts are counts, not places, so this bucket stays -- wired up
+    # explicitly because it is the same shape as that orphaned one. The 66 named "Defeat - {trainer}"
+    # locations live in real story regions.
+    menu.connect(regions["Trainer Defeat Count"], name="Menu -> Trainer Defeat Count")
+    # In cumulative mode this region exists but holds no locations, which is harmless.
+    if "Unique Trainer Defeats" in regions:
+        menu.connect(regions["Unique Trainer Defeats"], name="Menu -> Unique Trainer Defeats")
+
+    # ADDENDUM 446: the empty "Orre Colosseum" region (ADDENDUM 185) is gone with its travel unlock.
+
+    # Agate Village's sub-area: no extra requirement, since reaching Agate already implies reaching it.
+    relic_forest = Region("Relic Forest", world.player, world.multiworld)
+    world.multiworld.regions.append(relic_forest)
+    regions["Agate Village"].connect(relic_forest, name="Agate Village -> Relic Forest")
+    regions["Relic Forest"] = relic_forest  # so the travel-gateway block below can look it up
+
+    # Mt. Battle is an ordinary REGION_EDGES entry: the story-byte compilation puts it at 0x23 -> 0x24,
+    # straight off Agate Village. Creating it a second time here is what the region cache rejects.
+
+    # Each TRAVEL_LOCATION_BITS destination gets a small empty "gateway" region connecting unconditionally
+    # into whichever region TRAVEL_LOCATION_TARGET_REGION names. Every `state.can_reach` elsewhere benefits
+    # for free: can_reach does not care which entrance got you there.
+    if world.options.randomize_travel_locations:
+        # Region prerequisites are entrances, not `can_reach` calls inside an entrance rule: a rule sees the
+        # reachability from the PREVIOUS pass, so a chain of them resolves one link per pass. Measured on the
+        # first cut, `all_state` called SS Libra, Snagem and the Key Lair unreachable while holding every item
+        # in the pool, and took four passes to settle. A hard prerequisite
+        # (`TRAVEL_LOCATION_REQUIRED_REGIONS`) is an AND -- one entrance, sourced there; an adjacency
+        # (`TRAVEL_LOCATION_ADJACENCY`) is an OR -- one entrance per branch.
+        def _gateway_has_all(state, names, player=world.player):
+            for one in names:
+                if not state.has(one, player):
+                    return False
+            return True
+
+        for name, target_region_name in travel_locations.TRAVEL_LOCATION_TARGET_REGION.items():
+            gateway = Region(f"Travel Gateway - {name}", world.player, world.multiworld)
+            world.multiworld.regions.append(gateway)
+            item_name = travel_locations.travel_unlock_item_name(name)
+            adjacency = travel_locations.TRAVEL_LOCATION_ADJACENCY.get(name)
+            # Hard region prerequisites, never satisfiable by an item -- without this the Snagem travel item
+            # opened Snagem with no SS Libra, and the Key Lair item opened the Key Lair with no Snagem.
+            required_regions = travel_locations.required_regions_for(name)
+            # An AND of several regions cannot be one entrance, and none has needed more than one. Asserted
+            # so adding a second fails loudly instead of silently dropping one.
+            assert len(required_regions) <= 1, (
+                f"{name}: more than one hard prerequisite region needs a different shape than one entrance"
+            )
+            # The item the suppressed chain edge carried: flying to Pyrite Town does not hand you the ID Card.
+            carried_items = gateway_extra_items.get(target_region_name, ())
+            base_source = regions[required_regions[0]] if required_regions else menu
+
+            def _entry_rule(extra_any=(), item_name=item_name, carried_items=carried_items):
+                """Hold the unlock item, plus whatever the suppressed chain edge required, plus (when given)
+                any ONE of `extra_any`."""
+                def rule(state, item_name=item_name, carried_items=carried_items, extra_any=tuple(extra_any),
+                         _has_all=_gateway_has_all):
+                    if not state.has(item_name, world.player):
+                        return False
+                    if not _has_all(state, carried_items):
+                        return False
+                    if not extra_any:
+                        return True
+                    for one in extra_any:
+                        if state.has(one, world.player):
+                            return True
+                    return False
+                return rule
+
+            if adjacency is None:
+                base_source.connect(gateway, name=f"{base_source.name} -> Travel Gateway - {name}",
+                                    rule=_entry_rule())
+            else:
+                # One entrance per OR-branch. The sibling-item branch keeps the base source (its requirement
+                # is an item, not a place); each adjacency region becomes its own entrance.
+                if adjacency.sibling_items:
+                    siblings = tuple(travel_locations.travel_unlock_item_name(sib)
+                                     for sib in adjacency.sibling_items)
+                    base_source.connect(
+                        gateway,
+                        name=f"{base_source.name} -> Travel Gateway - {name} (sibling)",
+                        rule=_entry_rule(siblings),
+                    )
+                for region_name in adjacency.regions:
+                    regions[region_name].connect(
+                        gateway,
+                        name=f"{region_name} -> Travel Gateway - {name}",
+                        rule=_entry_rule(),
+                    )
+
+            gateway.connect(regions[target_region_name], name=f"Travel Gateway - {name} -> {target_region_name}")
+
+        # Kaminko, Gateon, Agate and Pokemon HQ Lab are the four open by default in this mode. Gateon and HQ
+        # already sit in the always-open "Outskirt Stand" bucket, but Kaminko Mansion's content is bucketed
+        # under "Agate Village", so Agate needs this extra entrance alongside its chain edge.
+        menu.connect(regions["Agate Village"], name="Menu -> Agate Village (always open)")
+
+    citadark = regions["Citadark Isle"]
+
+    # The win condition is an event: capture/defeat the Cipher Boss.
+    boss_region = citadark
+    event_name = EVENT_LOCATION_NAME
+    # ADDENDUM 483 (issue #1): with the Mt. Battle goal the win is Mt. Battle's final trainer (the client's
+    # `goal == 1` detection), so the event sits there and logic must reach Mt. Battle -- behind Agate Village (the
+    # Machine Part) with vanilla travel, behind `Travel Unlock - Mt. Battle` with it shuffled. Citadark Isle is then
+    # an ordinary area. It used to stay at Citadark whatever the option said, so a minimal-accessibility seed could
+    # leave the chosen goal unreachable.
+    if int(getattr(world.options, "goal", 0)) == 1:
+        boss_region = regions["Mt. Battle"]
+        event_name = MT_BATTLE_EVENT_LOCATION_NAME
+    victory_location = PokemonXDLocation(world.player, event_name, None, boss_region)
+    victory_location.place_locked_item(
+        PokemonXDItem("Victory", ItemClassification.progression, None, world.player)
+    )
+    # Ein File S does not exist as an item in the game and is out of the pool, so victory depends on nothing
+    # but reaching Citadark Isle, which the Parts already gate. Real win detection is in Client.py: Greevil's
+    # rematch, or story byte 0x78 as a backstop.
+    boss_region.locations.append(victory_location)
+
+    # Greevil's own defeat, whatever the goal is: the Shadows that only exist after him wait on this, not on
+    # "Victory" -- with the Mt. Battle goal, Victory is the Mt. Battle win and says nothing about Greevil.
+    greevil_location = PokemonXDLocation(world.player, GREEVIL_DEFEATED_EVENT_LOCATION_NAME, None, citadark)
+    greevil_location.place_locked_item(
+        PokemonXDItem(GREEVIL_DEFEATED_EVENT_ITEM, ItemClassification.progression, None, world.player)
+    )
+    citadark.locations.append(greevil_location)
+
+    world.multiworld.completion_condition[world.player] = lambda state: state.has("Victory", world.player)
