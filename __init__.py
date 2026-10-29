@@ -1787,6 +1787,8 @@ class PokemonXDWorld(World):
             # ADDENDUM 463: a plain flag -- the patcher changes one main.dol word so a TM is kept like an HM.
             "infinite_tms": False,
             "all_tms_learnable": False,
+            # A plain flag -- the patcher applies `game_data.better_ai` to deck_archive.fsys's trainer decks.
+            "better_ai": False,
             "shadow_move_tms": [],
             # A plain flag -- the patcher changes one main.dol float, the people module's 30.0, to 60.0.
             "increased_walk_speed": False,
@@ -2056,6 +2058,7 @@ class PokemonXDWorld(World):
         seed_data["escape_rope"] = True   # a key item that takes you to the world map, in every seed
         seed_data["kaminko_trainers"] = bool(self.options.kaminko_missable_trainers)
         seed_data["citadark_admins_only"] = bool(self.options.citadark_admins_only)
+        seed_data["better_ai"] = bool(getattr(self.options, "better_ai", 0))
         seed_data["shadow_move_tms"] = [[int(tm), int(move)] for tm, move in getattr(self, "_shadow_move_tms", [])]
         seed_data["shadow_engine_fixes"] = True   # ADDENDUM 465: snagged Shadows stay gone; the Shadow list's species
         # ADDENDUM 443: the starter's species (internal index) and four moves, five main.dol immediates.
