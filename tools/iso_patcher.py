@@ -2690,6 +2690,25 @@ def _vanilla_species_by_ddpk() -> "dict[int, int]":
     return {int(r["ddpk_index"]): int(r["species"]) for r in rows}
 
 
+def _move_definitions() -> "list[dict] | None":
+    """`data/move_data.json`'s rows (the Physical/Special Split's definitions); None when it cannot be read."""
+    data = None
+    if _PACKAGE_ROOT:
+        import importlib
+
+        try:
+            data = importlib.import_module(f"{_PACKAGE_ROOT}.game_data").load_json_data_file("move_data.json")
+        except Exception:
+            data = None
+    if data is None:
+        path = Path(__file__).resolve().parent.parent / "data" / "move_data.json"
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+    return data.get("rows")
+
+
 def write_shadow_record_fixes_patch(output_path: Path, species_catch_rates: "dict[int, int]") -> dict:
     """`apply_shadow_record_fixes` over all three DarkPokemon copies, species read off the patched DeckData_Story.bin."""
     output_path = Path(output_path).resolve()
@@ -3890,6 +3909,8 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     trade_evolutions_by_level = bool(seed.get("trade_evolutions_by_level"))
     # Every species can learn every TM.
     all_tms_learnable = bool(seed.get("all_tms_learnable"))
+    # Each move's own physical/special category, in common_rel's move table.
+    physical_special_split = bool(seed.get("physical_special_split"))
     # ADDENDUM 453/454: the Ability Swap on Gateon's last shelf. Every 0.1.2 seed carries True ("regardless of
     # options").
     ability_patch = bool(seed.get("ability_patch"))
@@ -4235,7 +4256,8 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     if (chest_dummy_item_id is not None or pokespot_assignment or item_rename_target_names
             or experience_rate != 100 or max_catch_rate or reduce_citadark_grind
             or trade_evolutions_by_level or friendship_evolutions_by_level or pokespot_catch_scaling
-            or ability_patch or all_tms_learnable or escape_rope_code_ready or candy_box_code_ready):
+            or ability_patch or all_tms_learnable or physical_special_split or escape_rope_code_ready
+            or candy_box_code_ready):
         reader = open_reader(output_path)
         try:
             fst = parse_fst(reader)
@@ -4447,6 +4469,26 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                 print("Every TM for everyone NOT applied -- the Pokemon stats table on this ISO did not match this "
                       "project's base-HP census.")
             summary["all_tms_species_written"] = (all_tms_result or {}).get("species_written", 0)
+        if physical_special_split:
+            _split = _game_data_module("physical_special_split")
+            split_result = None
+            if rel_format.verify_moves_table(rel):
+                _definitions = _move_definitions()
+                if _definitions is None:
+                    print("Physical/Special Split NOT applied -- data/move_data.json is not in this build.")
+                else:
+                    try:
+                        split_result = _split.apply_physical_special_split(
+                            rel_bytes, rel_format.moves_table_base(rel), rel_format.moves_table_count(rel),
+                            _definitions)
+                        print(f"Physical/Special Split: {split_result['moves_written']} moves given their "
+                              "Generation IX values.")
+                    except ValueError as exc:
+                        print(f"Physical/Special Split NOT applied -- {exc}.")
+            else:
+                print("Physical/Special Split NOT applied -- the move table on this ISO did not match this project's "
+                      "move data.")
+            summary["physical_special_split_moves_written"] = (split_result or {}).get("moves_written", 0)
         # ADDENDUM 453/454: the Ability Swap's row and name, only behind its main.dol routine.
         if ability_patch_code_ready:
             ability_patch_row_ready = apply_ability_patch_row(rel_bytes, rel)
