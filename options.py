@@ -943,6 +943,15 @@ class PhysicalSpecialSplit(Toggle):
     display_name = "Physical/Special Split"
 
 
+class UpdateMovesToGen9(Toggle):
+    """
+    Moves have the power, accuracy, PP, priority and type they have in Generation IX. (Moves that are Fairy type
+    there keep their own type.)
+    """
+
+    display_name = "Update Moves to Gen 9"
+
+
 @dataclass
 class PokemonXDOptions(PerGameCommonOptions):
     # ORDER MATTERS: Options.generate_yaml_templates emits the template in exactly this order (group by group,
@@ -1011,6 +1020,7 @@ class PokemonXDOptions(PerGameCommonOptions):
     all_pokemon_learn_all_tms: AllPokemonLearnAllTMs
     shadow_move_tms: ShadowMoveTMs
     physical_special_split: PhysicalSpecialSplit
+    update_moves_to_gen_9: UpdateMovesToGen9
 
     # -- Speed --
     text_speed: TextSpeed
@@ -1103,6 +1113,7 @@ OPTION_GROUPS: "list[OptionGroup]" = [
         AllPokemonLearnAllTMs,
         ShadowMoveTMs,
         PhysicalSpecialSplit,
+        UpdateMovesToGen9,
     ]),
     OptionGroup("Speed", [
         TextSpeed,

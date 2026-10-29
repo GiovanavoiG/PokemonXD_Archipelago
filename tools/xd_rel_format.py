@@ -663,7 +663,7 @@ MOVE_TABLE_FINGERPRINT: "dict[int, tuple[int, int]]" = {
     7: (15, 75), 8: (15, 75), 9: (15, 75), 10: (35, 40), 11: (30, 55), 13: (10, 80),
     15: (30, 50), 16: (35, 40), 17: (35, 60), 20: (20, 15), 63: (5, 150),
 }
-# Fly (19: 15, 70) is not here: the Physical/Special Split gives it 90 power, and the client proves the LIVE table
+# Fly (19: 15, 70) is not here: Update Moves to Gen 9 gives it 90 power, and the client proves the LIVE table
 # with this same list. Keep every entry one the split leaves alone (a test holds this).
 
 #: Entries rotobash skips, and the measurement says why: their animation id is already 0.

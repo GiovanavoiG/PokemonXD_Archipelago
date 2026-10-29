@@ -1583,6 +1583,7 @@ class PokemonXDWorld(World):
                 "catch_rate_scaling", "catch_rate_exclude_citadark", "catch_rate_exclude_greevil",
                 "shadow_inherited_moves", "infinite_tms", "single_master_ball",
                 "all_pokemon_learn_all_tms", "shadow_move_tms", "physical_special_split",
+                "update_moves_to_gen_9",
                 # Only the toggle travels; the per-seed plans are heavy and only iso_patcher.py needs them.
             )
         )
@@ -1788,8 +1789,10 @@ class PokemonXDWorld(World):
             "infinite_tms": False,
             "all_tms_learnable": False,
             "shadow_move_tms": [],
-            # A plain flag -- the patcher writes each move's category into common_rel's move table.
+            # Plain flags -- the patcher writes each move's Generation IX category (the split) and its other
+            # Generation IX fields (gen9_moves) into common_rel's move table.
             "physical_special_split": False,
+            "gen9_moves": False,
             # A plain flag -- the patcher changes one main.dol float, the people module's 30.0, to 60.0.
             "increased_walk_speed": False,
             "quick_purification_ceremony": False,
@@ -2056,6 +2059,7 @@ class PokemonXDWorld(World):
         seed_data["infinite_tms"] = bool(getattr(self.options, "infinite_tms", 0))   # ADDENDUM 463
         seed_data["all_tms_learnable"] = bool(getattr(self.options, "all_pokemon_learn_all_tms", 0))
         seed_data["physical_special_split"] = bool(getattr(self.options, "physical_special_split", 0))
+        seed_data["gen9_moves"] = bool(getattr(self.options, "update_moves_to_gen_9", 0))
         seed_data["escape_rope"] = True   # a key item that takes you to the world map, in every seed
         seed_data["kaminko_trainers"] = bool(self.options.kaminko_missable_trainers)
         seed_data["citadark_admins_only"] = bool(self.options.citadark_admins_only)

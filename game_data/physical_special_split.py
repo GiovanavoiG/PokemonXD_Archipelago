@@ -1,7 +1,10 @@
-"""Physical/Special Split -- each move takes its Generation IX priority, PP, accuracy, type, category and power.
+"""Physical/Special Split and Update Moves to Gen 9 -- two options over the same move-table rows.
+
+Physical/Special Split writes each move's Generation IX category. Update Moves to Gen 9 writes its Generation IX
+priority, PP, accuracy, type and power. Either can be on without the other.
 
 THE TABLE is common_rel's move table (inside `common.fsys`): pointer index 124, 0x38 bytes per move
-(`xd_rel_format.MOVE_ENTRY_SIZE`). The fields this writes, by their `waza::wazaDataBios*` accessors in main.dol:
+(`xd_rel_format.MOVE_ENTRY_SIZE`). The fields, by their `waza::wazaDataBios*` accessors in main.dol:
 
     +0x00  s8   priority        (`wazaDB_GetPri`)
     +0x01  u8   PP
@@ -12,11 +15,11 @@ THE TABLE is common_rel's move table (inside `common.fsys`): pointer index 124, 
     +0x20  u32  name id         (`zz_move_data_get_name_id`) -- the key into the definitions
 
 THE DEFINITIONS are `data/move_data.json`'s rows: `NameId`, plus `Vanilla*` and `Gen9*` copies of each field above.
-A row is written only when every one of its six bytes still holds the `Vanilla*` value, so a build whose table is
-not vanilla's is refused whole rather than half-converted.
+A row is written only when all six of its fields still hold the `Vanilla*` values -- whichever option is on -- so a
+build whose table is not vanilla's is refused whole rather than half-converted.
 
-FAIRY. Charm, Sweet Kiss and Moonlight are Fairy in Generation IX (`Gen9Type` 18), a type XD does not have. They
-keep their vanilla type; everything else about them is still written.
+FAIRY. Charm, Sweet Kiss and Moonlight are Fairy in Generation IX, a type XD does not have; their `Gen9Type` is
+their vanilla type. A definition naming a type past Dark keeps the vanilla type and is reported.
 
 THE CATEGORY BYTE ALONE DOES NOTHING for an ordinary move. `waza_GetZokuseiKindData` reads +0x13 only for a Shadow
 move and asks the move's TYPE for every other one (`zokusei::zokuseiBiosGetWazaKind`), so the split needs that
@@ -40,25 +43,32 @@ NAME_ID_OFFSET = 0x20
 #: XD's last type index (17, Dark). A Generation IX type past it (Fairy, 18) is not written.
 MAX_XD_TYPE = 17
 
-#: (definition suffix, offset, struct format) for each field written.
-FIELDS: "tuple[tuple[str, int, str], ...]" = (
+#: (definition suffix, offset, struct format). Physical/Special Split writes these.
+CATEGORY_FIELDS: "tuple[tuple[str, int, str], ...]" = (
+    ("Category", CATEGORY_OFFSET, ">B"),
+)
+#: Update Moves to Gen 9 writes these.
+GEN9_FIELDS: "tuple[tuple[str, int, str], ...]" = (
     ("Priority", PRIORITY_OFFSET, ">b"),
     ("Pp", PP_OFFSET, ">B"),
     ("Accuracy", ACCURACY_OFFSET, ">B"),
     ("Type", TYPE_OFFSET, ">B"),
-    ("Category", CATEGORY_OFFSET, ">B"),
     ("Power", POWER_OFFSET, ">h"),
 )
+#: Every field; all of them are checked against `Vanilla*` before anything is written.
+FIELDS = GEN9_FIELDS + CATEGORY_FIELDS
 
 
-def apply_physical_special_split(rel_bytes: bytearray, moves_base: int, move_count: int,
-                                 definitions: "list[dict]") -> "dict[str, object]":
-    """Write each move's Generation IX values into the move table in `rel_bytes` (common_rel, decompressed), in
-    place. `moves_base` is the table's offset in `rel_bytes`, `move_count` its row count, and `definitions`
-    `move_data.json`'s rows. Returns {"moves_written": n, "types_kept": [names]}.
+def apply_move_updates(rel_bytes: bytearray, moves_base: int, move_count: int, definitions: "list[dict]",
+                       split: bool, gen9_moves: bool) -> "dict[str, object]":
+    """Write the Generation IX values of the enabled options into the move table in `rel_bytes` (common_rel,
+    decompressed), in place: the category when `split`, the other five fields when `gen9_moves`. `moves_base` is
+    the table's offset in `rel_bytes`, `move_count` its row count, and `definitions` `move_data.json`'s rows.
+    Returns {"moves_written": n, "types_kept": [names]}.
 
     Raises ValueError, before writing anything, if a row's name id has no definition or a row's bytes do not hold
     its `Vanilla*` values."""
+    written_fields = (CATEGORY_FIELDS if split else ()) + (GEN9_FIELDS if gen9_moves else ())
     by_name_id = {int(d["NameId"]): d for d in definitions if d.get("NameId")}
     end = moves_base + move_count * MOVE_ENTRY_SIZE
     if moves_base < 0 or end > len(rel_bytes):
@@ -75,18 +85,19 @@ def apply_physical_special_split(rel_bytes: bytearray, moves_base: int, move_cou
         definition = by_name_id.get(name_id)
         if definition is None:
             raise ValueError(f"move {index}'s name id {name_id} is not in move_data.json")
-        changed = False
         for suffix, offset, fmt in FIELDS:
             (current,) = struct.unpack_from(fmt, rel_bytes, row + offset)
             vanilla = int(definition[f"Vanilla{suffix}"])
             if current != vanilla:
                 raise ValueError(f"move {index} ({definition.get('Name')}) has {suffix} {current}, not the "
                                  f"vanilla {vanilla}")
+        changed = False
+        for suffix, offset, fmt in written_fields:
             new = int(definition[f"Gen9{suffix}"])
             if suffix == "Type" and new > MAX_XD_TYPE:
                 types_kept.append(str(definition.get("Name")))
                 continue
-            if new != current:
+            if new != int(definition[f"Vanilla{suffix}"]):
                 plan.append((row + offset, fmt, new))
                 changed = True
         moves_written += changed

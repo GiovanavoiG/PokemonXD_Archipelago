@@ -3909,8 +3909,9 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     trade_evolutions_by_level = bool(seed.get("trade_evolutions_by_level"))
     # Every species can learn every TM.
     all_tms_learnable = bool(seed.get("all_tms_learnable"))
-    # Each move's own physical/special category, in common_rel's move table.
+    # Each move's own physical/special category, and its other Generation IX fields, in common_rel's move table.
     physical_special_split = bool(seed.get("physical_special_split"))
+    gen9_moves = bool(seed.get("gen9_moves"))
     # ADDENDUM 453/454: the Ability Swap on Gateon's last shelf. Every 0.1.2 seed carries True ("regardless of
     # options").
     ability_patch = bool(seed.get("ability_patch"))
@@ -4256,8 +4257,8 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     if (chest_dummy_item_id is not None or pokespot_assignment or item_rename_target_names
             or experience_rate != 100 or max_catch_rate or reduce_citadark_grind
             or trade_evolutions_by_level or friendship_evolutions_by_level or pokespot_catch_scaling
-            or ability_patch or all_tms_learnable or physical_special_split or escape_rope_code_ready
-            or candy_box_code_ready):
+            or ability_patch or all_tms_learnable or physical_special_split or gen9_moves
+            or escape_rope_code_ready or candy_box_code_ready):
         reader = open_reader(output_path)
         try:
             fst = parse_fst(reader)
@@ -4469,26 +4470,29 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                 print("Every TM for everyone NOT applied -- the Pokemon stats table on this ISO did not match this "
                       "project's base-HP census.")
             summary["all_tms_species_written"] = (all_tms_result or {}).get("species_written", 0)
-        if physical_special_split:
+        if physical_special_split or gen9_moves:
             _split = _game_data_module("physical_special_split")
+            _what = " and ".join(n for n, on in (("Physical/Special Split", physical_special_split),
+                                                 ("Update Moves to Gen 9", gen9_moves)) if on)
             split_result = None
             if rel_format.verify_moves_table(rel):
                 _definitions = _move_definitions()
                 if _definitions is None:
-                    print("Physical/Special Split NOT applied -- data/move_data.json is not in this build.")
+                    print(f"{_what} NOT applied -- data/move_data.json is not in this build.")
                 else:
                     try:
-                        split_result = _split.apply_physical_special_split(
+                        split_result = _split.apply_move_updates(
                             rel_bytes, rel_format.moves_table_base(rel), rel_format.moves_table_count(rel),
-                            _definitions)
-                        print(f"Physical/Special Split: {split_result['moves_written']} moves given their "
-                              "Generation IX values.")
+                            _definitions, split=physical_special_split, gen9_moves=gen9_moves)
+                        print(f"{_what}: {split_result['moves_written']} moves updated.")
+                        if split_result["types_kept"]:
+                            print(f"  Kept their vanilla type (XD has no Fairy): "
+                                  f"{', '.join(split_result['types_kept'])}.")
                     except ValueError as exc:
-                        print(f"Physical/Special Split NOT applied -- {exc}.")
+                        print(f"{_what} NOT applied -- {exc}.")
             else:
-                print("Physical/Special Split NOT applied -- the move table on this ISO did not match this project's "
-                      "move data.")
-            summary["physical_special_split_moves_written"] = (split_result or {}).get("moves_written", 0)
+                print(f"{_what} NOT applied -- the move table on this ISO did not match this project's move data.")
+            summary["move_updates_moves_written"] = (split_result or {}).get("moves_written", 0)
         # ADDENDUM 453/454: the Ability Swap's row and name, only behind its main.dol routine.
         if ability_patch_code_ready:
             ability_patch_row_ready = apply_ability_patch_row(rel_bytes, rel)
