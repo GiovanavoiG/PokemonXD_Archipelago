@@ -3287,6 +3287,7 @@ def write_nightmare_citadark_patch(output_path: Path, teams: "dict[int, dict]",
     result["shadows_relocated"] = len(levels)
     return {**result, "grew": patch_result["grew"]}
 
+GREEVIL_AI_INDEX = 200
 
 def _vanilla_ai_index_by_trainer() -> "dict[int, int]":
     """{trainer index: vanilla AI row} from the shipped `deckdata_story_trainers.json`; empty when it cannot be
@@ -3315,7 +3316,6 @@ def apply_better_ai_edit(story_decompressed: bytes, vanilla_ai: "dict[int, int]"
     nothing, when the row is past the table or a trainer's AI row is neither its vanilla one nor `ai_index` -- a
     different game version. Returns (new DeckData_Story.bin, the trainers changed)."""
     DTNR_AI_INDEX_OFF = 0x28
-    off = DTNR_AI_INDEX_OFF
     deck = deck_format.DeckFile(story_decompressed)
     if not 0 <= ai_index < deck.dtai_entries:
         raise ValueError(f"Better AI: AI row {ai_index} is past the table ({deck.dtai_entries} rows)")
@@ -3327,13 +3327,13 @@ def apply_better_ai_edit(story_decompressed: bytes, vanilla_ai: "dict[int, int]"
         if not 0 < trainer_index < deck.dtnr_entries:
             raise ValueError(f"Better AI: trainer {trainer_index} is not on this ISO")
         base = deck.dtnr_data + trainer_index * 0x38
-        current = struct.unpack_from(">H", buf, base + off)[0]
+        current = struct.unpack_from(">H", buf, base + DTNR_AI_INDEX_OFF)[0]
         if current == ai_index:
             continue
         if current != vanilla:
             raise ValueError(f"Better AI: trainer {trainer_index} has AI row {current} on this ISO, not the "
                              f"expected {vanilla} -- a different game version")
-        struct.pack_into(">H", buf, base + off, ai_index)
+        struct.pack_into(">H", buf, base + DTNR_AI_INDEX_OFF, ai_index)
         changed.append(trainer_index)
     out = bytes(buf)
     check = deck_format.DeckFile(out)
@@ -3345,10 +3345,9 @@ def apply_better_ai_edit(story_decompressed: bytes, vanilla_ai: "dict[int, int]"
 
 def write_better_ai_patch(output_path: Path, skip: "set[int] | frozenset[int]" = frozenset()) -> dict:
     """`apply_better_ai_edit` on the disc's DeckData_Story.bin, every trainer in the shipped extraction pointed at
-    `game_data.better_ai.BETTER_AI_INDEX`. Runs after Nightmare Citadark; `skip` is its replaced trainers."""
+    `tools.iso_patcher.GREEVIL_AI_INDEX`. Runs after Nightmare Citadark; `skip` is its replaced trainers."""
     result = {"applied": False, "reason": None, "trainers": 0}
     output_path = Path(output_path).resolve()
-    BETTER_AI_INDEX = 200 # Greevile's 2nd team AI row
     try:
         vanilla_ai = _vanilla_ai_index_by_trainer()
         if not vanilla_ai:
@@ -3367,7 +3366,7 @@ def write_better_ai_patch(output_path: Path, skip: "set[int] | frozenset[int]" =
         finally:
             reader.close()
         new_story, changed = apply_better_ai_edit(
-            deck_format.lzss_decode(story_raw), vanilla_ai, BETTER_AI_INDEX, skip)
+            deck_format.lzss_decode(story_raw), vanilla_ai, GREEVIL_AI_INDEX, skip)
         if not changed:
             result.update(applied=True, reason="already patched")
             return result
