@@ -115,6 +115,21 @@ class TestTheRefusals(unittest.TestCase):
             S.apply_move_updates(bytearray(0x100), 0, len(DEFINITIONS), DEFINITIONS, split=True, gen9_moves=True)
 
 
+class TestTheDolWord(unittest.TestCase):
+    def test_the_shadow_check_call_becomes_li_r3_1(self):
+        ((address, old, new),) = S.dol_patch_words()
+        self.assertEqual(0x8013E820, address)
+        self.assertEqual(0x48000001, old & 0xFC000003)                                  # bl
+        self.assertEqual(0x8013D03C, address + ((old & 0x03FFFFFC) ^ 0x02000000) - 0x02000000)
+        self.assertEqual(0x38600001, new)                                               # li r3,1
+
+    def test_every_shadow_move_already_has_a_category(self):
+        """Every move now takes the +0x13 path; the Shadow moves, which always did, must keep theirs."""
+        for d in DEFINITIONS[356:374]:
+            self.assertIn(d["Gen9Category"], (1, 2), d["Name"])
+            self.assertEqual(d["VanillaCategory"], d["Gen9Category"], d["Name"])
+
+
 class TestTheClientStillFindsTheTable(unittest.TestCase):
     def test_gen9_moves_leaves_every_fingerprint_move_alone(self):
         """The client proves the live move table with `MOVE_TABLE_FINGERPRINT`; a Gen 9 seed must still pass."""

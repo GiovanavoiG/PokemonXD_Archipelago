@@ -21,9 +21,11 @@ build whose table is not vanilla's is refused whole rather than half-converted.
 FAIRY. Charm, Sweet Kiss and Moonlight are Fairy in Generation IX, a type XD does not have; their `Gen9Type` is
 their vanilla type. A definition naming a type past Dark keeps the vanilla type and is reported.
 
-THE CATEGORY BYTE ALONE DOES NOTHING for an ordinary move. `waza_GetZokuseiKindData` reads +0x13 only for a Shadow
-move and asks the move's TYPE for every other one (`zokusei::zokuseiBiosGetWazaKind`), so the split needs that
-main.dol branch changed too. That half is not here.
+THE CATEGORY BYTE ALONE DOES NOTHING for an ordinary move. `waza_GetZokuseiKindData` (main.dol 0x8013E7F0) reads
++0x13 only when `wazaCheckDarkWaza` says the move is a Shadow move, and asks the move's TYPE for every other one
+(`zokusei::zokuseiBiosGetWazaKind`). So the split also replaces that call, `bl wazaCheckDarkWaza` at 0x8013E820, with
+`li r3,1`: every move then takes the +0x13 path (`dol_patch_words`). The Shadow moves already carry 1 or 2 there, so
+they are unchanged.
 
 Import-free so the standalone patcher can load it by path.
 """
@@ -39,6 +41,11 @@ ACCURACY_OFFSET = 0x04
 CATEGORY_OFFSET = 0x13
 POWER_OFFSET = 0x18
 NAME_ID_OFFSET = 0x20
+
+#: main.dol: `bl wazaCheckDarkWaza` (0x8013D03C) inside `waza_GetZokuseiKindData` -> `li r3,1`.
+SHADOW_CHECK_ADDRESS = 0x8013E820   # main.dol file offset 0x13B780
+VANILLA_SHADOW_CHECK_WORD = 0x4BFFE81D
+PATCHED_SHADOW_CHECK_WORD = 0x38600001
 
 #: XD's last type index (17, Dark). A Generation IX type past it (Fairy, 18) is not written.
 MAX_XD_TYPE = 17
@@ -57,6 +64,11 @@ GEN9_FIELDS: "tuple[tuple[str, int, str], ...]" = (
 )
 #: Every field; all of them are checked against `Vanilla*` before anything is written.
 FIELDS = GEN9_FIELDS + CATEGORY_FIELDS
+
+
+def dol_patch_words() -> "tuple[tuple[int, int, int], ...]":
+    """(address, vanilla word, new word) -- the split's main.dol half."""
+    return ((SHADOW_CHECK_ADDRESS, VANILLA_SHADOW_CHECK_WORD, PATCHED_SHADOW_CHECK_WORD),)
 
 
 def apply_move_updates(rel_bytes: bytearray, moves_base: int, move_count: int, definitions: "list[dict]",

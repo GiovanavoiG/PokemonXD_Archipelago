@@ -4928,6 +4928,17 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
         summary["increased_walk_speed_applied"] = walk_result["applied"]
         summary["increased_walk_speed_reason"] = walk_result["reason"]
 
+    # Physical/Special Split, main.dol half: every move's category comes from its own move-table byte (+0x13).
+    if seed.get("physical_special_split"):
+        split_dol = write_dol_words_patch(output_path, _game_data_module("physical_special_split").dol_patch_words())
+        if split_dol["applied"]:
+            print("Physical/Special Split: every move uses its own category"
+                  + (" (already present)." if split_dol["reason"] else "."))
+        else:
+            print(f"Physical/Special Split: NOT applied -- {split_dol['reason']}. Moves keep the type's category.")
+        summary["physical_special_split_dol_applied"] = split_dol["applied"]
+        summary["physical_special_split_dol_reason"] = split_dol["reason"]
+
     # Quick Purification Ceremony -- the ceremony's move-effect sequences are never loaded or looked up.
     if seed.get("quick_purification_ceremony"):
         ceremony_result = write_dol_words_patch(output_path, _game_data_module("quick_ceremony").dol_patch_words())
