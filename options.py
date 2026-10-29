@@ -935,6 +935,14 @@ class ShadowMoveTMs(Range):
     default = 0
 
 
+class PhysicalSpecialSplit(Toggle):
+    """
+    Each move is physical or special on its own, as in later generations, instead of by its type.
+    """
+
+    display_name = "Physical/Special Split"
+
+
 @dataclass
 class PokemonXDOptions(PerGameCommonOptions):
     # ORDER MATTERS: Options.generate_yaml_templates emits the template in exactly this order (group by group,
@@ -1002,6 +1010,7 @@ class PokemonXDOptions(PerGameCommonOptions):
     start_with_poke_spots: StartWithPokeSpots
     all_pokemon_learn_all_tms: AllPokemonLearnAllTMs
     shadow_move_tms: ShadowMoveTMs
+    physical_special_split: PhysicalSpecialSplit
 
     # -- Speed --
     text_speed: TextSpeed
@@ -1093,6 +1102,7 @@ OPTION_GROUPS: "list[OptionGroup]" = [
         StartWithPokeSpots,
         AllPokemonLearnAllTMs,
         ShadowMoveTMs,
+        PhysicalSpecialSplit,
     ]),
     OptionGroup("Speed", [
         TextSpeed,
