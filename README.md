@@ -60,12 +60,20 @@ An Archipelago world for the GameCube game *Pokemon XD: Gale of Darkness* (USA, 
 
 ## Playing
 
-1. Boot Dolphin and load your own Pokemon XD ISO - DO NOT OPEN THE POKEMON XD ARCHIPELAGO CLIENT YET.
-2. Start a new save file or continue one.
-3. **Finish the intro fight and save the game before connecting the client.** You can backup save files in the Dolphin folders if needed.
-4. Open your party menu at least once.
-5. Launch the client and connect to your room - enter your slot name.
-6. Play. **Please save after acquiring the Snag Machine. Save often for your own sake.**
+1. Start a new save file or continue one.
+2. **Finish the intro fight and save the game before connecting the client.** You can backup save files in the Dolphin folders if needed.
+3. Open your party menu at least once.
+4. Launch the client and connect to your room - enter your slot name.
+5. Play. **Please save after acquiring the Snag Machine. Save often for your own sake.**
+
+### Dolphin Settings
+
+This game has known issues with aspect ratio flickering and dual core speed ups.
+
+**If you've added the game to Dolphin's search path**: Right Click on the game -> Properties -> Game Config. In General, disable "Enable Dual Core". In Graphics -> Aspect Ratio, select "force 4:3".
+
+**If you haven't added the game to Dolphin's search path**: Click on Config in the icon menu bar. In General, disable "Enable Dual Core". In Graphics -> Aspect Ratio, select "force 4:3".
+
 ---
 
 ## Things worth knowing before you play
