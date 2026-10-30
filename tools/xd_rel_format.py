@@ -661,8 +661,10 @@ MOVE_SECOND_ANIMATION_OFFSET = 0x32   # u16BE -- measured, deliberately untouche
 MOVE_TABLE_FINGERPRINT: "dict[int, tuple[int, int]]" = {
     1: (35, 40), 2: (25, 50), 3: (10, 15), 4: (15, 18), 5: (20, 80), 6: (20, 40),
     7: (15, 75), 8: (15, 75), 9: (15, 75), 10: (35, 40), 11: (30, 55), 13: (10, 80),
-    15: (30, 50), 16: (35, 40), 17: (35, 60), 19: (15, 70), 20: (20, 15), 63: (5, 150),
+    15: (30, 50), 16: (35, 40), 17: (35, 60), 20: (20, 15), 63: (5, 150),
 }
+# Fly (19: 15, 70) is not here: Update Moves to Gen 9 gives it 90 power, and the client proves the LIVE table
+# with this same list. Keep every entry one the split leaves alone (a test holds this).
 
 #: Entries rotobash skips, and the measurement says why: their animation id is already 0.
 MOVES_WITHOUT_ANIMATIONS: "frozenset[int]" = frozenset({0, 355})

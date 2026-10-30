@@ -2690,6 +2690,25 @@ def _vanilla_species_by_ddpk() -> "dict[int, int]":
     return {int(r["ddpk_index"]): int(r["species"]) for r in rows}
 
 
+def _move_definitions() -> "list[dict] | None":
+    """`data/move_data.json`'s rows (the Physical/Special Split's definitions); None when it cannot be read."""
+    data = None
+    if _PACKAGE_ROOT:
+        import importlib
+
+        try:
+            data = importlib.import_module(f"{_PACKAGE_ROOT}.game_data").load_json_data_file("move_data.json")
+        except Exception:
+            data = None
+    if data is None:
+        path = Path(__file__).resolve().parent.parent / "data" / "move_data.json"
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+    return data.get("rows")
+
+
 def write_shadow_record_fixes_patch(output_path: Path, species_catch_rates: "dict[int, int]") -> dict:
     """`apply_shadow_record_fixes` over all three DarkPokemon copies, species read off the patched DeckData_Story.bin."""
     output_path = Path(output_path).resolve()
@@ -3890,6 +3909,9 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     trade_evolutions_by_level = bool(seed.get("trade_evolutions_by_level"))
     # Every species can learn every TM.
     all_tms_learnable = bool(seed.get("all_tms_learnable"))
+    # Each move's own physical/special category, and its other Generation IX fields, in common_rel's move table.
+    physical_special_split = bool(seed.get("physical_special_split"))
+    gen9_moves = bool(seed.get("gen9_moves"))
     # ADDENDUM 453/454: the Ability Swap on Gateon's last shelf. Every 0.1.2 seed carries True ("regardless of
     # options").
     ability_patch = bool(seed.get("ability_patch"))
@@ -4235,7 +4257,8 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     if (chest_dummy_item_id is not None or pokespot_assignment or item_rename_target_names
             or experience_rate != 100 or max_catch_rate or reduce_citadark_grind
             or trade_evolutions_by_level or friendship_evolutions_by_level or pokespot_catch_scaling
-            or ability_patch or all_tms_learnable or escape_rope_code_ready or candy_box_code_ready):
+            or ability_patch or all_tms_learnable or physical_special_split or gen9_moves
+            or escape_rope_code_ready or candy_box_code_ready):
         reader = open_reader(output_path)
         try:
             fst = parse_fst(reader)
@@ -4447,6 +4470,29 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                 print("Every TM for everyone NOT applied -- the Pokemon stats table on this ISO did not match this "
                       "project's base-HP census.")
             summary["all_tms_species_written"] = (all_tms_result or {}).get("species_written", 0)
+        if physical_special_split or gen9_moves:
+            _split = _game_data_module("physical_special_split")
+            _what = " and ".join(n for n, on in (("Physical/Special Split", physical_special_split),
+                                                 ("Update Moves to Gen 9", gen9_moves)) if on)
+            split_result = None
+            if rel_format.verify_moves_table(rel):
+                _definitions = _move_definitions()
+                if _definitions is None:
+                    print(f"{_what} NOT applied -- data/move_data.json is not in this build.")
+                else:
+                    try:
+                        split_result = _split.apply_move_updates(
+                            rel_bytes, rel_format.moves_table_base(rel), rel_format.moves_table_count(rel),
+                            _definitions, split=physical_special_split, gen9_moves=gen9_moves)
+                        print(f"{_what}: {split_result['moves_written']} moves updated.")
+                        if split_result["types_kept"]:
+                            print(f"  Kept their vanilla type (XD has no Fairy): "
+                                  f"{', '.join(split_result['types_kept'])}.")
+                    except ValueError as exc:
+                        print(f"{_what} NOT applied -- {exc}.")
+            else:
+                print(f"{_what} NOT applied -- the move table on this ISO did not match this project's move data.")
+            summary["move_updates_moves_written"] = (split_result or {}).get("moves_written", 0)
         # ADDENDUM 453/454: the Ability Swap's row and name, only behind its main.dol routine.
         if ability_patch_code_ready:
             ability_patch_row_ready = apply_ability_patch_row(rel_bytes, rel)
@@ -4881,6 +4927,17 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
             print(f"Increased Walk Speed: NOT applied -- {walk_result['reason']}. Walking keeps its normal speed.")
         summary["increased_walk_speed_applied"] = walk_result["applied"]
         summary["increased_walk_speed_reason"] = walk_result["reason"]
+
+    # Physical/Special Split, main.dol half: every move's category comes from its own move-table byte (+0x13).
+    if seed.get("physical_special_split"):
+        split_dol = write_dol_words_patch(output_path, _game_data_module("physical_special_split").dol_patch_words())
+        if split_dol["applied"]:
+            print("Physical/Special Split: every move uses its own category"
+                  + (" (already present)." if split_dol["reason"] else "."))
+        else:
+            print(f"Physical/Special Split: NOT applied -- {split_dol['reason']}. Moves keep the type's category.")
+        summary["physical_special_split_dol_applied"] = split_dol["applied"]
+        summary["physical_special_split_dol_reason"] = split_dol["reason"]
 
     # Quick Purification Ceremony -- the ceremony's move-effect sequences are never loaded or looked up.
     if seed.get("quick_purification_ceremony"):

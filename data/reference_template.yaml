@@ -634,6 +634,17 @@ Pokemon XD Gale of Darkness:
     random-high: 0 # random value weighted towards higher values
     random-range-0-18: 0 # random value between 0 and 18
 
+  physical_special_split:
+    # Each move is physical or special on its own, as in later generations, instead of by its type.
+    'false': 50
+    'true': 0
+
+  update_moves_to_gen_9:
+    # Moves have the power, accuracy, PP, priority and type they have in Generation IX. (Moves that are Fairy type
+    # there keep their own type.)
+    'false': 50
+    'true': 0
+
   #########
   # Speed #
   #########
