@@ -301,6 +301,24 @@ def resolve_launch_paths() -> "tuple[str, str] | None":
     return group.dolphin_path, group.rom_file
 
 
+DOLPHIN_PROCESS_NAME_ENV_VAR = "DME_DOLPHIN_PROCESS_NAME"
+
+
+def set_dolphin_process_name(dolphin: "str | None" = None) -> None:
+    """Point dolphin_memory_engine's hook at the executable named by host.yaml's `dolphin_path` (or `dolphin`
+    when given), so a renamed build (`Dolphin-x64.exe`, a fork) still hooks.
+    "Dolphin" when no path is configured. Read past `Group.__getattribute__`, as in `resolve_launch_paths`,
+    so a missing path never opens a file browser here."""
+    from pathlib import Path
+    if not dolphin:
+        try:
+            import settings
+            dolphin = object.__getattribute__(settings.get_settings().pokemon_xd_options, "dolphin_path")
+        except Exception:  # noqa: BLE001 -- the default name is the stock build's
+            dolphin = None
+    os.environ[DOLPHIN_PROCESS_NAME_ENV_VAR] = Path(str(dolphin)).stem if dolphin else "Dolphin"
+
+
 def patched_iso_path(patch_file: str, source_iso: str) -> "Path":
     """`AP_<seed>_P<n>_<name>.iso` beside the `.appxd`, in the source disc's own format."""
     from pathlib import Path
@@ -5792,6 +5810,7 @@ def main(*args: str) -> None:
             launch_paths = resolve_launch_paths()
         except Exception:  # noqa: BLE001 -- the client still opens; _run_client says nothing was patched
             logger.exception("Could not read the Pokemon XD paths from host.yaml.")
+    set_dolphin_process_name(launch_paths[0] if launch_paths else None)
 
     import colorama
 
