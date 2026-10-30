@@ -115,13 +115,37 @@ class TestTheRefusals(unittest.TestCase):
             S.apply_move_updates(bytearray(0x100), 0, len(DEFINITIONS), DEFINITIONS, split=True, gen9_moves=True)
 
 
+def _bl_target(address, word):
+    return address + ((word & 0x03FFFFFC) ^ 0x02000000) - 0x02000000
+
+
+SHADOW_CHECKS = {0x8013E820, 0x802157E4, 0x802177D4, 0x80229608, 0x8022A074}
+AI_MOVE_CHECKS = {0x802E2D60, 0x802E2E7C}
+
+
 class TestTheDolWord(unittest.TestCase):
-    def test_the_shadow_check_call_becomes_li_r3_1(self):
-        ((address, old, new),) = S.dol_patch_words()
-        self.assertEqual(0x8013E820, address)
-        self.assertEqual(0x48000001, old & 0xFC000003)                                  # bl
-        self.assertEqual(0x8013D03C, address + ((old & 0x03FFFFFC) ^ 0x02000000) - 0x02000000)
-        self.assertEqual(0x38600001, new)                                               # li r3,1
+    def test_exactly_the_shadow_and_ai_checks_are_patched(self):
+        addresses = [a for a, _o, _n in S.dol_patch_words()]
+        self.assertEqual(len(set(addresses)), len(addresses))
+        self.assertEqual(SHADOW_CHECKS | AI_MOVE_CHECKS, set(addresses))
+
+    def test_every_shadow_check_call_becomes_li_r3_1(self):
+        for address, old, new in S.dol_patch_words():
+            if address not in SHADOW_CHECKS:
+                continue
+            self.assertEqual(0x48000001, old & 0xFC000003, hex(address))                # bl
+            self.assertEqual(0x8013D03C, _bl_target(address, old), hex(address))        # wazaCheckDarkWaza
+            self.assertEqual(0x38600001, new, hex(address))                             # li r3,1
+
+    def test_every_ai_move_check_asks_the_category_byte(self):
+        """The AI's `bl zokuseiBiosGetWazaKind` (by type) becomes `bl waza_GetZokuseiKindData` (by +0x13)."""
+        for address, old, new in S.dol_patch_words():
+            if address not in AI_MOVE_CHECKS:
+                continue
+            self.assertEqual(0x48000001, old & 0xFC000003, hex(address))                # bl
+            self.assertEqual(0x48000001, new & 0xFC000003, hex(address))                # bl
+            self.assertEqual(0x80117AC4, _bl_target(address, old), hex(address))        # zokuseiBiosGetWazaKind
+            self.assertEqual(0x8013E7F0, _bl_target(address, new), hex(address))        # waza_GetZokuseiKindData
 
     def test_every_shadow_move_already_has_a_category(self):
         """Every move now takes the +0x13 path; the Shadow moves, which always did, must keep theirs."""
