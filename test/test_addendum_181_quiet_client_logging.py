@@ -33,6 +33,16 @@ TREE = ast.parse(SOURCE)
 # The only automatic (non-command) log output that is kept, as substrings of the call's source.
 # Grouped by the reason each one survives, so a future reader can tell "kept on purpose" from "missed."
 ALLOWED_AUTOMATIC = {
+    # Once per opened .appxd (Client.patch_and_boot): what happened to the patch and to Dolphin, minutes of
+    # silent work otherwise.
+    "Could not save the Pokemon XD paths",
+    "No Dolphin or ISO path was chosen",
+    "Using the already patched",
+    "this can take a few",
+    "Could not patch the ISO",
+    "Patched copy written to",
+    "Could not start Dolphin",
+    "Starting Dolphin.",
     # Once per reload that took items away: which ones are being sent again.
     "Your game went back to play time",
     # Guaranteed Catches: the game lacked the always-catch code or 255 rates and the client put them back.
