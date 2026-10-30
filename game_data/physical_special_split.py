@@ -14,12 +14,13 @@ THE TABLE is common_rel's move table (inside `common.fsys`): pointer index 124, 
     +0x18  s16  base power      (`wazaDataBiosGetIryoku`; `xd_rel_format.MOVE_BASE_POWER_OFFSET` is its low byte)
     +0x20  u32  name id         (`zz_move_data_get_name_id`) -- the key into the definitions
 
-THE DEFINITIONS are `data/move_data.json`'s rows: `NameId`, plus `Vanilla*` and `Gen9*` copies of each field above.
-A row is written only when all six of its fields still hold the `Vanilla*` values -- whichever option is on -- so a
-build whose table is not vanilla's is refused whole rather than half-converted.
+THE DEFINITIONS are `data/move_data.json`'s rows: `Name` and `NameId`, plus a `Vanilla*` and `Gen9*` pair for each
+field above that Generation IX changes -- a field the row leaves out keeps its vanilla value. A row is written only
+when every field it lists still holds its `Vanilla*` value -- whichever option is on -- so a build whose table is not
+vanilla's is refused whole rather than half-converted.
 
-FAIRY. Charm, Sweet Kiss and Moonlight are Fairy in Generation IX, a type XD does not have; their `Gen9Type` is
-their vanilla type. A definition naming a type past Dark keeps the vanilla type and is reported.
+FAIRY. Charm, Sweet Kiss and Moonlight are Fairy in Generation IX, a type XD does not have; their definitions
+leave their type out. A definition naming a type past Dark keeps the vanilla type and is reported.
 
 THE CATEGORY BYTE ALONE DOES NOTHING for an ordinary move. `waza_GetZokuseiKindData` (main.dol 0x8013E7F0) reads
 +0x13 only when `wazaCheckDarkWaza` says the move is a Shadow move, and asks the move's TYPE for every other one
@@ -95,7 +96,7 @@ def apply_move_updates(rel_bytes: bytearray, moves_base: int, move_count: int, d
     Returns {"moves_written": n, "types_kept": [names]}.
 
     Raises ValueError, before writing anything, if a row's name id has no definition or a row's bytes do not hold
-    its `Vanilla*` values."""
+    the `Vanilla*` values its definition lists."""
     written_fields = (CATEGORY_FIELDS if split else ()) + (GEN9_FIELDS if gen9_moves else ())
     by_name_id = {int(d["NameId"]): d for d in definitions if d.get("NameId")}
     end = moves_base + move_count * MOVE_ENTRY_SIZE
@@ -114,6 +115,8 @@ def apply_move_updates(rel_bytes: bytearray, moves_base: int, move_count: int, d
         if definition is None:
             raise ValueError(f"move {index}'s name id {name_id} is not in move_data.json")
         for suffix, offset, fmt in FIELDS:
+            if f"Vanilla{suffix}" not in definition:
+                continue      # Generation IX leaves this field alone
             (current,) = struct.unpack_from(fmt, rel_bytes, row + offset)
             vanilla = int(definition[f"Vanilla{suffix}"])
             if current != vanilla:
@@ -121,6 +124,8 @@ def apply_move_updates(rel_bytes: bytearray, moves_base: int, move_count: int, d
                                  f"vanilla {vanilla}")
         changed = False
         for suffix, offset, fmt in written_fields:
+            if f"Gen9{suffix}" not in definition:
+                continue
             new = int(definition[f"Gen9{suffix}"])
             if suffix == "Type" and new > MAX_XD_TYPE:
                 types_kept.append(str(definition.get("Name")))

@@ -14,13 +14,21 @@ DEFINITIONS = json.loads((pathlib.Path(__file__).resolve().parent.parent / "data
 BASE = 0x40
 
 
-def _vanilla_table() -> bytearray:
+#: What `_vanilla_table` writes for a field a definition leaves out; the patch must leave it there.
+UNLISTED = 7
+
+
+def _vanilla(d: dict, suffix: str) -> int:
+    return d.get(f"Vanilla{suffix}", UNLISTED)
+
+
+def _vanilla_table(definitions=DEFINITIONS) -> bytearray:
     """A move table holding every definition's vanilla values, in table order, behind BASE bytes of padding."""
-    data = bytearray(BASE + len(DEFINITIONS) * S.MOVE_ENTRY_SIZE)
-    for index, d in enumerate(DEFINITIONS):
+    data = bytearray(BASE + len(definitions) * S.MOVE_ENTRY_SIZE)
+    for index, d in enumerate(definitions):
         row = BASE + index * S.MOVE_ENTRY_SIZE
         for suffix, offset, fmt in S.FIELDS:
-            struct.pack_into(fmt, data, row + offset, d[f"Vanilla{suffix}"])
+            struct.pack_into(fmt, data, row + offset, _vanilla(d, suffix))
         struct.pack_into(">I", data, row + S.NAME_ID_OFFSET, d["NameId"])
     return data
 
@@ -36,8 +44,17 @@ def _apply(data: bytearray, split: bool = True, gen9_moves: bool = True, definit
 
 def _expected(d: dict, suffix: str, split: bool, gen9_moves: bool) -> int:
     on = split if suffix == "Category" else gen9_moves
-    want = d[f"Gen9{suffix}"] if on else d[f"Vanilla{suffix}"]
-    return d["VanillaType"] if suffix == "Type" and want > S.MAX_XD_TYPE else want
+    want = d.get(f"Gen9{suffix}", UNLISTED) if on else _vanilla(d, suffix)
+    return _vanilla(d, "Type") if suffix == "Type" and want > S.MAX_XD_TYPE else want
+
+
+class TestTheDefinitions(unittest.TestCase):
+    def test_each_row_lists_only_the_fields_gen9_changes_in_pairs(self):
+        for d in DEFINITIONS:
+            for suffix, _offset, _fmt in S.FIELDS:
+                self.assertEqual(f"Vanilla{suffix}" in d, f"Gen9{suffix}" in d, f"{d['Name']} {suffix}")
+                if f"Gen9{suffix}" in d:
+                    self.assertNotEqual(d[f"Vanilla{suffix}"], d[f"Gen9{suffix}"], f"{d['Name']} {suffix}")
 
 
 class TestTheWrite(unittest.TestCase):
@@ -70,10 +87,10 @@ class TestTheWrite(unittest.TestCase):
 
     def test_fairy_moves_keep_their_vanilla_type(self):
         for index in (186, 204, 236):   # Sweet Kiss, Charm, Moonlight
-            self.assertEqual(DEFINITIONS[index]["VanillaType"], DEFINITIONS[index]["Gen9Type"])
+            self.assertNotIn("Gen9Type", DEFINITIONS[index])
         definitions = [dict(d) for d in DEFINITIONS]
-        definitions[204]["Gen9Type"] = 18
-        data = _vanilla_table()
+        definitions[204].update(VanillaType=0, Gen9Type=18)
+        data = _vanilla_table(definitions)
         result = _apply(data, definitions=definitions)
         self.assertEqual(["CHARM"], result["types_kept"])
         self.assertEqual(0, _field(data, 204, "Type"))
@@ -95,10 +112,10 @@ class TestTheWrite(unittest.TestCase):
 
 class TestTheRefusals(unittest.TestCase):
     def test_a_non_vanilla_row_refuses_the_whole_table_for_either_option(self):
-        """The split alone still proves the five fields it does not write: the table must be vanilla's."""
+        """The split alone still proves the listed fields it does not write: the table must be vanilla's."""
         for split, gen9_moves in ((True, False), (False, True)):
             data = _vanilla_table()
-            struct.pack_into(">B", data, BASE + 53 * S.MOVE_ENTRY_SIZE + S.PP_OFFSET, 99)
+            struct.pack_into(">h", data, BASE + 53 * S.MOVE_ENTRY_SIZE + S.POWER_OFFSET, 99)
             before = bytes(data)
             with self.assertRaises(ValueError):
                 _apply(data, split, gen9_moves)
@@ -150,8 +167,7 @@ class TestTheDolWord(unittest.TestCase):
     def test_every_shadow_move_already_has_a_category(self):
         """Every move now takes the +0x13 path; the Shadow moves, which always did, must keep theirs."""
         for d in DEFINITIONS[356:374]:
-            self.assertIn(d["Gen9Category"], (1, 2), d["Name"])
-            self.assertEqual(d["VanillaCategory"], d["Gen9Category"], d["Name"])
+            self.assertNotIn("Gen9Category", d, d["Name"])
 
 
 class TestTheClientStillFindsTheTable(unittest.TestCase):
@@ -159,8 +175,8 @@ class TestTheClientStillFindsTheTable(unittest.TestCase):
         """The client proves the live move table with `MOVE_TABLE_FINGERPRINT`; a Gen 9 seed must still pass."""
         for index, (pp, power) in rf.MOVE_TABLE_FINGERPRINT.items():
             d = DEFINITIONS[index]
-            self.assertEqual((pp, power), (d["Gen9Pp"], d["Gen9Power"]), d["Name"])
-            self.assertEqual((pp, power), (d["VanillaPp"], d["VanillaPower"]), d["Name"])
+            self.assertNotIn("Gen9Pp", d, d["Name"])
+            self.assertNotIn("Gen9Power", d, d["Name"])
 
     def test_the_offsets_agree_with_rel_format(self):
         self.assertEqual(rf.MOVE_ENTRY_SIZE, S.MOVE_ENTRY_SIZE)
