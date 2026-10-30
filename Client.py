@@ -14,7 +14,8 @@ ordinary trainer's species are not globally unique, and are only confirmed live 
 The ~67 Overworld Item (chest/box/NPC-gift) locations have no known RAM or ISO-patch signal, so they are
 manual: `/checked <name>`, with `/remaining` for what is left. See patch.py for why the ISO patch stalled.
 
-This project does not patch the ISO, so there is no embedded slot name -- the player types it.
+There is no slot name embedded in the ISO. A client started from a `.appxd` takes it from the container's
+manifest (`main`); otherwise the player types it.
 `CommonContext.server_auth()` only handles the PASSWORD prompt, so `get_username()` and `send_connect()` must
 be called explicitly from the override below or the client connects and never asks for a slot name. That slot
 name (`ctx.auth`) is only a tie-break for `resolve_block_base()` now: ADDENDUM 444 finds the save block without a
@@ -249,6 +250,152 @@ def resolve_fst_iso() -> "Optional[str]":
         if candidate and Path(candidate).is_file():
             return candidate
     return None
+
+
+# Opening a `.appxd`: the Launcher hands the seed to `main`, which reads the container's manifest for the server
+# and slot name and makes sure host.yaml knows where Dolphin and the vanilla ISO are. Once the client window is
+# up, `patch_and_boot` patches a copy named after the seed file, next to it, and boots Dolphin on it.
+
+def read_patch_manifest(patch_file: str) -> "dict[str, Any]":
+    """The `archipelago.json` APPlayerContainer writes into every `.appxd` -- `server` (empty for a local
+    generation) and `player_name` are what the client wants. Empty on any failure; the seed itself is
+    iso_patcher's to validate."""
+    import zipfile
+    try:
+        with zipfile.ZipFile(patch_file) as zf:
+            return json.loads(zf.read("archipelago.json").decode("utf-8"))
+    except Exception:  # noqa: BLE001 -- a manifest only saves typing, it is never required
+        return {}
+
+
+def resolve_launch_paths() -> "tuple[str, str] | None":
+    """`(dolphin, vanilla iso)` from host.yaml's pokemon_xd_options, asking for whichever is missing and saving
+    the answers back. None when the player cancels. Runs before the GUI starts -- tk dialogs and a running
+    kivy window do not mix on macOS.
+
+    The raw values are read past `Group.__getattribute__` on purpose: it browses for a missing required path
+    itself, one Tk root per dialog, and two of those back to back hang on Windows (launcher_patch.py)."""
+    import settings
+    from .launcher_patch import prompt_open_files
+
+    group = settings.get_settings().pokemon_xd_options
+    group_cls = type(group)
+    dolphin_types = [("Dolphin", ".exe")] if Utils.is_windows else [("Dolphin", "*")]
+    fields = (
+        ("dolphin_path", group_cls.DolphinPath, dolphin_types),
+        ("rom_file", group_cls.RomFile, [("GameCube disc image", ".iso .gcm .ciso")]),
+    )
+    missing = [(key, path_cls, filetypes) for key, path_cls, filetypes in fields
+               if not path_cls(object.__getattribute__(group, key)).exists()]
+    if missing:
+        chosen = prompt_open_files([(f"Select {path_cls.description}", filetypes)
+                                    for _key, path_cls, filetypes in missing])
+        if chosen is None:
+            return None
+        for (key, path_cls, _filetypes), path in zip(missing, chosen):
+            setattr(group, key, path_cls(path))
+        try:
+            settings.get_settings().save()
+        except Exception as exc:  # noqa: BLE001 -- this launch still works, it just asks again next time
+            logger.warning(f"Could not save the Pokemon XD paths to host.yaml: {exc}")
+    return group.dolphin_path, group.rom_file
+
+
+def patched_iso_path(patch_file: str, source_iso: str) -> "Path":
+    """`AP_<seed>_P<n>_<name>.iso` beside the `.appxd`, in the source disc's own format."""
+    from pathlib import Path
+    suffix = Path(source_iso).suffix.lower()
+    return Path(patch_file).with_suffix(suffix if suffix in (".iso", ".gcm", ".ciso") else ".iso")
+
+
+class _LogLines:
+    """A write-only text stream that hands each complete line to `logger.info` on the event loop's thread, so
+    iso_patcher's print() progress lands in the client log without touching kivy from the patch thread."""
+
+    def __init__(self, loop: "asyncio.AbstractEventLoop") -> None:
+        self._loop = loop
+        self._pending = ""
+
+    def write(self, text: str) -> int:
+        self._pending += text
+        *lines, self._pending = self._pending.split("\n")
+        for line in lines:
+            if line.strip():
+                self._loop.call_soon_threadsafe(logger.info, line.rstrip())
+        return len(text)
+
+    def flush(self) -> None:
+        pass
+
+
+def _apply_patch(loop: "asyncio.AbstractEventLoop", source_iso: str, output: "Path", patch_file: str) -> dict:
+    from pathlib import Path
+    from .tools import iso_patcher
+
+    with contextlib.redirect_stdout(_LogLines(loop)):
+        return iso_patcher.apply_patch(Path(source_iso), output, Path(patch_file), overwrite=True)
+
+
+async def _run_in_daemon_thread(func, *args):
+    """`asyncio.to_thread`, but on a daemon thread: closing the client mid-patch must not leave the process
+    waiting minutes, invisibly, for the executor to drain. The patch only ever writes a temp file, so killing
+    it is safe."""
+    import threading
+    loop = asyncio.get_running_loop()
+    future = loop.create_future()
+
+    def runner() -> None:
+        try:
+            result = func(*args)
+        except BaseException as exc:  # noqa: BLE001 -- handed to the awaiting coroutine
+            loop.call_soon_threadsafe(lambda: future.done() or future.set_exception(exc))
+        else:
+            loop.call_soon_threadsafe(lambda: future.done() or future.set_result(result))
+
+    threading.Thread(target=runner, name="PokemonXDPatch", daemon=True).start()
+    return await future
+
+
+def boot_dolphin(dolphin: str, iso: str) -> None:
+    import subprocess
+    if Utils.is_macos and dolphin.endswith(".app"):
+        command = ["open", "-a", dolphin, "--args", "-e", iso]
+    else:
+        command = [dolphin, "-e", iso]
+    subprocess.Popen(command, cwd=os.path.dirname(dolphin) or None)
+
+
+async def patch_and_boot(ctx: "PokemonXDContext", patch_file: str, dolphin: str, source_iso: str) -> None:
+    """Patch `source_iso` for `patch_file` (or reuse a copy already patched from it), then boot it in Dolphin."""
+    from pathlib import Path
+    output = patched_iso_path(patch_file, source_iso)
+    if output.is_file() and output.stat().st_mtime >= Path(patch_file).stat().st_mtime:
+        logger.info(f"Using the already patched {output.name}.")
+    else:
+        # Patched under a temp name and moved into place only when complete, so a failed or interrupted patch
+        # can never be mistaken for a finished one by the reuse check above.
+        partial = output.with_name(f"{output.stem}.partial{output.suffix}")
+        logger.info(f"Patching {Path(source_iso).name} for {Path(patch_file).name} -- this can take a few "
+                    f"minutes.")
+        try:
+            summary = await _run_in_daemon_thread(_apply_patch, asyncio.get_running_loop(), source_iso, partial,
+                                                  patch_file)
+            os.replace(partial, output)
+        except Exception as exc:  # noqa: BLE001 -- reported, and the client keeps running
+            logger.error(f"Could not patch the ISO: {exc}")
+            with contextlib.suppress(OSError):
+                partial.unlink()
+            return
+        logger.info(f"Patched copy written to {output} "
+                    f"({summary.get('trainer_slots_patched', 0)} trainer species assignments).")
+    # The patched disc is exactly what the FST guard wants as its baseline.
+    ctx.apply_fst_iso(str(output), remember=True)
+    try:
+        boot_dolphin(dolphin, str(output))
+    except OSError as exc:
+        logger.error(f"Could not start Dolphin ({dolphin}): {exc}. Load {output} in Dolphin yourself.")
+        return
+    logger.info("Starting Dolphin. The client hooks in once your save is loaded.")
 
 
 class PokemonXDCommandProcessor(ClientCommandProcessor):
@@ -5599,7 +5746,9 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
             continue
 
 
-async def _run_client(connect: Optional[str], password: Optional[str], name: Optional[str]) -> None:
+async def _run_client(connect: Optional[str], password: Optional[str], name: Optional[str],
+                      patch_file: Optional[str] = None,
+                      launch_paths: "tuple[str, str] | None" = None) -> None:
     ctx = PokemonXDContext(connect, password)
     # Not ctx.auth: self.auth is reset to None on every disconnect while self.username is not, so setting
     # username here lets a reconnect re-derive auth instead of getting stuck unauthenticated.
@@ -5609,8 +5758,16 @@ async def _run_client(connect: Optional[str], password: Optional[str], name: Opt
         ctx.run_gui()
     ctx.run_cli()
     await asyncio.sleep(1)
+    patch_task = None
+    if patch_file and launch_paths:
+        patch_task = asyncio.create_task(patch_and_boot(ctx, patch_file, *launch_paths), name="PatchAndBoot")
+    elif patch_file:
+        logger.warning("No Dolphin or ISO path was chosen, so nothing was patched. Set pokemon_xd_options in "
+                       "host.yaml, or open the .appxd again.")
     ctx.dolphin_sync_task = asyncio.create_task(dolphin_sync_task(ctx), name="DolphinSync")
     await ctx.exit_event.wait()
+    if patch_task:
+        patch_task.cancel()                 # its daemon thread dies with the process; only a temp file is lost
     ctx.watcher_event.set()                 # wake the Dolphin loop so it sees the exit
     ctx.server_address = None
     await ctx.shutdown()
@@ -5622,12 +5779,25 @@ def main(*args: str) -> None:
     Utils.init_logging("Pokemon XD Client")
     parser = get_base_parser()
     parser.add_argument("--name", default=None, help="Slot name to connect as (also your in-game trainer name).")
+    parser.add_argument("patch_file", default="", nargs="?",
+                        help="A .appxd seed to patch your ISO with and boot in Dolphin.")
     options = parser.parse_args(args)
+
+    launch_paths = None
+    if options.patch_file:
+        manifest = read_patch_manifest(options.patch_file)
+        options.connect = options.connect or manifest.get("server") or None
+        options.name = options.name or manifest.get("player_name") or None
+        try:
+            launch_paths = resolve_launch_paths()
+        except Exception:  # noqa: BLE001 -- the client still opens; _run_client says nothing was patched
+            logger.exception("Could not read the Pokemon XD paths from host.yaml.")
 
     import colorama
 
     colorama.init()
     try:
-        asyncio.run(_run_client(options.connect, options.password, options.name))
+        asyncio.run(_run_client(options.connect, options.password, options.name,
+                                options.patch_file or None, launch_paths))
     finally:
         colorama.deinit()
