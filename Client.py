@@ -41,7 +41,7 @@ import Utils
 from CommonClient import ClientCommandProcessor, CommonContext, get_base_parser, gui_enabled, logger, server_loop
 from NetUtils import ClientStatus
 
-from . import fst_guard, items, ram_client, shop_scout, species, trainer_defeat, travel_locations
+from . import ap_patch, fst_guard, items, ram_client, shop_scout, species, trainer_defeat, travel_locations
 from . import wonder_trade_client
 from .game_data import story_bytes, trainer_roster
 from .game_data.mtbattle_trainer_data import (
@@ -1362,6 +1362,8 @@ class PokemonXDContext(CommonContext):
         self.randomize_shops: bool = False
         # ADDENDUM 415. True until slot data says otherwise: a seed generated before the option existed had them.
         self.purification_checks: bool = True
+        # The AP patch's block (ap_patch.py): `flags` and the received purification unlocks, re-asserted every poll.
+        self.ap_patch_sync = ap_patch.ApPatchSync()
         # {shop location name: (AP item name, receiving player name or None for ours)}, from the LocationScouts
         # reply. Read ONLY by the cosmetic description writer -- see on_package's LocationInfo branch for why.
         self.scouted_shop_items: "dict[str, tuple[str, str | None]]" = {}
@@ -1741,6 +1743,7 @@ class PokemonXDContext(CommonContext):
             self.map_level_text.levels = {str(k): int(v) for k, v in dict(slot_data.get("map_place_levels") or {}).items()}
             self.exclude_mt_battle_trainers = bool(slot_data.get("exclude_mt_battle_trainers", False))
             self.purification_checks = bool(slot_data.get("purification_checks", True))   # ADDENDUM 415
+            self.ap_patch_sync.configure(slot_data)
             self.kaminko_trainers = bool(slot_data.get("kaminko_missable_trainers", False))
             self.citadark_admins_only = bool(slot_data.get("citadark_admins_only", False))
             self.robo_kyogre_parts_required = int(slot_data.get("robo_kyogre_parts_required", 0) or 0)
@@ -2359,7 +2362,11 @@ async def give_items(ctx: PokemonXDContext) -> None:
         item_name = ITEM_ID_TO_NAME.get(network_item.item, f"Unknown Item {network_item.item}")
         _note_candy_box_seed(ctx, idx, item_name)
         try:
-            if item_name in EFFECT_ITEM_NAMES:
+            if item_name in items.PURIFY_UNLOCK_ITEMS:
+                # No Bag write: sync_ap_patch() keeps every received unlock in the AP patch's list.
+                logger.info(f"Received {item_name} -- that Shadow Pokemon can now be purified.")
+                delivered = True
+            elif item_name in EFFECT_ITEM_NAMES:
                 _apply_effect_item(ctx, item_name)
                 if item_name not in TRAP_ITEM_NAMES:
                     ctx.save_timeline.stamp(idx)
@@ -2936,6 +2943,25 @@ def _travel_held_closed(ctx: PokemonXDContext, name: str) -> bool:
     """ADDENDUM 474: a destination whose item has arrived but whose map bit stays clear for now. ADDENDUM 481: the SS
     Libra waits for the Phenac unlock (was: Phenac cleared -- REVERT `not _phenac_cleared(ctx)`)."""
     return name == SS_LIBRA_TRAVEL_NAME and not _phenac_unlocked(ctx)
+
+
+def sync_ap_patch(ctx: PokemonXDContext) -> None:
+    """Keeps the AP patch's block (ap_patch.py) equal to slot data and the received `Purify Unlock` items. Not
+    routed through give_items(): the block is plain RAM a reset clears, so it is compared every poll and rewritten
+    whenever it disagrees, from `items_received` alone -- a cold boot restores every unlock with no replay. Not in the
+    save block, so it needs neither `block_base` nor the block-stability gate."""
+    if not _lab_hold_inputs_ready(ctx):
+        return   # ADDENDUM 458: an empty list right after Connected is not the slot's inventory
+    unlocked = {items.PURIFY_UNLOCK_ITEM_TO_DEX[name] for name in
+                (ITEM_ID_TO_NAME.get(network_item.item) for network_item in ctx.items_received)
+                if name in items.PURIFY_UNLOCK_ITEM_TO_DEX}
+    try:
+        note = ctx.ap_patch_sync.poll(unlocked)
+    except Exception:
+        logger.debug("Pokemon XD: AP patch block sync failed", exc_info=True)
+        return
+    if note:
+        _note(ctx, note)
 
 
 async def sync_travel_locations(ctx: PokemonXDContext) -> None:
@@ -5447,6 +5473,7 @@ async def dolphin_sync_task(ctx: PokemonXDContext) -> None:
                     # Immediately after give_items and OUTSIDE the block-stability gate, like give_items itself:
                     # a packaged item's second half is part of delivering that item.
                     _deliver_companion_items(ctx)
+                    sync_ap_patch(ctx)
                     check_snag_machine_after_reload(ctx, block_is_stable)
                     # ADDENDUM 434: FIRST of the travel-record readers -- the two writers below erase what it reads.
                     if block_is_stable:

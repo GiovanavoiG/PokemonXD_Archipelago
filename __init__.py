@@ -480,6 +480,10 @@ class PokemonXDWorld(World):
         # ADDENDUM 432: the vanilla Shadow (DDPK) behind each label -- what the catch and purification gates key on.
         self._shadow_catch_ddpks: dict[int, list[int]] = {}
         self._shadow_catch_expansion_hosts: dict[int, list[int]] = {}
+        # Purification Unlocks: every Shadow this seed holds, post-goal and relocated ones included, as
+        # {Shadow id (DDPK index): national dex}. The expansion's join it once their DDPK slots are pinned below.
+        self._shadow_dex_by_ddpk: dict[int, int] = {}
+        self._post_goal_ddpks: set[int] = set()
         if shadow_pool is not None:
             from .game_data.real_trainer_data import real_species_pool
             from .randomizer.team_shuffle import TeamShuffleOptions, shuffle_teams
@@ -547,6 +551,11 @@ class PokemonXDWorld(World):
                     dex = national_dex_for(mon.species_id)
                     if dex is not None:
                         shadow_obtainable_dex.add(dex)
+                        from .game_data.shadow_regions import ddpk_for_dpkm as _unlock_ddpk_for_dpkm
+
+                        _unlock_ddpk = _unlock_ddpk_for_dpkm().get(mon.index)
+                        if _unlock_ddpk is not None:
+                            self._shadow_dex_by_ddpk[int(_unlock_ddpk)] = dex
                         if mon.index in _relocated_host:
                             # ADDENDUM 424: gated where it now is -- its host, keyed like a generated Shadow.
                             self._shadow_catch_expansion_hosts.setdefault(dex, []).append(_relocated_host[mon.index])
@@ -559,6 +568,7 @@ class PokemonXDWorld(World):
                             # ADDENDUM 479: still a Shadow this seed holds (the Poke Spots keep away from its
                             # species), but no check of its own -- only after the goal could it be purified.
                             _post_goal_shadow_dex.add(dex)
+                            self._post_goal_ddpks.add(int(_ddpk))
                             continue
                         _pre_goal_shadow_dex.add(dex)
                         # This slot's fixed AP location name. A list, so callers take the earliest.
@@ -665,6 +675,7 @@ class PokemonXDWorld(World):
                             self._shadow_catch_expansion_hosts.setdefault(dex, []).append(
                                 int(plan["trainer_index"])
                             )
+                self._pin_expansion_ddpks()
 
         # ADDENDUM 467: every other occurrence of a host trainer gets the same Shadow (same DDPK record), in a slot no
         # host claimed. Planned last, so it only ever takes what is left; ED reserves these slots too.
@@ -760,6 +771,9 @@ class PokemonXDWorld(World):
             self._shadow_move_tms = plan_shadow_move_tms(
                 _random.Random(self.random.getrandbits(64)), int(self.options.shadow_move_tms))
 
+        # Purification Unlocks: after the Shadow set is final, and last, so a seed without the option rolls as before.
+        self._plan_purify_unlocks()
+
     def _assign_shadow_movesets(self, seed_data: dict) -> None:
         """ADDENDUM 427: legal ordinary moves for every Shadow whose species was randomized, written through the
         same `trainer_moves_by_dpkm_index` channel the ordinary members use. Level: a relocated Shadow's host
@@ -815,6 +829,65 @@ class PokemonXDWorld(World):
                                for slot in trainer.get("team", ()) if slot.get("kind") == "DPKM"}
             for trainer in (load_json_data_file("deckdata_story_trainers.json") or ())
         }
+
+    def _pin_expansion_ddpks(self) -> None:
+        """Give each generated Shadow an explicit `target_ddpk_index`, so this seed knows its Shadow id before the ISO
+        is built. The same slots `write_shadow_multi_trainer_patch` auto-assigns -- the free DDPK indices (84-127 on
+        the retail disc) in flat plan order -- now stated rather than implied, which the purification unlocks key on."""
+        from .game_data import load_json_data_file
+        from .tools.xd_species_index import national_dex_for
+
+        in_use = {int(entry["ddpk_index"]) for entry in load_json_data_file("deckdata_dark_pokemon.json") or []}
+        free = iter([i for i in range(1, 0x80) if i not in in_use])   # DeckData_DarkPokemon.bin's 128 records
+        for plan in self._shadow_expansion_plans or ():
+            for mon in plan["new_pokemon"]:
+                ddpk = next(free, None)
+                if ddpk is None:
+                    return   # never on a retail disc: the expansion is capped at its 44 free slots
+                mon["target_ddpk_index"] = ddpk
+                dex = national_dex_for(mon["species"])
+                if dex is not None:
+                    self._shadow_dex_by_ddpk[ddpk] = dex
+
+    def _plan_purify_unlocks(self) -> None:
+        """Purification Unlocks: which species get an unlock this seed, and which of those are progression.
+
+        Every Shadow species gets one. With Purification Checks on, `Purify 1..cap` may hold progression, so `cap`
+        Shadows' unlocks are too, drawn from those snaggable before the goal and off Miror B.'s teams (an encounter
+        logic cannot promise) unless too few remain; the rule for those rungs counts only Shadows whose unlock is
+        held (rules.py). The rest are useful."""
+        self._purify_unlock_dex: "set[int]" = set()
+        self._progression_purify_unlock_dex: "set[int]" = set()
+        if not self.options.purification_unlocks:
+            return
+        self._purify_unlock_dex = set(self._shadow_dex_by_ddpk.values())
+        need = int(self.options.purification_progression_cap) if self.options.purification_checks else 0
+        if need <= 0:
+            return
+        shadows_of: "dict[int, int]" = {}
+        for ddpk, dex in self._shadow_dex_by_ddpk.items():
+            if ddpk not in self._post_goal_ddpks:
+                shadows_of[dex] = shadows_of.get(dex, 0) + 1
+        miror_b = locations.miror_b_shadow_dex(self)
+        preferred = sorted(dex for dex in shadows_of if dex not in miror_b)
+        fallback = sorted(dex for dex in shadows_of if dex in miror_b)
+        rng = random.Random(self.random.getrandbits(64))
+        rng.shuffle(preferred)
+        rng.shuffle(fallback)
+        covered = 0
+        for dex in preferred + fallback:
+            if covered >= need:
+                break
+            self._progression_purify_unlock_dex.add(dex)
+            covered += shadows_of[dex]
+
+    def purify_unlock_classification(self, name: str) -> ItemClassification:
+        dex = items.PURIFY_UNLOCK_ITEM_TO_DEX[name]
+        if dex in getattr(self, "_progression_purify_unlock_dex", ()):
+            return ItemClassification.progression
+        if dex in getattr(self, "_purify_unlock_dex", ()):
+            return ItemClassification.useful
+        return ItemClassification.progression   # before generate_early has decided: the table's default
 
     def _plan_nightmare_relocations(self) -> "list[dict]":
         """ADDENDUM 424: hosts for the Shadows Nightmare Citadark displaces. Same fence as the expansion's
@@ -1260,6 +1333,8 @@ class PokemonXDWorld(World):
         shuffle_scooter_upgrade = bool(getattr(self.options, "shuffle_scooter_upgrade", 0))
         for name, data in ITEM_TABLE.items():
             if data.classification.name == "progression":
+                if name in items.PURIFY_UNLOCK_ITEMS:
+                    continue   # one per Shadow species this seed, added below
                 if name in items.TRAVEL_UNLOCK_ITEMS and not include_travel_unlocks:
                     continue
                 # Start With Miror Radar and Poke Spots: the Poke Spots' unlock is starting inventory, not a pool item.
@@ -1284,6 +1359,17 @@ class PokemonXDWorld(World):
         for name in items.GUARANTEED_USEFUL_ITEM_NAMES:
             if name not in items.ITEMS_REMOVED_FROM_POOL:
                 item_pool.append(self.create_item(name))
+        # Purification Unlocks: the progression ones join the count below; the useful ones take the useful budget
+        # first, and any that do not fit go in as filler -- a missing unlock would leave a Shadow unpurifiable.
+        _precollected = {item.name for item in self.multiworld.precollected_items[self.player]}
+        _unlock_names = [items.purify_unlock_item_name(dex) for dex in sorted(getattr(self, "_purify_unlock_dex", ()))]
+        _unlock_names = [name for name in _unlock_names if name not in _precollected]
+        useful_unlocks: "list[str]" = []
+        for name in _unlock_names:
+            if self.purify_unlock_classification(name) == ItemClassification.progression:
+                item_pool.append(self.create_item(name))
+            else:
+                useful_unlocks.append(name)
 
         # ADDENDUM 150: useful items had never once been placed. Fill.py only puts them on DEFAULT or PRIORITY
         # locations, and with 19 non-EXCLUDED locations against 19 progression items there were none -- each
@@ -1304,6 +1390,12 @@ class PokemonXDWorld(World):
             raise OptionError(_capacity_refusal(self, len(item_pool), default_capacity))
 
         useful_budget = max(0, default_capacity - len(item_pool))
+        for name in useful_unlocks:
+            if useful_budget:
+                item_pool.append(self.create_item(name))
+                useful_budget -= 1
+            else:
+                item_pool.append(PokemonXDItem(name, ItemClassification.filler, self.item_name_to_id[name], self.player))
         if useful_budget:
             # ITEMS_REMOVED_FROM_POOL was only checked by the progression pass, so `useful` names slipped in.
             useful_names = sorted(
@@ -1351,6 +1443,8 @@ class PokemonXDWorld(World):
         return [item for item in getattr(self, "_story_bound_part_items", None) or () if item.location is None]
 
     def create_item(self, name: str) -> PokemonXDItem:
+        if name in items.PURIFY_UNLOCK_ITEMS:
+            return PokemonXDItem(name, self.purify_unlock_classification(name), self.item_name_to_id[name], self.player)
         return items.create_item(self, name)
 
     def get_filler_item_name(self) -> str:
@@ -1565,6 +1659,7 @@ class PokemonXDWorld(World):
                 "agate_village_pit_stop",  # ADDENDUM 311 -- the client stops treating Agate's shop as a shop
                 "reduce_citadark_grind",  # ADDENDUM 427 -- the client describes the Candy Box at Gateon
                 "purification_checks",  # ADDENDUM 415 -- off: the client sends no `Purify N`
+                "purification_unlocks",  # the client sets the AP patch's purify gate from this
                 # ADDENDUM 196: both options are gone -- the area memory arms off randomize_travel_locations.
                 "key_item_shuffle",
                 "nightmare_citadark",  # ADDENDUM 423
@@ -1644,6 +1739,13 @@ class PokemonXDWorld(World):
         # For trackers: how many "Purify N" checks this seed has, and the Data Storage key the client keeps the
         # current room in ({team} and {slot} filled from the connection).
         slot_data["purification_location_count"] = int(getattr(self, "_purification_location_count", 0) or 0)
+        # Purification Unlocks: {national dex: the Shadow ids its unlock opens}, what the client writes into the AP
+        # patch's `give.purified` list. Empty with the option off.
+        _unlock_ddpks: "dict[str, list[int]]" = {}
+        if self.options.purification_unlocks:
+            for ddpk, dex in sorted(getattr(self, "_shadow_dex_by_ddpk", {}).items()):
+                _unlock_ddpks.setdefault(str(dex), []).append(int(ddpk))
+        slot_data["purify_unlock_ddpks"] = _unlock_ddpks
         slot_data["room_id_key"] = ROOM_ID_KEY_TEMPLATE
         slot_data["room_area_key"] = ROOM_AREA_KEY_TEMPLATE
         # Missable Trainer Shadows: each missable host's label and the Shadows on it, for the client's hand-off to

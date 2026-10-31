@@ -219,9 +219,11 @@ class TestTheGuardMeasuresWhatFillMeasures(PokemonXDTestBase):
 class TestTheRetiredGuard(unittest.TestCase):
     def test_the_old_count_check_could_never_have_fired(self) -> None:
         """Its ceiling was the table's progression rows; its floor was a name group four times larger."""
+        # The guard predates the Purification Unlocks, whose rows are only a default -- the world classifies them.
         table_progression = sum(
-            1 for data in items.ITEM_TABLE.values()
+            1 for name, data in items.ITEM_TABLE.items()
             if data.classification == items.ItemClassification.progression
+            and name not in items.PURIFY_UNLOCK_ITEMS
         )
         old_floor = 1 + len(locations.LOCATION_NAME_GROUPS["Overworld Items"])
         self.assertLessEqual(table_progression, old_floor)
