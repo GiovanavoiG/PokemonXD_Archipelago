@@ -289,8 +289,8 @@ class HoldBToAdvance(Toggle):
 
 class BattleSpeed(Choice):
     """
-    How long battles pause on their messages, HP bars and experience bars. Normal is the game's own pacing;
-    Fast halves the waits, Faster quarters them. Move animations are a separate option.
+    How long battles pause on their messages, HP bars, experience bars and move animations. Normal is the game's own pacing;
+    Fast halves the waits, Faster quarters them. Disabling move animations is a separate option.
     """
 
     display_name = "Battle Speed"

@@ -35,6 +35,10 @@ TEXT_SPEED_BYTE = {TEXT_SPEED_FAST: 3, TEXT_SPEED_INSTANT: 127}
 BATTLE_SPEED_NORMAL, BATTLE_SPEED_FAST, BATTLE_SPEED_FASTER = 0, 1, 2
 BATTLE_SPEED_BYTE = {BATTLE_SPEED_FAST: 3, BATTLE_SPEED_FASTER: 2}
 
+MOVE_ANIMATION_SPEED_PATCH_ADDRESS = 0x804ee838  # example address, replace with actual if different
+MOVE_ANIMATION_SPEED_BYTE_WORD = 0x3f000000  # example address, replace with actual if different
+MOVE_ANIMATION_SPEED_BYTE = {BATTLE_SPEED_FAST: 0x3f800000, BATTLE_SPEED_FASTER: 0x40000000}
+
 #: 0x801095DC..0x80109620, vanilla.
 HOLD_B_BLOCK_ADDRESS = 0x801095DC
 HOLD_B_VANILLA: "tuple[int, ...]" = (
@@ -100,5 +104,7 @@ def dol_patch_words(text_speed: int, hold_b: bool, battle_speed: int) -> "tuple[
             words.append((SPEED_BYTE_ADDRESS, SPEED_BYTE_WORD, new))
     if battle_speed in BATTLE_SPEED_BYTE:
         value = BATTLE_SPEED_BYTE[battle_speed]
+        animation_value = MOVE_ANIMATION_SPEED_BYTE[battle_speed]
+        words.append((MOVE_ANIMATION_SPEED_PATCH_ADDRESS, MOVE_ANIMATION_SPEED_BYTE_WORD, animation_value))
         words.append((BATTLE_WAIT_ADDRESS, BATTLE_WAIT_WORD, (BATTLE_WAIT_WORD & 0x00FFFFFF) | (value << 24)))
     return tuple(words)

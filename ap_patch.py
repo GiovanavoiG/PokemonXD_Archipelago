@@ -31,7 +31,8 @@ FLAG_ITEM_CHECKS = 0
 FLAG_POKEMON_CHECKS = 1
 FLAG_PURIFY_CHECKS = 2
 FLAG_DEATH_LINK = 3
-FLAG_USE_LEVELUP_MOVES = 4
+FLAG_USE_ANIMATION_SPEED_FAST = 4
+FLAG_USE_ANIMATION_SPEED_FASTER = 5
 
 
 def flags_from_slot_data(slot_data: Mapping[str, Any]) -> int:
@@ -39,6 +40,10 @@ def flags_from_slot_data(slot_data: Mapping[str, Any]) -> int:
     flags = 0
     if slot_data.get("purification_unlocks"):
         flags |= 1 << FLAG_PURIFY_CHECKS
+    if slot_data.get("battle_speed") == "fast":
+        flags |= 1 << FLAG_USE_ANIMATION_SPEED_FAST
+    elif slot_data.get("battle_speed") == "faster":
+        flags |= 1 << FLAG_USE_ANIMATION_SPEED_FASTER
     return flags
 
 
