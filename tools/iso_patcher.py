@@ -1545,6 +1545,33 @@ def read_dol_words(output_path: Path, addresses: "list[int]") -> "dict[int, int]
         reader.close()
 
 
+def read_dol_bytes(output_path: Path, address: int, length: int) -> bytes:
+    """`length` bytes from RAM address `address` of `output_path`'s main.dol. Raises unless one section holds them."""
+    reader = open_reader(Path(output_path).resolve())
+    try:
+        dol_offset = struct.unpack(">I", reader.read(DOL_OFFSET_FIELD, 4))[0]
+        holder = [sec for sec in dol_sections(reader, dol_offset)
+                  if sec[2] <= address and address + length <= sec[2] + sec[3]]
+        if not holder:
+            raise ValueError(f"0x{address:08X} (+0x{length:X}) is not inside one section of this ISO's main.dol")
+        _i, sec_file, sec_addr, _len = holder[0]
+        return reader.read(dol_offset + sec_file + (address - sec_addr), length)
+    finally:
+        reader.close()
+
+
+def write_move_description_patch(output_path: Path, descriptions: "dict[int, int]") -> dict:
+    """Physical/Special Split -- see `game_data.physical_special_split.description_patch_words`. Never raises."""
+    split = _game_data_module("physical_special_split")
+    try:
+        words = split.description_patch_words(
+            read_dol_bytes(output_path, split.MESSAGE_TABLE, split.MESSAGE_TABLE_SIZE),
+            read_dol_bytes(output_path, split.DESCRIPTION_OVERFLOW, split.DESCRIPTION_OVERFLOW_SIZE), descriptions)
+    except Exception as exc:
+        return {"applied": False, "reason": f"{type(exc).__name__}: {exc}", "words": []}
+    return write_dol_words_patch(output_path, words)
+
+
 def write_disable_move_animations_patch(output_path: Path) -> dict:
     """ADDENDUM 454 -- see `game_data.move_animations`. Never raises."""
     anim = _game_data_module("move_animations")
@@ -4114,6 +4141,8 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     # Each move's own physical/special category, and its other Generation IX fields, in common_rel's move table.
     physical_special_split = bool(seed.get("physical_special_split"))
     gen9_moves = bool(seed.get("gen9_moves"))
+    # {description id: new category} of every move the split changed; main.dol's half rewrites those descriptions.
+    move_descriptions: "dict[int, int]" = {}
     # ADDENDUM 453/454: the Ability Swap on Gateon's last shelf. Every 0.1.2 seed carries True ("regardless of
     # options").
     ability_patch = bool(seed.get("ability_patch"))
@@ -4708,6 +4737,7 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
                             rel_bytes, rel_format.moves_table_base(rel), rel_format.moves_table_count(rel),
                             _definitions, split=physical_special_split, gen9_moves=gen9_moves)
                         print(f"{_what}: {split_result['moves_written']} moves updated.")
+                        move_descriptions = split_result["descriptions"]
                         if split_result["types_kept"]:
                             print(f"  Kept their vanilla type (XD has no Fairy): "
                                   f"{', '.join(split_result['types_kept'])}.")
@@ -5161,6 +5191,13 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
             print(f"Physical/Special Split: NOT applied -- {split_dol['reason']}. Moves keep the type's category.")
         summary["physical_special_split_dol_applied"] = split_dol["applied"]
         summary["physical_special_split_dol_reason"] = split_dol["reason"]
+        if split_dol["applied"] and move_descriptions:
+            desc_dol = write_move_description_patch(output_path, move_descriptions)
+            print(f"Physical/Special Split: {len(move_descriptions)} move descriptions now start with the category."
+                  if desc_dol["applied"] else
+                  f"Physical/Special Split: move descriptions NOT updated -- {desc_dol['reason']}.")
+            summary["physical_special_split_descriptions_applied"] = desc_dol["applied"]
+            summary["physical_special_split_descriptions_reason"] = desc_dol["reason"]
 
     # Quick Purification Ceremony -- the ceremony's move-effect sequences are never loaded or looked up.
     if seed.get("quick_purification_ceremony"):
