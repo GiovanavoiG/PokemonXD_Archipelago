@@ -86,14 +86,15 @@ class TestTheDiscId(unittest.TestCase):
 
 
 class TestTheCensusLayer(unittest.TestCase):
-    """`preflight_refusal` composes the two layers; the disc-id half is stubbed to passing here."""
+    """`preflight_refusal` composes the layers; the disc-id and main.dol halves are stubbed to passing here."""
 
     def setUp(self) -> None:
-        self._real = ip.disc_id_refusal
+        self._real = ip.disc_id_refusal, ip.start_dol_refusal
         ip.disc_id_refusal = lambda _p: None
+        ip.start_dol_refusal = lambda _p: None
 
     def tearDown(self) -> None:
-        ip.disc_id_refusal = self._real
+        ip.disc_id_refusal, ip.start_dol_refusal = self._real
 
     def test_no_census_means_layer_two_does_not_run(self) -> None:
         """A build without the extract must patch exactly as it did before, not refuse everything."""

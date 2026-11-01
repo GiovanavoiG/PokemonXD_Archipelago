@@ -19,7 +19,7 @@ from enum import Enum
 
 from BaseClasses import Item, ItemClassification
 
-from . import travel_locations
+from . import species, travel_locations
 
 
 class PokemonXDItem(Item):
@@ -597,6 +597,23 @@ GETITEM_ONLY_ITEMS = _bundle_table(
 #: The names no pool pass may ever draw. Consulted by the asserts below and by create_items' own guard.
 GETITEM_ONLY_ITEM_NAMES: "frozenset[str]" = frozenset(GETITEM_ONLY_ITEMS)
 
+
+# Purification Unlocks: one per species, like `Catch - {species}`, since which species a Shadow is changes per seed.
+# A seed pools the unlocks of the species its Shadows really are, and each opens every Shadow id (DDPK index) of that
+# species (slot data's `purify_unlock_ddpks`). No `game_item_id`: the client writes the ids into the AP patch's
+# `give.purified` list (ap_patch.py). `progression` here is only the table's default -- the world decides each seed's
+# classification (`PokemonXDWorld.purify_unlock_classification`), and create_items, not the progression pass, adds them.
+def purify_unlock_item_name(dex_number: int) -> str:
+    return f"Purify Unlock - {species.NATIONAL_DEX[dex_number]}"
+
+
+PURIFY_UNLOCK_ITEMS = _table(
+    [(purify_unlock_item_name(dex), P, None, False) for dex in sorted(species.NATIONAL_DEX)],
+    _prog_count + _useful_count + _filler_count + len(TRAP_ITEMS) + len(_MACGUFFIN_SPECS) + len(_SCOOTER_SPECS)
+    + len(GETITEM_ONLY_ITEMS),
+)
+PURIFY_UNLOCK_ITEM_TO_DEX: "dict[str, int]" = {purify_unlock_item_name(dex): dex for dex in species.NATIONAL_DEX}
+
 KEY_ITEMS_ALL: dict[str, ItemData] = {**KEY_ITEMS, **MASTER_BALL_ITEM, **TRAVEL_UNLOCK_ITEMS}
 USEFUL_ITEMS: dict[str, ItemData] = {
     **VITAMIN_ITEMS, **RARE_CANDY_PP_UP_ITEMS, **HELD_ITEMS, **HM_ITEMS,
@@ -617,6 +634,7 @@ ITEM_TABLE: dict[str, ItemData] = {
     **COMBINED_KEY_ITEMS,   # ADDENDUM 179
     **SCOOTER_ITEMS,        # ADDENDUM 273
     **GETITEM_ONLY_ITEMS,   # ADDENDUM 302 -- requestable, never placed
+    **PURIFY_UNLOCK_ITEMS,  # Purification Unlocks -- placed by create_items, never by the progression pass
 }
 
 # STABLE ID FREEZE (ADDENDUM 26). Every id_offset above was, until this addendum, purely a function of LIST
@@ -897,6 +915,8 @@ _FROZEN_ITEM_OFFSETS: dict[str, int] = {
     '99 Rare Candies': 259,       # frozen on the commit that added it
     '5000 Poke Coupons': 260,     # frozen on the commit that added it
     '99 Candy Boxes': 261,        # frozen on the commit that added it (ADDENDUM 428)
+    # Purification Unlocks: 262-647, national dex order (`Purify Unlock - Bulbasaur` is 262).
+    **{purify_unlock_item_name(dex): 261 + dex for dex in species.NATIONAL_DEX},
     #
     # Retired by ADDENDUM 177's merge, reserved so nothing can inherit them: 242 (Cave Poke Spot), 245 (Oasis
     # Poke Spot), 248 (Rockground Poke Spot). Their entries stay above, inert.
@@ -944,6 +964,7 @@ ITEM_NAME_GROUPS: dict[str, set[str]] = {
     "Travel Unlocks": set(TRAVEL_UNLOCK_ITEMS.keys()),
     "Robo Kyogre Parts": set(MACGUFFIN_ITEMS.keys()),
     "Scooter": set(SCOOTER_ITEMS.keys()),
+    "Purify Unlocks": set(PURIFY_UNLOCK_ITEMS.keys()),
     # ADDENDUM 443: "!hint ID Card" (or "!hint Data ROM") hints the combined item.
     **{part: {COMBINED_KEY_ITEM_NAME} for part in COMBINED_KEY_ITEM_PARTS},
 }

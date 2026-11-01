@@ -455,13 +455,17 @@ def _purification_tail_regions(world) -> "tuple[str, ...]":
     return tuple(sorted(regions))
 
 
-def _purification_shadow_groups(world) -> "list[tuple[tuple[tuple[tuple[str, ...], tuple[str, ...]], ...], int]]":
+def _purification_shadow_groups(world, unlocked_only: bool = False
+                                 ) -> "list[tuple[tuple[tuple[tuple[str, ...], tuple[str, ...]], ...], int]]":
     """ADDENDUM 432: every Shadow this seed really holds, as `[(ways to snag it, how many Shadows share exactly
     those ways), ...]`. A way is `(regions to reach, items to hold)`; any one way will do.
 
     - a vanilla Shadow still at its own trainers: one way per row carrying it (`shadow_regions.gates_for_ddpk`)
     - a Shadow moved by Nightmare Citadark / Remove Citadark or Greevil Shadows: its new host's row
     - a Shadow the expansion added: its host's row
+
+    `unlocked_only` (Purification Unlocks): only the Shadows whose unlock is progression, each way also needing that
+    unlock -- a Shadow cannot be purified before it arrives.
 
     Grouped so a rule walks ~40 distinct gates rather than 127 Shadows."""
     from . import items
@@ -473,6 +477,18 @@ def _purification_shadow_groups(world) -> "list[tuple[tuple[tuple[tuple[str, ...
         names = tuple(name for name in dict.fromkeys(names) if _requirement_is_in_the_pool(world, name))
         return regions_needed, names
 
+    dex_by_ddpk = getattr(world, "_shadow_dex_by_ddpk", None) or {}
+    progression_unlocks = getattr(world, "_progression_purify_unlock_dex", None) or set()
+
+    def add(ways: "tuple[tuple[tuple[str, ...], tuple[str, ...]], ...]", ddpk: "int | None") -> None:
+        if unlocked_only:
+            dex = dex_by_ddpk.get(ddpk) if ddpk is not None else None
+            if dex not in progression_unlocks:
+                return
+            unlock = items.purify_unlock_item_name(dex)
+            ways = tuple(sorted((regions_needed, names + (unlock,)) for regions_needed, names in ways))
+        shadows.append(ways)
+
     shadows: "list[tuple[tuple[tuple[str, ...], tuple[str, ...]], ...]]" = []
     removed = frozenset(getattr(world, "_nightmare_removed_dpkm", None) or ())
     for entry in load_json_data_file("deckdata_dark_pokemon.json") or []:
@@ -482,15 +498,15 @@ def _purification_shadow_groups(world) -> "list[tuple[tuple[tuple[tuple[str, ...
             continue   # ADDENDUM 479: no Purify rung for a Shadow only purifiable after the goal
         gates = shadow_regions.gates_for_ddpk(int(entry["ddpk_index"]))
         if gates:
-            shadows.append(tuple(sorted({compile_gate(g) for g in gates})))
-    hosted = [int(plan["trainer_index"]) for plan in getattr(world, "_nightmare_relocations", None) or ()
-              for _shadow in plan["shadows"]]
-    hosted += [int(plan["trainer_index"]) for plan in getattr(world, "_shadow_expansion_plans", None) or ()
-               for _mon in plan["new_pokemon"]]
-    for index in hosted:
+            add(tuple(sorted({compile_gate(g) for g in gates})), int(entry["ddpk_index"]))
+    hosted = [(int(plan["trainer_index"]), shadow.get("ddpk_index"))
+              for plan in getattr(world, "_nightmare_relocations", None) or () for shadow in plan["shadows"]]
+    hosted += [(int(plan["trainer_index"]), mon.get("target_ddpk_index"))
+               for plan in getattr(world, "_shadow_expansion_plans", None) or () for mon in plan["new_pokemon"]]
+    for index, ddpk in hosted:
         gate = shadow_regions.gate_for_trainer_index(index)
         if gate is not None:
-            shadows.append((compile_gate(gate),))
+            add((compile_gate(gate),), ddpk)
     counts: "dict[tuple, int]" = {}
     for ways in shadows:
         counts[ways] = counts.get(ways, 0) + 1
@@ -512,6 +528,14 @@ def _set_remaining_sphere_rules(world) -> None:
     from .game_data.shadow_regions import POST_GOAL_EVENT_ITEM
 
     groups = _purification_shadow_groups(world)
+    # Purification Unlocks: a rung that may hold progression counts only Shadows whose (progression) unlock is held.
+    # The rungs past the cap are EXCLUDED, so they keep the plain count: filler only, and still reachable for
+    # accessibility, though the useful unlocks behind them are not in logic.
+    unlocked_groups = groups
+    unlock_cap = 0
+    if getattr(world, "_progression_purify_unlock_dex", None):
+        unlocked_groups = _purification_shadow_groups(world, unlocked_only=True)
+        unlock_cap = int(world.options.purification_progression_cap)
     player = world.player
     floor = shadow_regions_floor()
     # ADDENDUM 473: how many Shadows can be had BEFORE the goal. A threshold past that needs a post-goal Shadow
@@ -526,7 +550,7 @@ def _set_remaining_sphere_rules(world) -> None:
         if count > before_goal:
             location.progress_type = LocationProgressType.EXCLUDED
 
-        def rule(state, need=count, groups=tuple(groups)):
+        def rule(state, need=count, groups=tuple(unlocked_groups if count <= unlock_cap else groups)):
             if not state.can_reach(floor, player=player):   # ADDENDUM 483: no Snag Machine item to hold
                 return False
             return _count_reachable(state, player, groups, need)
