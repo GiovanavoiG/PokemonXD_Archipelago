@@ -1,14 +1,12 @@
-"""ADDENDUM 165 (2026-09-13): the Launcher component patches OR connects -- never both.
+"""ADDENDUM 165 (2026-09-13), revised 2026-10-30: the Launcher component and what a `.appxd` does.
 
-Two behaviours, both about the Archipelago Launcher:
-
-  * patching does not auto-launch the AP client;
+  * opening a `.appxd` starts the CLIENT with that seed -- the client patches the ISO and boots it in Dolphin
+    itself (Client.patch_and_boot), so the standalone patch dialogs (`prompt_and_patch`) are not used;
   * there is no description below "Pokemon XD Client" in the Archipelago Launcher.
 
-Patching used to chain straight into `launch_client()`. The reasoning was that someone who just patched
-obviously wants to play -- but the patched ISO still has to be loaded in Dolphin by hand afterwards, so the
-client came up before there was anything to hook. These tests pin the split, because "it helpfully starts the
-client too" is exactly the kind of convenience that gets added back by accident."""
+The original split (patch, then stop) existed because the patched ISO still had to be loaded in Dolphin by
+hand, so a client started straight after patching had nothing to hook. Now that the client boots Dolphin on the
+patched copy, that reason is gone."""
 from __future__ import annotations
 
 import unittest
@@ -69,41 +67,33 @@ class _Patched:
         launcher_patch.prompt_and_patch, world_module.launch_client, Utils.messagebox = self._orig
 
 
-class TestPatchingDoesNotLaunchTheClient(unittest.TestCase):
-    def test_opening_a_seed_patches_and_stops(self) -> None:
+class TestASeedLaunchesTheClient(unittest.TestCase):
+    def test_opening_a_seed_starts_the_client_with_it(self) -> None:
         with _Patched() as spies:
             world_module.launch_client_or_patch("C:/seeds/AP_12345_P1.appxd")
-        self.assertEqual(spies.prompt_and_patch.calls, [(("C:/seeds/AP_12345_P1.appxd",), {})])
-        self.assertFalse(spies.launch_client.called, "patching must not chain into the client")
+        self.assertEqual(spies.launch_client.calls, [(("C:/seeds/AP_12345_P1.appxd",), {})])
 
-    def test_a_cancelled_patch_also_does_not_launch_the_client(self) -> None:
-        """`prompt_and_patch` returns None on cancel. That used to be the only thing standing between a
-        cancel and a client launch; now neither outcome launches anything."""
-        with _Patched(patch_result=None) as spies:
-            world_module.launch_client_or_patch("C:/seeds/AP_12345_P1.appxd")
-        self.assertTrue(spies.prompt_and_patch.called)
-        self.assertFalse(spies.launch_client.called)
-
-    def test_a_successful_patch_does_not_pop_an_extra_message_of_its_own(self) -> None:
-        """`prompt_and_patch` already tells the player what to do next. This function must not add a second
-        box on top of it."""
+    def test_opening_a_seed_skips_the_standalone_patch_dialogs(self) -> None:
         with _Patched() as spies:
             world_module.launch_client_or_patch("C:/seeds/AP_12345_P1.appxd")
-        self.assertFalse(spies.messagebox.called)
+        self.assertFalse(spies.prompt_and_patch.called, "the client does the patching now")
+
+    def test_a_missing_dolphin_memory_engine_is_reported_for_a_seed_too(self) -> None:
+        with _Patched(client_raises=ImportError("No module named 'dolphin_memory_engine'")) as spies:
+            world_module.launch_client_or_patch("C:/seeds/AP_12345_P1.appxd")
+        self.assertTrue(spies.messagebox.called)
 
 
 class TestTheClientStillConnects(unittest.TestCase):
     def test_no_arguments_connects_without_patching(self) -> None:
         with _Patched() as spies:
             world_module.launch_client_or_patch()
-        self.assertTrue(spies.launch_client.called)
-        self.assertFalse(spies.prompt_and_patch.called, "the plain button must never start a patch")
+        self.assertEqual(spies.launch_client.calls, [((), {})], "the plain button must never start a patch")
 
     def test_a_non_seed_argument_is_treated_as_a_plain_launch(self) -> None:
         with _Patched() as spies:
             world_module.launch_client_or_patch("--some-launcher-arg")
-        self.assertTrue(spies.launch_client.called)
-        self.assertFalse(spies.prompt_and_patch.called)
+        self.assertEqual(spies.launch_client.calls, [((), {})])
 
     def test_a_missing_dolphin_memory_engine_is_reported_not_silent(self) -> None:
         with _Patched(client_raises=ImportError("No module named 'dolphin_memory_engine'")) as spies:

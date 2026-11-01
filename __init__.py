@@ -14,6 +14,8 @@ import math
 import os
 import logging
 import random
+import settings
+import typing
 from collections.abc import Mapping
 from typing import Any
 
@@ -45,10 +47,23 @@ CATCH_RATE_LOCATION_SCALED_KEEP_PERCENT = 30
 from .options import PokemonXDOptions
 from .web_world import PokemonXDWebWorld
 
+class PokemonXDSettings(settings.Group):
+    class RomFile(settings.FilePath):
+        """File name of your own, unmodified Pokemon XD: Gale of Darkness (USA) disc image. The client patches
+        a copy of it next to each .appxd it opens; this file itself is never written to."""
+        description = "Pokemon XD: Gale of Darkness (USA) ISO"
+
+    class DolphinPath(settings.FilePath):
+        """Path to the Dolphin executable the client boots the patched ISO with."""
+        description = "Dolphin executable"
+        is_exe = True
+
+    rom_file: RomFile = RomFile("Pokemon XD - Gale of Darkness.iso")
+    dolphin_path: DolphinPath = DolphinPath("Dolphin")
 
 def launch_client(*args: str) -> None:
-    """Launch the Pokemon XD client. `args` is accepted for symmetry with the other `launch_*` functions here;
-    CommonClient's entry point has nothing to do with it."""
+    """Launch the Pokemon XD client. `args` go to Client.main's parser -- a `.appxd` path there patches and
+    boots Dolphin once the client is up."""
     print("Running Pokemon XD Client")
     from .Client import main
 
@@ -56,20 +71,16 @@ def launch_client(*args: str) -> None:
 
 
 def launch_client_or_patch(*args: str) -> None:
-    """The one Launcher entry point for Pokemon XD: a `.appxd` argument patches the player's ISO and stops,
-    no argument connects. Patching deliberately does not chain into the client -- the ISO still has to be
-    loaded in Dolphin, so a client started the instant patching finished had nothing to hook."""
+    """The one Launcher entry point for Pokemon XD. A `.appxd` argument starts the client WITH that seed: it
+    asks for any missing host.yaml paths, patches the ISO and boots it in Dolphin (Client.patch_and_boot).
+    No argument just connects."""
     seed_path = args[0] if args and str(args[0]).endswith(".appxd") else None
 
-    if seed_path:
-        from .launcher_patch import prompt_and_patch
-
-        # prompt_and_patch has already told the player what to do next, or reported the cancel.
-        prompt_and_patch(seed_path)
-        return
-
     try:
-        launch_client()
+        if seed_path:
+            launch_client(seed_path)
+        else:
+            launch_client()
     except ImportError:
         # dolphin_memory_engine isn't installed here. A silent no-op would look like a broken button.
         from Utils import messagebox
@@ -200,6 +211,11 @@ class PokemonXDWorld(World):
 
     game = "Pokemon XD Gale of Darkness"
     web = PokemonXDWebWorld()
+
+    # Pinned, not derived: AutoWorld derives the key from the folder name, and this world ships under more
+    # than one (a checkout, an .apworld). host.yaml has to find the same section either way.
+    settings_key = "pokemon_xd_options"
+    settings: typing.ClassVar[PokemonXDSettings]
 
     options_dataclass = PokemonXDOptions
     options: PokemonXDOptions

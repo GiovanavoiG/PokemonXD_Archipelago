@@ -2,11 +2,11 @@
 Launcher integration for the ISO-patch step.
 
 generate_output() only produces a small `.appxd` seed file, never a full ISO or a diff against one (patch.py
-says why). This wires tools/iso_patcher.py into the Launcher's "open a patch file" flow, so opening a `.appxd`
--- double-click, drag-and-drop, "Open Patch", or the "Pokemon XD Client" component __init__.py registers via
-launch_client_or_patch -- walks the player through picking their own ISO and produces a patched COPY. The
-source ISO is never opened write-capable; apply_patch() enforces that. All byte-level work stays in
-tools/iso_patcher.py.
+says why). Opening a `.appxd` from the Launcher now starts the client, which patches in-process
+(Client.patch_and_boot) using `prompt_open_files` below for any host.yaml path it is missing. `prompt_and_patch`
+is the older standalone flow -- pick an ISO and an output name, patch, stop -- which nothing in the Launcher
+calls any more. Either way the source ISO is never opened write-capable; apply_patch() enforces that. All byte-level
+work stays in tools/iso_patcher.py.
 
 `Utils.open_filename`/`save_filename` each create and tear down their own `tkinter.Tk()` root per call where
 kdialog/zenity is unavailable, and back-to-back calls -- what `prompt_and_patch` does -- hang on Windows when
@@ -265,6 +265,47 @@ def _run_dialog_chain(need_seed: bool) -> tuple[str | None, str | None, str | No
         if not output:
             return None, None, None
         return seed_path, source, _with_disc_extension(output, source)
+    finally:
+        root.destroy()
+
+
+def prompt_open_files(requests: "list[tuple[str, list[tuple[str, str]]]]") -> "list[str] | None":
+    """Ask for each `(title, filetypes)` in turn with open-file dialogs, `filetypes` in tkinter's
+    `[(label, "ext ext")]` form. Returns the chosen paths in order, or None as soon as one is cancelled.
+
+    The client's host.yaml prompt (Client.resolve_launch_paths). `settings.Group` would browse for a missing
+    path by itself, but through Utils.open_filename -- one Tk root per dialog, the back-to-back hang the module
+    docstring describes -- so this asks first, against one shared root."""
+    if not requests:
+        return []
+    if _has_native_linux_dialog():
+        from Utils import open_filename
+
+        chosen = []
+        for title, filetypes in requests:
+            path = open_filename(title, [(label, tuple(exts.split())) for label, exts in filetypes])
+            if not path:
+                return None
+            chosen.append(path)
+        return chosen
+
+    import tkinter
+    import tkinter.filedialog
+
+    try:
+        root = tkinter.Tk()
+    except tkinter.TclError:
+        return None  # no GUI available at all -- same as the player cancelling
+    root.withdraw()
+    try:
+        chosen = []
+        for title, filetypes in requests:
+            path = tkinter.filedialog.askopenfilename(title=title, filetypes=filetypes, parent=root)
+            if not path:
+                return None
+            chosen.append(path)
+            root.update()  # let the dialog's own close/dispatch fully settle before opening the next one
+        return chosen
     finally:
         root.destroy()
 
