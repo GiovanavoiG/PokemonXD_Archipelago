@@ -29,8 +29,9 @@ THE CATEGORY BYTE ALONE DOES NOTHING for an ordinary move. `waza_GetZokuseiKindD
 then takes the +0x13 path (`dol_patch_words`). The Shadow moves already carry 1 or 2 there, so
 they are unchanged.
 
-THE DESCRIPTIONS. Each move whose category the split changes gets that category in capitals as a first line of its
-description: POUND's "Pounds the target with{br}forelegs or tail." becomes "PHYSICAL{br}Pounds the target with{br}
+THE DESCRIPTIONS. Each move whose category the split changes, and each Shadow move with a base power (the ones that
+already carry 1 or 2 at +0x13 and that the definitions give no category), gets that category in capitals as a first
+line of its description: POUND's "Pounds the target with{br}forelegs or tail." becomes "PHYSICAL{br}Pounds the target with{br}
 forelegs or tail.", where {br} is the 3-byte line break `FF FF 00`. A description id is the row's +0x2C, a string in
 main.dol's own message table (`MESSAGE_TABLE`, "US", 859 strings, the first `GSmsgOpen` at boot, 0x8005C4E8). That
 table has no slack, and the 216 prefixes need 3,950 more bytes. The game resolves a string as table + the pair's
@@ -155,6 +156,20 @@ def apply_move_updates(rel_bytes: bytearray, moves_base: int, move_count: int, d
             if current != vanilla:
                 raise ValueError(f"move {index} ({definition.get('Name')}) has {suffix} {current}, not the "
                                  f"vanilla {vanilla}")
+        def describe(category: int) -> None:
+            (description_id,) = struct.unpack_from(">I", rel_bytes, row + DESCRIPTION_ID_OFFSET)
+            if description_id and descriptions.get(description_id, category) != category:
+                raise ValueError(f"move {index} ({definition.get('Name')}) shares description "
+                                 f"{description_id} with a move of another category")
+            if description_id:
+                descriptions[description_id] = category
+
+        if split and "Gen9Category" not in definition:
+            # A Shadow move: its category is already 1 or 2. Only those with a base power are labelled, as the
+            # ordinary status moves (category 0) are not.
+            (power,) = struct.unpack_from(">h", rel_bytes, row + POWER_OFFSET)
+            if rel_bytes[row + CATEGORY_OFFSET] in CATEGORY_NAMES and power > 0:
+                describe(rel_bytes[row + CATEGORY_OFFSET])
         changed = False
         for suffix, offset, fmt in written_fields:
             if f"Gen9{suffix}" not in definition:
@@ -167,12 +182,7 @@ def apply_move_updates(rel_bytes: bytearray, moves_base: int, move_count: int, d
                 plan.append((row + offset, fmt, new))
                 changed = True
                 if suffix == "Category":
-                    (description_id,) = struct.unpack_from(">I", rel_bytes, row + DESCRIPTION_ID_OFFSET)
-                    if description_id and descriptions.get(description_id, new) != new:
-                        raise ValueError(f"move {index} ({definition.get('Name')}) shares description "
-                                         f"{description_id} with a move of another category")
-                    if description_id:
-                        descriptions[description_id] = new
+                    describe(new)
         moves_written += changed
 
     for offset, fmt, value in plan:

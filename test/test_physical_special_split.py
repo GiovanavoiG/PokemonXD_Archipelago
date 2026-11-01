@@ -148,8 +148,28 @@ class TestTheDescriptionIds(unittest.TestCase):
         self.assertEqual(1, result["descriptions"][10501])      # POUND
         self.assertEqual(2, result["descriptions"][10553])      # FLAMETHROWER
 
+    def _with_shadow_moves(self) -> bytearray:
+        """The vanilla Shadow rows' category and power: SHADOW RUSH 1/55, SHADOW WAVE 2/50, SHADOW HOLD 2/0."""
+        data = self._table_with_description_ids()
+        for name, category, power in (("SHADOW RUSH", 1, 55), ("SHADOW WAVE", 2, 50), ("SHADOW HOLD", 2, 0)):
+            row = BASE + next(i for i, d in enumerate(DEFINITIONS) if d["Name"] == name) * S.MOVE_ENTRY_SIZE
+            data[row + S.CATEGORY_OFFSET] = category
+            struct.pack_into(">h", data, row + S.POWER_OFFSET, power)
+        return data
+
+    def _description_id(self, name: str) -> int:
+        return 10500 + next(i for i, d in enumerate(DEFINITIONS) if d["Name"] == name)
+
+    def test_the_split_reports_each_shadow_move_with_a_power_by_its_own_category(self):
+        data = self._with_shadow_moves()
+        descriptions = _apply(data, split=True, gen9_moves=False)["descriptions"]
+        self.assertEqual(1, descriptions[self._description_id("SHADOW RUSH")])
+        self.assertEqual(2, descriptions[self._description_id("SHADOW WAVE")])
+        self.assertNotIn(self._description_id("SHADOW HOLD"), descriptions)
+        self.assertEqual(1, _field(data, self._description_id("SHADOW RUSH") - 10500, "Category"))   # left as it was
+
     def test_gen9_moves_alone_reports_none(self):
-        self.assertEqual({}, _apply(self._table_with_description_ids(), split=False, gen9_moves=True)["descriptions"])
+        self.assertEqual({}, _apply(self._with_shadow_moves(), split=False, gen9_moves=True)["descriptions"])
 
 
 OVERFLOW_SIZE = 0x200

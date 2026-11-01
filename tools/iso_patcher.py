@@ -4141,7 +4141,7 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
     # Each move's own physical/special category, and its other Generation IX fields, in common_rel's move table.
     physical_special_split = bool(seed.get("physical_special_split"))
     gen9_moves = bool(seed.get("gen9_moves"))
-    # {description id: new category} of every move the split changed; main.dol's half rewrites those descriptions.
+    # {description id: category} of every move the split changed, and of each damaging Shadow move; main.dol's half rewrites those descriptions.
     move_descriptions: "dict[int, int]" = {}
     # ADDENDUM 453/454: the Ability Swap on Gateon's last shelf. Every 0.1.2 seed carries True ("regardless of
     # options").

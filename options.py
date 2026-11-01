@@ -958,7 +958,7 @@ class ShadowMoveTMs(Range):
 class PhysicalSpecialSplit(Toggle):
     """
     Each move is physical or special on its own, as in later generations, instead of by its type.
-    A move whose category changes says which in the first line of its description.
+    A move whose category changes, and each damaging Shadow move, says which in the first line of its description.
     """
 
     display_name = "Physical/Special Split"
