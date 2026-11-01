@@ -1,0 +1,2210 @@
+{
+    "address": "0x80BBB4D0",
+    "type": "WazaData",
+    "row_size": 56,
+    "count": 375,
+    "rows": [
+        {
+            "Name": null,
+            "NameId": 0
+        },
+        {
+            "Name": "POUND",
+            "NameId": 2001,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "KARATE CHOP",
+            "NameId": 2002,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "DOUBLESLAP",
+            "NameId": 2003,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "COMET PUNCH",
+            "NameId": 2004,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "MEGA PUNCH",
+            "NameId": 2005,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "PAY DAY",
+            "NameId": 2006,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "FIRE PUNCH",
+            "NameId": 2007,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "ICE PUNCH",
+            "NameId": 2008,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "THUNDERPUNCH",
+            "NameId": 2009,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SCRATCH",
+            "NameId": 2010,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "VICEGRIP",
+            "NameId": 2011,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "GUILLOTINE",
+            "NameId": 2012,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "RAZOR WIND",
+            "NameId": 2013,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "SWORDS DANCE",
+            "NameId": 2014,
+            "VanillaPp": 30,
+            "Gen9Pp": 20
+        },
+        {
+            "Name": "CUT",
+            "NameId": 2015,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "GUST",
+            "NameId": 2016,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "WING ATTACK",
+            "NameId": 2017,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "WHIRLWIND",
+            "NameId": 2018,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "FLY",
+            "NameId": 2019,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 70,
+            "Gen9Power": 90
+        },
+        {
+            "Name": "BIND",
+            "NameId": 2020,
+            "VanillaAccuracy": 75,
+            "Gen9Accuracy": 85,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SLAM",
+            "NameId": 2021,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "VINE WHIP",
+            "NameId": 2022,
+            "VanillaPp": 10,
+            "Gen9Pp": 25,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 35,
+            "Gen9Power": 45
+        },
+        {
+            "Name": "STOMP",
+            "NameId": 2023,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "DOUBLE KICK",
+            "NameId": 2024,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "MEGA KICK",
+            "NameId": 2025,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "JUMP KICK",
+            "NameId": 2026,
+            "VanillaPp": 25,
+            "Gen9Pp": 10,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 70,
+            "Gen9Power": 100
+        },
+        {
+            "Name": "ROLLING KICK",
+            "NameId": 2027,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SAND-ATTACK",
+            "NameId": 2028
+        },
+        {
+            "Name": "HEADBUTT",
+            "NameId": 2029,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "HORN ATTACK",
+            "NameId": 2030,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "FURY ATTACK",
+            "NameId": 2031,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "HORN DRILL",
+            "NameId": 2032,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "TACKLE",
+            "NameId": 2033,
+            "VanillaAccuracy": 95,
+            "Gen9Accuracy": 100,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 35,
+            "Gen9Power": 40
+        },
+        {
+            "Name": "BODY SLAM",
+            "NameId": 2034,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "WRAP",
+            "NameId": 2035,
+            "VanillaAccuracy": 85,
+            "Gen9Accuracy": 90,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "TAKE DOWN",
+            "NameId": 2036,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "THRASH",
+            "NameId": 2037,
+            "VanillaPp": 20,
+            "Gen9Pp": 10,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 90,
+            "Gen9Power": 120
+        },
+        {
+            "Name": "DOUBLE-EDGE",
+            "NameId": 2038,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "TAIL WHIP",
+            "NameId": 2039
+        },
+        {
+            "Name": "POISON STING",
+            "NameId": 2040,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "TWINEEDLE",
+            "NameId": 2041,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "PIN MISSILE",
+            "NameId": 2042,
+            "VanillaAccuracy": 85,
+            "Gen9Accuracy": 95,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 14,
+            "Gen9Power": 25
+        },
+        {
+            "Name": "LEER",
+            "NameId": 2043
+        },
+        {
+            "Name": "BITE",
+            "NameId": 2044,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "GROWL",
+            "NameId": 2045
+        },
+        {
+            "Name": "ROAR",
+            "NameId": 2046,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "SING",
+            "NameId": 2047
+        },
+        {
+            "Name": "SUPERSONIC",
+            "NameId": 2048
+        },
+        {
+            "Name": "SONICBOOM",
+            "NameId": 2049,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "DISABLE",
+            "NameId": 2050,
+            "VanillaAccuracy": 55,
+            "Gen9Accuracy": 100
+        },
+        {
+            "Name": "ACID",
+            "NameId": 2051,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "EMBER",
+            "NameId": 2052,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "FLAMETHROWER",
+            "NameId": 2053,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 95,
+            "Gen9Power": 90
+        },
+        {
+            "Name": "MIST",
+            "NameId": 2054
+        },
+        {
+            "Name": "WATER GUN",
+            "NameId": 2055,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "HYDRO PUMP",
+            "NameId": 2056,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 120,
+            "Gen9Power": 110
+        },
+        {
+            "Name": "SURF",
+            "NameId": 2057,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 95,
+            "Gen9Power": 90
+        },
+        {
+            "Name": "ICE BEAM",
+            "NameId": 2058,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 95,
+            "Gen9Power": 90
+        },
+        {
+            "Name": "BLIZZARD",
+            "NameId": 2059,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 120,
+            "Gen9Power": 110
+        },
+        {
+            "Name": "PSYBEAM",
+            "NameId": 2060,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "BUBBLEBEAM",
+            "NameId": 2061,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "AURORA BEAM",
+            "NameId": 2062,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "HYPER BEAM",
+            "NameId": 2063,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "PECK",
+            "NameId": 2064,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "DRILL PECK",
+            "NameId": 2065,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SUBMISSION",
+            "NameId": 2066,
+            "VanillaPp": 25,
+            "Gen9Pp": 20,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "LOW KICK",
+            "NameId": 2067,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "COUNTER",
+            "NameId": 2068,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SEISMIC TOSS",
+            "NameId": 2069,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "STRENGTH",
+            "NameId": 2070,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "ABSORB",
+            "NameId": 2071,
+            "VanillaPp": 20,
+            "Gen9Pp": 25,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "MEGA DRAIN",
+            "NameId": 2072,
+            "VanillaPp": 10,
+            "Gen9Pp": 15,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "LEECH SEED",
+            "NameId": 2073
+        },
+        {
+            "Name": "GROWTH",
+            "NameId": 2074,
+            "VanillaPp": 40,
+            "Gen9Pp": 20
+        },
+        {
+            "Name": "RAZOR LEAF",
+            "NameId": 2075,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SOLARBEAM",
+            "NameId": 2076,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "POISONPOWDER",
+            "NameId": 2077
+        },
+        {
+            "Name": "STUN SPORE",
+            "NameId": 2078
+        },
+        {
+            "Name": "SLEEP POWDER",
+            "NameId": 2079
+        },
+        {
+            "Name": "PETAL DANCE",
+            "NameId": 2080,
+            "VanillaPp": 20,
+            "Gen9Pp": 10,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 70,
+            "Gen9Power": 120
+        },
+        {
+            "Name": "STRING SHOT",
+            "NameId": 2081
+        },
+        {
+            "Name": "DRAGON RAGE",
+            "NameId": 2082,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "FIRE SPIN",
+            "NameId": 2083,
+            "VanillaAccuracy": 70,
+            "Gen9Accuracy": 85,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 15,
+            "Gen9Power": 35
+        },
+        {
+            "Name": "THUNDERSHOCK",
+            "NameId": 2084,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "THUNDERBOLT",
+            "NameId": 2085,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 95,
+            "Gen9Power": 90
+        },
+        {
+            "Name": "THUNDER WAVE",
+            "NameId": 2086,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 90
+        },
+        {
+            "Name": "THUNDER",
+            "NameId": 2087,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 120,
+            "Gen9Power": 110
+        },
+        {
+            "Name": "ROCK THROW",
+            "NameId": 2088,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "EARTHQUAKE",
+            "NameId": 2089,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "FISSURE",
+            "NameId": 2090,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "DIG",
+            "NameId": 2091,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 60,
+            "Gen9Power": 80
+        },
+        {
+            "Name": "TOXIC",
+            "NameId": 2092,
+            "VanillaAccuracy": 85,
+            "Gen9Accuracy": 90
+        },
+        {
+            "Name": "CONFUSION",
+            "NameId": 2093,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "PSYCHIC",
+            "NameId": 2094,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "HYPNOSIS",
+            "NameId": 2095
+        },
+        {
+            "Name": "MEDITATE",
+            "NameId": 2096
+        },
+        {
+            "Name": "AGILITY",
+            "NameId": 2097
+        },
+        {
+            "Name": "QUICK ATTACK",
+            "NameId": 2098,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "RAGE",
+            "NameId": 2099,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "TELEPORT",
+            "NameId": 2100,
+            "VanillaPriority": 0,
+            "Gen9Priority": -6
+        },
+        {
+            "Name": "NIGHT SHADE",
+            "NameId": 2101,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "MIMIC",
+            "NameId": 2102,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "SCREECH",
+            "NameId": 2103
+        },
+        {
+            "Name": "DOUBLE TEAM",
+            "NameId": 2104
+        },
+        {
+            "Name": "RECOVER",
+            "NameId": 2105,
+            "VanillaPp": 20,
+            "Gen9Pp": 5
+        },
+        {
+            "Name": "HARDEN",
+            "NameId": 2106
+        },
+        {
+            "Name": "MINIMIZE",
+            "NameId": 2107,
+            "VanillaPp": 20,
+            "Gen9Pp": 10
+        },
+        {
+            "Name": "SMOKESCREEN",
+            "NameId": 2108
+        },
+        {
+            "Name": "CONFUSE RAY",
+            "NameId": 2109
+        },
+        {
+            "Name": "WITHDRAW",
+            "NameId": 2110
+        },
+        {
+            "Name": "DEFENSE CURL",
+            "NameId": 2111
+        },
+        {
+            "Name": "BARRIER",
+            "NameId": 2112,
+            "VanillaPp": 30,
+            "Gen9Pp": 20
+        },
+        {
+            "Name": "LIGHT SCREEN",
+            "NameId": 2113
+        },
+        {
+            "Name": "HAZE",
+            "NameId": 2114
+        },
+        {
+            "Name": "REFLECT",
+            "NameId": 2115
+        },
+        {
+            "Name": "FOCUS ENERGY",
+            "NameId": 2116
+        },
+        {
+            "Name": "BIDE",
+            "NameId": 2117,
+            "VanillaPriority": 0,
+            "Gen9Priority": 1,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "METRONOME",
+            "NameId": 2118
+        },
+        {
+            "Name": "MIRROR MOVE",
+            "NameId": 2119
+        },
+        {
+            "Name": "SELFDESTRUCT",
+            "NameId": 2120,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "EGG BOMB",
+            "NameId": 2121,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "LICK",
+            "NameId": 2122,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 20,
+            "Gen9Power": 30
+        },
+        {
+            "Name": "SMOG",
+            "NameId": 2123,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 20,
+            "Gen9Power": 30
+        },
+        {
+            "Name": "SLUDGE",
+            "NameId": 2124,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "BONE CLUB",
+            "NameId": 2125,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "FIRE BLAST",
+            "NameId": 2126,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 120,
+            "Gen9Power": 110
+        },
+        {
+            "Name": "WATERFALL",
+            "NameId": 2127,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "CLAMP",
+            "NameId": 2128,
+            "VanillaPp": 10,
+            "Gen9Pp": 15,
+            "VanillaAccuracy": 75,
+            "Gen9Accuracy": 85,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SWIFT",
+            "NameId": 2129,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "SKULL BASH",
+            "NameId": 2130,
+            "VanillaPp": 15,
+            "Gen9Pp": 10,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 100,
+            "Gen9Power": 130
+        },
+        {
+            "Name": "SPIKE CANNON",
+            "NameId": 2131,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "CONSTRICT",
+            "NameId": 2132,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "AMNESIA",
+            "NameId": 2133
+        },
+        {
+            "Name": "KINESIS",
+            "NameId": 2134
+        },
+        {
+            "Name": "SOFTBOILED",
+            "NameId": 2135,
+            "VanillaPp": 10,
+            "Gen9Pp": 5
+        },
+        {
+            "Name": "HI JUMP KICK",
+            "NameId": 2136,
+            "VanillaPp": 20,
+            "Gen9Pp": 10,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 85,
+            "Gen9Power": 130
+        },
+        {
+            "Name": "GLARE",
+            "NameId": 2137,
+            "VanillaAccuracy": 75,
+            "Gen9Accuracy": 100
+        },
+        {
+            "Name": "DREAM EATER",
+            "NameId": 2138,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "POISON GAS",
+            "NameId": 2139,
+            "VanillaAccuracy": 55,
+            "Gen9Accuracy": 90
+        },
+        {
+            "Name": "BARRAGE",
+            "NameId": 2140,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "LEECH LIFE",
+            "NameId": 2141,
+            "VanillaPp": 15,
+            "Gen9Pp": 10,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 20,
+            "Gen9Power": 80
+        },
+        {
+            "Name": "LOVELY KISS",
+            "NameId": 2142
+        },
+        {
+            "Name": "SKY ATTACK",
+            "NameId": 2143,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "TRANSFORM",
+            "NameId": 2144
+        },
+        {
+            "Name": "BUBBLE",
+            "NameId": 2145,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 20,
+            "Gen9Power": 40
+        },
+        {
+            "Name": "DIZZY PUNCH",
+            "NameId": 2146,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SPORE",
+            "NameId": 2147
+        },
+        {
+            "Name": "FLASH",
+            "NameId": 2148,
+            "VanillaAccuracy": 70,
+            "Gen9Accuracy": 100
+        },
+        {
+            "Name": "PSYWAVE",
+            "NameId": 2149,
+            "VanillaAccuracy": 80,
+            "Gen9Accuracy": 100,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "SPLASH",
+            "NameId": 2150
+        },
+        {
+            "Name": "ACID ARMOR",
+            "NameId": 2151,
+            "VanillaPp": 40,
+            "Gen9Pp": 20
+        },
+        {
+            "Name": "CRABHAMMER",
+            "NameId": 2152,
+            "VanillaAccuracy": 85,
+            "Gen9Accuracy": 90,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 90,
+            "Gen9Power": 100
+        },
+        {
+            "Name": "EXPLOSION",
+            "NameId": 2153,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "FURY SWIPES",
+            "NameId": 2154,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "BONEMERANG",
+            "NameId": 2155,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "REST",
+            "NameId": 2156,
+            "VanillaPp": 10,
+            "Gen9Pp": 5
+        },
+        {
+            "Name": "ROCK SLIDE",
+            "NameId": 2157,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "HYPER FANG",
+            "NameId": 2158,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SHARPEN",
+            "NameId": 2159
+        },
+        {
+            "Name": "CONVERSION",
+            "NameId": 2160
+        },
+        {
+            "Name": "TRI ATTACK",
+            "NameId": 2161,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "SUPER FANG",
+            "NameId": 2162,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SLASH",
+            "NameId": 2163,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SUBSTITUTE",
+            "NameId": 2164
+        },
+        {
+            "Name": "STRUGGLE",
+            "NameId": 2165,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SKETCH",
+            "NameId": 2166
+        },
+        {
+            "Name": "TRIPLE KICK",
+            "NameId": 2167,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "THIEF",
+            "NameId": 2168,
+            "VanillaPp": 10,
+            "Gen9Pp": 25,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 40,
+            "Gen9Power": 60
+        },
+        {
+            "Name": "SPIDER WEB",
+            "NameId": 2169,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "MIND READER",
+            "NameId": 2170,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "NIGHTMARE",
+            "NameId": 2171
+        },
+        {
+            "Name": "FLAME WHEEL",
+            "NameId": 2172,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SNORE",
+            "NameId": 2173,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 40,
+            "Gen9Power": 50
+        },
+        {
+            "Name": "CURSE",
+            "NameId": 2174,
+            "VanillaType": 9,
+            "Gen9Type": 7
+        },
+        {
+            "Name": "FLAIL",
+            "NameId": 2175,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "CONVERSION 2",
+            "NameId": 2176,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "AEROBLAST",
+            "NameId": 2177,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "COTTON SPORE",
+            "NameId": 2178,
+            "VanillaAccuracy": 85,
+            "Gen9Accuracy": 100
+        },
+        {
+            "Name": "REVERSAL",
+            "NameId": 2179,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SPITE",
+            "NameId": 2180
+        },
+        {
+            "Name": "POWDER SNOW",
+            "NameId": 2181,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "PROTECT",
+            "NameId": 2182,
+            "VanillaPriority": 3,
+            "Gen9Priority": 4
+        },
+        {
+            "Name": "MACH PUNCH",
+            "NameId": 2183,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SCARY FACE",
+            "NameId": 2184,
+            "VanillaAccuracy": 90,
+            "Gen9Accuracy": 100
+        },
+        {
+            "Name": "FAINT ATTACK",
+            "NameId": 2185,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SWEET KISS",
+            "NameId": 2186
+        },
+        {
+            "Name": "BELLY DRUM",
+            "NameId": 2187
+        },
+        {
+            "Name": "SLUDGE BOMB",
+            "NameId": 2188,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "MUD-SLAP",
+            "NameId": 2189,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "OCTAZOOKA",
+            "NameId": 2190,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "SPIKES",
+            "NameId": 2191
+        },
+        {
+            "Name": "ZAP CANNON",
+            "NameId": 2192,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 100,
+            "Gen9Power": 120
+        },
+        {
+            "Name": "FORESIGHT",
+            "NameId": 2193,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "DESTINY BOND",
+            "NameId": 2194
+        },
+        {
+            "Name": "PERISH SONG",
+            "NameId": 2195
+        },
+        {
+            "Name": "ICY WIND",
+            "NameId": 2196,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "DETECT",
+            "NameId": 2197,
+            "VanillaPriority": 3,
+            "Gen9Priority": 4
+        },
+        {
+            "Name": "BONE RUSH",
+            "NameId": 2198,
+            "VanillaAccuracy": 80,
+            "Gen9Accuracy": 90,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "LOCK-ON",
+            "NameId": 2199,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "OUTRAGE",
+            "NameId": 2200,
+            "VanillaPp": 15,
+            "Gen9Pp": 10,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 90,
+            "Gen9Power": 120
+        },
+        {
+            "Name": "SANDSTORM",
+            "NameId": 2201
+        },
+        {
+            "Name": "GIGA DRAIN",
+            "NameId": 2202,
+            "VanillaPp": 5,
+            "Gen9Pp": 10,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 60,
+            "Gen9Power": 75
+        },
+        {
+            "Name": "ENDURE",
+            "NameId": 2203,
+            "VanillaPriority": 3,
+            "Gen9Priority": 4
+        },
+        {
+            "Name": "CHARM",
+            "NameId": 2204
+        },
+        {
+            "Name": "ROLLOUT",
+            "NameId": 2205,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "FALSE SWIPE",
+            "NameId": 2206,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SWAGGER",
+            "NameId": 2207,
+            "VanillaAccuracy": 90,
+            "Gen9Accuracy": 85
+        },
+        {
+            "Name": "MILK DRINK",
+            "NameId": 2208,
+            "VanillaPp": 10,
+            "Gen9Pp": 5
+        },
+        {
+            "Name": "SPARK",
+            "NameId": 2209,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "FURY CUTTER",
+            "NameId": 2210,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 10,
+            "Gen9Power": 40
+        },
+        {
+            "Name": "STEEL WING",
+            "NameId": 2211,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "MEAN LOOK",
+            "NameId": 2212,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "ATTRACT",
+            "NameId": 2213
+        },
+        {
+            "Name": "SLEEP TALK",
+            "NameId": 2214
+        },
+        {
+            "Name": "HEAL BELL",
+            "NameId": 2215
+        },
+        {
+            "Name": "RETURN",
+            "NameId": 2216,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "PRESENT",
+            "NameId": 2217,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "FRUSTRATION",
+            "NameId": 2218,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SAFEGUARD",
+            "NameId": 2219
+        },
+        {
+            "Name": "PAIN SPLIT",
+            "NameId": 2220,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "SACRED FIRE",
+            "NameId": 2221,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "MAGNITUDE",
+            "NameId": 2222,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "DYNAMICPUNCH",
+            "NameId": 2223,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "MEGAHORN",
+            "NameId": 2224,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "DRAGONBREATH",
+            "NameId": 2225,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "BATON PASS",
+            "NameId": 2226
+        },
+        {
+            "Name": "ENCORE",
+            "NameId": 2227
+        },
+        {
+            "Name": "PURSUIT",
+            "NameId": 2228,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "RAPID SPIN",
+            "NameId": 2229,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 20,
+            "Gen9Power": 50
+        },
+        {
+            "Name": "SWEET SCENT",
+            "NameId": 2230
+        },
+        {
+            "Name": "IRON TAIL",
+            "NameId": 2231,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "METAL CLAW",
+            "NameId": 2232,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "VITAL THROW",
+            "NameId": 2233,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "MORNING SUN",
+            "NameId": 2234
+        },
+        {
+            "Name": "SYNTHESIS",
+            "NameId": 2235
+        },
+        {
+            "Name": "MOONLIGHT",
+            "NameId": 2236
+        },
+        {
+            "Name": "HIDDEN POWER",
+            "NameId": 2237,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 1,
+            "Gen9Power": 60
+        },
+        {
+            "Name": "CROSS CHOP",
+            "NameId": 2238,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "TWISTER",
+            "NameId": 2239,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "RAIN DANCE",
+            "NameId": 2240
+        },
+        {
+            "Name": "SUNNY DAY",
+            "NameId": 2241
+        },
+        {
+            "Name": "CRUNCH",
+            "NameId": 2242,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "MIRROR COAT",
+            "NameId": 2243,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "PSYCH UP",
+            "NameId": 2244
+        },
+        {
+            "Name": "EXTREMESPEED",
+            "NameId": 2245,
+            "VanillaPriority": 1,
+            "Gen9Priority": 2,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "ANCIENTPOWER",
+            "NameId": 2246,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "SHADOW BALL",
+            "NameId": 2247,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "FUTURE SIGHT",
+            "NameId": 2248,
+            "VanillaPp": 15,
+            "Gen9Pp": 10,
+            "VanillaAccuracy": 90,
+            "Gen9Accuracy": 100,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 80,
+            "Gen9Power": 120
+        },
+        {
+            "Name": "ROCK SMASH",
+            "NameId": 2249,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 20,
+            "Gen9Power": 40
+        },
+        {
+            "Name": "WHIRLPOOL",
+            "NameId": 2250,
+            "VanillaAccuracy": 70,
+            "Gen9Accuracy": 85,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 15,
+            "Gen9Power": 35
+        },
+        {
+            "Name": "BEAT UP",
+            "NameId": 2251,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "FAKE OUT",
+            "NameId": 2252,
+            "VanillaPriority": 1,
+            "Gen9Priority": 3,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "UPROAR",
+            "NameId": 2253,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 50,
+            "Gen9Power": 90
+        },
+        {
+            "Name": "STOCKPILE",
+            "NameId": 2254,
+            "VanillaPp": 10,
+            "Gen9Pp": 20
+        },
+        {
+            "Name": "SPIT UP",
+            "NameId": 2255,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "SWALLOW",
+            "NameId": 2256
+        },
+        {
+            "Name": "HEAT WAVE",
+            "NameId": 2257,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 100,
+            "Gen9Power": 95
+        },
+        {
+            "Name": "HAIL",
+            "NameId": 2258
+        },
+        {
+            "Name": "TORMENT",
+            "NameId": 2259
+        },
+        {
+            "Name": "FLATTER",
+            "NameId": 2260
+        },
+        {
+            "Name": "WILL-O-WISP",
+            "NameId": 2261,
+            "VanillaAccuracy": 75,
+            "Gen9Accuracy": 85
+        },
+        {
+            "Name": "MEMENTO",
+            "NameId": 2262
+        },
+        {
+            "Name": "FACADE",
+            "NameId": 2263,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "FOCUS PUNCH",
+            "NameId": 2264,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SMELLINGSALT",
+            "NameId": 2265,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 60,
+            "Gen9Power": 70
+        },
+        {
+            "Name": "FOLLOW ME",
+            "NameId": 2266,
+            "VanillaPriority": 3,
+            "Gen9Priority": 2
+        },
+        {
+            "Name": "NATURE POWER",
+            "NameId": 2267,
+            "VanillaAccuracy": 95,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "CHARGE",
+            "NameId": 2268
+        },
+        {
+            "Name": "TAUNT",
+            "NameId": 2269
+        },
+        {
+            "Name": "HELPING HAND",
+            "NameId": 2270
+        },
+        {
+            "Name": "TRICK",
+            "NameId": 2271
+        },
+        {
+            "Name": "ROLE PLAY",
+            "NameId": 2272,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "WISH",
+            "NameId": 2273
+        },
+        {
+            "Name": "ASSIST",
+            "NameId": 2274
+        },
+        {
+            "Name": "INGRAIN",
+            "NameId": 2275
+        },
+        {
+            "Name": "SUPERPOWER",
+            "NameId": 2276,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "MAGIC COAT",
+            "NameId": 2277
+        },
+        {
+            "Name": "RECYCLE",
+            "NameId": 2278
+        },
+        {
+            "Name": "REVENGE",
+            "NameId": 2279,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "BRICK BREAK",
+            "NameId": 2280,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "YAWN",
+            "NameId": 2281,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "KNOCK OFF",
+            "NameId": 2282,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 20,
+            "Gen9Power": 65
+        },
+        {
+            "Name": "ENDEAVOR",
+            "NameId": 2283,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "ERUPTION",
+            "NameId": 2284,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "SKILL SWAP",
+            "NameId": 2285,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "IMPRISON",
+            "NameId": 2286
+        },
+        {
+            "Name": "REFRESH",
+            "NameId": 2287
+        },
+        {
+            "Name": "GRUDGE",
+            "NameId": 2288
+        },
+        {
+            "Name": "SNATCH",
+            "NameId": 2289
+        },
+        {
+            "Name": "SECRET POWER",
+            "NameId": 2290,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "DIVE",
+            "NameId": 2291,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 60,
+            "Gen9Power": 80
+        },
+        {
+            "Name": "ARM THRUST",
+            "NameId": 2292,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "CAMOUFLAGE",
+            "NameId": 2293
+        },
+        {
+            "Name": "TAIL GLOW",
+            "NameId": 2294
+        },
+        {
+            "Name": "LUSTER PURGE",
+            "NameId": 2295,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 70,
+            "Gen9Power": 95
+        },
+        {
+            "Name": "MIST BALL",
+            "NameId": 2296,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 70,
+            "Gen9Power": 95
+        },
+        {
+            "Name": "FEATHERDANCE",
+            "NameId": 2297
+        },
+        {
+            "Name": "TEETER DANCE",
+            "NameId": 2298
+        },
+        {
+            "Name": "BLAZE KICK",
+            "NameId": 2299,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "MUD SPORT",
+            "NameId": 2300
+        },
+        {
+            "Name": "ICE BALL",
+            "NameId": 2301,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "NEEDLE ARM",
+            "NameId": 2302,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SLACK OFF",
+            "NameId": 2303,
+            "VanillaPp": 10,
+            "Gen9Pp": 5
+        },
+        {
+            "Name": "HYPER VOICE",
+            "NameId": 2304,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "POISON FANG",
+            "NameId": 2305,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "CRUSH CLAW",
+            "NameId": 2306,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "BLAST BURN",
+            "NameId": 2307,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "HYDRO CANNON",
+            "NameId": 2308,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "METEOR MASH",
+            "NameId": 2309,
+            "VanillaAccuracy": 85,
+            "Gen9Accuracy": 90,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 100,
+            "Gen9Power": 90
+        },
+        {
+            "Name": "ASTONISH",
+            "NameId": 2310,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "WEATHER BALL",
+            "NameId": 2311,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "AROMATHERAPY",
+            "NameId": 2312
+        },
+        {
+            "Name": "FAKE TEARS",
+            "NameId": 2313
+        },
+        {
+            "Name": "AIR CUTTER",
+            "NameId": 2314,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 55,
+            "Gen9Power": 60
+        },
+        {
+            "Name": "OVERHEAT",
+            "NameId": 2315,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 140,
+            "Gen9Power": 130
+        },
+        {
+            "Name": "ODOR SLEUTH",
+            "NameId": 2316,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "ROCK TOMB",
+            "NameId": 2317,
+            "VanillaPp": 10,
+            "Gen9Pp": 15,
+            "VanillaAccuracy": 80,
+            "Gen9Accuracy": 95,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 50,
+            "Gen9Power": 60
+        },
+        {
+            "Name": "SILVER WIND",
+            "NameId": 2318,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "METAL SOUND",
+            "NameId": 2319
+        },
+        {
+            "Name": "GRASSWHISTLE",
+            "NameId": 2320
+        },
+        {
+            "Name": "TICKLE",
+            "NameId": 2321
+        },
+        {
+            "Name": "COSMIC POWER",
+            "NameId": 2322
+        },
+        {
+            "Name": "WATER SPOUT",
+            "NameId": 2323,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "SIGNAL BEAM",
+            "NameId": 2324,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "SHADOW PUNCH",
+            "NameId": 2325,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "EXTRASENSORY",
+            "NameId": 2326,
+            "VanillaPp": 30,
+            "Gen9Pp": 20,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "SKY UPPERCUT",
+            "NameId": 2327,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SAND TOMB",
+            "NameId": 2328,
+            "VanillaAccuracy": 70,
+            "Gen9Accuracy": 85,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 15,
+            "Gen9Power": 35
+        },
+        {
+            "Name": "SHEER COLD",
+            "NameId": 2329,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "MUDDY WATER",
+            "NameId": 2330,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 95,
+            "Gen9Power": 90
+        },
+        {
+            "Name": "BULLET SEED",
+            "NameId": 2331,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 10,
+            "Gen9Power": 25
+        },
+        {
+            "Name": "AERIAL ACE",
+            "NameId": 2332,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "ICICLE SPEAR",
+            "NameId": 2333,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 10,
+            "Gen9Power": 25
+        },
+        {
+            "Name": "IRON DEFENSE",
+            "NameId": 2334
+        },
+        {
+            "Name": "BLOCK",
+            "NameId": 2335,
+            "VanillaAccuracy": 100,
+            "Gen9Accuracy": 0
+        },
+        {
+            "Name": "HOWL",
+            "NameId": 2336
+        },
+        {
+            "Name": "DRAGON CLAW",
+            "NameId": 2337,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "FRENZY PLANT",
+            "NameId": 2338,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "BULK UP",
+            "NameId": 2339
+        },
+        {
+            "Name": "BOUNCE",
+            "NameId": 2340,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "MUD SHOT",
+            "NameId": 2341,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "POISON TAIL",
+            "NameId": 2342,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "COVET",
+            "NameId": 2343,
+            "VanillaPp": 40,
+            "Gen9Pp": 25,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 40,
+            "Gen9Power": 60
+        },
+        {
+            "Name": "VOLT TACKLE",
+            "NameId": 2344,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "MAGICAL LEAF",
+            "NameId": 2345,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "WATER SPORT",
+            "NameId": 2346
+        },
+        {
+            "Name": "CALM MIND",
+            "NameId": 2347
+        },
+        {
+            "Name": "LEAF BLADE",
+            "NameId": 2348,
+            "VanillaCategory": 0,
+            "Gen9Category": 1,
+            "VanillaPower": 70,
+            "Gen9Power": 90
+        },
+        {
+            "Name": "DRAGON DANCE",
+            "NameId": 2349
+        },
+        {
+            "Name": "ROCK BLAST",
+            "NameId": 2350,
+            "VanillaAccuracy": 80,
+            "Gen9Accuracy": 90,
+            "VanillaCategory": 0,
+            "Gen9Category": 1
+        },
+        {
+            "Name": "SHOCK WAVE",
+            "NameId": 2351,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "WATER PULSE",
+            "NameId": 2352,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": "DOOM DESIRE",
+            "NameId": 2353,
+            "VanillaAccuracy": 85,
+            "Gen9Accuracy": 100,
+            "VanillaCategory": 0,
+            "Gen9Category": 2,
+            "VanillaPower": 120,
+            "Gen9Power": 140
+        },
+        {
+            "Name": "PSYCHO BOOST",
+            "NameId": 2354,
+            "VanillaCategory": 0,
+            "Gen9Category": 2
+        },
+        {
+            "Name": null,
+            "NameId": 0
+        },
+        {
+            "Name": "SHADOW BLITZ",
+            "NameId": 2356
+        },
+        {
+            "Name": "SHADOW RUSH",
+            "NameId": 2355
+        },
+        {
+            "Name": "SHADOW BREAK",
+            "NameId": 2357
+        },
+        {
+            "Name": "SHADOW END",
+            "NameId": 2358
+        },
+        {
+            "Name": "SHADOW WAVE",
+            "NameId": 2359
+        },
+        {
+            "Name": "SHADOW RAVE",
+            "NameId": 2360
+        },
+        {
+            "Name": "SHADOW STORM",
+            "NameId": 2361
+        },
+        {
+            "Name": "SHADOW FIRE",
+            "NameId": 2362
+        },
+        {
+            "Name": "SHADOW BOLT",
+            "NameId": 2363
+        },
+        {
+            "Name": "SHADOW CHILL",
+            "NameId": 2364
+        },
+        {
+            "Name": "SHADOW BLAST",
+            "NameId": 2365
+        },
+        {
+            "Name": "SHADOW SKY",
+            "NameId": 2366
+        },
+        {
+            "Name": "SHADOW HOLD",
+            "NameId": 2367
+        },
+        {
+            "Name": "SHADOW MIST",
+            "NameId": 2368
+        },
+        {
+            "Name": "SHADOW PANIC",
+            "NameId": 2369
+        },
+        {
+            "Name": "SHADOW DOWN",
+            "NameId": 2370
+        },
+        {
+            "Name": "SHADOW SHED",
+            "NameId": 2371
+        },
+        {
+            "Name": "SHADOW HALF",
+            "NameId": 2372
+        },
+        {
+            "Name": "????",
+            "NameId": 2373
+        }
+    ]
+}
