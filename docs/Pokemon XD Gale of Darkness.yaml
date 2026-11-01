@@ -501,6 +501,11 @@ Pokemon XD Gale of Darkness:
     'false': 50
     'true': 0
 
+  better_ai:
+    # Trainers battle smarter.
+    'false': 50
+    'true': 0
+
   ################
   # Your Pokemon #
   ################

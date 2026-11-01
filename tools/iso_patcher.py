@@ -3287,6 +3287,97 @@ def write_nightmare_citadark_patch(output_path: Path, teams: "dict[int, dict]",
     result["shadows_relocated"] = len(levels)
     return {**result, "grew": patch_result["grew"]}
 
+GREEVIL_AI_INDEX = 200
+
+def _vanilla_ai_index_by_trainer() -> "dict[int, int]":
+    """{trainer index: vanilla AI row} from the shipped `deckdata_story_trainers.json`; empty when it cannot be
+    read."""
+    rows = None
+    if _PACKAGE_ROOT:
+        import importlib
+
+        try:
+            rows = importlib.import_module(f"{_PACKAGE_ROOT}.game_data").load_json_data_file(
+                "deckdata_story_trainers.json")
+        except Exception:
+            rows = None
+    if rows is None:
+        path = Path(__file__).resolve().parent.parent / "data" / "deckdata_story_trainers.json"
+        try:
+            rows = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+    return {int(r["index"]): int(r["ai_index"]) for r in rows}
+
+
+def apply_better_ai_edit(story_decompressed: bytes, vanilla_ai: "dict[int, int]", ai_index: int,
+                         skip: "set[int] | frozenset[int]" = frozenset()) -> "tuple[bytes, list[int]]":
+    """Point each trainer in `vanilla_ai` (not in `skip`) at DTAI row `ai_index`, DTNR +0x28. Refuses, writing
+    nothing, when the row is past the table or a trainer's AI row is neither its vanilla one nor `ai_index` -- a
+    different game version. Returns (new DeckData_Story.bin, the trainers changed)."""
+    DTNR_AI_INDEX_OFF = 0x28
+    deck = deck_format.DeckFile(story_decompressed)
+    if not 0 <= ai_index < deck.dtai_entries:
+        raise ValueError(f"Better AI: AI row {ai_index} is past the table ({deck.dtai_entries} rows)")
+    buf = bytearray(story_decompressed)
+    changed = []
+    for trainer_index, vanilla in sorted(vanilla_ai.items()):
+        if trainer_index in skip:
+            continue
+        if not 0 < trainer_index < deck.dtnr_entries:
+            raise ValueError(f"Better AI: trainer {trainer_index} is not on this ISO")
+        base = deck.dtnr_data + trainer_index * 0x38
+        current = struct.unpack_from(">H", buf, base + DTNR_AI_INDEX_OFF)[0]
+        if current == ai_index:
+            continue
+        if current != vanilla:
+            raise ValueError(f"Better AI: trainer {trainer_index} has AI row {current} on this ISO, not the "
+                             f"expected {vanilla} -- a different game version")
+        struct.pack_into(">H", buf, base + DTNR_AI_INDEX_OFF, ai_index)
+        changed.append(trainer_index)
+    out = bytes(buf)
+    check = deck_format.DeckFile(out)
+    for trainer_index in changed:
+        if check.trainer(trainer_index)["ai_index"] != ai_index:
+            raise ValueError(f"Better AI: trainer {trainer_index}'s AI row did not read back as written")
+    return out, changed
+
+
+def write_better_ai_patch(output_path: Path, skip: "set[int] | frozenset[int]" = frozenset()) -> dict:
+    """`apply_better_ai_edit` on the disc's DeckData_Story.bin, every trainer in the shipped extraction pointed at
+    `tools.iso_patcher.GREEVIL_AI_INDEX`. Runs after Nightmare Citadark; `skip` is its replaced trainers."""
+    result = {"applied": False, "reason": None, "trainers": 0}
+    output_path = Path(output_path).resolve()
+    try:
+        vanilla_ai = _vanilla_ai_index_by_trainer()
+        if not vanilla_ai:
+            raise ValueError("data/deckdata_story_trainers.json could not be read")
+        reader = open_reader(output_path)
+        try:
+            fst = parse_fst(reader)
+            deck_off, deck_len, deck_record_off = find_by_basename(fst, "deck_archive.fsys")
+            deck_fsys_bytes = reader.read(deck_off, deck_len)
+            deck_entries = parse_fsys(deck_fsys_bytes)
+            if "DeckData_Story.bin" not in deck_entries:
+                raise ValueError("deck_archive.fsys on this ISO has no DeckData_Story.bin -- refusing to guess at a "
+                                 "different disc layout. Found: " + ", ".join(sorted(deck_entries)))
+            story_entry = deck_entries["DeckData_Story.bin"]
+            story_raw = reader.read(deck_off + story_entry["data_off"], 0x10 + story_entry["comp_size"])
+        finally:
+            reader.close()
+        new_story, changed = apply_better_ai_edit(
+            deck_format.lzss_decode(story_raw), vanilla_ai, GREEVIL_AI_INDEX, skip)
+        if not changed:
+            result.update(applied=True, reason="already patched")
+            return result
+        write_deck_story_patch(output_path, deck_off, deck_len, deck_record_off, deck_fsys_bytes,
+                               story_entry, story_raw, new_story, allow_decomp_resize=False)
+        result.update(applied=True, trainers=len(changed))
+        return result
+    except Exception as exc:
+        result["reason"] = f"{type(exc).__name__}: {exc}"
+        return result
+
 
 def write_enhanced_difficulty_mt_battle_patch(output_path: Path, plan: dict) -> dict:
     """Same contract as `write_enhanced_difficulty_patch()`, against `DeckData_Hundred.bin`. `plan` must be
@@ -4155,6 +4246,16 @@ def apply_patch(source_path: Path, output_path: Path, seed_path: Path, overwrite
             f"{nightmare_result.get('slots_vacated', 0)} Shadow slot(s) now hold an ordinary Pokemon, and "
             f"{nightmare_result['shadows_relocated']} Shadow Pokemon moved to other trainers, into {output_path}."
         )
+
+    # Better AI: after Nightmare, which refuses a shared AI row and gives its trainers their source team's own.
+    if seed.get("better_ai"):
+        better_ai_result = write_better_ai_patch(output_path, {int(trainer) for trainer in nightmare_teams_raw})
+        summary["better_ai_applied"] = better_ai_result["applied"]
+        summary["better_ai_reason"] = better_ai_result["reason"]
+        summary["better_ai_trainers"] = better_ai_result["trainers"]
+        print(f"Better AI: {better_ai_result['trainers']} trainer(s) now use trainer 200's AI"
+              + (" (already present)." if better_ai_result["reason"] else ".")
+              if better_ai_result["applied"] else f"Better AI: NOT patched -- {better_ai_result['reason']}.")
 
     # Chest randomization, Poke Spot species and the AP Item rename all live in the SAME common_rel.rel blob and
     # share one decompress/mutate/re-encode/write/verify pass: that blob has a finite LZSS re-encoded-size
