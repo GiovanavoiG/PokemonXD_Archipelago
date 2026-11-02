@@ -6,11 +6,11 @@ never writes `flags` or `give`, so the client owns both, but the block is plain 
 disagrees.
 
 Offsets are patch.c's structs under PPC EABI natural alignment. `ClientPokemonGetParam` holds a pointer, so
-`GiveAPItems` is 4-aligned and each of its 128 entries is 16 bytes:
+`GiveAPItems` is 4-aligned and each of its 128 entries is 24 bytes (16 plus `u16 MoveIds[4]`):
   0x000  u16 flags              0x002  u8 deathLink     0x003  u8 escape
   0x004  CheckedAPItems         (0x78A bytes, the game's to write)
   0x790  GiveAPItems            u16 pokemonCounter, pokemon[128] from 0x794,
-                                u16 purifyCounter at 0xF94, u16 purified[128] from 0xF96
+                                u16 purifyCounter at 0x1394, u16 purified[128] from 0x1396
 """
 from __future__ import annotations
 
@@ -21,8 +21,8 @@ from . import ram_client
 
 AP_DATA_BASE = 0x81700000
 FLAGS_ADDRESS = AP_DATA_BASE + 0x000
-GIVE_PURIFY_COUNTER_ADDRESS = AP_DATA_BASE + 0xF94
-GIVE_PURIFIED_ADDRESS = AP_DATA_BASE + 0xF96
+GIVE_PURIFY_COUNTER_ADDRESS = AP_DATA_BASE + 0x1394
+GIVE_PURIFIED_ADDRESS = AP_DATA_BASE + 0x1396
 NUMBER_OF_SHADOW_POKEMON = 0x80
 
 # patch.c's AP_ENABLE_* bit numbers. Only the ones an option decides are ever set: POKEMON_CHECKS makes a snag

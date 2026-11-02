@@ -44,7 +44,7 @@ class TestApPatchBlock(unittest.TestCase):
 
 class TestApPatchSync(unittest.TestCase):
     def setUp(self) -> None:
-        self.memory = bytearray(0x1100)
+        self.memory = bytearray(0x1500)
         self.writes = 0
 
         def read(address: int, length: int) -> bytes:
@@ -63,8 +63,8 @@ class TestApPatchSync(unittest.TestCase):
         self.sync.configure({"purification_unlocks": 1, "purify_unlock_ddpks": {"216": [1], "37": [2, 90]}})
 
     def counter_and_ids(self) -> "tuple[int, list[int]]":
-        count = struct.unpack_from(">H", self.memory, 0xF94)[0]
-        return count, list(struct.unpack_from(f">{count}H", self.memory, 0xF96))
+        count = struct.unpack_from(">H", self.memory, 0x1394)[0]
+        return count, list(struct.unpack_from(f">{count}H", self.memory, 0x1396))
 
     def test_writes_received_unlocks_then_holds_still(self) -> None:
         self.assertIsNotNone(self.sync.poll({37}))
